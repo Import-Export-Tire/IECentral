@@ -300,14 +300,17 @@ function MileageContent() {
               margin: 0 !important;
               padding: 0 !important;
               background: white !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
             }
 
             /* Hide everything except print area */
             .no-print,
             header,
             aside {
+              display: none !important;
+            }
+
+            /* Hide all on-screen content inside print-area */
+            .print-area > *:not(.print-only) {
               display: none !important;
             }
 
@@ -324,11 +327,6 @@ function MileageContent() {
 
             .print-only {
               display: block !important;
-            }
-
-            * {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
             }
           }
         `}</style>
