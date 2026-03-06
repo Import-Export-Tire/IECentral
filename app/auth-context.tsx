@@ -71,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Track if we've ever successfully loaded user data for this session
   // This prevents clearing the session during transient null states (navigation, resubscription)
   const hasLoadedUserData = useRef(false);
+
   const loginMutation = useMutation(api.auth.login);
   const userData = useQuery(
     api.auth.getUser,
