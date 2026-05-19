@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useDocHub } from "./DocHubContext";
-import { getFileIcon, getFileColor, formatFileSize, canPreview, type DocumentType, type FolderType } from "./types";
+import { getFileIcon, getFileColor, formatFileSize, type DocumentType, type FolderType } from "./types";
 
 function ExpirationBadge({ doc }: { doc: DocumentType }) {
   const { isDark } = useDocHub();
@@ -25,11 +25,10 @@ export function FileGridCard({ doc }: { doc: DocumentType }) {
   const { isDark, handlePreview, handleDownload, setContextMenu } = useDocHub();
 
   const handleClick = () => {
-    if (canPreview(doc.fileType)) {
-      handlePreview(doc);
-    } else {
-      handleDownload(doc);
-    }
+    // Always open the preview modal — it handles unsupported types
+    // gracefully with a Download fallback. Silently triggering a
+    // download made it look like clicking the file did nothing.
+    handlePreview(doc);
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -138,11 +137,10 @@ export function FileListRow({ doc }: { doc: DocumentType }) {
   const { isDark, handlePreview, handleDownload, setContextMenu } = useDocHub();
 
   const handleClick = () => {
-    if (canPreview(doc.fileType)) {
-      handlePreview(doc);
-    } else {
-      handleDownload(doc);
-    }
+    // Always open the preview modal — it handles unsupported types
+    // gracefully with a Download fallback. Silently triggering a
+    // download made it look like clicking the file did nothing.
+    handlePreview(doc);
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
