@@ -5,10 +5,12 @@ import { brandCodeToName } from "@/lib/brandMapping";
 export const maxDuration = 90;
 
 const BUCKET = "ietires-dunlop-jmk-uploads";
-// OEIVAL exports observed at 157MB+ (May 2026). Allow up to 250MB raw,
-// paired with the 3008MB memory bump in vercel.json so the XLSX parse
-// doesn't OOM. CSV uploads stream line-by-line and are unaffected.
-const MAX_FILE_BYTES = 250 * 1024 * 1024;
+// XLSX parse is in-memory and inflates ~10x vs raw bytes. On Hobby
+// plan (2048MB ceiling) anything past ~80MB raw OOMs during parse.
+// CSV uploads stream line-by-line and are unaffected by this cap.
+// Real fix is to pre-process XLSX → cached slim JSON at upload time;
+// until then this cap keeps the route from 500ing on giant XLSX.
+const MAX_FILE_BYTES = 80 * 1024 * 1024;
 
 const s3 = new S3Client({
   region: process.env.S3_REGION || "us-east-1",
