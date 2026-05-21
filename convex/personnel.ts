@@ -852,6 +852,43 @@ export const removeTenureCheckIn = mutation({
   },
 });
 
+// Record a 90-day review for an employee
+export const markNinetyDayReview = mutation({
+  args: {
+    personnelId: v.id("personnel"),
+    completedBy: v.id("users"),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const reviewer = await ctx.db.get(args.completedBy);
+    if (!reviewer) throw new Error("Reviewer not found");
+    const employee = await ctx.db.get(args.personnelId);
+    if (!employee) throw new Error("Personnel not found");
+    await ctx.db.patch(args.personnelId, {
+      ninetyDayReview: {
+        completedAt: Date.now(),
+        completedBy: args.completedBy,
+        completedByName: reviewer.name,
+        notes: args.notes,
+      },
+      updatedAt: Date.now(),
+    });
+    return args.personnelId;
+  },
+});
+
+// Clear a recorded 90-day review (admin correction)
+export const clearNinetyDayReview = mutation({
+  args: { personnelId: v.id("personnel") },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.personnelId, {
+      ninetyDayReview: undefined,
+      updatedAt: Date.now(),
+    });
+    return args.personnelId;
+  },
+});
+
 // Bulk mark all tenure check-ins complete for personnel hired before a date
 export const bulkCompleteTenureCheckIns = mutation({
   args: {

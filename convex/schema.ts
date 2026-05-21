@@ -479,6 +479,13 @@ export default defineSchema({
       relationship: v.string(),
     })),
     notes: v.optional(v.string()),
+    // 90-day employee review — required for benefits & continued employment
+    ninetyDayReview: v.optional(v.object({
+      completedAt: v.number(),
+      completedBy: v.id("users"),
+      completedByName: v.string(),
+      notes: v.optional(v.string()),
+    })),
     completedTraining: v.optional(v.array(v.string())), // Legacy: Array of training area names
     trainingRecords: v.optional(v.array(v.object({
       area: v.string(), // Training area name

@@ -10,7 +10,6 @@ import { useTheme } from "@/app/theme-context";
 import Link from "next/link";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
-const INSURANCE_MILESTONE_DAYS = 60;
 
 function daysSince(dateStr: string): number {
   const start = new Date(dateStr);
@@ -18,10 +17,18 @@ function daysSince(dateStr: string): number {
   return Math.floor((Date.now() - start.getTime()) / MS_PER_DAY);
 }
 
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "";
-  d.setDate(d.getDate() + days);
+// Insurance eligibility = 1st of the month FOLLOWING the 60-day mark.
+// Hired May 12 → 60-day mark July 11 → eligible August 1.
+function insuranceEligibilityDate(hireDateStr: string): Date | null {
+  const hire = new Date(hireDateStr);
+  if (isNaN(hire.getTime())) return null;
+  const sixty = new Date(hire);
+  sixty.setDate(sixty.getDate() + 60);
+  return new Date(sixty.getFullYear(), sixty.getMonth() + 1, 1);
+}
+
+function formatDateShort(d: Date | null): string {
+  if (!d) return "";
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
@@ -42,16 +49,18 @@ function InsuranceEligibilityContent() {
 
   const rows = useMemo(() => {
     if (!personnel) return [];
-    const lower = INSURANCE_MILESTONE_DAYS - daysBefore;
-    const upper = INSURANCE_MILESTONE_DAYS + daysAfter;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     return personnel
       .filter((p) => !locationFilter || p.locationId === locationFilter)
       .map((p) => {
         const totalDays = daysSince(p.hireDate);
-        const daysToMilestone = INSURANCE_MILESTONE_DAYS - totalDays;
-        const milestoneDate = addDays(p.hireDate, INSURANCE_MILESTONE_DAYS);
+        const eligDate = insuranceEligibilityDate(p.hireDate);
+        const daysToEligibility = eligDate
+          ? Math.ceil((eligDate.getTime() - today.getTime()) / MS_PER_DAY)
+          : 0;
         const location = locations.find((l) => l._id === p.locationId);
-        const phase: "approaching" | "crossed" = daysToMilestone > 0 ? "approaching" : "crossed";
+        const phase: "approaching" | "crossed" = daysToEligibility > 0 ? "approaching" : "crossed";
         return {
           id: p._id,
           firstName: p.firstName,
@@ -62,13 +71,13 @@ function InsuranceEligibilityContent() {
           locationName: location?.name || "—",
           hireDate: p.hireDate,
           totalDays,
-          daysToMilestone,
-          milestoneDate,
+          daysToEligibility,
+          eligibilityDate: formatDateShort(eligDate),
           phase,
         };
       })
-      .filter((r) => r.totalDays >= lower && r.totalDays <= upper)
-      .sort((a, b) => a.daysToMilestone - b.daysToMilestone);
+      .filter((r) => r.daysToEligibility >= -daysAfter && r.daysToEligibility <= daysBefore)
+      .sort((a, b) => a.daysToEligibility - b.daysToEligibility);
   }, [personnel, locations, locationFilter, daysBefore, daysAfter]);
 
   const approachingCount = rows.filter((r) => r.phase === "approaching").length;
@@ -111,12 +120,12 @@ function InsuranceEligibilityContent() {
         r.locationName,
         new Date(r.hireDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
         String(r.totalDays),
-        r.daysToMilestone > 0 ? `in ${r.daysToMilestone}d` : `${Math.abs(r.daysToMilestone)}d ago`,
-        r.milestoneDate,
+        r.daysToEligibility > 0 ? `in ${r.daysToEligibility}d` : `${Math.abs(r.daysToEligibility)}d ago`,
+        r.eligibilityDate,
       ]);
 
       autoTable(doc, {
-        head: [["", "Name", "Position", "Location", "Hire Date", "Days In", "Milestone", "60-Day Date"]],
+        head: [["", "Name", "Position", "Location", "Hire Date", "Days In", "Milestone", "Eligible Date"]],
         body,
         startY: 76,
         margin: { top: 76, bottom: 50, left: 28, right: 28 },
@@ -168,7 +177,7 @@ function InsuranceEligibilityContent() {
                 60-Day Insurance Eligibility
               </h1>
               <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                Active personnel approaching or just past their 60-day mark
+                Eligible the 1st of the month following their 60-day mark
               </p>
             </div>
           </div>
@@ -252,7 +261,7 @@ function InsuranceEligibilityContent() {
                       <th className="text-left px-4 py-2 font-medium">Hire Date</th>
                       <th className="text-center px-4 py-2 font-medium">Days In</th>
                       <th className="text-center px-4 py-2 font-medium">Milestone</th>
-                      <th className="text-left px-4 py-2 font-medium">60-Day Date</th>
+                      <th className="text-left px-4 py-2 font-medium">Eligible Date</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -295,10 +304,10 @@ function InsuranceEligibilityContent() {
                               ? isDark ? "text-amber-400" : "text-amber-700"
                               : isDark ? "text-green-400" : "text-green-700"
                           }`}>
-                            {r.daysToMilestone > 0 ? `in ${r.daysToMilestone}d` : `${Math.abs(r.daysToMilestone)}d ago`}
+                            {r.daysToEligibility > 0 ? `in ${r.daysToEligibility}d` : `${Math.abs(r.daysToEligibility)}d ago`}
                           </td>
                           <td className={`px-4 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                            {r.milestoneDate}
+                            {r.eligibilityDate}
                           </td>
                         </tr>
                       );

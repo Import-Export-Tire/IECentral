@@ -57,18 +57,35 @@ function calculateTenure(hireDate: string, endDate?: string): {
   return { years, months, days, totalDays, display: display.trim() };
 }
 
+// Insurance eligibility kicks in on the 1st of the month FOLLOWING the
+// 60-day mark, not on the 60th day itself. So someone hired May 12 hits
+// 60 days on July 11 and becomes insurance-eligible on August 1.
+function insuranceEligibilityDate(hireDate: string): Date {
+  const hire = new Date(hireDate);
+  const sixtyDay = new Date(hire);
+  sixtyDay.setDate(sixtyDay.getDate() + 60);
+  return new Date(sixtyDay.getFullYear(), sixtyDay.getMonth() + 1, 1);
+}
+
 // Helper to get tenure milestones
-function getTenureMilestones(totalDays: number): {
+function getTenureMilestones(hireDate: string, totalDays: number): {
   insuranceEligible: boolean;
   vacationEligible: boolean;
   daysToInsurance: number;
   daysToVacation: number;
+  insuranceEligibilityDate: Date;
 } {
+  const eligDate = insuranceEligibilityDate(hireDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const daysToInsurance = Math.max(0, Math.ceil((eligDate.getTime() - today.getTime()) / msPerDay));
   return {
-    insuranceEligible: totalDays >= 60,
+    insuranceEligible: today.getTime() >= eligDate.getTime(),
     vacationEligible: totalDays >= 365,
-    daysToInsurance: Math.max(0, 60 - totalDays),
+    daysToInsurance,
     daysToVacation: Math.max(0, 365 - totalDays),
+    insuranceEligibilityDate: eligDate,
   };
 }
 
@@ -309,6 +326,9 @@ function PersonnelDetailContent() {
   const [showMeritModal, setShowMeritModal] = useState(false);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [showEditPersonnelModal, setShowEditPersonnelModal] = useState(false);
+  const [showNinetyReviewForm, setShowNinetyReviewForm] = useState(false);
+  const [ninetyReviewNotes, setNinetyReviewNotes] = useState("");
+  const [savingNinetyReview, setSavingNinetyReview] = useState(false);
   const [showTerminateModal, setShowTerminateModal] = useState(false);
   const [showRehireModal, setShowRehireModal] = useState(false);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
@@ -362,6 +382,8 @@ function PersonnelDetailContent() {
   const rehirePersonnel = useMutation(api.personnel.rehire);
   const toggleTraining = useMutation(api.personnel.toggleTraining);
   const recordTenureCheckIn = useMutation(api.personnel.recordTenureCheckIn);
+  const markNinetyDayReview = useMutation(api.personnel.markNinetyDayReview);
+  const clearNinetyDayReview = useMutation(api.personnel.clearNinetyDayReview);
   const dismissTenureNotifications = useMutation(api.notifications.dismissTenureCheckInNotifications);
   const createEmployeePortalLogin = useMutation(api.auth.createEmployeePortalLogin);
   const resetEmployeePortalPassword = useMutation(api.auth.resetEmployeePortalPassword);
@@ -864,7 +886,7 @@ function PersonnelDetailContent() {
 
   // Calculate tenure for display
   const tenure = personnel ? calculateTenure(personnel.hireDate, personnel.terminationDate) : null;
-  const milestones = tenure ? getTenureMilestones(tenure.totalDays) : null;
+  const milestones = tenure && personnel ? getTenureMilestones(personnel.hireDate, tenure.totalDays) : null;
 
   return (
     <div className={`flex h-screen theme-bg-primary`}>
@@ -1741,8 +1763,8 @@ function PersonnelDetailContent() {
                               </p>
                               <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>
                                 {milestones.insuranceEligible
-                                  ? "Reached at 60 days"
-                                  : `${milestones.daysToInsurance} days remaining`}
+                                  ? `Effective ${milestones.insuranceEligibilityDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`
+                                  : `Eligible ${milestones.insuranceEligibilityDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} · ${milestones.daysToInsurance} days`}
                               </p>
                             </div>
                           </div>
@@ -1829,6 +1851,135 @@ function PersonnelDetailContent() {
                   </div>
                 )}
               </div>
+
+              {/* 90-Day Review Section */}
+              {personnel.status !== "terminated" && tenure && (() => {
+                const review = personnel.ninetyDayReview;
+                const isDue = tenure.totalDays >= 90 && !review;
+                const isUpcoming = tenure.totalDays >= 75 && tenure.totalDays < 90 && !review;
+                const handleMark = async () => {
+                  if (!user) return;
+                  setSavingNinetyReview(true);
+                  try {
+                    await markNinetyDayReview({
+                      personnelId: personnel._id,
+                      completedBy: user._id as Id<"users">,
+                      notes: ninetyReviewNotes.trim() || undefined,
+                    });
+                    setShowNinetyReviewForm(false);
+                    setNinetyReviewNotes("");
+                  } finally {
+                    setSavingNinetyReview(false);
+                  }
+                };
+                const handleClear = async () => {
+                  if (!confirm("Clear this 90-day review record? The employee will appear as needing a review again.")) return;
+                  await clearNinetyDayReview({ personnelId: personnel._id });
+                };
+                return (
+                  <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                          review
+                            ? isDark ? "bg-green-500/20" : "bg-green-100"
+                            : isDue
+                              ? isDark ? "bg-red-500/20" : "bg-red-100"
+                              : isUpcoming
+                                ? isDark ? "bg-amber-500/20" : "bg-amber-100"
+                                : isDark ? "bg-slate-700" : "bg-gray-100"
+                        }`}>
+                          <svg className={`w-5 h-5 ${
+                            review ? (isDark ? "text-green-400" : "text-green-600")
+                              : isDue ? (isDark ? "text-red-400" : "text-red-600")
+                              : isUpcoming ? (isDark ? "text-amber-400" : "text-amber-600")
+                              : (isDark ? "text-slate-400" : "text-gray-500")
+                          }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                            90-Day Review
+                          </h2>
+                          <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            {review
+                              ? "Completed"
+                              : isDue
+                                ? `Overdue — ${tenure.totalDays - 90} day${tenure.totalDays - 90 === 1 ? "" : "s"} past due`
+                                : isUpcoming
+                                  ? `Due in ${90 - tenure.totalDays} day${90 - tenure.totalDays === 1 ? "" : "s"}`
+                                  : `Due in ${90 - tenure.totalDays} day${90 - tenure.totalDays === 1 ? "" : "s"}`}
+                          </p>
+                        </div>
+                      </div>
+                      {review && canManagePersonnel && (
+                        <button
+                          onClick={handleClear}
+                          className={`text-xs font-medium ${isDark ? "text-slate-500 hover:text-red-400" : "text-gray-400 hover:text-red-600"}`}
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+
+                    {review ? (
+                      <div className={`rounded-lg p-4 ${isDark ? "bg-green-500/10 border border-green-500/20" : "bg-green-50 border border-green-200"}`}>
+                        <p className={`text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
+                          Reviewed by <span className="font-semibold">{review.completedByName}</span> on{" "}
+                          <span className="font-semibold">
+                            {new Date(review.completedAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+                          </span>
+                        </p>
+                        {review.notes && (
+                          <p className={`text-sm mt-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                            <span className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>Notes: </span>
+                            {review.notes}
+                          </p>
+                        )}
+                      </div>
+                    ) : showNinetyReviewForm ? (
+                      <div className="space-y-3">
+                        <textarea
+                          value={ninetyReviewNotes}
+                          onChange={(e) => setNinetyReviewNotes(e.target.value)}
+                          placeholder="Optional notes from the review (performance, attendance, attitude, training gaps)"
+                          rows={3}
+                          className={`w-full px-3 py-2 rounded-lg border resize-none text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleMark}
+                            disabled={savingNinetyReview}
+                            className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
+                            style={{ backgroundColor: "#34C759" }}
+                          >
+                            {savingNinetyReview ? "Saving…" : "Mark Completed"}
+                          </button>
+                          <button
+                            onClick={() => { setShowNinetyReviewForm(false); setNinetyReviewNotes(""); }}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium ${isDark ? "bg-slate-700 text-slate-200 hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : canManagePersonnel ? (
+                      <button
+                        onClick={() => setShowNinetyReviewForm(true)}
+                        className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
+                        style={{ backgroundColor: "#007AFF" }}
+                      >
+                        Record 90-Day Review
+                      </button>
+                    ) : (
+                      <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        Review not yet recorded. Ask a manager to complete it.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Tenure Check-Ins Section (only for active employees) */}
               {personnel.status !== "terminated" && tenure && (
