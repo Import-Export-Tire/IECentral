@@ -41,6 +41,7 @@ export default function InventoryReportPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [filters, setFilters] = useState<Filters>({ locations: [], brands: [], productTypes: [], dclasses: [] });
   const [fileDate, setFileDate] = useState<string | null>(null);
+  const [staleWarning, setStaleWarning] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   // Fetch data from S3-backed API
@@ -59,6 +60,7 @@ export default function InventoryReportPage() {
         setItems(data.items || []);
         setFilters(data.filters || { locations: [], brands: [], productTypes: [], dclasses: [] });
         setFileDate(data.fileDate);
+        setStaleWarning(data.staleWarning || null);
         setError("");
       })
       .catch((err) => setError(err.message))
@@ -180,6 +182,11 @@ export default function InventoryReportPage() {
                 <button onClick={handleExportExcel} disabled={sorted.length === 0} className={`px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-700"}`}>Excel</button>
               </div>
             </div>
+            {staleWarning && (
+              <div className={`mt-3 px-3 py-2 rounded-lg text-xs font-medium border ${isDark ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-800"}`}>
+                <span className="font-semibold">Heads up:</span> {staleWarning}
+              </div>
+            )}
           </header>
 
           <div className="px-4 sm:px-6 py-4">

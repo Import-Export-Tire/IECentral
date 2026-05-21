@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
 import { brandCodeToName } from "@/lib/brandMapping";
 
+export const maxDuration = 60;
+
 const BUCKET = "ietires-dunlop-jmk-uploads";
+// Bigger OEIVAL exports often exceed the previous 20MB cap. Bump to 50MB
+// raw — fits comfortably in a 1GB serverless function after XLSX parse.
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
 
 const s3 = new S3Client({
   region: process.env.S3_REGION || "us-east-1",
@@ -35,22 +40,41 @@ export async function GET(request: NextRequest) {
     const filterDclass = searchParams.get("dclass");
 
     // Find latest OEIVAL file — check organized folder first, then legacy paths
-    let oeivalFiles: { Key?: string; LastModified?: Date }[] = [];
+    let allOeivalFiles: { Key?: string; LastModified?: Date; Size?: number }[] = [];
     for (const prefix of ["jmk-uploads/oeival/", "jmk-uploads/"]) {
       const listRes = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, MaxKeys: 1000 }));
       const found = (listRes.Contents || [])
-        .filter((o) => o.Key?.toLowerCase().includes("oeival") && (o.Key?.endsWith(".xlsx") || o.Key?.endsWith(".csv")))
-        .filter((o) => !o.Size || o.Size < 20 * 1024 * 1024); // Skip files > 20MB
-      if (found.length > 0) { oeivalFiles = found; break; }
+        .filter((o) => o.Key?.toLowerCase().includes("oeival") && (o.Key?.endsWith(".xlsx") || o.Key?.endsWith(".csv")));
+      if (found.length > 0) { allOeivalFiles = found; break; }
     }
-    oeivalFiles.sort((a, b) => (b.LastModified?.getTime() ?? 0) - (a.LastModified?.getTime() ?? 0));
+    allOeivalFiles.sort((a, b) => (b.LastModified?.getTime() ?? 0) - (a.LastModified?.getTime() ?? 0));
+
+    // The newest file's date — always returned so the UI can show it
+    // even if we can't actually parse the file because it's too big.
+    const newestDate = allOeivalFiles[0]?.LastModified?.toISOString() ?? null;
+    const newestSize = allOeivalFiles[0]?.Size;
+
+    // Only parse files within the size cap — anything larger gets skipped
+    // so the function doesn't OOM. We surface a staleWarning so the UI
+    // can tell the user instead of silently displaying stale data.
+    const oeivalFiles = allOeivalFiles.filter((o) => !o.Size || o.Size < MAX_FILE_BYTES);
 
     if (oeivalFiles.length === 0) {
-      return NextResponse.json({ items: [], filters: { locations: [], brands: [], productTypes: [], dclasses: [] }, fileDate: null });
+      return NextResponse.json({
+        items: [], filters: { locations: [], brands: [], productTypes: [], dclasses: [] },
+        fileDate: newestDate, // surface the date even when we couldn't parse
+        staleWarning: allOeivalFiles.length > 0
+          ? `Latest upload is ${Math.round((newestSize ?? 0) / 1024 / 1024)}MB — exceeds the ${MAX_FILE_BYTES / 1024 / 1024}MB parse limit. No data shown.`
+          : undefined,
+      });
     }
 
     const fileKey = oeivalFiles[0].Key!;
     const fileDate = oeivalFiles[0].LastModified?.toISOString();
+    // If we had to drop the newest file because it was too big, tell the UI.
+    const staleWarning = allOeivalFiles[0].Key !== fileKey
+      ? `Most recent upload (${Math.round((newestSize ?? 0) / 1024 / 1024)}MB) is too large to display. Showing data from ${new Date(fileDate ?? Date.now()).toLocaleDateString()}.`
+      : undefined;
 
     // Download and parse
     const getRes = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: fileKey }));
@@ -207,6 +231,7 @@ export async function GET(request: NextRequest) {
       fileDate,
       fileName: fileKey.split("/").pop(),
       totalRows: items.length,
+      staleWarning,
     });
   } catch (err) {
     console.error("Inventory data error:", err);
