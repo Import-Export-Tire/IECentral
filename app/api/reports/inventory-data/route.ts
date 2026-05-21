@@ -83,12 +83,13 @@ export async function GET(request: NextRequest) {
 
     let rawData: unknown[][];
     if (fileKey.toLowerCase().endsWith(".csv")) {
-      // CSV \u2014 buffer is fine, line-by-line parser is cheap
-      const buffer = await getRes.Body?.transformToByteArray();
-      if (!buffer) return NextResponse.json({ items: [], filters: { locations: [], brands: [], productTypes: [], dclasses: [] }, fileDate });
-      const text = new TextDecoder().decode(buffer);
-      const lines = text.replace(/^\uFEFF/, "").replace(/\0/g, "").split("\n");
-      rawData = lines.map((line) => {
+      // CSV \u2014 stream-parse line by line. Buffering 163MB into a string
+      // peaked memory near 1GB and OOMed during downstream parsing.
+      const body = getRes.Body as unknown as NodeJS.ReadableStream | null;
+      if (!body) return NextResponse.json({ items: [], filters: { locations: [], brands: [], productTypes: [], dclasses: [] }, fileDate });
+      const readline = await import("readline");
+      const rl = readline.createInterface({ input: body as unknown as NodeJS.ReadableStream, crlfDelay: Infinity });
+      const parseCsvLine = (line: string): string[] => {
         const fields: string[] = [];
         let field = "", inQuotes = false;
         for (let i = 0; i < line.length; i++) {
@@ -99,13 +100,23 @@ export async function GET(request: NextRequest) {
           } else {
             if (ch === '"') inQuotes = true;
             else if (ch === ",") { fields.push(field.trim()); field = ""; }
-            else if (ch === "\r") continue;
             else field += ch;
           }
         }
         fields.push(field.trim());
         return fields;
-      }).filter((r) => r.some((f) => f));
+      };
+      const rows: string[][] = [];
+      let first = true;
+      for await (const rawLine of rl) {
+        // Strip BOM from very first line, ignore any embedded NULs
+        const line = first ? rawLine.replace(/^\uFEFF/, "").replace(/\0/g, "") : rawLine.replace(/\0/g, "");
+        first = false;
+        if (!line) continue;
+        const fields = parseCsvLine(line);
+        if (fields.some((f) => f)) rows.push(fields);
+      }
+      rawData = rows;
     } else {
       // XLSX \u2014 stream-parse via exceljs so a 200MB workbook doesn't
       // OOM. Reads one row at a time from the S3 byte stream.
