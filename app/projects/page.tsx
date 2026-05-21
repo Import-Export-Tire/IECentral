@@ -419,7 +419,7 @@ function ProjectsContent() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-900">
+    <div className="flex h-screen theme-bg-primary">
       <Sidebar />
 
       <main className="flex-1 flex flex-col overflow-hidden">
@@ -427,11 +427,11 @@ function ProjectsContent() {
         <MobileHeader />
 
         {/* Header */}
-        <header className="flex-shrink-0 bg-slate-900/80 backdrop-blur-sm border-b border-slate-700 px-4 sm:px-8 py-3 sm:py-4">
+        <header className="flex-shrink-0 theme-header backdrop-blur-sm border-b border-slate-700 px-4 sm:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-bold text-white">Projects</h1>
-              <p className="text-slate-400 text-xs sm:text-sm mt-1 hidden sm:block">
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Projects</h1>
+              <p className="theme-text-tertiary text-xs sm:text-sm mt-1 hidden sm:block">
                 Drag and drop to update status
               </p>
             </div>
