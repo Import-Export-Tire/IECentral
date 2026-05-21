@@ -433,6 +433,36 @@ Resources:
             Method: post
             RestApiId: !Ref DunlopApi
 
+  # ───────────────────────────────────────────────────────────────────
+  # OEIVAL processor — triggered on PUT to jmk-uploads/oeival/*. Streams
+  # the CSV, builds a slim cached JSON at
+  # jmk-uploads/oeival/_cache/latest.json. The Vercel inventory route
+  # reads only that cache so 200MB OEIVAL files never touch Vercel's
+  # 2GB function memory ceiling.
+  OeivalProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: dunlop-oeival-processor
+      Handler: oeival_processor.handler
+      CodeUri: lambdas/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 300
+      MemorySize: 2048
+      Environment:
+        Variables:
+          S3_JMK_UPLOADS_BUCKET: !Ref JmkUploadsBucket
+      Events:
+        OeivalUpload:
+          Type: S3
+          Properties:
+            Bucket: !Ref JmkUploadsBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: jmk-uploads/oeival/
+
   FetchSalesFunction:
     Type: AWS::Serverless::Function
     Properties:
