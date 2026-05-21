@@ -132,6 +132,14 @@ def row_to_item(row: list[str], col: dict[str, int]) -> dict[str, Any] | None:
     if not g("location") and not g("productType"):
         return None
 
+    # Tires-only inventory: OEIVAL Product Type codes for tires all start
+    # with "T" (T=passenger, TL=light truck, TF=flotation/farm,
+    # TA=agriculture, TI=industrial, T2M=medium truck, etc.). Skip
+    # everything else — wheels (W), batteries (B), accessories, services.
+    pt = g("productType").upper()
+    if not pt or not pt.startswith("T"):
+        return None
+
     raw_dclass = g("dclass")
     if "dclass" in col:
         dclass = DCLASS_DECODE.get(raw_dclass or "Blank", raw_dclass)
