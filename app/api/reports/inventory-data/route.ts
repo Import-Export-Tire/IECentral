@@ -43,6 +43,10 @@ export async function GET(request: NextRequest) {
     const filterBrand = searchParams.get("brand") || "";
     const filterProductType = searchParams.get("productType") || "";
     const filterDclass = searchParams.get("dclass") || "";
+    // inStock=1 → keep only rows where qtyOnHand > 0. Cuts a 474K
+    // tire dataset down by an order of magnitude (most location/sku
+    // combinations have zero stock).
+    const filterInStock = searchParams.get("inStock") === "1";
 
     // 1. Meta — tiny, parses instantly
     let meta: CacheMeta;
@@ -90,6 +94,7 @@ export async function GET(request: NextRequest) {
       if (filterLocation && it.location !== filterLocation) continue;
       if (filterProductType && it.productType !== filterProductType) continue;
       if (filterDclass && it.dclass !== filterDclass) continue;
+      if (filterInStock && Number(it.qtyOnHand ?? 0) <= 0) continue;
       // Brand filter compares against the friendly name; the cache stores
       // raw manufacturerName codes, so map before comparing.
       if (filterBrand) {

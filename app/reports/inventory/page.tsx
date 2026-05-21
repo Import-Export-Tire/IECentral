@@ -29,7 +29,7 @@ export default function InventoryReportPage() {
   const [productType, setProductType] = useState("");
   const [dclass, setDclass] = useState("");
   const [search, setSearch] = useState("");
-  const [stockFilter, setStockFilter] = useState("");
+  const [stockFilter, setStockFilter] = useState("hasStock");
   const [columnFilters, setColumnFilters] = useState<Record<string, Set<string>>>({});
   const [openFilterCol, setOpenFilterCol] = useState<string | null>(null);
   const [filterSearch, setFilterSearch] = useState("");
@@ -52,6 +52,9 @@ export default function InventoryReportPage() {
     if (brand) params.set("brand", brand);
     if (productType) params.set("productType", productType);
     if (dclass) params.set("dclass", dclass);
+    // Push the in-stock toggle to the server so the response payload
+    // shrinks before it ever hits the browser.
+    if (stockFilter === "hasStock") params.set("inStock", "1");
 
     fetch(`/api/reports/inventory-data?${params.toString()}`)
       .then((r) => r.json())
@@ -65,7 +68,7 @@ export default function InventoryReportPage() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [location, brand, productType, dclass]);
+  }, [location, brand, productType, dclass, stockFilter]);
 
   const filtered = useMemo(() => {
     let result = items;
