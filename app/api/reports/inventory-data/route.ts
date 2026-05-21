@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
 import { brandCodeToName } from "@/lib/brandMapping";
 
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 const BUCKET = "ietires-dunlop-jmk-uploads";
-// Bigger OEIVAL exports often exceed the previous 20MB cap. Bump to 50MB
-// raw — fits comfortably in a 1GB serverless function after XLSX parse.
-const MAX_FILE_BYTES = 50 * 1024 * 1024;
+// OEIVAL exports observed at 157MB+ (May 2026). Allow up to 250MB raw,
+// paired with the 3008MB memory bump in vercel.json so the XLSX parse
+// doesn't OOM. CSV uploads stream line-by-line and are unaffected.
+const MAX_FILE_BYTES = 250 * 1024 * 1024;
 
 const s3 = new S3Client({
   region: process.env.S3_REGION || "us-east-1",
