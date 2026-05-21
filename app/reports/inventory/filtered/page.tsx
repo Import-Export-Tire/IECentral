@@ -134,7 +134,9 @@ export default function FilteredInventoryReportPage() {
     }
     setLoading(true);
     setError("");
-    const params = new URLSearchParams({ location });
+    // CIR audits what's *available* to sell at a location, so we only
+    // need rows with positive on-hand quantity.
+    const params = new URLSearchParams({ location, inStock: "1" });
     fetch(`/api/reports/inventory-data?${params.toString()}`)
       .then((r) => r.json())
       .then((data) => {
@@ -614,7 +616,7 @@ export default function FilteredInventoryReportPage() {
     Promise.all(
       Object.keys(LOCATION_LABELS).map(async (code) => {
         try {
-          const res = await fetch(`/api/reports/inventory-data?location=${code}`);
+          const res = await fetch(`/api/reports/inventory-data?location=${code}&inStock=1`);
           const data = await res.json();
           const brands = [...new Set(((data.items as InventoryItem[]) || []).map((i) => i.manufacturerName).filter(isReportableBrand))].sort();
           return [code, brands] as const;
