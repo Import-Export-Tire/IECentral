@@ -12,6 +12,7 @@ Vercel's 2GB function-memory ceiling.
 """
 
 import csv
+import gzip
 import io
 import json
 import os
@@ -22,7 +23,11 @@ import boto3
 s3 = boto3.client("s3")
 
 BUCKET = os.environ.get("S3_JMK_UPLOADS_BUCKET", "ietires-dunlop-jmk-uploads")
-CACHE_KEY = "jmk-uploads/oeival/_cache/latest.json"
+# Cache layout (latest OEIVAL only — overwritten on every upload):
+#   _cache/latest.meta.json    — small JSON with fileDate, fileName, totalRows, filters
+#   _cache/latest.items.ndjson.gz — gzipped newline-delimited JSON of items
+META_KEY = "jmk-uploads/oeival/_cache/latest.meta.json"
+ITEMS_KEY = "jmk-uploads/oeival/_cache/latest.items.ndjson.gz"
 
 # Column header → field key map (mirrors the Vercel route's headerMap
 # in app/api/reports/inventory-data/route.ts). Lowercase, exact-match
@@ -237,28 +242,48 @@ def handler(event, _context):
 
     filters = build_filters(items)
 
-    cache = {
+    # ── items.ndjson.gz — one item per line, gzipped — keeps the
+    # client-side read streaming and memory-bounded regardless of size.
+    items_buf = io.BytesIO()
+    with gzip.GzipFile(fileobj=items_buf, mode="wb", compresslevel=6) as gz:
+        for it in items:
+            gz.write(json.dumps(it, separators=(",", ":")).encode("utf-8"))
+            gz.write(b"\n")
+    items_bytes = items_buf.getvalue()
+    s3.put_object(
+        Bucket=bucket,
+        Key=ITEMS_KEY,
+        Body=items_bytes,
+        ContentType="application/x-ndjson",
+        ContentEncoding="gzip",
+    )
+
+    # ── meta.json — small companion file. Vercel reads this on every
+    # request to know the freshness date + filter dropdowns; only fetches
+    # items when actually rendering rows.
+    meta = {
         "fileKey": key,
         "fileName": key.rsplit("/", 1)[-1],
         "fileDate": last_modified,
         "totalRows": len(items),
-        "items": items,
         "filters": filters,
+        "itemsKey": ITEMS_KEY,
+        "itemsBytes": len(items_bytes),
         "generatedAt": _now_iso(),
     }
-
-    body_bytes = json.dumps(cache, separators=(",", ":")).encode("utf-8")
+    meta_bytes = json.dumps(meta, separators=(",", ":")).encode("utf-8")
     s3.put_object(
         Bucket=bucket,
-        Key=CACHE_KEY,
-        Body=body_bytes,
+        Key=META_KEY,
+        Body=meta_bytes,
         ContentType="application/json",
     )
 
     return {
         "fileKey": key,
         "totalRows": len(items),
-        "cacheBytes": len(body_bytes),
+        "itemsBytes": len(items_bytes),
+        "metaBytes": len(meta_bytes),
     }
 
 
