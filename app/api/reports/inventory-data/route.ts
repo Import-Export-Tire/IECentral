@@ -5,12 +5,11 @@ import { brandCodeToName } from "@/lib/brandMapping";
 export const maxDuration = 90;
 
 const BUCKET = "ietires-dunlop-jmk-uploads";
-// XLSX parse is in-memory and inflates ~10x vs raw bytes. On Hobby
-// plan (2048MB ceiling) anything past ~80MB raw OOMs during parse.
-// CSV uploads stream line-by-line and are unaffected by this cap.
-// Real fix is to pre-process XLSX → cached slim JSON at upload time;
-// until then this cap keeps the route from 500ing on giant XLSX.
-const MAX_FILE_BYTES = 80 * 1024 * 1024;
+// XLSX is now stream-parsed via exceljs (constant memory regardless
+// of workbook size); CSV streams line-by-line. The cap is mostly to
+// guard against runaway files filling /tmp during download — 300MB
+// is plenty for the foreseeable OEIVAL exports.
+const MAX_FILE_BYTES = 300 * 1024 * 1024;
 
 const s3 = new S3Client({
   region: process.env.S3_REGION || "us-east-1",
@@ -79,13 +78,14 @@ export async function GET(request: NextRequest) {
       ? `Most recent upload (${Math.round((newestSize ?? 0) / 1024 / 1024)}MB) is too large to display. Showing data from ${new Date(fileDate ?? Date.now()).toLocaleDateString()}.`
       : undefined;
 
-    // Download and parse
+    // Download from S3
     const getRes = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: fileKey }));
-    const buffer = await getRes.Body?.transformToByteArray();
-    if (!buffer) return NextResponse.json({ items: [], filters: { locations: [], brands: [], productTypes: [], dclasses: [] }, fileDate });
 
     let rawData: unknown[][];
     if (fileKey.toLowerCase().endsWith(".csv")) {
+      // CSV \u2014 buffer is fine, line-by-line parser is cheap
+      const buffer = await getRes.Body?.transformToByteArray();
+      if (!buffer) return NextResponse.json({ items: [], filters: { locations: [], brands: [], productTypes: [], dclasses: [] }, fileDate });
       const text = new TextDecoder().decode(buffer);
       const lines = text.replace(/^\uFEFF/, "").replace(/\0/g, "").split("\n");
       rawData = lines.map((line) => {
@@ -107,10 +107,37 @@ export async function GET(request: NextRequest) {
         return fields;
       }).filter((r) => r.some((f) => f));
     } else {
-      const XLSX = await import("xlsx");
-      const wb = XLSX.read(buffer, { type: "array" });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      rawData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][];
+      // XLSX \u2014 stream-parse via exceljs so a 200MB workbook doesn't
+      // OOM. Reads one row at a time from the S3 byte stream.
+      const ExcelJS = (await import("exceljs")).default;
+      const body = getRes.Body;
+      if (!body) return NextResponse.json({ items: [], filters: { locations: [], brands: [], productTypes: [], dclasses: [] }, fileDate });
+      // ExcelJS accepts any Node Readable at runtime; its types insist on
+      // node:stream.Stream so we cast through unknown to avoid the false
+      // structural-incompatibility error from the AWS SDK stream typing.
+      const reader = new ExcelJS.stream.xlsx.WorkbookReader(body as unknown as import("stream").Stream, { worksheets: "emit", entries: "emit", sharedStrings: "cache" });
+      const rows: unknown[][] = [];
+      for await (const ws of reader) {
+        for await (const row of ws) {
+          // exceljs row.values is a sparse array with a leading undefined at
+          // index 0 (1-based) \u2014 strip it so downstream code can treat the
+          // row as a normal 0-based array, matching the old XLSX shape.
+          const vals = (row.values as unknown[]) || [];
+          rows.push(vals.slice(1).map((v) => {
+            if (v && typeof v === "object") {
+              // Hyperlink cells come back as { text, hyperlink, ... };
+              // rich text comes back as { richText: [...] }. Coerce to text.
+              const obj = v as { text?: string; richText?: { text: string }[] };
+              if (obj.richText) return obj.richText.map((r) => r.text).join("");
+              if (obj.text !== undefined) return obj.text;
+            }
+            return v;
+          }));
+        }
+        // First worksheet is enough \u2014 the OEIVAL data is always on sheet 1
+        break;
+      }
+      rawData = rows;
     }
 
     if (rawData.length < 2) {
