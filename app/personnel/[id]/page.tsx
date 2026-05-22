@@ -693,7 +693,8 @@ function PersonnelDetailContent() {
         };
       }
 
-      await updatePersonnel({ ...updateData, userId: user?._id });
+      if (!user) throw new Error("Not signed in");
+      await updatePersonnel({ ...updateData, userId: user._id, requestingUserId: user._id });
       setShowEditPersonnelModal(false);
     } catch (error) {
       console.error("Error updating personnel:", error);
@@ -843,11 +844,13 @@ function PersonnelDetailContent() {
       return;
     }
     try {
+      if (!user) throw new Error("Not signed in");
       await terminatePersonnel({
         personnelId,
         terminationDate: terminateForm.terminationDate,
         terminationReason: terminateForm.terminationReason,
-        userId: user?._id,
+        userId: user._id,
+        requestingUserId: user._id,
       });
       setShowTerminateModal(false);
       setTerminateForm({
@@ -1529,8 +1532,9 @@ function PersonnelDetailContent() {
                           e.preventDefault();
                           e.stopPropagation();
                           if (!canManagePersonnel) return;
+                          if (!user) return;
                           try {
-                            await toggleTraining({ personnelId: personnel._id, trainingArea: area });
+                            await toggleTraining({ personnelId: personnel._id, trainingArea: area, requestingUserId: user._id });
                           } catch (error) {
                             console.error("Failed to toggle training:", error);
                           }
@@ -1874,7 +1878,8 @@ function PersonnelDetailContent() {
                 };
                 const handleClear = async () => {
                   if (!confirm("Clear this 90-day review record? The employee will appear as needing a review again.")) return;
-                  await clearNinetyDayReview({ personnelId: personnel._id });
+                  if (!user) return;
+                  await clearNinetyDayReview({ personnelId: personnel._id, requestingUserId: user._id });
                 };
                 return (
                   <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>

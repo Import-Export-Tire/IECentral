@@ -120,6 +120,7 @@ function NewEmployeeContent() {
             }
           : undefined;
 
+      if (!user) { setError("Not signed in"); return; }
       await createPersonnel({
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
@@ -133,7 +134,8 @@ function NewEmployeeContent() {
         locationId: formData.locationId ? formData.locationId as Id<"locations"> : undefined,
         emergencyContact,
         notes: formData.notes.trim() || undefined,
-        userId: user?._id,
+        userId: user._id,
+        requestingUserId: user._id,
       });
 
       router.push("/personnel");

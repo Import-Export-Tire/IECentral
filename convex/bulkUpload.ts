@@ -13,6 +13,7 @@ export const processResume = action({
     resumeFileId: v.optional(v.id("_storage")), // Optional: actual PDF file stored in Convex
     selectedJobId: v.optional(v.id("jobs")), // Optional: pre-selected job to assign
     skipAiMatching: v.optional(v.boolean()), // Skip AI job matching when job is pre-selected
+    requestingUserId: v.id("users"), // Operator running the bulk upload
   },
   handler: async (ctx, args): Promise<{
     success: boolean;
@@ -88,6 +89,7 @@ export const processResume = action({
           personnelId: existingPersonnel._id,
           resumeText,
           jobMatchAnalysis,
+          requestingUserId: args.requestingUserId,
         });
 
         return {

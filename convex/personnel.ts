@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { requireAdmin, requireManagePersonnel } from "./authGuards";
 
 // ============ QUERIES ============
 
@@ -213,8 +214,11 @@ export const createFromApplication = mutation({
     notes: v.optional(v.string()),
     userId: v.optional(v.id("users")),
     defaultScheduleTemplateId: v.optional(v.id("shiftTemplates")),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
+
     // Get the application data
     const application = await ctx.db.get(args.applicationId);
     if (!application) {
@@ -301,8 +305,10 @@ export const create = mutation({
     ),
     notes: v.optional(v.string()),
     userId: v.optional(v.id("users")),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const now = Date.now();
 
     const personnelId = await ctx.db.insert("personnel", {
@@ -369,9 +375,11 @@ export const update = mutation({
     locationId: v.optional(v.id("locations")),
     defaultScheduleTemplateId: v.optional(v.id("shiftTemplates")),
     userId: v.optional(v.id("users")),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { personnelId, userId, ...updates } = args;
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    const { personnelId, userId, requestingUserId: _ignored, ...updates } = args;
 
     const existing = await ctx.db.get(personnelId);
     if (!existing) {
@@ -472,8 +480,10 @@ export const setAllTenureCheckInsComplete = mutation({
     personnelId: v.id("personnel"),
     completedByName: v.string(),
     notes: v.optional(v.string()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const personnel = await ctx.db.get(args.personnelId);
     if (!personnel) {
       throw new Error("Personnel not found");
@@ -511,8 +521,10 @@ export const terminate = mutation({
     terminationDate: v.string(),
     terminationReason: v.string(),
     userId: v.optional(v.id("users")),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const existing = await ctx.db.get(args.personnelId);
     if (!existing) {
       throw new Error("Personnel not found");
@@ -625,9 +637,10 @@ export const rehire = mutation({
     employeeType: v.string(), // full_time, part_time, etc.
     hourlyRate: v.optional(v.number()),
     rehireReason: v.optional(v.string()),
-    userId: v.id("users"), // Who authorized the rehire
+    userId: v.id("users"), // Who authorized the rehire (also acts as requestingUserId)
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const existing = await ctx.db.get(args.personnelId);
     if (!existing) {
       throw new Error("Personnel not found");
@@ -745,8 +758,10 @@ export const toggleTraining = mutation({
   args: {
     personnelId: v.id("personnel"),
     trainingArea: v.string(),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const personnel = await ctx.db.get(args.personnelId);
     if (!personnel) {
       throw new Error("Personnel not found");
@@ -792,6 +807,7 @@ export const recordTenureCheckIn = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.completedBy);
     const personnel = await ctx.db.get(args.personnelId);
     if (!personnel) {
       throw new Error("Personnel not found");
@@ -833,8 +849,10 @@ export const removeTenureCheckIn = mutation({
   args: {
     personnelId: v.id("personnel"),
     milestone: v.string(),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const personnel = await ctx.db.get(args.personnelId);
     if (!personnel) {
       throw new Error("Personnel not found");
@@ -860,6 +878,7 @@ export const markNinetyDayReview = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.completedBy);
     const reviewer = await ctx.db.get(args.completedBy);
     if (!reviewer) throw new Error("Reviewer not found");
     const employee = await ctx.db.get(args.personnelId);
@@ -879,8 +898,12 @@ export const markNinetyDayReview = mutation({
 
 // Clear a recorded 90-day review (admin correction)
 export const clearNinetyDayReview = mutation({
-  args: { personnelId: v.id("personnel") },
+  args: {
+    personnelId: v.id("personnel"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     await ctx.db.patch(args.personnelId, {
       ninetyDayReview: undefined,
       updatedAt: Date.now(),
@@ -894,8 +917,10 @@ export const bulkCompleteTenureCheckIns = mutation({
   args: {
     beforeDate: v.string(), // YYYY-MM-DD format
     completedByName: v.string(),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const allPersonnel = await ctx.db
       .query("personnel")
       .filter((q) => q.eq(q.field("status"), "active"))
@@ -949,7 +974,9 @@ export const bulkCompleteTenureCheckIns = mutation({
 
 // Clear all tenure check-ins from all personnel
 export const clearAllTenureCheckIns = mutation({
-  handler: async (ctx) => {
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const allPersonnel = await ctx.db.query("personnel").collect();
 
     let cleared = 0;
@@ -969,7 +996,9 @@ export const clearAllTenureCheckIns = mutation({
 
 // Remove duplicate personnel records (keeps the oldest by createdAt)
 export const removeDuplicates = mutation({
-  handler: async (ctx) => {
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const allPersonnel = await ctx.db.query("personnel").collect();
 
     // Group by email (lowercase)
@@ -1014,8 +1043,10 @@ export const bulkImport = mutation({
         hireDate: v.string(),
       })
     ),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const now = Date.now();
     const results = {
       imported: 0,
@@ -1060,8 +1091,12 @@ export const bulkImport = mutation({
 
 // Delete personnel (hard delete - use with caution)
 export const remove = mutation({
-  args: { personnelId: v.id("personnel") },
+  args: {
+    personnelId: v.id("personnel"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     // Delete associated records first
     const writeUps = await ctx.db
       .query("writeUps")
@@ -1153,8 +1188,10 @@ export const updateResumeAndAnalysis = mutation({
       summary: v.string(),
       analyzedAt: v.number(),
     })),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const now = Date.now();
 
     await ctx.db.patch(args.personnelId, {
@@ -1181,6 +1218,7 @@ export const logCall = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.calledBy);
     const now = Date.now();
 
     const callLogId = await ctx.db.insert("personnelCallLogs", {
@@ -1247,8 +1285,10 @@ export const getRecentCallLogs = query({
 export const deleteCallLog = mutation({
   args: {
     callLogId: v.id("personnelCallLogs"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     await ctx.db.delete(args.callLogId);
     return { success: true };
   },
@@ -1270,6 +1310,7 @@ export const updateScheduleAssignment = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const { personnelId, userId, ...updates } = args;
 
     const existing = await ctx.db.get(personnelId);
@@ -1314,6 +1355,7 @@ export const clearScheduleAssignment = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const existing = await ctx.db.get(args.personnelId);
     if (!existing) {
       throw new Error("Personnel not found");
@@ -1368,6 +1410,7 @@ export const bulkAssignSchedule = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
     const template = await ctx.db.get(args.templateId);
     if (!template) {
@@ -1492,6 +1535,7 @@ export const createScheduleOverride = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
     const personnel = await ctx.db.get(args.personnelId);
     if (!personnel) {
@@ -1564,6 +1608,7 @@ export const approveScheduleOverride = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
     const override = await ctx.db.get(args.overrideId);
     if (!override) {
@@ -1608,6 +1653,7 @@ export const denyScheduleOverride = mutation({
     denialReason: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
     const override = await ctx.db.get(args.overrideId);
     if (!override) {
@@ -1651,6 +1697,7 @@ export const deleteScheduleOverride = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
     const override = await ctx.db.get(args.overrideId);
     if (!override) {

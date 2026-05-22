@@ -305,6 +305,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
         hourlyRate: hireForm.hourlyRate ? parseFloat(hireForm.hourlyRate) : undefined,
         userId: user._id,
         defaultScheduleTemplateId: hireForm.scheduleTemplateId ? hireForm.scheduleTemplateId as Id<"shiftTemplates"> : undefined,
+        requestingUserId: user._id,
       });
       setShowHireModal(false);
       // Navigate to the new personnel record

@@ -293,9 +293,11 @@ function PersonnelContent() {
                             e.stopPropagation();
                             const newLocationId = e.target.value;
                             try {
+                              if (!user) throw new Error("Not signed in");
                               await updatePersonnel({
                                 personnelId: person._id,
                                 locationId: newLocationId as Id<"locations">,
+                                requestingUserId: user._id,
                               });
                             } catch (error) {
                               console.error("Failed to update location:", error);

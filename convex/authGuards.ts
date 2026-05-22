@@ -24,6 +24,13 @@ import type { Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 
 const ADMIN_ROLES = new Set(["super_admin", "admin"]);
+const PERSONNEL_MANAGER_ROLES = new Set([
+  "super_admin",
+  "admin",
+  "warehouse_director",
+  "department_manager",
+  "warehouse_manager",
+]);
 
 type AnyCtx = QueryCtx | { db: QueryCtx["db"] };
 
@@ -47,6 +54,31 @@ export async function requireAdmin(
   if (!ADMIN_ROLES.has(user.role)) {
     throw new Error(
       `Unauthorized: this action requires an admin role (you are ${user.role})`,
+    );
+  }
+}
+
+/**
+ * Throws unless the requesting user has a role that can manage
+ * personnel records (super_admin, admin, warehouse_director,
+ * department_manager, warehouse_manager). Mirrors the
+ * `canManagePersonnel` check in app/auth-context.tsx so server and
+ * client stay in sync.
+ */
+export async function requireManagePersonnel(
+  ctx: AnyCtx,
+  requestingUserId: Id<"users">,
+): Promise<void> {
+  const user = await ctx.db.get(requestingUserId);
+  if (!user) {
+    throw new Error("Unauthorized: requesting user not found");
+  }
+  if (user.isActive === false) {
+    throw new Error("Unauthorized: account is inactive");
+  }
+  if (!PERSONNEL_MANAGER_ROLES.has(user.role)) {
+    throw new Error(
+      `Unauthorized: this action requires personnel-management privileges (you are ${user.role})`,
     );
   }
 }

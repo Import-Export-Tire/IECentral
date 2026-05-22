@@ -6,6 +6,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import ProtectedRoute from "@/app/protected";
+import { useAuth } from "@/app/auth-context";
 
 interface FileStatus {
   file: File;
@@ -25,6 +26,7 @@ interface FileStatus {
 
 export default function BulkUploadPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const processResume = useAction(api.bulkUpload.processResume);
   const generateUploadUrl = useMutation(api.applications.generateUploadUrl);
   const activeJobs = useQuery(api.jobs.getActiveJobs);
@@ -173,6 +175,7 @@ export default function BulkUploadPage() {
       });
 
       // Process through AI with 2 minute timeout (AI can take a while)
+      if (!user) throw new Error("Not signed in");
       const result = await withTimeout(
         processResume({
           resumeText,
@@ -180,6 +183,7 @@ export default function BulkUploadPage() {
           resumeFileId, // Include the uploaded file ID
           selectedJobId: selectedJobId || undefined, // Use selected job if specified
           skipAiMatching, // Skip AI job matching if user specified a job
+          requestingUserId: user._id,
         }),
         120000,
         "AI processing timed out - please try again"
