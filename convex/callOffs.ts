@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalAction, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { requireManagePersonnel } from "./authGuards";
 
 // Get all call-offs (admin view)
 export const getAll = query({
@@ -212,6 +213,7 @@ export const acknowledge = mutation({
     managerNotes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.acknowledgedBy);
     const callOff = await ctx.db.get(args.callOffId);
     if (!callOff) throw new Error("Call-off not found");
 
@@ -238,6 +240,7 @@ export const addManual = mutation({
     managerNotes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.acknowledgedBy);
     const now = Date.now();
 
     const callOffId = await ctx.db.insert("callOffs", {

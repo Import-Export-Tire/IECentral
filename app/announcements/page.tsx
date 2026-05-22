@@ -143,6 +143,7 @@ function AnnouncementsContent() {
           targetLocationIds: form.targetType === "location" ? form.targetLocationIds : undefined,
           expiresAt: form.expiresAt ? new Date(form.expiresAt).getTime() : undefined,
           isPinned: form.isPinned,
+          requestingUserId: user._id,
         });
       } else {
         await createMutation({
@@ -167,11 +168,13 @@ function AnnouncementsContent() {
   };
 
   const handleToggleActive = async (announcement: typeof announcements[0]) => {
+    if (!user) return;
     setIsProcessing(true);
     try {
       await updateMutation({
         announcementId: announcement._id,
         isActive: !announcement.isActive,
+        requestingUserId: user._id,
       });
     } catch (error) {
       console.error("Failed to toggle announcement:", error);
@@ -181,9 +184,10 @@ function AnnouncementsContent() {
 
   const handleDelete = async (announcementId: Id<"announcements">) => {
     if (!confirm("Are you sure you want to delete this announcement?")) return;
+    if (!user) return;
     setIsProcessing(true);
     try {
-      await removeMutation({ announcementId });
+      await removeMutation({ announcementId, requestingUserId: user._id });
     } catch (error) {
       console.error("Failed to delete announcement:", error);
     }

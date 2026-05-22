@@ -139,11 +139,13 @@ function SettingsContent() {
     setLocationSuccess(null);
 
     try {
+      if (!user) throw new Error("Not signed in");
       await updateLocation({
         id: editingLocationId as Parameters<typeof updateLocation>[0]["id"],
         warehouseManagerName: locationForm.warehouseManagerName || undefined,
         warehouseManagerPhone: locationForm.warehouseManagerPhone || undefined,
         warehouseManagerEmail: locationForm.warehouseManagerEmail || undefined,
+        requestingUserId: user._id,
       });
       setLocationSuccess(editingLocationId);
       setEditingLocationId(null);

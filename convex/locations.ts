@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { requireAdmin } from "./authGuards";
 
 // ============ QUERIES ============
 
@@ -76,8 +77,10 @@ export const create = mutation({
     securityNotes: v.optional(v.string()),
     departments: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const now = Date.now();
 
     // Check if location with same name already exists
@@ -135,9 +138,11 @@ export const update = mutation({
     warehouseManagerName: v.optional(v.string()),
     warehouseManagerPhone: v.optional(v.string()),
     warehouseManagerEmail: v.optional(v.string()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { id, ...updates } = args;
+    await requireAdmin(ctx, args.requestingUserId);
+    const { id, requestingUserId: _ignored, ...updates } = args;
 
     // If name is being updated, check for duplicates
     if (updates.name) {
@@ -168,8 +173,12 @@ export const update = mutation({
 
 // Delete a location (soft delete by setting isActive to false)
 export const deactivate = mutation({
-  args: { id: v.id("locations") },
+  args: {
+    id: v.id("locations"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     // Check if any personnel are assigned to this location
     const personnelAtLocation = await ctx.db
       .query("personnel")
@@ -204,8 +213,12 @@ export const deactivate = mutation({
 
 // Reactivate a location
 export const reactivate = mutation({
-  args: { id: v.id("locations") },
+  args: {
+    id: v.id("locations"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     return await ctx.db.patch(args.id, {
       isActive: true,
       updatedAt: Date.now(),
@@ -215,8 +228,9 @@ export const reactivate = mutation({
 
 // Seed initial locations (Latrobe, Chestnut, Everson)
 export const seedLocations = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const now = Date.now();
     const initialLocations = [
       { name: "Latrobe" },

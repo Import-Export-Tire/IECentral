@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
+import { requireManagePersonnel, requireSelfOrManager } from "./authGuards";
 
 // Create a new project suggestion
 export const create = mutation({
@@ -37,6 +38,9 @@ export const createWithUser = mutation({
     priority: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Any active user can suggest a project to anyone (it has to be
+    // approved by the suggestedTo or a manager anyway).
+    await requireSelfOrManager(ctx, args.suggestedBy, args.suggestedBy);
     const suggestionId = await ctx.db.insert("projectSuggestions", {
       suggestedBy: args.suggestedBy,
       suggestedTo: args.suggestedTo,
@@ -62,6 +66,8 @@ export const approve = mutation({
     const suggestion = await ctx.db.get(args.suggestionId);
     if (!suggestion) throw new Error("Suggestion not found");
     if (suggestion.status !== "pending") throw new Error("Suggestion already reviewed");
+    // The person it was suggested to can approve their own; managers can too.
+    await requireSelfOrManager(ctx, args.reviewedBy, suggestion.suggestedTo);
 
     // Create the project from the suggestion
     const projectId = await ctx.db.insert("projects", {
@@ -100,6 +106,7 @@ export const deny = mutation({
     const suggestion = await ctx.db.get(args.suggestionId);
     if (!suggestion) throw new Error("Suggestion not found");
     if (suggestion.status !== "pending") throw new Error("Suggestion already reviewed");
+    await requireSelfOrManager(ctx, args.reviewedBy, suggestion.suggestedTo);
 
     await ctx.db.patch(args.suggestionId, {
       status: "denied",
@@ -234,7 +241,8 @@ export const remove = mutation({
     const suggestion = await ctx.db.get(args.suggestionId);
     if (!suggestion) throw new Error("Suggestion not found");
     if (suggestion.status !== "pending") throw new Error("Cannot delete reviewed suggestions");
-    if (suggestion.suggestedBy !== args.userId) throw new Error("Can only delete your own suggestions");
+    // Self-only (or manager) — must also be an active user.
+    await requireSelfOrManager(ctx, args.userId, suggestion.suggestedBy);
 
     await ctx.db.delete(args.suggestionId);
     return args.suggestionId;

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { requireManagePersonnel, requireSelfOrManager } from "./authGuards";
 
 // Get all announcements (admin view)
 export const getAll = query({
@@ -191,6 +192,7 @@ export const create = mutation({
     createdBy: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.createdBy);
     const user = await ctx.db.get(args.createdBy);
     const now = Date.now();
 
@@ -240,9 +242,11 @@ export const update = mutation({
     expiresAt: v.optional(v.number()),
     isPinned: v.optional(v.boolean()),
     isActive: v.optional(v.boolean()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { announcementId, ...updates } = args;
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    const { announcementId, requestingUserId: _ignored, ...updates } = args;
 
     await ctx.db.patch(announcementId, {
       ...updates,
@@ -257,8 +261,10 @@ export const update = mutation({
 export const remove = mutation({
   args: {
     announcementId: v.id("announcements"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     // Delete all read receipts first
     const reads = await ctx.db
       .query("announcementReads")

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useTheme } from "../theme-context";
+import { useAuth } from "../auth-context";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -11,6 +12,7 @@ import { Id } from "@/convex/_generated/dataModel";
 function LocationsContent() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const { user } = useAuth();
 
   const locations = useQuery(api.locations.list);
   const createLocation = useMutation(api.locations.create);
@@ -58,6 +60,7 @@ function LocationsContent() {
     setError("");
 
     try {
+      if (!user) throw new Error("Not signed in");
       if (editingLocation) {
         await updateLocation({
           id: editingLocation,
@@ -73,6 +76,7 @@ function LocationsContent() {
           wifiPassword: formData.wifiPassword || undefined,
           securityNotes: formData.securityNotes || undefined,
           notes: formData.notes || undefined,
+          requestingUserId: user._id,
         });
         setEditingLocation(null);
       } else {
@@ -89,6 +93,7 @@ function LocationsContent() {
           wifiPassword: formData.wifiPassword || undefined,
           securityNotes: formData.securityNotes || undefined,
           notes: formData.notes || undefined,
+          requestingUserId: user._id,
         });
       }
 
@@ -121,7 +126,8 @@ function LocationsContent() {
   const handleSeed = async () => {
     setSeeding(true);
     try {
-      await seedLocations({});
+      if (!user) throw new Error("Not signed in");
+      await seedLocations({ requestingUserId: user._id });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to seed locations");
     } finally {
@@ -131,7 +137,8 @@ function LocationsContent() {
 
   const handleDeactivate = async (id: Id<"locations">) => {
     try {
-      await deactivateLocation({ id });
+      if (!user) throw new Error("Not signed in");
+      await deactivateLocation({ id, requestingUserId: user._id });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to deactivate location");
     }
@@ -139,7 +146,8 @@ function LocationsContent() {
 
   const handleReactivate = async (id: Id<"locations">) => {
     try {
-      await reactivateLocation({ id });
+      if (!user) throw new Error("Not signed in");
+      await reactivateLocation({ id, requestingUserId: user._id });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reactivate location");
     }
