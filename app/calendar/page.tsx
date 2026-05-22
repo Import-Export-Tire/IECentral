@@ -284,6 +284,7 @@ function CalendarContent() {
           location: formData.location || undefined,
           meetingLink: formData.meetingLink || undefined,
           meetingType: formData.meetingType || undefined,
+          requestingUserId: user._id as Id<"users">,
         });
         // Also propagate metadata fields to every other occurrence in the
         // series — start/end stay per-occurrence so each instance keeps
@@ -297,6 +298,7 @@ function CalendarContent() {
             location: formData.location || undefined,
             meetingLink: formData.meetingLink || undefined,
             meetingType: formData.meetingType || undefined,
+            requestingUserId: user._id as Id<"users">,
           });
         }
         setShowCreateModal(false);
@@ -339,7 +341,7 @@ function CalendarContent() {
         });
 
         const roomLink = `/meetings/room/${meetingId}`;
-        await updateEvent({ eventId, meetingLink: roomLink });
+        await updateEvent({ eventId, meetingLink: roomLink, requestingUserId: user._id as Id<"users"> });
 
         // Generate sibling occurrences — shift start/end one period forward
         // so the series begins AFTER the event we just inserted.
@@ -468,10 +470,12 @@ function CalendarContent() {
 
   const handleAddInvitees = async () => {
     if (!selectedEvent || selectedInviteeIds.length === 0) return;
+    if (!user) return;
     try {
       await addInvitees({
         eventId: selectedEvent._id,
         inviteeIds: selectedInviteeIds,
+        requestingUserId: user._id as Id<"users">,
       });
       setShowAddInviteesModal(false);
       setSelectedInviteeIds([]);
@@ -1563,7 +1567,8 @@ function CalendarContent() {
                           </div>
                           <button
                             onClick={async () => {
-                              await removeCalendarShare({ shareId: share._id });
+                              if (!user) return;
+                              await removeCalendarShare({ shareId: share._id, requestingUserId: user._id as Id<"users"> });
                             }}
                             className={`p-1 rounded ${isDark ? "hover:bg-red-500/20 text-red-400" : "hover:bg-red-100 text-red-600"}`}
                           >

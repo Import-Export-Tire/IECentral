@@ -154,6 +154,7 @@ export const attachZoomToEvent = action({
       eventId: args.eventId,
       meetingLink: result.joinUrl,
       meetingType: "zoom",
+      requestingUserId: args.userId,
     });
     return { joinUrl: result.joinUrl, zoomMeetingId: result.zoomMeetingId };
   },

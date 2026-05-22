@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { requireManagePersonnel } from "./authGuards";
 
 // ============ QUERIES ============
 
@@ -270,6 +271,7 @@ export const create = mutation({
     createdBy: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.createdBy);
     const now = Date.now();
 
     const shiftId = await ctx.db.insert("shifts", {
@@ -304,9 +306,11 @@ export const update = mutation({
     requiredCount: v.optional(v.number()),
     assignedPersonnel: v.optional(v.array(v.id("personnel"))),
     notes: v.optional(v.string()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { shiftId, ...updates } = args;
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    const { shiftId, requestingUserId: _ignored, ...updates } = args;
 
     const updateData: Record<string, unknown> = { updatedAt: Date.now() };
     for (const [key, value] of Object.entries(updates)) {
@@ -325,8 +329,10 @@ export const assignPersonnel = mutation({
   args: {
     shiftId: v.id("shifts"),
     personnelId: v.id("personnel"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const shift = await ctx.db.get(args.shiftId);
     if (!shift) throw new Error("Shift not found");
 
@@ -348,8 +354,10 @@ export const unassignPersonnel = mutation({
   args: {
     shiftId: v.id("shifts"),
     personnelId: v.id("personnel"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const shift = await ctx.db.get(args.shiftId);
     if (!shift) throw new Error("Shift not found");
 
@@ -369,8 +377,10 @@ export const setLead = mutation({
   args: {
     shiftId: v.id("shifts"),
     personnelId: v.id("personnel"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const shift = await ctx.db.get(args.shiftId);
     if (!shift) throw new Error("Shift not found");
 
@@ -385,8 +395,12 @@ export const setLead = mutation({
 
 // Remove department lead
 export const removeLead = mutation({
-  args: { shiftId: v.id("shifts") },
+  args: {
+    shiftId: v.id("shifts"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const shift = await ctx.db.get(args.shiftId);
     if (!shift) throw new Error("Shift not found");
 
@@ -407,6 +421,7 @@ export const copyFromDate = mutation({
     createdBy: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.createdBy);
     const sourceShifts = await ctx.db
       .query("shifts")
       .withIndex("by_date", (q) => q.eq("date", args.sourceDate))
@@ -439,8 +454,12 @@ export const copyFromDate = mutation({
 
 // Delete shift
 export const remove = mutation({
-  args: { shiftId: v.id("shifts") },
+  args: {
+    shiftId: v.id("shifts"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     await ctx.db.delete(args.shiftId);
     return args.shiftId;
   },
@@ -448,8 +467,12 @@ export const remove = mutation({
 
 // Bulk delete shifts for a date
 export const removeByDate = mutation({
-  args: { date: v.string() },
+  args: {
+    date: v.string(),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const shifts = await ctx.db
       .query("shifts")
       .withIndex("by_date", (q) => q.eq("date", args.date))
@@ -523,6 +546,7 @@ export const addDailyTask = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
     const taskId = `task_${now}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -562,8 +586,10 @@ export const removeDailyTask = mutation({
     date: v.string(),
     department: v.string(),
     taskId: v.string(),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const existing = await ctx.db
       .query("shiftDailyTasks")
       .withIndex("by_date_department", (q) =>
@@ -642,6 +668,7 @@ export const setDailyTasks = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
 
     const existing = await ctx.db

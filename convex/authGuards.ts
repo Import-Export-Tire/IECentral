@@ -84,6 +84,29 @@ export async function requireManagePersonnel(
 }
 
 /**
+ * Throws unless the requesting user IS the owner of the resource, OR
+ * has a personnel-management role. Use for resources that are
+ * user-owned (calendar events, expense report drafts, etc.) but
+ * should be admin-overridable.
+ */
+export async function requireSelfOrManager(
+  ctx: AnyCtx,
+  requestingUserId: Id<"users">,
+  ownerUserId: Id<"users"> | null | undefined,
+): Promise<void> {
+  if (ownerUserId && requestingUserId === ownerUserId) {
+    // Even self-actors must be a real, active user.
+    const user = await ctx.db.get(requestingUserId);
+    if (!user || user.isActive === false) {
+      throw new Error("Unauthorized: account is inactive");
+    }
+    return;
+  }
+  // Not the owner — fall back to manager check.
+  await requireManagePersonnel(ctx, requestingUserId);
+}
+
+/**
  * Throws unless the requesting user exists, is active, and has one of
  * the specified roles. Use when the action requires a specific role
  * or a small set (e.g. "super_admin" only for destructive cleanup).

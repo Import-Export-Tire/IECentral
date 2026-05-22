@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAdmin, requireSelfOrManager } from "./authGuards";
 
 // ============ QUERIES ============
 
@@ -246,6 +247,10 @@ export const create = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    // Creating an event "as yourself" is the common path; managers
+    // can also create events for anyone. Either way, gate via the
+    // shared owner-or-manager helper.
+    await requireSelfOrManager(ctx, args.userId, args.userId);
     const user = await ctx.db.get(args.userId);
     if (!user) throw new Error("User not found");
 
@@ -301,6 +306,7 @@ export const createRecurring = mutation({
     count: v.number(),
   },
   handler: async (ctx, args) => {
+    await requireSelfOrManager(ctx, args.userId, args.userId);
     const user = await ctx.db.get(args.userId);
     if (!user) throw new Error("User not found");
     const now = Date.now();
@@ -361,6 +367,9 @@ export const cancelSeries = mutation({
       .query("events")
       .withIndex("by_series", (q) => q.eq("seriesId", args.seriesId))
       .collect();
+    // Use the first occurrence's creator to determine ownership.
+    const ownerId = siblings[0]?.createdBy ?? null;
+    await requireSelfOrManager(ctx, args.userId, ownerId);
     const now = Date.now();
     for (const e of siblings) {
       if (!e.isCancelled) {
@@ -389,9 +398,10 @@ export const updateSeries = mutation({
     location: v.optional(v.string()),
     meetingLink: v.optional(v.string()),
     meetingType: v.optional(v.string()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { seriesId, ...rest } = args;
+    const { seriesId, requestingUserId, ...rest } = args;
     const updates = Object.fromEntries(
       Object.entries(rest).filter(([, v]) => v !== undefined)
     );
@@ -400,6 +410,8 @@ export const updateSeries = mutation({
       .query("events")
       .withIndex("by_series", (q) => q.eq("seriesId", seriesId))
       .collect();
+    const ownerId = siblings[0]?.createdBy ?? null;
+    await requireSelfOrManager(ctx, requestingUserId, ownerId);
     const now = Date.now();
     for (const e of siblings) {
       await ctx.db.patch(e._id, { ...updates, updatedAt: now });
@@ -420,11 +432,13 @@ export const update = mutation({
     location: v.optional(v.string()),
     meetingLink: v.optional(v.string()),
     meetingType: v.optional(v.string()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { eventId, ...updates } = args;
+    const { eventId, requestingUserId, ...updates } = args;
     const event = await ctx.db.get(eventId);
     if (!event) throw new Error("Event not found");
+    await requireSelfOrManager(ctx, requestingUserId, event.createdBy);
 
     const filteredUpdates = Object.fromEntries(
       Object.entries(updates).filter(([, v]) => v !== undefined)
@@ -441,8 +455,12 @@ export const update = mutation({
 
 // Delete an event permanently
 export const deleteEvent = mutation({
-  args: { eventId: v.id("events") },
+  args: {
+    eventId: v.id("events"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     // Delete invites first
     const invites = await ctx.db.query("eventInvites").withIndex("by_event", (q) => q.eq("eventId", args.eventId)).collect();
     for (const inv of invites) await ctx.db.delete(inv._id);
@@ -459,6 +477,7 @@ export const cancel = mutation({
   handler: async (ctx, args) => {
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new Error("Event not found");
+    await requireSelfOrManager(ctx, args.userId, event.createdBy);
 
     await ctx.db.patch(args.eventId, {
       isCancelled: true,
@@ -476,10 +495,12 @@ export const addInvitees = mutation({
   args: {
     eventId: v.id("events"),
     inviteeIds: v.array(v.id("users")),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new Error("Event not found");
+    await requireSelfOrManager(ctx, args.requestingUserId, event.createdBy);
 
     const now = Date.now();
 
@@ -514,8 +535,12 @@ export const removeInvitee = mutation({
   args: {
     eventId: v.id("events"),
     userId: v.id("users"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const event = await ctx.db.get(args.eventId);
+    if (!event) throw new Error("Event not found");
+    await requireSelfOrManager(ctx, args.requestingUserId, event.createdBy);
     const invite = await ctx.db
       .query("eventInvites")
       .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
@@ -538,6 +563,9 @@ export const respondToInvite = mutation({
     status: v.string(), // "accepted" | "declined" | "maybe"
   },
   handler: async (ctx, args) => {
+    // Self-action — must be a real, active user. Identity is bound by
+    // the userId arg matching the invite row below.
+    await requireSelfOrManager(ctx, args.userId, args.userId);
     const invite = await ctx.db
       .query("eventInvites")
       .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
@@ -563,6 +591,7 @@ export const markInviteRead = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireSelfOrManager(ctx, args.userId, args.userId);
     const invite = await ctx.db
       .query("eventInvites")
       .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
@@ -581,6 +610,7 @@ export const markInviteRead = mutation({
 export const markAllInvitesRead = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
+    await requireSelfOrManager(ctx, args.userId, args.userId);
     const invites = await ctx.db
       .query("eventInvites")
       .withIndex("by_user_unread", (q) =>
@@ -656,6 +686,8 @@ export const shareCalendar = mutation({
     permission: v.string(), // "view" | "edit"
   },
   handler: async (ctx, args) => {
+    // Only the calendar owner (or a manager) can share their calendar.
+    await requireSelfOrManager(ctx, args.ownerId, args.ownerId);
     // Check if already shared
     const existing = await ctx.db
       .query("calendarShares")
@@ -686,8 +718,12 @@ export const shareCalendar = mutation({
 export const removeCalendarShare = mutation({
   args: {
     shareId: v.id("calendarShares"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const share = await ctx.db.get(args.shareId);
+    if (!share) throw new Error("Share not found");
+    await requireSelfOrManager(ctx, args.requestingUserId, share.ownerId);
     await ctx.db.delete(args.shareId);
     return args.shareId;
   },

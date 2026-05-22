@@ -258,10 +258,12 @@ function ShiftsContent() {
 
   const handleRemoveTask = async (department: string, taskId: string) => {
     try {
+      if (!user) return;
       await removeDailyTask({
         date: selectedDate,
         department,
         taskId,
+        requestingUserId: user._id,
       });
     } catch (error) {
       console.error("Failed to remove task:", error);
@@ -313,22 +315,27 @@ function ShiftsContent() {
 
   const handleDeleteDepartment = async (shiftId: Id<"shifts">) => {
     if (confirm("Are you sure you want to delete this department for today?")) {
-      await removeShift({ shiftId });
+      if (!user) return;
+      await removeShift({ shiftId, requestingUserId: user._id as Id<"users"> });
     }
   };
 
   const handleAssignPersonnel = async (personnelId: Id<"personnel">) => {
     if (!selectedDepartment) return;
+    if (!user) return;
     await assignPersonnel({
       shiftId: selectedDepartment._id,
       personnelId,
+      requestingUserId: user._id as Id<"users">,
     });
   };
 
   const handleUnassignPersonnel = async (shiftId: Id<"shifts">, personnelId: Id<"personnel">) => {
+    if (!user) return;
     await unassignPersonnel({
       shiftId,
       personnelId,
+      requestingUserId: user._id as Id<"users">,
     });
   };
 
@@ -363,6 +370,7 @@ function ShiftsContent() {
   const handleDrop = async (targetShift: DepartmentShift) => {
     if (!draggedPerson) return;
 
+    if (!user) return;
     // If coming from another department, unassign first
     if (draggedPerson.fromDepartment !== "unassigned") {
       const sourceShift = shifts.find(s => s.department === draggedPerson.fromDepartment);
@@ -370,6 +378,7 @@ function ShiftsContent() {
         await unassignPersonnel({
           shiftId: sourceShift._id,
           personnelId: draggedPerson.personnelId,
+          requestingUserId: user._id as Id<"users">,
         });
       }
     }
@@ -378,6 +387,7 @@ function ShiftsContent() {
     await assignPersonnel({
       shiftId: targetShift._id,
       personnelId: draggedPerson.personnelId,
+      requestingUserId: user._id as Id<"users">,
     });
 
     setDraggedPerson(null);
@@ -398,12 +408,14 @@ function ShiftsContent() {
     } : null);
 
     if (!person) return;
+    if (!user) return;
+    const uid = user._id as Id<"users">;
 
     // If dragging from lead position to this lead position
     if (person.isLead && person.fromDepartment !== "unassigned") {
       const sourceShift = shifts.find(s => s.department === person.fromDepartment);
       if (sourceShift) {
-        await removeLead({ shiftId: sourceShift._id });
+        await removeLead({ shiftId: sourceShift._id, requestingUserId: uid });
       }
     }
 
@@ -412,6 +424,7 @@ function ShiftsContent() {
       await assignPersonnel({
         shiftId: targetShift._id,
         personnelId: person.personnelId,
+        requestingUserId: uid,
       });
     } else if (person.fromDepartment !== targetShift.department && !person.isLead) {
       // Moving from another department's staff to lead position
@@ -420,11 +433,13 @@ function ShiftsContent() {
         await unassignPersonnel({
           shiftId: sourceShift._id,
           personnelId: person.personnelId,
+          requestingUserId: uid,
         });
       }
       await assignPersonnel({
         shiftId: targetShift._id,
         personnelId: person.personnelId,
+        requestingUserId: uid,
       });
     }
 
@@ -432,6 +447,7 @@ function ShiftsContent() {
     await setLead({
       shiftId: targetShift._id,
       personnelId: person.personnelId,
+      requestingUserId: uid,
     });
 
     setDraggedPerson(null);
@@ -439,7 +455,8 @@ function ShiftsContent() {
 
   // Handle remove lead
   const handleRemoveLead = async (shiftId: Id<"shifts">) => {
-    await removeLead({ shiftId });
+    if (!user) return;
+    await removeLead({ shiftId, requestingUserId: user._id as Id<"users"> });
   };
 
   // Handle create default departments
