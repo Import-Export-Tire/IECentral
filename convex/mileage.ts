@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAdmin } from "./authGuards";
 
 // Current IRS mileage rate (2026 rate - update annually)
 const CURRENT_IRS_RATE = 0.725; // $0.725 per mile for 2026
@@ -216,8 +217,10 @@ export const updateStatus = mutation({
   args: {
     entryId: v.id("mileageEntries"),
     status: v.string(),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const entry = await ctx.db.get(args.entryId);
     if (!entry) throw new Error("Entry not found");
 
@@ -247,8 +250,10 @@ export const bulkUpdateStatus = mutation({
   args: {
     entryIds: v.array(v.id("mileageEntries")),
     status: v.string(),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const now = Date.now();
 
     for (const entryId of args.entryIds) {
@@ -278,8 +283,12 @@ export const bulkUpdateStatus = mutation({
 
 // Delete a mileage entry
 export const remove = mutation({
-  args: { entryId: v.id("mileageEntries") },
+  args: {
+    entryId: v.id("mileageEntries"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     await ctx.db.delete(args.entryId);
     return args.entryId;
   },

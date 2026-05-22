@@ -801,6 +801,7 @@ function DealerManagementTab({ isDark }: { isDark: boolean }) {
   const updateDealer = useMutation(api.dealerRebates.updateDealer);
   const deleteDealer = useMutation(api.dealerRebates.deleteDealer);
   const permissions = usePermissions();
+  const { user } = useAuth();
   const canDeactivate = permissions.hasPermission("dealerRebates.deactivateDealers");
 
   const [search, setSearch] = useState("");
@@ -873,11 +874,12 @@ function DealerManagementTab({ isDark }: { isDark: boolean }) {
         primSec: formPrimSec ? Number(formPrimSec) : undefined,
       };
 
+      if (!user) { setFormError("Not signed in"); return; }
       let result;
       if (editingDealer) {
-        result = await updateDealer({ id: editingDealer._id, ...data });
+        result = await updateDealer({ id: editingDealer._id, ...data, requestingUserId: user._id });
       } else {
-        result = await createDealer(data);
+        result = await createDealer({ ...data, requestingUserId: user._id });
       }
 
       if (result && !result.success && result.error) {
@@ -894,11 +896,13 @@ function DealerManagementTab({ isDark }: { isDark: boolean }) {
   };
 
   const handleDelete = async (id: Id<"dealerRebateDealers">) => {
-    await deleteDealer({ id });
+    if (!user) return;
+    await deleteDealer({ id, requestingUserId: user._id });
   };
 
   const handleReactivate = async (d: Dealer) => {
-    await updateDealer({ id: d._id, isActive: true });
+    if (!user) return;
+    await updateDealer({ id: d._id, isActive: true, requestingUserId: user._id });
   };
 
   if (!dealers) {
@@ -1198,6 +1202,7 @@ function DealerManagementTab({ isDark }: { isDark: boolean }) {
 
 function UploadHistoryTab({ isDark }: { isDark: boolean }) {
   const permissions = usePermissions();
+  const { user } = useAuth();
   const canDeleteUploads = permissions.hasPermission("dealerRebates.deleteUploads");
   const deleteUploadMut = useMutation(api.dealerRebates.deleteUpload);
   const [confirmDeleteId, setConfirmDeleteId] = useState<Id<"dealerRebateUploads"> | null>(null);
@@ -1422,7 +1427,8 @@ function UploadHistoryTab({ isDark }: { isDark: boolean }) {
               </button>
               <button
                 onClick={async () => {
-                  await deleteUploadMut({ id: confirmDeleteId });
+                  if (!user) return;
+                  await deleteUploadMut({ id: confirmDeleteId, requestingUserId: user._id });
                   setConfirmDeleteId(null);
                   setSelectedUploadId(null);
                 }}

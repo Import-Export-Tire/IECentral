@@ -1,5 +1,6 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAdmin } from "./authGuards";
 
 // ============ DEALER CRUD ============
 
@@ -41,8 +42,10 @@ export const createDealer = mutation({
     dealerNumber: v.optional(v.string()),
     programs: v.array(v.string()),
     primSec: v.optional(v.number()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     // Check: 1 JMK per Fanatic ID / Momentum number
     if (args.jmk) {
       const existingByJmk = await ctx.db
@@ -91,9 +94,11 @@ export const updateDealer = mutation({
     programs: v.optional(v.array(v.string())),
     primSec: v.optional(v.number()),
     isActive: v.optional(v.boolean()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { id, ...updates } = args;
+    await requireAdmin(ctx, args.requestingUserId);
+    const { id, requestingUserId: _ignored, ...updates } = args;
 
     // Check: 1 JMK per Fanatic ID / Momentum number (excluding self)
     const current = await ctx.db.get(id);
@@ -134,8 +139,12 @@ export const updateDealer = mutation({
 });
 
 export const deleteDealer = mutation({
-  args: { id: v.id("dealerRebateDealers") },
+  args: {
+    id: v.id("dealerRebateDealers"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     await ctx.db.patch(args.id, { isActive: false, updatedAt: Date.now() });
     return { success: true };
   },
@@ -164,6 +173,7 @@ export const saveUpload = mutation({
     dateRangeEnd: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.uploadedBy);
     const id = await ctx.db.insert("dealerRebateUploads", {
       uploadDate: Date.now(),
       fileName: args.fileName,
@@ -258,8 +268,12 @@ export const searchUploadsByDealer = query({
 });
 
 export const deleteUpload = mutation({
-  args: { id: v.id("dealerRebateUploads") },
+  args: {
+    id: v.id("dealerRebateUploads"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     await ctx.db.delete(args.id);
     return { success: true };
   },
@@ -288,8 +302,9 @@ export const deleteOldUploads = internalMutation({
 // ============ SEED DATA ============
 
 export const seedDealers = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     // Check if already seeded
     const existing = await ctx.db.query("dealerRebateDealers").first();
     if (existing) {

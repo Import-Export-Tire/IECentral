@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { requireAdmin } from "./authGuards";
 
 // ─── CUSTOMER CONFIG QUERIES ────────────────────────────────────────────────
 
@@ -38,6 +39,7 @@ export const createCustomer = mutation({
     createdBy: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.createdBy);
     const now = Date.now();
     return await ctx.db.insert("wtdCommissionCustomers", {
       ...args,
@@ -58,9 +60,11 @@ export const updateCustomer = mutation({
     commissionType: v.optional(v.string()),
     commissionValue: v.optional(v.number()),
     isActive: v.optional(v.boolean()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { id, ...updates } = args;
+    await requireAdmin(ctx, args.requestingUserId);
+    const { id, requestingUserId: _ignored, ...updates } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Customer config not found");
     await ctx.db.patch(id, { ...updates, updatedAt: Date.now() });
@@ -68,8 +72,12 @@ export const updateCustomer = mutation({
 });
 
 export const deleteCustomer = mutation({
-  args: { id: v.id("wtdCommissionCustomers") },
+  args: {
+    id: v.id("wtdCommissionCustomers"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     await ctx.db.delete(args.id);
   },
 });
@@ -111,6 +119,7 @@ export const setAccessOverrides = mutation({
     updatedBy: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.updatedBy);
     const existing = await ctx.db.query("wtdCommissionAccess").collect();
     const now = Date.now();
 
@@ -226,8 +235,10 @@ export const updateReportLineItems = mutation({
       })
     ),
     grandTotal: v.number(),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     await ctx.db.patch(args.reportId, {
       lineItems: args.lineItems,
       grandTotal: args.grandTotal,
@@ -236,14 +247,20 @@ export const updateReportLineItems = mutation({
 });
 
 export const deleteReport = mutation({
-  args: { id: v.id("wtdCommissionReports") },
+  args: {
+    id: v.id("wtdCommissionReports"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     await ctx.db.delete(args.id);
   },
 });
 
 export const cleanupExpiredReports = mutation({
-  handler: async (ctx) => {
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const now = Date.now();
     const expired = await ctx.db
       .query("wtdCommissionReports")

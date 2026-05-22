@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { requireAdmin } from "./authGuards";
 
 // ============ QUERIES ============
 
@@ -257,6 +258,7 @@ export const approve = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.userId);
     const report = await ctx.db.get(args.reportId);
     if (!report) throw new Error("Report not found");
     if (report.status !== "submitted") {
@@ -286,6 +288,7 @@ export const reject = mutation({
     reason: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.userId);
     const report = await ctx.db.get(args.reportId);
     if (!report) throw new Error("Report not found");
     if (report.status !== "submitted") {
@@ -311,6 +314,7 @@ export const markPaid = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.userId);
     const report = await ctx.db.get(args.reportId);
     if (!report) throw new Error("Report not found");
     if (report.status !== "approved") {
@@ -330,8 +334,12 @@ export const markPaid = mutation({
 
 // Delete a draft report
 export const remove = mutation({
-  args: { reportId: v.id("expenseReports") },
+  args: {
+    reportId: v.id("expenseReports"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const report = await ctx.db.get(args.reportId);
     if (!report) throw new Error("Report not found");
     if (report.status !== "draft") {

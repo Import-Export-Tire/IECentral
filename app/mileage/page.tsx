@@ -123,9 +123,11 @@ function MileageContent() {
 
     setIsSubmitting(true);
     try {
+      if (!user) throw new Error("Not signed in");
       await bulkUpdateStatus({
         entryIds: pendingEntries.map(e => e._id),
         status: "submitted",
+        requestingUserId: user._id,
       });
       // Switch view to show submitted entries
       setSelectedStatus("submitted");
@@ -147,9 +149,11 @@ function MileageContent() {
 
     setIsSubmitting(true);
     try {
+      if (!user) throw new Error("Not signed in");
       await bulkUpdateStatus({
         entryIds: submittedEntries.map(e => e._id),
         status: "approved",
+        requestingUserId: user._id,
       });
       setSelectedStatus("approved");
     } catch (err) {
@@ -170,9 +174,11 @@ function MileageContent() {
 
     setIsSubmitting(true);
     try {
+      if (!user) throw new Error("Not signed in");
       await bulkUpdateStatus({
         entryIds: approvedEntries.map(e => e._id),
         status: "paid",
+        requestingUserId: user._id,
       });
       setSelectedStatus("paid");
     } catch (err) {
@@ -260,7 +266,8 @@ function MileageContent() {
   const handleDelete = async (entryId: Id<"mileageEntries">) => {
     if (!confirm("Are you sure you want to delete this entry?")) return;
     try {
-      await removeEntry({ entryId });
+      if (!user) throw new Error("Not signed in");
+      await removeEntry({ entryId, requestingUserId: user._id });
     } catch (err) {
       console.error("Failed to delete:", err);
     }
@@ -739,7 +746,8 @@ function MileageContent() {
                           <button
                             onClick={async () => {
                               try {
-                                await updateStatus({ entryId: entry._id, status: "approved" });
+                                if (!user) throw new Error("Not signed in");
+                                await updateStatus({ entryId: entry._id, status: "approved", requestingUserId: user._id });
                               } catch (err) {
                                 console.error("Failed to approve entry:", err);
                               }
@@ -753,7 +761,8 @@ function MileageContent() {
                           <button
                             onClick={async () => {
                               try {
-                                await updateStatus({ entryId: entry._id, status: "paid" });
+                                if (!user) throw new Error("Not signed in");
+                                await updateStatus({ entryId: entry._id, status: "paid", requestingUserId: user._id });
                               } catch (err) {
                                 console.error("Failed to mark entry as paid:", err);
                               }

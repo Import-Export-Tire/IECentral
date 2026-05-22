@@ -176,6 +176,7 @@ export default function WTDCommissionSetupPage() {
           qualifyingBrands: brands,
           commissionType: form.commissionType,
           commissionValue: value,
+          requestingUserId: user._id,
         });
       } else {
         await createCustomer({
@@ -199,18 +200,20 @@ export default function WTDCommissionSetupPage() {
 
   const handleToggleActive = useCallback(
     async (c: CustomerConfig) => {
-      await updateCustomer({ id: c._id, isActive: !c.isActive });
+      if (!user) return;
+      await updateCustomer({ id: c._id, isActive: !c.isActive, requestingUserId: user._id });
     },
-    [updateCustomer]
+    [updateCustomer, user]
   );
 
   const handleDelete = useCallback(
     async (id: Id<"wtdCommissionCustomers">) => {
       if (confirm("Delete this customer configuration?")) {
-        await deleteCustomer({ id });
+        if (!user) return;
+        await deleteCustomer({ id, requestingUserId: user._id });
       }
     },
-    [deleteCustomer]
+    [deleteCustomer, user]
   );
 
   const handleAddAccessUser = useCallback(

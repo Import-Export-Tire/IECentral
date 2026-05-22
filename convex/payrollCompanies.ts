@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { requireAdmin } from "./authGuards";
 
 // Get all payroll companies
 export const getAll = query({
@@ -80,8 +81,10 @@ export const create = mutation({
     qbCompanyName: v.optional(v.string()),
     payPeriodReference: v.optional(v.string()),
     payPeriodDays: v.optional(v.number()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const now = Date.now();
 
     // Check for duplicate code
@@ -120,9 +123,11 @@ export const update = mutation({
     payPeriodReference: v.optional(v.string()),
     payPeriodDays: v.optional(v.number()),
     isActive: v.optional(v.boolean()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { companyId, ...updates } = args;
+    await requireAdmin(ctx, args.requestingUserId);
+    const { companyId, requestingUserId: _ignored, ...updates } = args;
 
     // Check for duplicate code if changing code
     if (updates.code) {
@@ -145,8 +150,12 @@ export const update = mutation({
 
 // Delete a payroll company (soft delete by deactivating)
 export const deactivate = mutation({
-  args: { companyId: v.id("payrollCompanies") },
+  args: {
+    companyId: v.id("payrollCompanies"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     await ctx.db.patch(args.companyId, {
       isActive: false,
       updatedAt: Date.now(),
@@ -159,8 +168,10 @@ export const assignEmployee = mutation({
   args: {
     personnelId: v.id("personnel"),
     companyId: v.id("payrollCompanies"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     await ctx.db.patch(args.personnelId, {
       payrollCompanyId: args.companyId,
     });
@@ -169,8 +180,12 @@ export const assignEmployee = mutation({
 
 // Unassign employee from company (will use department matching)
 export const unassignEmployee = mutation({
-  args: { personnelId: v.id("personnel") },
+  args: {
+    personnelId: v.id("personnel"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     await ctx.db.patch(args.personnelId, {
       payrollCompanyId: undefined,
     });
@@ -182,8 +197,10 @@ export const bulkAssignByDepartment = mutation({
   args: {
     companyId: v.id("payrollCompanies"),
     departments: v.array(v.string()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const personnel = await ctx.db
       .query("personnel")
       .withIndex("by_status", (q) => q.eq("status", "active"))

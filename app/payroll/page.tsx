@@ -149,10 +149,12 @@ function PayrollContent() {
     if (!newCompanyForm.name || !newCompanyForm.code) return;
 
     try {
+      if (!user) throw new Error("Not signed in");
       await createCompany({
         name: newCompanyForm.name,
         code: newCompanyForm.code,
         departments: newCompanyForm.departments,
+        requestingUserId: user._id,
       });
       setShowCompanyModal(false);
       setNewCompanyForm({ name: "", code: "", departments: [] });

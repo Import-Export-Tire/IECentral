@@ -369,7 +369,8 @@ function ExpenseReportContent() {
                                 <button
                                   onClick={async () => {
                                     if (confirm("Delete this draft?")) {
-                                      await removeReport({ reportId: report._id });
+                                      if (!user) return;
+                                      await removeReport({ reportId: report._id, requestingUserId: user._id });
                                     }
                                   }}
                                   className={`p-1.5 rounded-lg ${isDark ? "hover:bg-slate-700 text-slate-400 hover:text-red-400" : "hover:bg-gray-100 text-gray-400 hover:text-red-500"}`}
