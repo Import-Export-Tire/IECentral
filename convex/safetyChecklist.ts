@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
+import { requireManagePersonnel } from "./authGuards";
 
 // Default checklist items for pickers
 const DEFAULT_PICKER_CHECKLIST_ITEMS = [
@@ -401,6 +402,7 @@ export const upsertTemplate = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
 
     // If setting as default, unset any existing default for this equipment type
@@ -447,8 +449,10 @@ export const upsertTemplate = mutation({
 export const deleteTemplate = mutation({
   args: {
     id: v.id("safetyChecklistTemplates"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const template = await ctx.db.get(args.id);
     if (!template) {
       throw new Error("Template not found");
@@ -480,8 +484,10 @@ export const configureEquipmentChecklist = mutation({
       detailsPrompt: v.optional(v.string()),
       expectedAnswer: v.optional(v.string()), // "yes" | "no" - expected passing answer (defaults to "yes")
     }))),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const equipmentIdTyped = args.equipmentType === "picker"
       ? args.equipmentId as Id<"pickers">
       : args.equipmentId as Id<"scanners">;
@@ -531,8 +537,10 @@ export const addPersonnelOverride = mutation({
       detailsPrompt: v.optional(v.string()),
       expectedAnswer: v.optional(v.string()), // "yes" | "no" - expected passing answer (defaults to "yes")
     })),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const equipmentIdTyped = args.equipmentType === "picker"
       ? args.equipmentId as Id<"pickers">
       : args.equipmentId as Id<"scanners">;
@@ -591,8 +599,10 @@ export const addPersonnelOverride = mutation({
 export const fixHistoricalCompletions = mutation({
   args: {
     questionPatterns: v.array(v.string()), // Patterns to match (e.g., ["influence", "drugs", "alcohol", "impaired"])
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     // Get all completions
     const completions = await ctx.db.query("safetyChecklistCompletions").collect();
 
@@ -654,6 +664,7 @@ export const createDefaultTemplate = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     // Check if default already exists
     const existing = await ctx.db
       .query("safetyChecklistTemplates")

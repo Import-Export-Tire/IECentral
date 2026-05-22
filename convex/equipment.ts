@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { requireAdmin, requireManagePersonnel } from "./authGuards";
 
 // ============ SCANNER QUERIES ============
 
@@ -191,8 +192,10 @@ export const createScanner = mutation({
     purchaseDate: v.optional(v.string()),
     notes: v.optional(v.string()),
     conditionNotes: v.optional(v.string()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const now = Date.now();
 
     // Check if scanner number already exists at this location
@@ -238,9 +241,11 @@ export const updateScanner = mutation({
     notes: v.optional(v.string()),
     conditionNotes: v.optional(v.string()),
     userId: v.optional(v.id("users")), // Who made the change (for PIN tracking)
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { id, userId, ...updates } = args;
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    const { id, userId, requestingUserId: _ignored, ...updates } = args;
     const now = Date.now();
 
     // Get current scanner to check for PIN change
@@ -287,6 +292,7 @@ export const assignScanner = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
     const scanner = await ctx.db.get(args.scannerId);
 
@@ -333,6 +339,7 @@ export const unassignScanner = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
     const scanner = await ctx.db.get(args.scannerId);
 
@@ -384,8 +391,10 @@ export const createPicker = mutation({
     purchaseDate: v.optional(v.string()),
     notes: v.optional(v.string()),
     conditionNotes: v.optional(v.string()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const now = Date.now();
 
     // Check if picker number already exists at this location
@@ -429,9 +438,11 @@ export const updatePicker = mutation({
     notes: v.optional(v.string()),
     conditionNotes: v.optional(v.string()),
     userId: v.optional(v.id("users")), // Who made the change (for PIN tracking)
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { id, userId, ...updates } = args;
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    const { id, userId, requestingUserId: _ignored, ...updates } = args;
     const now = Date.now();
 
     // Get current picker to check for PIN change
@@ -478,6 +489,7 @@ export const assignPicker = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
     const picker = await ctx.db.get(args.pickerId);
 
@@ -524,6 +536,7 @@ export const unassignPicker = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
     const picker = await ctx.db.get(args.pickerId);
 
@@ -615,6 +628,7 @@ export const changeEquipmentStatus = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
 
     // Get the equipment
@@ -669,6 +683,7 @@ export const retireEquipment = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.userId);
     const now = Date.now();
 
     const equipment =
@@ -715,8 +730,10 @@ export const updateConditionNotes = mutation({
     equipmentType: v.string(), // "scanner" | "picker"
     equipmentId: v.union(v.id("scanners"), v.id("pickers")),
     conditionNotes: v.string(),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     await ctx.db.patch(args.equipmentId, {
       conditionNotes: args.conditionNotes,
       updatedAt: Date.now(),
@@ -787,6 +804,7 @@ export const assignEquipmentWithAgreement = mutation({
     equipmentValue: v.optional(v.number()), // Default $100
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
     const equipmentValue = args.equipmentValue ?? 100;
 
@@ -885,6 +903,7 @@ export const returnEquipmentWithCheck = mutation({
     deductionAmount: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.checkedBy);
     const now = Date.now();
 
     // Get equipment
@@ -1092,6 +1111,7 @@ export const reassignEquipment = mutation({
     equipmentValue: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
     const equipmentValue = args.equipmentValue ?? 100;
 
@@ -1248,6 +1268,7 @@ export const deleteEquipment = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.userId);
     // Get equipment to verify it exists
     const equipment = await ctx.db.get(args.equipmentId);
     if (!equipment) {
@@ -1404,8 +1425,10 @@ export const createVehicle = mutation({
     purchasePrice: v.optional(v.number()),
     purchasedFrom: v.optional(v.string()),
     notes: v.optional(v.string()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     // Check for duplicate VIN
     const existing = await ctx.db
       .query("vehicles")
@@ -1475,9 +1498,11 @@ export const updateVehicle = mutation({
     nextMaintenanceMileage: v.optional(v.number()),
     notes: v.optional(v.string()),
     conditionNotes: v.optional(v.string()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { id, ...updates } = args;
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    const { id, requestingUserId: _ignored, ...updates } = args;
     const vehicle = await ctx.db.get(id);
     if (!vehicle) {
       throw new Error("Vehicle not found");
@@ -1523,8 +1548,10 @@ export const assignVehicle = mutation({
   args: {
     vehicleId: v.id("vehicles"),
     personnelId: v.id("personnel"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const vehicle = await ctx.db.get(args.vehicleId);
     if (!vehicle) {
       throw new Error("Vehicle not found");
@@ -1550,8 +1577,10 @@ export const assignVehicle = mutation({
 export const unassignVehicle = mutation({
   args: {
     vehicleId: v.id("vehicles"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const vehicle = await ctx.db.get(args.vehicleId);
     if (!vehicle) {
       throw new Error("Vehicle not found");
@@ -1573,8 +1602,10 @@ export const retireVehicle = mutation({
   args: {
     vehicleId: v.id("vehicles"),
     reason: v.string(),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const vehicle = await ctx.db.get(args.vehicleId);
     if (!vehicle) {
       throw new Error("Vehicle not found");
@@ -1599,8 +1630,10 @@ export const updateVehicleMileage = mutation({
   args: {
     vehicleId: v.id("vehicles"),
     mileage: v.number(),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const vehicle = await ctx.db.get(args.vehicleId);
     if (!vehicle) {
       throw new Error("Vehicle not found");
@@ -1621,8 +1654,10 @@ export const updateVehicleMileage = mutation({
 export const deleteVehicle = mutation({
   args: {
     vehicleId: v.id("vehicles"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const vehicle = await ctx.db.get(args.vehicleId);
     if (!vehicle) {
       throw new Error("Vehicle not found");
@@ -1761,6 +1796,7 @@ export const createComputer = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
 
     const computerId = await ctx.db.insert("equipment", {
@@ -1823,9 +1859,11 @@ export const updateComputer = mutation({
     purchaseDate: v.optional(v.string()),
     warrantyExpiration: v.optional(v.string()),
     notes: v.optional(v.string()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { computerId, ...updates } = args;
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    const { computerId, requestingUserId: _ignored, ...updates } = args;
 
     // Filter out undefined values
     const filteredUpdates: Record<string, unknown> = {};
@@ -1850,8 +1888,10 @@ export const updateChromeRemote = mutation({
     computerId: v.id("equipment"),
     chromeRemoteId: v.string(),
     remoteAccessEnabled: v.boolean(),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     await ctx.db.patch(args.computerId, {
       chromeRemoteId: args.chromeRemoteId,
       remoteAccessEnabled: args.remoteAccessEnabled,
@@ -1864,8 +1904,12 @@ export const updateChromeRemote = mutation({
 
 // Delete computer
 export const deleteComputer = mutation({
-  args: { computerId: v.id("equipment") },
+  args: {
+    computerId: v.id("equipment"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const computer = await ctx.db.get(args.computerId);
     if (!computer) {
       throw new Error("Computer not found");

@@ -249,6 +249,7 @@ function EquipmentContent() {
     }
 
     try {
+      if (!user) throw new Error("Not signed in");
       if (editingId) {
         if (activeTab === "scanners") {
           await updateScanner({
@@ -262,7 +263,8 @@ function EquipmentContent() {
             notes: formData.notes || undefined,
             conditionNotes: formData.conditionNotes || undefined,
             status: formData.status || undefined,
-            userId: user?._id, // For PIN change tracking
+            userId: user._id, // For PIN change tracking
+            requestingUserId: user._id,
           });
         } else {
           await updatePicker({
@@ -276,7 +278,8 @@ function EquipmentContent() {
             notes: formData.notes || undefined,
             conditionNotes: formData.conditionNotes || undefined,
             status: formData.status || undefined,
-            userId: user?._id, // For PIN change tracking
+            userId: user._id, // For PIN change tracking
+            requestingUserId: user._id,
           });
         }
       } else {
@@ -290,6 +293,7 @@ function EquipmentContent() {
             purchaseDate: formData.purchaseDate || undefined,
             notes: formData.notes || undefined,
             conditionNotes: formData.conditionNotes || undefined,
+            requestingUserId: user._id,
           });
         } else {
           await createPicker({
@@ -301,6 +305,7 @@ function EquipmentContent() {
             purchaseDate: formData.purchaseDate || undefined,
             notes: formData.notes || undefined,
             conditionNotes: formData.conditionNotes || undefined,
+            requestingUserId: user._id,
           });
         }
       }
@@ -376,6 +381,7 @@ function EquipmentContent() {
     }
 
     try {
+      if (!user) throw new Error("Not signed in");
       if (editingComputerId) {
         await updateComputer({
           computerId: editingComputerId,
@@ -395,6 +401,7 @@ function EquipmentContent() {
           model: computerFormData.model || undefined,
           operatingSystem: computerFormData.operatingSystem || undefined,
           notes: computerFormData.notes || undefined,
+          requestingUserId: user._id,
         });
       } else {
         if (!user?._id) {
@@ -1069,7 +1076,8 @@ By signing below, the Employee acknowledges that they have read, understand, and
                                   <button
                                     onClick={async () => {
                                       if (confirm(`Delete ${comp.name}?`)) {
-                                        await deleteComputerMutation({ computerId: comp._id });
+                                        if (!user) return;
+                                        await deleteComputerMutation({ computerId: comp._id, requestingUserId: user._id });
                                       }
                                     }}
                                     className="text-red-400 hover:text-red-300 text-xs"
@@ -1209,7 +1217,8 @@ By signing below, the Employee acknowledges that they have read, understand, and
                             const reason = prompt("Reason for retirement:");
                             if (reason) {
                               try {
-                                await retireVehicle({ vehicleId: vehicle._id, reason });
+                                if (!user) return;
+                                await retireVehicle({ vehicleId: vehicle._id, reason, requestingUserId: user._id });
                               } catch (err) {
                                 setError(err instanceof Error ? err.message : "Failed to retire vehicle");
                               }
@@ -2427,6 +2436,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                 e.preventDefault();
                 setError("");
                 try {
+                  if (!user) throw new Error("Not signed in");
                   if (editingVehicleId) {
                     await updateVehicle({
                       id: editingVehicleId,
@@ -2449,6 +2459,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       purchasePrice: vehicleFormData.purchasePrice ? parseFloat(vehicleFormData.purchasePrice) : undefined,
                       purchasedFrom: vehicleFormData.purchasedFrom || undefined,
                       notes: vehicleFormData.notes || undefined,
+                      requestingUserId: user._id,
                     });
                   } else {
                     await createVehicle({
@@ -2471,6 +2482,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       purchasePrice: vehicleFormData.purchasePrice ? parseFloat(vehicleFormData.purchasePrice) : undefined,
                       purchasedFrom: vehicleFormData.purchasedFrom || undefined,
                       notes: vehicleFormData.notes || undefined,
+                      requestingUserId: user._id,
                     });
                   }
                   setShowNewVehicle(false);

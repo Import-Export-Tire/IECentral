@@ -826,7 +826,8 @@ function ScannerDetailContent() {
                       if (newPin !== confirmPin) { setPinError("PINs do not match"); return; }
                       setSavingPin(true);
                       try {
-                        await updateScanner({ id: scannerId, pin: newPin, userId: user?._id });
+                        if (!user) throw new Error("Not signed in");
+                        await updateScanner({ id: scannerId, pin: newPin, userId: user._id, requestingUserId: user._id });
                         setShowPinModal(false);
                       } catch (err) {
                         setPinError(err instanceof Error ? err.message : "Failed to update PIN");

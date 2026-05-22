@@ -209,7 +209,8 @@ function SafetyChecklistsContent() {
     if (!confirm("Are you sure you want to delete this template?")) return;
 
     try {
-      await deleteTemplate({ id: templateId });
+      if (!user) throw new Error("Not signed in");
+      await deleteTemplate({ id: templateId, requestingUserId: user._id });
       setSuccess("Template deleted successfully!");
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
