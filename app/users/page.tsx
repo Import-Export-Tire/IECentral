@@ -86,6 +86,12 @@ function UsersContent() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   // Permission search filter
   const [permissionSearch, setPermissionSearch] = useState("");
+  // User list filters
+  const [userSearch, setUserSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("active");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  // Copy-from-user picker (for the Edit modal)
+  const [copyFromUserId, setCopyFromUserId] = useState<Id<"users"> | "">("");
 
   const toggleCategory = (cat: string) => {
     setExpandedCategories(prev => {
@@ -160,6 +166,52 @@ function UsersContent() {
   const clearAllOverrides = () => {
     setEditForm(prev => ({ ...prev, permissionOverrides: {} }));
   };
+
+  // Bulk category actions — grant all / deny all / clear category overrides
+  const bulkSetCategory = (categoryKey: string, action: "grantAll" | "denyAll" | "clearOverrides") => {
+    setEditForm(prev => {
+      const overrides = { ...prev.permissionOverrides };
+      const catPerms = ALL_PERMISSIONS.filter(p => p.category === categoryKey);
+      for (const p of catPerms) {
+        if (action === "clearOverrides") {
+          delete overrides[p.key];
+        } else {
+          const target = action === "grantAll";
+          const roleDefault = editRoleDefaults[p.key] ?? false;
+          if (target === roleDefault) delete overrides[p.key];
+          else overrides[p.key] = target;
+        }
+      }
+      return { ...prev, permissionOverrides: overrides };
+    });
+  };
+
+  // Copy permission overrides from another user
+  const copyOverridesFromUser = (sourceUserId: Id<"users">) => {
+    const source = users?.find(u => u._id === sourceUserId);
+    if (!source) return;
+    setEditForm(prev => ({
+      ...prev,
+      permissionOverrides: source.permissionOverrides ? { ...source.permissionOverrides } : {},
+    }));
+  };
+
+  // Filter users for the listing
+  const filteredUsers = useMemo(() => {
+    if (!users) return [] as User[];
+    const q = userSearch.trim().toLowerCase();
+    return (users as User[]).filter(u => {
+      if (statusFilter === "active" && !u.isActive) return false;
+      if (statusFilter === "inactive" && u.isActive) return false;
+      if (roleFilter !== "all" && u.role !== roleFilter) return false;
+      if (!q) return true;
+      return (
+        u.name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        (u.title?.toLowerCase().includes(q) ?? false)
+      );
+    });
+  }, [users, userSearch, statusFilter, roleFilter]);
 
   // Get departments from shift planning module for department_manager assignment
   const departments = useQuery(api.shifts.getDepartments) || [];
@@ -290,6 +342,7 @@ function UsersContent() {
     });
     setExpandedCategories(new Set());
     setPermissionSearch("");
+    setCopyFromUserId("");
     setShowEditModal(true);
   };
 
@@ -396,6 +449,12 @@ function UsersContent() {
     return users.filter(u => u.reportsTo === userId && u.isActive);
   };
 
+  // Unique role list for the filter dropdown
+  const roleOptions = useMemo(() => {
+    if (!users) return [] as string[];
+    return Array.from(new Set(users.map(u => u.role)));
+  }, [users]);
+
   return (
     <div className="flex h-screen theme-bg-primary">
       <Sidebar />
@@ -403,12 +462,12 @@ function UsersContent() {
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
         {/* Header */}
-        <header className="sticky top-0 z-10 bg-slate-900/80 backdrop-blur-sm border-b border-slate-700 px-4 sm:px-8 py-4">
+        <header className="sticky top-0 z-10 theme-bg-card/90 backdrop-blur-md border-b theme-border-primary px-4 sm:px-8 py-4">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-bold text-white">User Management</h1>
-              <p className="text-slate-400 text-xs sm:text-sm mt-1 truncate">
-                Manage admin users and their permissions
+              <h1 className="text-xl sm:text-2xl font-semibold theme-text-primary tracking-tight">User Management</h1>
+              <p className="theme-text-tertiary text-xs sm:text-sm mt-0.5 truncate">
+                Manage accounts, roles, and per-feature permissions
               </p>
             </div>
             <button
@@ -419,10 +478,10 @@ function UsersContent() {
                   setShowAddModal(true);
                 }
               }}
-              className="px-3 sm:px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2 whitespace-nowrap flex-shrink-0"
+              className="px-4 py-2 bg-[#007AFF] hover:bg-[#0063CC] text-white rounded-full font-medium text-sm transition-colors flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 shadow-sm"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
               <span className="hidden sm:inline">Add User</span>
               <span className="sm:hidden">Add</span>
@@ -430,249 +489,265 @@ function UsersContent() {
           </div>
         </header>
 
-        <div className="p-4 sm:p-8">
+        <div className="p-4 sm:p-8 max-w-7xl mx-auto">
           {/* Success/Error Messages */}
           {success && (
-            <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-green-500/20 border border-green-500/50 rounded-lg text-green-400 text-sm sm:text-base">
+            <div className="mb-4 p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm">
               {success}
             </div>
           )}
           {error && (
-            <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm sm:text-base">
+            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
               {error}
             </div>
           )}
 
+          {/* Filter bar */}
+          <div className="mb-4 flex flex-col sm:flex-row gap-2 sm:items-center">
+            <div className="relative flex-1">
+              <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 theme-text-muted" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 110-16 8 8 0 010 16z" />
+              </svg>
+              <input
+                type="text"
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                placeholder="Search name, email, or title…"
+                className="w-full pl-9 pr-3 py-2 rounded-full theme-bg-card border theme-border-primary theme-text-primary placeholder:theme-text-muted text-sm focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40 focus:border-[#007AFF]"
+              />
+            </div>
+            <div className="flex items-center gap-1 theme-bg-card rounded-full p-1 border theme-border-primary">
+              {(["active", "inactive", "all"] as const).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                    statusFilter === s ? "bg-[#007AFF] text-white" : "theme-text-secondary hover:theme-text-primary"
+                  }`}
+                >
+                  {s === "all" ? "All" : s === "active" ? "Active" : "Inactive"}
+                </button>
+              ))}
+            </div>
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="px-3 py-2 rounded-full theme-bg-card border theme-border-primary theme-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40"
+            >
+              <option value="all">All roles</option>
+              {roleOptions.map(r => (
+                <option key={r} value={r}>{getRoleDisplayName(r)}</option>
+              ))}
+            </select>
+            <div className="theme-text-muted text-xs whitespace-nowrap sm:ml-2">
+              {filteredUsers.length} of {users?.length || 0}
+            </div>
+          </div>
+
           {/* Users Table - Desktop */}
-          <div className="hidden md:block bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+          <div className="hidden md:block theme-bg-card border theme-border-primary rounded-2xl overflow-hidden shadow-sm">
             <table className="w-full">
-              <thead className="bg-slate-800">
+              <thead className="theme-bg-secondary">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
-                    Last Login
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-[11px] font-semibold theme-text-tertiary uppercase tracking-wider">User</th>
+                  <th className="px-6 py-3 text-left text-[11px] font-semibold theme-text-tertiary uppercase tracking-wider">Role</th>
+                  <th className="px-6 py-3 text-left text-[11px] font-semibold theme-text-tertiary uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-[11px] font-semibold theme-text-tertiary uppercase tracking-wider">Last Login</th>
+                  <th className="px-6 py-3 text-right text-[11px] font-semibold theme-text-tertiary uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700">
-                {users?.map((user) => (
-                  <tr key={user._id} className="hover:bg-slate-800/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="text-white font-medium">{user.name}</div>
-                        {user.title && <div className="text-slate-500 text-xs">{user.title}</div>}
-                        <div className="text-slate-400 text-sm">{user.email}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleBadgeColor(user.role)}`}>
-                          {getRoleDisplayName(user.role)}
+              <tbody className="divide-y theme-border-secondary">
+                {filteredUsers.map((user) => {
+                  const overrideCount = Object.keys(user.permissionOverrides || {}).length;
+                  return (
+                    <tr key={user._id} className="theme-bg-hover transition-colors">
+                      <td className="px-6 py-3">
+                        <div>
+                          <div className="theme-text-primary font-medium">{user.name}</div>
+                          {user.title && <div className="theme-text-muted text-xs">{user.title}</div>}
+                          <div className="theme-text-tertiary text-sm">{user.email}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-3">
+                        <div>
+                          <span className={`px-2 py-0.5 text-[11px] font-medium rounded-full ${getRoleBadgeColor(user.role)}`}>
+                            {getRoleDisplayName(user.role)}
+                          </span>
+                          {overrideCount > 0 && (
+                            <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-[#007AFF]/15 text-[#007AFF]">
+                              {overrideCount} override{overrideCount !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                          {(user.role === "warehouse_manager" || user.role === "retail_store_manager") && (
+                            <div className="text-xs theme-text-muted mt-1">
+                              {getLocationNames(user.managedLocationIds as Id<"locations">[] | undefined) || "No locations assigned"}
+                            </div>
+                          )}
+                          {user.role === "department_manager" && (
+                            <div className="text-xs theme-text-muted mt-1">
+                              {getDepartmentNames(user.managedDepartments as string[] | undefined) || "No departments assigned"}
+                            </div>
+                          )}
+                          {getManagerName(user.reportsTo as Id<"users"> | undefined) && (
+                            <div className="text-xs theme-text-muted mt-1">
+                              Reports to: {getManagerName(user.reportsTo as Id<"users"> | undefined)}
+                            </div>
+                          )}
+                          {getReportees(user._id).length > 0 && (
+                            <div className="text-xs text-[#007AFF] mt-1">
+                              {getReportees(user._id).length} reportee{getReportees(user._id).length > 1 ? "s" : ""}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-3">
+                        <span className={`px-2 py-0.5 text-[11px] font-medium rounded-full ${
+                          user.isActive
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                        }`}>
+                          {user.isActive ? "Active" : "Inactive"}
                         </span>
-                        {(user.role === "warehouse_manager" || user.role === "retail_store_manager") && (
-                          <div className="text-xs text-slate-500 mt-1">
-                            {getLocationNames(user.managedLocationIds as Id<"locations">[] | undefined) || "No locations assigned"}
-                          </div>
+                        {user.forcePasswordChange && (
+                          <span className="ml-1.5 px-2 py-0.5 text-[11px] font-medium rounded-full bg-amber-100 text-amber-700">
+                            Pwd change
+                          </span>
                         )}
-                        {user.role === "department_manager" && (
-                          <div className="text-xs text-slate-500 mt-1">
-                            {getDepartmentNames(user.managedDepartments as string[] | undefined) || "No departments assigned"}
-                          </div>
-                        )}
-                        {getManagerName(user.reportsTo as Id<"users"> | undefined) && (
-                          <div className="text-xs text-slate-500 mt-1">
-                            Reports to: {getManagerName(user.reportsTo as Id<"users"> | undefined)}
-                          </div>
-                        )}
-                        {getReportees(user._id).length > 0 && (
-                          <div className="text-xs text-cyan-400 mt-1">
-                            {getReportees(user._id).length} reportee{getReportees(user._id).length > 1 ? "s" : ""}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        user.isActive
-                          ? "bg-green-500/20 text-green-400"
-                          : "bg-red-500/20 text-red-400"
-                      }`}>
-                        {user.isActive ? "Active" : "Inactive"}
-                      </span>
-                      {user.forcePasswordChange && (
-                        <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-amber-500/20 text-amber-400">
-                          Password Change Required
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-slate-400 text-sm">
-                      {user.lastLoginAt
-                        ? new Date(user.lastLoginAt).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                          })
-                        : "Never"
-                      }
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openEditModal(user as User)}
-                          className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
-                          title="Edit user"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => openResetModal(user as User)}
-                          className="p-2 text-slate-400 hover:text-amber-400 hover:bg-slate-700 rounded-lg transition-colors"
-                          title="Reset password"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                          </svg>
-                        </button>
-                        {user._id !== currentUser?._id && (
+                      </td>
+                      <td className="px-6 py-3 theme-text-tertiary text-sm">
+                        {user.lastLoginAt
+                          ? new Date(user.lastLoginAt).toLocaleDateString("en-US", {
+                              month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+                            })
+                          : "Never"
+                        }
+                      </td>
+                      <td className="px-6 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
                           <button
-                            onClick={() => openDeleteModal(user as User)}
-                            className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded-lg transition-colors"
-                            title="Delete user"
+                            onClick={() => openEditModal(user as User)}
+                            className="px-3 py-1.5 text-xs font-medium text-[#007AFF] hover:bg-[#007AFF]/10 rounded-full transition-colors"
+                            title="Edit user"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                            Edit
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <button
+                            onClick={() => openResetModal(user as User)}
+                            className="px-3 py-1.5 text-xs font-medium theme-text-secondary hover:theme-text-primary theme-bg-hover rounded-full transition-colors"
+                            title="Reset password"
+                          >
+                            Reset
+                          </button>
+                          {user._id !== currentUser?._id && (
+                            <button
+                              onClick={() => openDeleteModal(user as User)}
+                              className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                              title="Delete user"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-            {(!users || users.length === 0) && (
-              <div className="text-center py-12 text-slate-500">
-                No users found
+            {filteredUsers.length === 0 && (
+              <div className="text-center py-12 theme-text-muted text-sm">
+                {users && users.length > 0 ? "No users match your filters" : "No users found"}
               </div>
             )}
           </div>
 
           {/* Users Cards - Mobile */}
           <div className="md:hidden space-y-3">
-            {users?.map((user) => (
-              <div
-                key={user._id}
-                className="bg-slate-800/50 border border-slate-700 rounded-xl p-4"
-              >
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-white font-medium truncate">{user.name}</h3>
-                    {user.title && <p className="text-slate-500 text-xs truncate">{user.title}</p>}
-                    <p className="text-slate-400 text-sm truncate">{user.email}</p>
+            {filteredUsers.map((user) => {
+              const overrideCount = Object.keys(user.permissionOverrides || {}).length;
+              return (
+                <div
+                  key={user._id}
+                  className="theme-bg-card border theme-border-primary rounded-2xl p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="theme-text-primary font-medium truncate">{user.name}</h3>
+                      {user.title && <p className="theme-text-muted text-xs truncate">{user.title}</p>}
+                      <p className="theme-text-tertiary text-sm truncate">{user.email}</p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
+
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                    <span className={`px-2 py-0.5 text-[11px] font-medium rounded-full ${getRoleBadgeColor(user.role)}`}>
+                      {getRoleDisplayName(user.role)}
+                    </span>
+                    <span className={`px-2 py-0.5 text-[11px] font-medium rounded-full ${
+                      user.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    }`}>
+                      {user.isActive ? "Active" : "Inactive"}
+                    </span>
+                    {overrideCount > 0 && (
+                      <span className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-[#007AFF]/15 text-[#007AFF]">
+                        {overrideCount} override{overrideCount !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {user.forcePasswordChange && (
+                      <span className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-amber-100 text-amber-700">
+                        Pwd change
+                      </span>
+                    )}
+                  </div>
+                  {(user.role === "warehouse_manager" || user.role === "retail_store_manager") && (
+                    <div className="text-xs theme-text-muted mb-1">
+                      Locations: {getLocationNames(user.managedLocationIds as Id<"locations">[] | undefined) || "None"}
+                    </div>
+                  )}
+                  {user.role === "department_manager" && (
+                    <div className="text-xs theme-text-muted mb-1">
+                      Departments: {getDepartmentNames(user.managedDepartments as string[] | undefined) || "None"}
+                    </div>
+                  )}
+                  {getManagerName(user.reportsTo as Id<"users"> | undefined) && (
+                    <div className="text-xs theme-text-muted mb-1">
+                      Reports to: {getManagerName(user.reportsTo as Id<"users"> | undefined)}
+                    </div>
+                  )}
+                  <div className="theme-text-muted text-xs mt-2">
+                    Last login: {user.lastLoginAt
+                      ? new Date(user.lastLoginAt).toLocaleDateString("en-US", {
+                          month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+                        })
+                      : "Never"}
+                  </div>
+                  <div className="mt-3 pt-3 border-t theme-border-secondary flex gap-2">
                     <button
                       onClick={() => openEditModal(user as User)}
-                      className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
-                      title="Edit user"
+                      className="flex-1 px-3 py-2 text-xs font-medium text-[#007AFF] bg-[#007AFF]/10 rounded-full transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
+                      Edit
                     </button>
                     <button
                       onClick={() => openResetModal(user as User)}
-                      className="p-2 text-slate-400 hover:text-amber-400 hover:bg-slate-700 rounded-lg transition-colors"
-                      title="Reset password"
+                      className="flex-1 px-3 py-2 text-xs font-medium theme-text-secondary theme-bg-hover rounded-full transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                      </svg>
+                      Reset PW
                     </button>
                     {user._id !== currentUser?._id && (
                       <button
                         onClick={() => openDeleteModal(user as User)}
-                        className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded-lg transition-colors"
-                        title="Delete user"
+                        className="flex-1 px-3 py-2 text-xs font-medium text-red-600 bg-red-50 rounded-full transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                        Delete
                       </button>
                     )}
                   </div>
                 </div>
-
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleBadgeColor(user.role)}`}>
-                    {getRoleDisplayName(user.role)}
-                  </span>
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    user.isActive
-                      ? "bg-green-500/20 text-green-400"
-                      : "bg-red-500/20 text-red-400"
-                  }`}>
-                    {user.isActive ? "Active" : "Inactive"}
-                  </span>
-                  {user.forcePasswordChange && (
-                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-amber-500/20 text-amber-400">
-                      Password Change Required
-                    </span>
-                  )}
-                </div>
-                {(user.role === "warehouse_manager" || user.role === "retail_store_manager") && (
-                  <div className="text-xs text-slate-500 mb-1">
-                    Locations: {getLocationNames(user.managedLocationIds as Id<"locations">[] | undefined) || "None assigned"}
-                  </div>
-                )}
-                {user.role === "department_manager" && (
-                  <div className="text-xs text-slate-500 mb-1">
-                    Departments: {getDepartmentNames(user.managedDepartments as string[] | undefined) || "None assigned"}
-                  </div>
-                )}
-                {getManagerName(user.reportsTo as Id<"users"> | undefined) && (
-                  <div className="text-xs text-slate-500 mb-1">
-                    Reports to: {getManagerName(user.reportsTo as Id<"users"> | undefined)}
-                  </div>
-                )}
-                {getReportees(user._id).length > 0 && (
-                  <div className="text-xs text-cyan-400 mb-3">
-                    {getReportees(user._id).length} reportee{getReportees(user._id).length > 1 ? "s" : ""}
-                  </div>
-                )}
-
-                <div className="text-slate-400 text-xs mt-2">
-                  Last login: {user.lastLoginAt
-                    ? new Date(user.lastLoginAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })
-                    : "Never"
-                  }
-                </div>
-              </div>
-            ))}
-            {(!users || users.length === 0) && (
-              <div className="text-center py-12 text-slate-500 bg-slate-800/50 border border-slate-700 rounded-xl">
-                No users found
+              );
+            })}
+            {filteredUsers.length === 0 && (
+              <div className="text-center py-12 theme-text-muted text-sm theme-bg-card border theme-border-primary rounded-2xl">
+                {users && users.length > 0 ? "No users match your filters" : "No users found"}
               </div>
             )}
           </div>
@@ -681,46 +756,42 @@ function UsersContent() {
 
       {/* Add User Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-white mb-4">Add New User</h2>
-            <form onSubmit={handleAddUser} className="space-y-4">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="theme-bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b theme-border-primary">
+              <h2 className="text-lg font-semibold theme-text-primary tracking-tight">Add New User</h2>
+            </div>
+            <form onSubmit={handleAddUser} className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Name</label>
+                <label className="block text-xs font-medium theme-text-secondary mb-1">Name</label>
                 <input
                   type="text"
                   value={newUser.name}
                   onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3 py-2 theme-bg-secondary border theme-border-primary rounded-lg theme-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40 focus:border-[#007AFF]"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Email</label>
+                <label className="block text-xs font-medium theme-text-secondary mb-1">Email</label>
                 <input
                   type="email"
                   value={newUser.email}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3 py-2 theme-bg-secondary border theme-border-primary rounded-lg theme-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40 focus:border-[#007AFF]"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Role & Tier</label>
+                <label className="block text-xs font-medium theme-text-secondary mb-1">Role / Tier</label>
                 <select
                   value={newUser.role}
                   onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3 py-2 theme-bg-secondary border theme-border-primary rounded-lg theme-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40 focus:border-[#007AFF]"
                 >
-                  <optgroup label="T5 - Super Admin">
-                    <option value="super_admin">Super Admin</option>
-                  </optgroup>
-                  <optgroup label="T4 - Admin">
-                    <option value="admin">Admin</option>
-                  </optgroup>
-                  <optgroup label="T3 - Director">
-                    <option value="warehouse_director">Warehouse Director</option>
-                  </optgroup>
+                  <optgroup label="T5 - Super Admin"><option value="super_admin">Super Admin</option></optgroup>
+                  <optgroup label="T4 - Admin"><option value="admin">Admin</option></optgroup>
+                  <optgroup label="T3 - Director"><option value="warehouse_director">Warehouse Director</option></optgroup>
                   <optgroup label="T2 - Manager">
                     <option value="warehouse_manager">Warehouse Manager</option>
                     <option value="office_manager">Office Manager</option>
@@ -737,29 +808,26 @@ function UsersContent() {
                   </optgroup>
                 </select>
               </div>
-              <div className="flex items-center gap-3 p-3 bg-slate-900/50 rounded-lg border border-slate-700">
+              <label className="flex items-center gap-2.5 p-3 theme-bg-secondary rounded-lg border theme-border-primary cursor-pointer">
                 <input
                   type="checkbox"
-                  id="sendWelcomeEmail"
                   checked={newUser.sendWelcomeEmail}
                   onChange={(e) => setNewUser({ ...newUser, sendWelcomeEmail: e.target.checked })}
-                  className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-cyan-500"
+                  className="w-4 h-4 rounded text-[#007AFF] focus:ring-[#007AFF]/40"
                 />
-                <label htmlFor="sendWelcomeEmail" className="text-sm text-slate-300 cursor-pointer">
-                  Send welcome email with login credentials
-                </label>
-              </div>
-              <div className="flex gap-3 pt-4">
+                <span className="text-sm theme-text-primary">Send welcome email with login credentials</span>
+              </label>
+              <div className="flex gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 theme-bg-secondary theme-text-primary theme-bg-hover rounded-full font-medium text-sm transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 bg-[#007AFF] hover:bg-[#0063CC] text-white rounded-full font-medium text-sm transition-colors shadow-sm"
                 >
                   Add User
                 </button>
@@ -771,251 +839,372 @@ function UsersContent() {
 
       {/* Edit User Modal */}
       {showEditModal && selectedUser && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-white mb-4">Edit User</h2>
-            <form onSubmit={handleEditUser} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Name</label>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
-                  required
-                />
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="theme-bg-card rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden">
+            {/* Modal header */}
+            <div className="px-6 py-4 border-b theme-border-primary flex items-center justify-between">
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold theme-text-primary tracking-tight">Edit User</h2>
+                <p className="theme-text-tertiary text-xs mt-0.5 truncate">{selectedUser.name} · {selectedUser.email}</p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Job Title</label>
-                <input
-                  type="text"
-                  value={editForm.title}
-                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                  placeholder="e.g. Warehouse Supervisor, Shipping Clerk"
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  Position title for tracking — separate from system role
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={editForm.email}
-                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Role & Tier</label>
-                <select
-                  value={editForm.role}
-                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
-                >
-                  <optgroup label="T5 - Super Admin">
-                    <option value="super_admin">Super Admin</option>
-                  </optgroup>
-                  <optgroup label="T4 - Admin">
-                    <option value="admin">Admin</option>
-                  </optgroup>
-                  <optgroup label="T3 - Director">
-                    <option value="warehouse_director">Warehouse Director</option>
-                  </optgroup>
-                  <optgroup label="T2 - Manager">
-                    <option value="warehouse_manager">Warehouse Manager</option>
-                    <option value="office_manager">Office Manager</option>
-                    <option value="retail_store_manager">Retail Store Manager</option>
-                  </optgroup>
-                  <optgroup label="T1 - Shift Lead">
-                    <option value="department_manager">Department Manager</option>
-                    <option value="shift_lead">Shift Lead</option>
-                    <option value="retail_associate">Retail Associate</option>
-                  </optgroup>
-                  <optgroup label="T0 - Employee">
-                    <option value="member">Member</option>
-                    <option value="employee">Employee</option>
-                  </optgroup>
-                </select>
-                <p className="text-xs text-slate-500 mt-1">
-                  Tier determines base permissions. Higher tiers have more access.
-                </p>
-              </div>
-              <div>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={editForm.isActive}
-                    onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500"
-                  />
-                  <span className="text-sm text-slate-400">Active</span>
-                </label>
+              <button
+                type="button"
+                onClick={() => { setShowEditModal(false); setSelectedUser(null); }}
+                className="p-1.5 theme-text-tertiary hover:theme-text-primary rounded-full theme-bg-hover transition-colors"
+                aria-label="Close"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form id="editUserForm" onSubmit={handleEditUser} className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+              {/* Identity + Scope: two-column on desktop */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* IDENTITY card */}
+                <section className="theme-bg-secondary rounded-2xl border theme-border-primary p-4">
+                  <h3 className="text-xs font-semibold theme-text-tertiary uppercase tracking-wider mb-3">Identity</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium theme-text-secondary mb-1">Name</label>
+                      <input
+                        type="text"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                        className="w-full px-3 py-2 theme-bg-card border theme-border-primary rounded-lg theme-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40 focus:border-[#007AFF]"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium theme-text-secondary mb-1">Job Title</label>
+                      <input
+                        type="text"
+                        value={editForm.title}
+                        onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                        placeholder="e.g. Warehouse Supervisor"
+                        className="w-full px-3 py-2 theme-bg-card border theme-border-primary rounded-lg theme-text-primary placeholder:theme-text-muted text-sm focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40 focus:border-[#007AFF]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium theme-text-secondary mb-1">Email</label>
+                      <input
+                        type="email"
+                        value={editForm.email}
+                        onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                        className="w-full px-3 py-2 theme-bg-card border theme-border-primary rounded-lg theme-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40 focus:border-[#007AFF]"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium theme-text-secondary mb-1">Role / Tier</label>
+                      <select
+                        value={editForm.role}
+                        onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                        className="w-full px-3 py-2 theme-bg-card border theme-border-primary rounded-lg theme-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40 focus:border-[#007AFF]"
+                      >
+                        <optgroup label="T5 - Super Admin"><option value="super_admin">Super Admin</option></optgroup>
+                        <optgroup label="T4 - Admin"><option value="admin">Admin</option></optgroup>
+                        <optgroup label="T3 - Director"><option value="warehouse_director">Warehouse Director</option></optgroup>
+                        <optgroup label="T2 - Manager">
+                          <option value="warehouse_manager">Warehouse Manager</option>
+                          <option value="office_manager">Office Manager</option>
+                          <option value="retail_store_manager">Retail Store Manager</option>
+                        </optgroup>
+                        <optgroup label="T1 - Shift Lead">
+                          <option value="department_manager">Department Manager</option>
+                          <option value="shift_lead">Shift Lead</option>
+                          <option value="retail_associate">Retail Associate</option>
+                        </optgroup>
+                        <optgroup label="T0 - Employee">
+                          <option value="member">Member</option>
+                          <option value="employee">Employee</option>
+                        </optgroup>
+                      </select>
+                      <p className="text-[11px] theme-text-muted mt-1">Tier sets baseline permissions; per-feature overrides apply on top.</p>
+                    </div>
+                    <div className="flex flex-col gap-2 pt-1">
+                      <label className="flex items-center gap-2.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editForm.isActive}
+                          onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
+                          className="w-4 h-4 rounded text-[#007AFF] focus:ring-[#007AFF]/40"
+                        />
+                        <span className="text-sm theme-text-primary">Active account</span>
+                      </label>
+                      <label className="flex items-center gap-2.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editForm.requiresDailyLog}
+                          onChange={(e) => setEditForm({ ...editForm, requiresDailyLog: e.target.checked })}
+                          className="w-4 h-4 rounded text-[#007AFF] focus:ring-[#007AFF]/40"
+                        />
+                        <span className="text-sm theme-text-primary">Requires daily log</span>
+                      </label>
+                    </div>
+                  </div>
+                </section>
+
+                {/* SCOPE card */}
+                <section className="theme-bg-secondary rounded-2xl border theme-border-primary p-4">
+                  <h3 className="text-xs font-semibold theme-text-tertiary uppercase tracking-wider mb-3">Scope &amp; Reporting</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium theme-text-secondary mb-1">Reports to</label>
+                      <select
+                        value={editForm.reportsTo || ""}
+                        onChange={(e) => setEditForm({ ...editForm, reportsTo: e.target.value ? e.target.value as Id<"users"> : null })}
+                        className="w-full px-3 py-2 theme-bg-card border theme-border-primary rounded-lg theme-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40 focus:border-[#007AFF]"
+                      >
+                        <option value="">No manager</option>
+                        {users?.filter(u => u._id !== selectedUser?._id && u.isActive).map((user) => (
+                          <option key={user._id} value={user._id}>
+                            {user.name} ({getRoleDisplayName(user.role)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {(editForm.role === "warehouse_manager" || editForm.role === "retail_store_manager") && (
+                      <div>
+                        <label className="block text-xs font-medium theme-text-secondary mb-1">Assigned locations</label>
+                        <div className="max-h-32 overflow-y-auto theme-bg-card rounded-lg p-2 border theme-border-primary space-y-1">
+                          {locations?.filter(loc => loc.isActive).map((location) => (
+                            <label key={location._id} className="flex items-center gap-2 p-1.5 rounded theme-bg-hover cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={editForm.managedLocationIds.includes(location._id)}
+                                onChange={() => toggleLocationAssignment(location._id)}
+                                className="w-4 h-4 rounded text-[#007AFF] focus:ring-[#007AFF]/40"
+                              />
+                              <span className="text-sm theme-text-primary">{location.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                        {editForm.managedLocationIds.length === 0 && (
+                          <p className="text-amber-600 text-[11px] mt-1">No locations selected — shift planning will be empty.</p>
+                        )}
+                      </div>
+                    )}
+
+                    {editForm.role === "department_manager" && (
+                      <div>
+                        <label className="block text-xs font-medium theme-text-secondary mb-1">Assigned departments</label>
+                        <div className="max-h-32 overflow-y-auto theme-bg-card rounded-lg p-2 border theme-border-primary space-y-1">
+                          {departments.length > 0 ? departments.map((department) => (
+                            <label key={department} className="flex items-center gap-2 p-1.5 rounded theme-bg-hover cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={editForm.managedDepartments.includes(department)}
+                                onChange={() => toggleDepartmentAssignment(department)}
+                                className="w-4 h-4 rounded text-[#007AFF] focus:ring-[#007AFF]/40"
+                              />
+                              <span className="text-sm theme-text-primary">{department}</span>
+                            </label>
+                          )) : (
+                            <p className="theme-text-muted text-xs text-center py-2">No departments available</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Special floating permissions */}
+                    <div className="pt-2 border-t theme-border-secondary">
+                      <p className="text-[11px] font-semibold theme-text-tertiary uppercase tracking-wider mb-2">Special</p>
+                      <label className="flex items-start gap-2.5 cursor-pointer mb-2">
+                        <input
+                          type="checkbox"
+                          checked={editForm.isFinalTimeApprover}
+                          onChange={(e) => setEditForm({ ...editForm, isFinalTimeApprover: e.target.checked })}
+                          className="mt-0.5 w-4 h-4 rounded text-[#007AFF] focus:ring-[#007AFF]/40"
+                        />
+                        <span className="flex-1">
+                          <span className="block text-sm theme-text-primary">Final Time Approver</span>
+                          <span className="block text-[11px] theme-text-muted">Final pass on timesheets after location manager</span>
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-2.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editForm.isPayrollProcessor}
+                          onChange={(e) => setEditForm({ ...editForm, isPayrollProcessor: e.target.checked })}
+                          className="mt-0.5 w-4 h-4 rounded text-[#007AFF] focus:ring-[#007AFF]/40"
+                        />
+                        <span className="flex-1">
+                          <span className="block text-sm theme-text-primary">Payroll Processor</span>
+                          <span className="block text-[11px] theme-text-muted">Can export payroll data and access payroll reports</span>
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </section>
               </div>
 
-              <div>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={editForm.requiresDailyLog}
-                    onChange={(e) => setEditForm({ ...editForm, requiresDailyLog: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-500"
-                  />
-                  <span className="text-sm text-slate-400">Requires Daily Log</span>
-                </label>
-                <p className="text-xs text-slate-500 mt-1 ml-7">
-                  User will be prompted to fill out daily activity logs
-                </p>
-              </div>
-
-              {/* RBAC Floating Permissions */}
-              <div className="border-t border-slate-700 pt-4 mt-4">
-                <h4 className="text-sm font-medium text-slate-300 mb-3">Special Permissions</h4>
-
-                <div className="space-y-3">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editForm.isFinalTimeApprover}
-                      onChange={(e) => setEditForm({ ...editForm, isFinalTimeApprover: e.target.checked })}
-                      className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500"
-                    />
-                    <span className="text-sm text-slate-400">Final Time Approver</span>
-                  </label>
-                  <p className="text-xs text-slate-500 ml-7">
-                    Can perform final approval on timesheets after location manager approval
-                  </p>
-
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editForm.isPayrollProcessor}
-                      onChange={(e) => setEditForm({ ...editForm, isPayrollProcessor: e.target.checked })}
-                      className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-green-500 focus:ring-green-500"
-                    />
-                    <span className="text-sm text-slate-400">Payroll Processor</span>
-                  </label>
-                  <p className="text-xs text-slate-500 ml-7">
-                    Can export payroll data and access payroll reports
-                  </p>
-                </div>
-              </div>
-
-              {/* Feature Permissions */}
-              <div className="border-t border-slate-700 pt-4 mt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-medium text-slate-300">Feature Permissions</h4>
-                  {Object.keys(editForm.permissionOverrides).length > 0 && (
-                    <button
-                      type="button"
-                      onClick={clearAllOverrides}
-                      className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+              {/* PERMISSIONS card */}
+              <section className="theme-bg-secondary rounded-2xl border theme-border-primary p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <div>
+                    <h3 className="text-xs font-semibold theme-text-tertiary uppercase tracking-wider">Feature Permissions</h3>
+                    <p className="text-[11px] theme-text-muted mt-0.5">
+                      Role defaults shown by default. Click a row to override (grant/deny on top of the role).
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <select
+                      value={copyFromUserId}
+                      onChange={(e) => {
+                        const id = e.target.value as Id<"users"> | "";
+                        setCopyFromUserId(id);
+                        if (id) copyOverridesFromUser(id);
+                      }}
+                      className="px-2.5 py-1.5 theme-bg-card border theme-border-primary rounded-full text-xs theme-text-primary focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40"
                     >
-                      Reset to role defaults ({Object.keys(editForm.permissionOverrides).length} override{Object.keys(editForm.permissionOverrides).length !== 1 ? "s" : ""})
-                    </button>
-                  )}
+                      <option value="">Copy overrides from…</option>
+                      {users?.filter(u => u._id !== selectedUser._id).map(u => {
+                        const oc = Object.keys(u.permissionOverrides || {}).length;
+                        return (
+                          <option key={u._id} value={u._id}>
+                            {u.name} ({getRoleDisplayName(u.role)}){oc ? ` · ${oc} ovr` : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    {Object.keys(editForm.permissionOverrides).length > 0 && (
+                      <button
+                        type="button"
+                        onClick={clearAllOverrides}
+                        className="px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                      >
+                        Clear all overrides ({Object.keys(editForm.permissionOverrides).length})
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <p className="text-xs text-slate-500 mb-3">
-                  Role sets defaults. Click checkboxes to override individual permissions.
-                </p>
 
-                {/* Permission search */}
-                <div className="mb-2">
+                {/* Search */}
+                <div className="relative mb-3">
+                  <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 theme-text-muted" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 110-16 8 8 0 010 16z" />
+                  </svg>
                   <input
                     type="text"
                     value={permissionSearch}
                     onChange={(e) => setPermissionSearch(e.target.value)}
-                    placeholder="Search permissions..."
-                    className="w-full px-3 py-1.5 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+                    placeholder="Search permissions… (auto-expands matches)"
+                    className="w-full pl-9 pr-3 py-2 text-sm theme-bg-card border theme-border-primary rounded-full theme-text-primary placeholder:theme-text-muted focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40 focus:border-[#007AFF]"
                   />
                 </div>
 
-                <div className="space-y-1 max-h-64 overflow-y-auto bg-slate-900/30 rounded-lg border border-slate-700">
+                {/* Legend */}
+                <div className="flex items-center gap-3 text-[11px] theme-text-tertiary mb-2">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> granted</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-300" /> role default</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> denied</span>
+                </div>
+
+                <div className="space-y-2">
                   {PERMISSION_CATEGORIES.map((cat) => {
                     const searchLower = permissionSearch.toLowerCase();
-                    const catPerms = ALL_PERMISSIONS.filter(p => p.category === cat.key && (
+                    const allCatPerms = ALL_PERMISSIONS.filter(p => p.category === cat.key);
+                    const catPerms = allCatPerms.filter(p => (
                       !permissionSearch || p.label.toLowerCase().includes(searchLower) || p.description.toLowerCase().includes(searchLower)
                     ));
                     if (catPerms.length === 0) return null;
                     const isExpanded = expandedCategories.has(cat.key) || !!permissionSearch;
                     const overrideCount = getCategoryOverrideCount(cat.key);
-                    const grantedCount = catPerms.filter(p => getEffectivePermission(p.key).value).length;
+                    const grantedCount = allCatPerms.filter(p => getEffectivePermission(p.key).value).length;
 
                     return (
-                      <div key={cat.key}>
-                        <button
-                          type="button"
-                          onClick={() => toggleCategory(cat.key)}
-                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-800/50 transition-colors text-left"
-                        >
-                          <div className="flex items-center gap-2">
+                      <div key={cat.key} className="theme-bg-card rounded-xl border theme-border-secondary overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2 theme-bg-hover">
+                          <button
+                            type="button"
+                            onClick={() => toggleCategory(cat.key)}
+                            className="flex items-center gap-2 flex-1 text-left"
+                          >
                             <svg
-                              className={`w-3 h-3 text-slate-500 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                              className={`w-3 h-3 theme-text-muted transition-transform ${isExpanded ? "rotate-90" : ""}`}
                               fill="none" stroke="currentColor" viewBox="0 0 24 24"
                             >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
                             </svg>
-                            <span className="text-sm text-slate-300 font-medium">{cat.label}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
+                            <span className="text-sm theme-text-primary font-medium">{cat.label}</span>
+                            <span className="text-[11px] theme-text-muted">{grantedCount}/{allCatPerms.length}</span>
                             {overrideCount > 0 && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400">
-                                {overrideCount} override{overrideCount !== 1 ? "s" : ""}
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#007AFF]/15 text-[#007AFF] font-medium">
+                                {overrideCount} ovr
                               </span>
                             )}
-                            <span className="text-xs text-slate-500">
-                              {grantedCount}/{catPerms.length}
-                            </span>
+                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => bulkSetCategory(cat.key, "grantAll")}
+                              className="px-2 py-0.5 text-[11px] font-medium text-green-700 hover:bg-green-100 rounded-full transition-colors"
+                              title="Grant all in this category"
+                            >
+                              Grant
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => bulkSetCategory(cat.key, "denyAll")}
+                              className="px-2 py-0.5 text-[11px] font-medium text-red-700 hover:bg-red-100 rounded-full transition-colors"
+                              title="Deny all in this category"
+                            >
+                              Deny
+                            </button>
+                            {overrideCount > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => bulkSetCategory(cat.key, "clearOverrides")}
+                                className="px-2 py-0.5 text-[11px] font-medium theme-text-secondary theme-bg-hover rounded-full transition-colors"
+                                title="Clear overrides in this category"
+                              >
+                                Reset
+                              </button>
+                            )}
                           </div>
-                        </button>
+                        </div>
 
                         {isExpanded && (
-                          <div className="pb-2 px-3">
+                          <div className="py-1">
                             {catPerms.map((perm) => {
                               const { value, isOverridden } = getEffectivePermission(perm.key);
                               const roleDefault = editRoleDefaults[perm.key] ?? false;
+                              const dotClass = isOverridden
+                                ? (value ? "bg-green-500" : "bg-red-500")
+                                : (value ? "bg-green-300" : "bg-gray-300");
+                              const stateLabel = isOverridden
+                                ? (value ? "granted" : "denied")
+                                : (value ? "default: granted" : "default: denied");
 
                               return (
-                                <label
+                                <button
+                                  type="button"
                                   key={perm.key}
-                                  className={`flex items-center gap-3 cursor-pointer py-1.5 px-2 rounded hover:bg-slate-800/30 transition-colors ${
-                                    isOverridden ? "bg-slate-800/20" : ""
-                                  }`}
+                                  onClick={() => togglePermissionOverride(perm.key)}
+                                  className="w-full flex items-start gap-3 px-3 py-2 text-left theme-bg-hover transition-colors border-t theme-border-secondary first:border-t-0"
                                 >
-                                  <input
-                                    type="checkbox"
-                                    checked={value}
-                                    onChange={() => togglePermissionOverride(perm.key)}
-                                    className={`w-3.5 h-3.5 rounded border-slate-600 bg-slate-800 focus:ring-cyan-500 ${
-                                      isOverridden
-                                        ? value
-                                          ? "text-green-500"
-                                          : "text-red-500"
-                                        : "text-cyan-500"
-                                    }`}
-                                  />
-                                  <div className="flex-1 min-w-0">
-                                    <span className={`text-xs ${isOverridden ? "text-white font-medium" : "text-slate-400"}`}>
-                                      {perm.label}
-                                    </span>
-                                    {isOverridden && (
-                                      <span className={`ml-2 text-[10px] px-1 py-0.5 rounded ${
-                                        value !== roleDefault
-                                          ? value
-                                            ? "bg-green-500/20 text-green-400"
-                                            : "bg-red-500/20 text-red-400"
-                                          : "bg-slate-600/30 text-slate-400"
-                                      }`}>
-                                        {value !== roleDefault
-                                          ? value ? "granted" : "denied"
-                                          : "override (same as default)"
-                                        }
+                                  <span className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${dotClass}`} />
+                                  <span className="flex-1 min-w-0">
+                                    <span className="flex items-center gap-2 flex-wrap">
+                                      <span className={`text-sm ${isOverridden ? "theme-text-primary font-medium" : "theme-text-secondary"}`}>
+                                        {perm.label}
                                       </span>
-                                    )}
-                                  </div>
-                                </label>
+                                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                        isOverridden
+                                          ? value !== roleDefault
+                                            ? value ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                            : "bg-gray-100 text-gray-600"
+                                          : "theme-bg-secondary theme-text-muted"
+                                      }`}>
+                                        {stateLabel}
+                                      </span>
+                                    </span>
+                                    <span className="block text-[11px] theme-text-muted mt-0.5">{perm.description}</span>
+                                  </span>
+                                </button>
                               );
                             })}
                           </div>
@@ -1024,165 +1213,69 @@ function UsersContent() {
                     );
                   })}
                 </div>
+              </section>
+            </form>
+
+            {/* Sticky footer */}
+            <div className="px-6 py-3 border-t theme-border-primary theme-bg-card flex items-center justify-between gap-3">
+              <div className="text-xs theme-text-tertiary">
+                {Object.keys(editForm.permissionOverrides).length > 0
+                  ? `${Object.keys(editForm.permissionOverrides).length} override${Object.keys(editForm.permissionOverrides).length !== 1 ? "s" : ""} on top of ${getRoleDisplayName(editForm.role)} defaults`
+                  : `Using ${getRoleDisplayName(editForm.role)} defaults`}
               </div>
-
-              {/* Reports To - Manager Assignment */}
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Reports To</label>
-                <select
-                  value={editForm.reportsTo || ""}
-                  onChange={(e) => setEditForm({ ...editForm, reportsTo: e.target.value ? e.target.value as Id<"users"> : null })}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
-                >
-                  <option value="">No Manager</option>
-                  {users?.filter(u => u._id !== selectedUser?._id && u.isActive).map((user) => (
-                    <option key={user._id} value={user._id}>
-                      {user.name} ({getRoleDisplayName(user.role)})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-slate-500 mt-1">
-                  If this user requires daily logs, their manager can view them
-                </p>
-              </div>
-
-              {/* Location Assignment for Warehouse/Retail Store Managers */}
-              {(editForm.role === "warehouse_manager" || editForm.role === "retail_store_manager") && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">
-                    Assigned Locations
-                  </label>
-                  <p className="text-xs text-slate-500 mb-3">
-                    Select which locations this {editForm.role === "retail_store_manager" ? "retail store manager" : "warehouse manager"} can access
-                  </p>
-                  <div className="space-y-2 max-h-48 overflow-y-auto bg-slate-900/50 rounded-lg p-3 border border-slate-700">
-                    {locations?.filter(loc => loc.isActive).map((location) => (
-                      <label
-                        key={location._id}
-                        className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-slate-800 transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={editForm.managedLocationIds.includes(location._id)}
-                          onChange={() => toggleLocationAssignment(location._id)}
-                          className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-cyan-500"
-                        />
-                        <span className="text-white">{location.name}</span>
-                        {location.warehouseManagerName && (
-                          <span className="text-xs text-slate-500">
-                            (Manager: {location.warehouseManagerName})
-                          </span>
-                        )}
-                      </label>
-                    ))}
-                    {(!locations || locations.filter(loc => loc.isActive).length === 0) && (
-                      <p className="text-slate-500 text-sm text-center py-4">No locations available</p>
-                    )}
-                  </div>
-                  {editForm.managedLocationIds.length === 0 && (
-                    <p className="text-amber-400 text-xs mt-2">
-                      No locations selected. This user won&apos;t be able to access shift planning.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Department Assignment for Department Managers */}
-              {editForm.role === "department_manager" && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">
-                    Assigned Departments
-                  </label>
-                  <p className="text-xs text-slate-500 mb-3">
-                    Select which departments this manager is responsible for
-                  </p>
-                  <div className="space-y-2 max-h-48 overflow-y-auto bg-slate-900/50 rounded-lg p-3 border border-slate-700">
-                    {departments.length > 0 ? (
-                      departments.map((department) => (
-                        <label
-                          key={department}
-                          className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-slate-800 transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={editForm.managedDepartments.includes(department)}
-                            onChange={() => toggleDepartmentAssignment(department)}
-                            className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-cyan-500"
-                          />
-                          <span className="text-white">{department}</span>
-                        </label>
-                      ))
-                    ) : (
-                      <p className="text-slate-500 text-sm text-center py-4">No departments available. Add personnel first.</p>
-                    )}
-                  </div>
-                  {editForm.managedDepartments.length === 0 && departments.length > 0 && (
-                    <p className="text-amber-400 text-xs mt-2">
-                      No departments selected. This user won&apos;t see any shifts in the department portal.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedUser(null);
-                  }}
-                  className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                  onClick={() => { setShowEditModal(false); setSelectedUser(null); }}
+                  className="px-4 py-2 theme-bg-secondary theme-text-primary theme-bg-hover rounded-full font-medium text-sm transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
+                  form="editUserForm"
+                  className="px-5 py-2 bg-[#007AFF] hover:bg-[#0063CC] text-white rounded-full font-medium text-sm transition-colors shadow-sm"
                 >
                   Save Changes
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* Reset Password Modal */}
       {showResetModal && selectedUser && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-white mb-4">Reset Password</h2>
-            <p className="text-slate-400 mb-4">
-              Reset password for <span className="text-white font-medium">{selectedUser.name}</span>
-            </p>
-            <form onSubmit={handleResetPassword} className="space-y-4">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="theme-bg-card rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b theme-border-primary">
+              <h2 className="text-lg font-semibold theme-text-primary tracking-tight">Reset Password</h2>
+              <p className="theme-text-tertiary text-xs mt-0.5">For {selectedUser.name}</p>
+            </div>
+            <form onSubmit={handleResetPassword} className="px-6 py-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">New Password</label>
+                <label className="block text-xs font-medium theme-text-secondary mb-1">New Password</label>
                 <input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3 py-2 theme-bg-secondary border theme-border-primary rounded-lg theme-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40 focus:border-[#007AFF]"
                   required
                   minLength={8}
                 />
-                <p className="text-xs text-slate-500 mt-1">Minimum 8 characters. User will be required to change on next login.</p>
+                <p className="text-[11px] theme-text-muted mt-1">Minimum 8 characters. User will be required to change on next login.</p>
               </div>
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowResetModal(false);
-                    setSelectedUser(null);
-                    setNewPassword("");
-                  }}
-                  className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                  onClick={() => { setShowResetModal(false); setSelectedUser(null); setNewPassword(""); }}
+                  className="flex-1 px-4 py-2 theme-bg-secondary theme-text-primary theme-bg-hover rounded-full font-medium text-sm transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-full font-medium text-sm transition-colors shadow-sm"
                 >
                   Reset Password
                 </button>
@@ -1194,29 +1287,30 @@ function UsersContent() {
 
       {/* Delete User Modal */}
       {showDeleteModal && selectedUser && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-white mb-4">Delete User</h2>
-            <p className="text-slate-400 mb-4">
-              Are you sure you want to delete <span className="text-white font-medium">{selectedUser.name}</span>? This action cannot be undone.
-            </p>
-            <div className="flex gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setSelectedUser(null);
-                }}
-                className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteUser}
-                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
-              >
-                Delete User
-              </button>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="theme-bg-card rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b theme-border-primary">
+              <h2 className="text-lg font-semibold theme-text-primary tracking-tight">Delete User</h2>
+            </div>
+            <div className="px-6 py-5">
+              <p className="theme-text-secondary text-sm">
+                Are you sure you want to delete <span className="theme-text-primary font-medium">{selectedUser.name}</span>? This action cannot be undone.
+              </p>
+              <div className="flex gap-2 pt-5">
+                <button
+                  type="button"
+                  onClick={() => { setShowDeleteModal(false); setSelectedUser(null); }}
+                  className="flex-1 px-4 py-2 theme-bg-secondary theme-text-primary theme-bg-hover rounded-full font-medium text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteUser}
+                  className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-full font-medium text-sm transition-colors shadow-sm"
+                >
+                  Delete User
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1224,20 +1318,20 @@ function UsersContent() {
 
       {/* Contact Andy Modal (for Terry Myers) */}
       {showContactAndyModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-cyan-500/20 flex items-center justify-center">
-              <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="theme-bg-card rounded-2xl shadow-2xl w-full max-w-md p-6 text-center">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#007AFF]/15 flex items-center justify-center">
+              <svg className="w-7 h-7 text-[#007AFF]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-white mb-3">Need Help Adding Users?</h2>
-            <p className="text-slate-400 mb-6">
+            <h2 className="text-lg font-semibold theme-text-primary mb-2 tracking-tight">Need Help Adding Users?</h2>
+            <p className="theme-text-secondary text-sm mb-5">
               Please see Andy for help with adding new users for the first time. He&apos;ll walk you through the process.
             </p>
             <button
               onClick={() => setShowContactAndyModal(false)}
-              className="px-6 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-colors"
+              className="px-6 py-2 bg-[#007AFF] hover:bg-[#0063CC] text-white rounded-full font-medium text-sm transition-colors shadow-sm"
             >
               Got It
             </button>
