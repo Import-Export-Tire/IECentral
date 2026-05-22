@@ -102,12 +102,14 @@ function SettingsContent() {
       return;
     }
 
+    if (!user) { setNewUserError("Not signed in"); return; }
     try {
       const result = await createUser({
         name: newUserForm.name,
         email: newUserForm.email,
         password: newUserForm.password,
         role: newUserForm.role,
+        requestingUserId: user._id,
       });
 
       if (result.success) {

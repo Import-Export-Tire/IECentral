@@ -172,12 +172,14 @@ function UsersContent() {
     setError("");
     setSuccess("");
 
+    if (!currentUser) { setError("Not signed in"); return; }
     const result = await createUser({
       name: newUser.name,
       email: newUser.email,
       password: newUser.password,
       role: newUser.role,
       sendWelcomeEmail: newUser.sendWelcomeEmail,
+      requestingUserId: currentUser._id as Id<"users">,
     });
 
     if (result.success) {
@@ -192,6 +194,7 @@ function UsersContent() {
   const handleEditUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
+    if (!currentUser) { setError("Not signed in"); return; }
     setError("");
     setSuccess("");
 
@@ -209,6 +212,7 @@ function UsersContent() {
       isFinalTimeApprover: editForm.isFinalTimeApprover,
       isPayrollProcessor: editForm.isPayrollProcessor,
       permissionOverrides: Object.keys(editForm.permissionOverrides).length > 0 ? editForm.permissionOverrides : {},
+      requestingUserId: currentUser._id as Id<"users">,
     });
 
     if (result.success) {
@@ -231,9 +235,11 @@ function UsersContent() {
       return;
     }
 
+    if (!currentUser) { setError("Not signed in"); return; }
     const result = await resetPassword({
       userId: selectedUser._id,
       newPassword,
+      requestingUserId: currentUser._id as Id<"users">,
     });
 
     if (result.success) {
@@ -251,8 +257,10 @@ function UsersContent() {
     setError("");
     setSuccess("");
 
+    if (!currentUser) { setError("Not signed in"); return; }
     const result = await deleteUserMutation({
       userId: selectedUser._id,
+      requestingUserId: currentUser._id as Id<"users">,
     });
 
     if (result.success) {

@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import { requireAdmin } from "./authGuards";
 
 // Number of PBKDF2 iterations
 const PBKDF2_ITERATIONS = 100000;
@@ -205,8 +206,11 @@ export const createUser = mutation({
     name: v.string(),
     role: v.string(),
     sendWelcomeEmail: v.optional(v.boolean()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
+
     // Check for existing email
     const existing = await ctx.db
       .query("users")
@@ -427,9 +431,12 @@ export const updateUser = mutation({
     isPayrollProcessor: v.optional(v.boolean()),
     // Feature-level permission overrides
     permissionOverrides: v.optional(v.record(v.string(), v.boolean())),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { userId, title, requiresDailyLog, managedLocationIds, managedDepartments, reportsTo, personnelId, isFinalTimeApprover, isPayrollProcessor, permissionOverrides, ...updates } = args;
+    await requireAdmin(ctx, args.requestingUserId);
+
+    const { userId, title, requiresDailyLog, managedLocationIds, managedDepartments, reportsTo, personnelId, isFinalTimeApprover, isPayrollProcessor, permissionOverrides, requestingUserId: _ignored, ...updates } = args;
 
     // If email is being updated, check for duplicates
     if (updates.email) {
@@ -498,8 +505,11 @@ export const resetUserPassword = mutation({
   args: {
     userId: v.id("users"),
     newPassword: v.string(),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
+
     const passwordHash = await hashPassword(args.newPassword);
 
     await ctx.db.patch(args.userId, {
@@ -515,8 +525,16 @@ export const resetUserPassword = mutation({
 export const deleteUser = mutation({
   args: {
     userId: v.id("users"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
+
+    // Don't allow admins to delete themselves — they'd lock themselves out
+    if (args.userId === args.requestingUserId) {
+      throw new Error("Cannot delete your own account");
+    }
+
     await ctx.db.delete(args.userId);
     return { success: true };
   },
