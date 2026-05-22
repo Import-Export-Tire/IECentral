@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useDocHub } from "./DocHubContext";
 import { CATEGORIES, formatFileSize } from "./types";
 
@@ -16,6 +16,24 @@ export default function UploadModal() {
   const [visibility, setVisibility] = useState("private");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset every time the modal opens. The parent closes the modal directly
+  // after a successful upload, bypassing our local `close()` reset, so
+  // without this the previous file/name is still here on reopen.
+  useEffect(() => {
+    if (showUploadModal) {
+      setName("");
+      setDescription("");
+      setCategory("forms");
+      setSelectedFile(null);
+      setExpirationDate("");
+      setExpirationAlertDays("30");
+      setRequiresSignature(false);
+      setVisibility("private");
+      setShowAdvanced(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }, [showUploadModal]);
 
   if (!showUploadModal) return null;
 
