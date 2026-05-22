@@ -1,6 +1,7 @@
 import { query, mutation, action } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
+import { requireSelfOrManager } from "./authGuards";
 
 // Get all active documents (optionally filter by folder)
 // Respects document visibility: private docs only shown to owner or shared users
@@ -163,8 +164,9 @@ export const getById = query({
 
 // Generate upload URL for file storage
 export const generateUploadUrl = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireSelfOrManager(ctx, args.requestingUserId, args.requestingUserId);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -194,6 +196,8 @@ export const create = mutation({
     visibility: v.optional(v.string()), // "private" | "internal" | "community" — defaults to "private"
   },
   handler: async (ctx, args) => {
+    // Caller must be the uploader (or a manager creating on behalf).
+    await requireSelfOrManager(ctx, args.uploadedBy, args.uploadedBy);
     const now = Date.now();
     const { visibility: vis, ...rest } = args;
     return await ctx.db.insert("documents", {
@@ -216,9 +220,13 @@ export const update = mutation({
     description: v.optional(v.string()),
     category: v.optional(v.string()),
     visibility: v.optional(v.string()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { documentId, ...updates } = args;
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc) throw new Error("Document not found");
+    await requireSelfOrManager(ctx, args.requestingUserId, doc.uploadedBy);
+    const { documentId, requestingUserId: _ignored, ...updates } = args;
     const filteredUpdates = Object.fromEntries(
       Object.entries(updates).filter(([, v]) => v !== undefined)
     );
@@ -234,10 +242,12 @@ export const shareWith = mutation({
   args: {
     documentId: v.id("documents"),
     userIds: v.array(v.id("users")),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.documentId);
     if (!doc) throw new Error("Document not found");
+    await requireSelfOrManager(ctx, args.requestingUserId, doc.uploadedBy);
     const existing = doc.sharedWith || [];
     const merged = [...new Set([...existing, ...args.userIds])];
     await ctx.db.patch(args.documentId, {
@@ -252,10 +262,12 @@ export const unshareWith = mutation({
   args: {
     documentId: v.id("documents"),
     userId: v.id("users"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.documentId);
     if (!doc) throw new Error("Document not found");
+    await requireSelfOrManager(ctx, args.requestingUserId, doc.uploadedBy);
     const updated = (doc.sharedWith || []).filter(id => id !== args.userId);
     await ctx.db.patch(args.documentId, {
       sharedWith: updated,
@@ -269,10 +281,12 @@ export const shareWithGroups = mutation({
   args: {
     documentId: v.id("documents"),
     groupIds: v.array(v.id("groups")),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.documentId);
     if (!doc) throw new Error("Document not found");
+    await requireSelfOrManager(ctx, args.requestingUserId, doc.uploadedBy);
     const existing = doc.sharedWithGroups || [];
     const merged = [...new Set([...existing, ...args.groupIds])];
     await ctx.db.patch(args.documentId, {
@@ -287,10 +301,12 @@ export const unshareWithGroup = mutation({
   args: {
     documentId: v.id("documents"),
     groupId: v.id("groups"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.documentId);
     if (!doc) throw new Error("Document not found");
+    await requireSelfOrManager(ctx, args.requestingUserId, doc.uploadedBy);
     await ctx.db.patch(args.documentId, {
       sharedWithGroups: (doc.sharedWithGroups || []).filter((id) => id !== args.groupId),
       updatedAt: Date.now(),
@@ -312,8 +328,14 @@ export const incrementDownload = mutation({
 
 // Archive a document (soft delete)
 export const archive = mutation({
-  args: { documentId: v.id("documents") },
+  args: {
+    documentId: v.id("documents"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc) throw new Error("Document not found");
+    await requireSelfOrManager(ctx, args.requestingUserId, doc.uploadedBy);
     await ctx.db.patch(args.documentId, {
       isActive: false,
       updatedAt: Date.now(),
@@ -323,10 +345,14 @@ export const archive = mutation({
 
 // Permanently delete a document
 export const remove = mutation({
-  args: { documentId: v.id("documents") },
+  args: {
+    documentId: v.id("documents"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.documentId);
     if (doc) {
+      await requireSelfOrManager(ctx, args.requestingUserId, doc.uploadedBy);
       // Delete the file from storage
       await ctx.storage.delete(doc.fileId);
       // Delete the document record
@@ -366,8 +392,14 @@ export const getArchived = query({
 
 // Restore an archived document
 export const restore = mutation({
-  args: { documentId: v.id("documents") },
+  args: {
+    documentId: v.id("documents"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc) throw new Error("Document not found");
+    await requireSelfOrManager(ctx, args.requestingUserId, doc.uploadedBy);
     await ctx.db.patch(args.documentId, {
       isActive: true,
       updatedAt: Date.now(),
@@ -419,8 +451,12 @@ export const setExpiration = mutation({
     documentId: v.id("documents"),
     expiresAt: v.number(),
     expirationAlertDays: v.optional(v.number()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc) throw new Error("Document not found");
+    await requireSelfOrManager(ctx, args.requestingUserId, doc.uploadedBy);
     await ctx.db.patch(args.documentId, {
       expiresAt: args.expiresAt,
       expirationAlertDays: args.expirationAlertDays ?? 30,
@@ -431,8 +467,14 @@ export const setExpiration = mutation({
 
 // Remove expiration from a document
 export const removeExpiration = mutation({
-  args: { documentId: v.id("documents") },
+  args: {
+    documentId: v.id("documents"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc) throw new Error("Document not found");
+    await requireSelfOrManager(ctx, args.requestingUserId, doc.uploadedBy);
     await ctx.db.patch(args.documentId, {
       expiresAt: undefined,
       expirationAlertDays: undefined,
@@ -454,10 +496,14 @@ function generateSlug(name: string): string {
 
 // Toggle public access for a document
 export const togglePublic = mutation({
-  args: { documentId: v.id("documents") },
+  args: {
+    documentId: v.id("documents"),
+    requestingUserId: v.id("users"),
+  },
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.documentId);
     if (!doc) throw new Error("Document not found");
+    await requireSelfOrManager(ctx, args.requestingUserId, doc.uploadedBy);
 
     const isPublic = !doc.isPublic;
 
@@ -548,6 +594,7 @@ export const uploadNewVersion = mutation({
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.documentId);
     if (!doc) throw new Error("Document not found");
+    await requireSelfOrManager(ctx, args.uploadedBy, doc.uploadedBy);
 
     // Get existing versions to determine the next version number
     const existingVersions = await ctx.db
@@ -613,6 +660,7 @@ export const restoreVersion = mutation({
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.documentId);
     if (!doc) throw new Error("Document not found");
+    await requireSelfOrManager(ctx, args.restoredBy, doc.uploadedBy);
 
     const version = await ctx.db.get(args.versionId);
     if (!version) throw new Error("Version not found");
