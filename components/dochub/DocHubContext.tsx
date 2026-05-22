@@ -74,6 +74,7 @@ interface DocHubContextType {
   // Preview
   previewDocument: DocumentType | null;
   previewUrl: string | null;
+  previewStorageUrl: string | null;
   loadingPreview: boolean;
   closePreview: () => void;
   // Share
@@ -434,17 +435,62 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
     }
   }, [getFileDownloadUrl, incrementDownload]);
 
+  // Keep track of the storage URL separately from the blob URL so we can
+  // (a) hand the storage URL to Microsoft's Office Online viewer (which
+  //     requires a publicly fetchable URL), and (b) offer "Open in new tab"
+  // as a fallback when iframe preview misbehaves.
+  const [previewStorageUrl, setPreviewStorageUrl] = useState<string | null>(null);
+  const previewBlobUrlRef = useRef<string | null>(null);
+
+  const revokeBlobUrl = useCallback(() => {
+    if (previewBlobUrlRef.current) {
+      URL.revokeObjectURL(previewBlobUrlRef.current);
+      previewBlobUrlRef.current = null;
+    }
+  }, []);
+
   const handlePreview = useCallback(async (doc: DocumentType) => {
     setPreviewDocument(doc);
     setLoadingPreview(true);
     setPreviewUrl(null);
+    setPreviewStorageUrl(null);
+    revokeBlobUrl();
     try {
-      const url = await getFileDownloadUrl({ documentId: doc._id });
-      if (url) {
-        setPreviewUrl(url);
-      } else {
+      const storageUrl = await getFileDownloadUrl({ documentId: doc._id });
+      if (!storageUrl) {
         setError("Could not load preview");
         setPreviewDocument(null);
+        return;
+      }
+      setPreviewStorageUrl(storageUrl);
+
+      // For Office docs we must hand the public storage URL straight to the
+      // Microsoft viewer, so don't blob-ify those. Everything else loads as
+      // a same-origin blob URL — that avoids X-Frame-Options / CORS issues
+      // a few users hit when the Convex CDN response varies.
+      const ft = (doc.fileType || "").toLowerCase();
+      const isOfficeDoc =
+        ft.includes("officedocument") ||
+        ft.includes("msword") ||
+        ft.includes("ms-excel") ||
+        ft.includes("ms-powerpoint");
+
+      if (isOfficeDoc) {
+        setPreviewUrl(storageUrl);
+        return;
+      }
+
+      try {
+        const res = await fetch(storageUrl);
+        if (!res.ok) throw new Error(`Fetch ${res.status}`);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        previewBlobUrlRef.current = blobUrl;
+        setPreviewUrl(blobUrl);
+      } catch {
+        // Blob fetch failed — fall back to the raw storage URL and let
+        // the browser try to render it directly.
+        setPreviewUrl(storageUrl);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Preview failed");
@@ -452,12 +498,14 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoadingPreview(false);
     }
-  }, [getFileDownloadUrl]);
+  }, [getFileDownloadUrl, revokeBlobUrl]);
 
   const closePreview = useCallback(() => {
     setPreviewDocument(null);
     setPreviewUrl(null);
-  }, []);
+    setPreviewStorageUrl(null);
+    revokeBlobUrl();
+  }, [revokeBlobUrl]);
 
   const handleArchive = useCallback(async (docId: Id<"documents">) => {
     if (!user) return;
@@ -654,7 +702,7 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
       handleDownload, handlePreview, handleArchive, handleDelete, handleRestore, handleEdit, handleShare, handleTogglePublic,
       handleCreateFolder, handleUpdateFolder, handleArchiveFolder, handleMoveDocument, handleMoveFolder,
       handleVerifyPassword,
-      previewDocument, previewUrl, loadingPreview, closePreview,
+      previewDocument, previewUrl, previewStorageUrl, loadingPreview, closePreview,
       shareDocumentId, setShareDocumentId, getPublicUrl,
       contextMenu, setContextMenu,
       error, setError,

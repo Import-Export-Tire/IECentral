@@ -1,10 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import { useDocHub } from "./DocHubContext";
 import { formatFileSize, isOfficeDocument } from "./types";
 
 export default function PreviewModal() {
-  const { isDark, previewDocument, previewUrl, loadingPreview, closePreview, handleDownload } = useDocHub();
+  const {
+    isDark,
+    previewDocument,
+    previewUrl,
+    previewStorageUrl,
+    loadingPreview,
+    closePreview,
+    handleDownload,
+  } = useDocHub();
+
+  // Track whether the embedded preview failed to render so we can show a
+  // clear fallback (Download + Open in new tab) instead of a silent blank.
+  const [embedFailed, setEmbedFailed] = useState(false);
 
   if (!previewDocument) return null;
 
@@ -12,7 +25,7 @@ export default function PreviewModal() {
   const ft = doc.fileType.toLowerCase();
   const fn = doc.fileName.toLowerCase();
   const isImage = ft.includes("image");
-  const isPdf = ft.includes("pdf");
+  const isPdf = ft.includes("pdf") || fn.endsWith(".pdf");
   const isVideo = ft.startsWith("video/");
   const isAudio = ft.startsWith("audio/");
   const isText =
@@ -21,9 +34,13 @@ export default function PreviewModal() {
     ft.includes("csv") ||
     /\.(txt|csv|md|json|log|xml|html?)$/.test(fn);
   const isOffice = isOfficeDocument(ft);
-  const officeViewerUrl = isOffice && previewUrl
-    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`
+  const officeViewerUrl = isOffice && previewStorageUrl
+    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewStorageUrl)}`
     : null;
+
+  // For "Open in new tab" use the raw storage URL — blob URLs only work in
+  // the originating window.
+  const externalOpenUrl = previewStorageUrl || previewUrl;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={closePreview}>
@@ -48,6 +65,18 @@ export default function PreviewModal() {
             </p>
           </div>
           <div className="flex items-center gap-2 ml-4">
+            {externalOpenUrl && (
+              <a
+                href={externalOpenUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                Open in new tab
+              </a>
+            )}
             <button
               onClick={() => handleDownload(doc)}
               className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
@@ -68,50 +97,123 @@ export default function PreviewModal() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto flex items-center justify-center p-4">
+        <div className="flex-1 overflow-auto flex items-center justify-center p-4 bg-gray-50 dark:bg-slate-950">
           {loadingPreview ? (
             <div className={`w-8 h-8 border-2 border-t-transparent rounded-full animate-spin ${isDark ? "border-cyan-500" : "border-blue-500"}`} />
           ) : !previewUrl ? (
-            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Unable to load preview</p>
+            <FallbackPanel
+              isDark={isDark}
+              doc={doc}
+              externalOpenUrl={externalOpenUrl}
+              onDownload={() => handleDownload(doc)}
+              message="Unable to load preview"
+            />
           ) : isImage ? (
             <img
               src={previewUrl}
               alt={doc.name}
               className="max-w-full max-h-full object-contain rounded-lg"
+              onError={() => setEmbedFailed(true)}
             />
           ) : isVideo ? (
-            <video src={previewUrl} controls className="max-w-full max-h-full rounded-lg" />
+            <video src={previewUrl} controls className="max-w-full max-h-full rounded-lg" onError={() => setEmbedFailed(true)} />
           ) : isAudio ? (
-            <audio src={previewUrl} controls className="w-full" />
+            <audio src={previewUrl} controls className="w-full" onError={() => setEmbedFailed(true)} />
           ) : officeViewerUrl ? (
-            <iframe src={officeViewerUrl} className="w-full h-full rounded-lg" title={doc.name} />
-          ) : isPdf || isText ? (
-            <iframe src={previewUrl} className="w-full h-full rounded-lg" title={doc.name} />
+            <iframe src={officeViewerUrl} className="w-full h-full rounded-lg bg-white" title={doc.name} />
+          ) : isPdf ? (
+            // <embed> renders PDFs more reliably than <iframe> across
+            // browsers (it asks the browser's native PDF plugin directly).
+            <embed
+              src={previewUrl}
+              type="application/pdf"
+              className="w-full h-full rounded-lg bg-white"
+            />
+          ) : isText ? (
+            <iframe src={previewUrl} className="w-full h-full rounded-lg bg-white" title={doc.name} />
           ) : (
-            // Unsupported preview — show a friendly message with a clear
-            // Download CTA instead of an iframe that may render garbage.
-            <div className="text-center max-w-sm px-6">
-              <div className={`mx-auto mb-4 w-14 h-14 rounded-full flex items-center justify-center ${isDark ? "bg-slate-800 text-slate-400" : "bg-gray-100 text-gray-500"}`}>
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <p className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                Preview not available for this file type
-              </p>
-              <p className={`text-xs mt-1 mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                {doc.fileType || "Unknown type"} &middot; {formatFileSize(doc.fileSize)}
-              </p>
-              <button
-                onClick={() => handleDownload(doc)}
-                className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
-                style={{ backgroundColor: "#007AFF" }}
-              >
-                Download {doc.fileName}
-              </button>
+            <FallbackPanel
+              isDark={isDark}
+              doc={doc}
+              externalOpenUrl={externalOpenUrl}
+              onDownload={() => handleDownload(doc)}
+              message="Preview not available for this file type"
+            />
+          )}
+          {embedFailed && (
+            <div className="absolute inset-x-4 bottom-4 z-10">
+              <FallbackPanel
+                isDark={isDark}
+                doc={doc}
+                externalOpenUrl={externalOpenUrl}
+                onDownload={() => handleDownload(doc)}
+                message="Preview failed to load — use the buttons below to open the file directly."
+                compact
+              />
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function FallbackPanel({
+  isDark,
+  doc,
+  externalOpenUrl,
+  onDownload,
+  message,
+  compact = false,
+}: {
+  isDark: boolean;
+  doc: { name: string; fileName: string; fileType: string; fileSize: number };
+  externalOpenUrl: string | null;
+  onDownload: () => void;
+  message: string;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={`text-center max-w-md px-6 ${compact ? "py-3" : "py-8"} rounded-2xl ${
+        isDark ? "bg-slate-900/95 border border-slate-700" : "bg-white border border-gray-200"
+      } shadow-lg`}
+    >
+      {!compact && (
+        <div className={`mx-auto mb-3 w-12 h-12 rounded-full flex items-center justify-center ${isDark ? "bg-slate-800 text-slate-400" : "bg-gray-100 text-gray-500"}`}>
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+      )}
+      <p className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+        {message}
+      </p>
+      {!compact && (
+        <p className={`text-xs mt-1 mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+          {doc.fileType || "Unknown type"} &middot; {formatFileSize(doc.fileSize)}
+        </p>
+      )}
+      <div className={`flex gap-2 justify-center ${compact ? "mt-2" : "mt-3"}`}>
+        {externalOpenUrl && (
+          <a
+            href={externalOpenUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`px-4 py-2 rounded-xl text-sm font-semibold ${
+              isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+            }`}
+          >
+            Open in new tab
+          </a>
+        )}
+        <button
+          onClick={onDownload}
+          className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
+          style={{ backgroundColor: "#007AFF" }}
+        >
+          Download {doc.fileName}
+        </button>
       </div>
     </div>
   );

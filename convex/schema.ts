@@ -486,6 +486,15 @@ export default defineSchema({
       completedByName: v.string(),
       notes: v.optional(v.string()),
     })),
+    // Annual review history — one entry per anniversary cycle.
+    // cycleYear is the calendar year of the anniversary the review covers.
+    annualReviews: v.optional(v.array(v.object({
+      cycleYear: v.number(),
+      completedAt: v.number(),
+      completedBy: v.id("users"),
+      completedByName: v.string(),
+      notes: v.optional(v.string()),
+    }))),
     completedTraining: v.optional(v.array(v.string())), // Legacy: Array of training area names
     trainingRecords: v.optional(v.array(v.object({
       area: v.string(), // Training area name
