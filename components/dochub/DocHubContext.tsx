@@ -358,7 +358,7 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
     setUploading(true);
     setError("");
     try {
-      const uploadUrl = await generateUploadUrl();
+      const uploadUrl = await generateUploadUrl({ requestingUserId: user._id });
       if (!uploadUrl) throw new Error("Failed to generate upload URL");
 
       const { getFileMimeType } = await import("./types");
@@ -394,6 +394,7 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
           documentId: newDocId,
           expiresAt: new Date(expirationDate).getTime(),
           expirationAlertDays: expirationAlertDays || 30,
+          requestingUserId: user._id,
         });
       }
 
@@ -459,34 +460,39 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleArchive = useCallback(async (docId: Id<"documents">) => {
-    try { await archiveDocument({ documentId: docId }); }
+    if (!user) return;
+    try { await archiveDocument({ documentId: docId, requestingUserId: user._id }); }
     catch (err) { setError(err instanceof Error ? err.message : "Archive failed"); }
-  }, [archiveDocument]);
+  }, [archiveDocument, user]);
 
   const handleDelete = useCallback(async (docId: Id<"documents">) => {
-    try { await removeDocument({ documentId: docId }); }
+    if (!user) return;
+    try { await removeDocument({ documentId: docId, requestingUserId: user._id }); }
     catch (err) { setError(err instanceof Error ? err.message : "Delete failed"); }
-  }, [removeDocument]);
+  }, [removeDocument, user]);
 
   const handleRestore = useCallback(async (docId: Id<"documents">) => {
-    try { await restoreDocument({ documentId: docId }); }
+    if (!user) return;
+    try { await restoreDocument({ documentId: docId, requestingUserId: user._id }); }
     catch (err) { setError(err instanceof Error ? err.message : "Restore failed"); }
-  }, [restoreDocument]);
+  }, [restoreDocument, user]);
 
   const handleEdit = useCallback(async (docId: Id<"documents">, name: string, description: string, category: string) => {
+    if (!user) return;
     try {
-      await updateDocument({ documentId: docId, name, description, category });
+      await updateDocument({ documentId: docId, name, description, category, requestingUserId: user._id });
     } catch (err) { setError(err instanceof Error ? err.message : "Update failed"); }
-  }, [updateDocument]);
+  }, [updateDocument, user]);
 
   const handleShare = useCallback((docId: Id<"documents">) => {
     setShareDocumentId(docId);
   }, []);
 
   const handleTogglePublic = useCallback(async (docId: Id<"documents">) => {
-    try { await togglePublicMutation({ documentId: docId }); }
+    if (!user) return;
+    try { await togglePublicMutation({ documentId: docId, requestingUserId: user._id }); }
     catch (err) { setError(err instanceof Error ? err.message : "Failed to toggle public access"); }
-  }, [togglePublicMutation]);
+  }, [togglePublicMutation, user]);
 
   // Folder operations
   const handleCreateFolder = useCallback(async (name: string, description: string, password: string | undefined, visibility: string) => {
@@ -530,7 +536,7 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
   const handleUploadNewVersion = useCallback(async (docId: Id<"documents">, file: File, changeNotes?: string) => {
     if (!user) return;
     try {
-      const uploadUrl = await generateUploadUrl();
+      const uploadUrl = await generateUploadUrl({ requestingUserId: user._id });
       const result = await fetch(uploadUrl, {
         method: "POST",
         headers: { "Content-Type": file.type || "application/octet-stream" },
@@ -566,15 +572,17 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
 
   // Expiration
   const handleSetExpiration = useCallback(async (docId: Id<"documents">, expiresAt: number, alertDays: number) => {
+    if (!user) return;
     try {
-      await setExpirationMutation({ documentId: docId, expiresAt, expirationAlertDays: alertDays });
+      await setExpirationMutation({ documentId: docId, expiresAt, expirationAlertDays: alertDays, requestingUserId: user._id });
     } catch (err) { setError(err instanceof Error ? err.message : "Failed to set expiration"); }
-  }, [setExpirationMutation]);
+  }, [setExpirationMutation, user]);
 
   const handleRemoveExpiration = useCallback(async (docId: Id<"documents">) => {
-    try { await removeExpirationMutation({ documentId: docId }); }
+    if (!user) return;
+    try { await removeExpirationMutation({ documentId: docId, requestingUserId: user._id }); }
     catch (err) { setError(err instanceof Error ? err.message : "Failed to remove expiration"); }
-  }, [removeExpirationMutation]);
+  }, [removeExpirationMutation, user]);
 
   // Folder sharing
   const handleGrantAccess = useCallback(async (folderId: Id<"documentFolders">, userId: Id<"users">) => {

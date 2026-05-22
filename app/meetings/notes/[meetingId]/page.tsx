@@ -94,7 +94,7 @@ ${notes.transcript ? `<h2>Transcript</h2><div class="transcript">${notes.transcr
 </body></html>`;
 
       // Upload to Convex storage
-      const uploadUrl = await generateUploadUrl();
+      const uploadUrl = await generateUploadUrl({ requestingUserId: user._id });
       const blob = new Blob([html], { type: "text/html" });
       const uploadRes = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": "text/html" }, body: blob });
       if (!uploadRes.ok) throw new Error("Failed to upload");
