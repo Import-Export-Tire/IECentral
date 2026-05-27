@@ -608,7 +608,7 @@ function NinetyDayReviewsContent() {
 
 export default function NinetyDayReviewsPage() {
   return (
-    <Protected minTier={3}>
+    <Protected minTier={5}>
       <NinetyDayReviewsContent />
     </Protected>
   );

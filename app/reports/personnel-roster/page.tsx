@@ -244,7 +244,7 @@ function PersonnelRosterContent() {
 
 export default function PersonnelRosterPage() {
   return (
-    <Protected minTier={2}>
+    <Protected minTier={5}>
       <PersonnelRosterContent />
     </Protected>
   );

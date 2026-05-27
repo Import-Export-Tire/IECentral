@@ -519,7 +519,7 @@ function TurnoverDashboardContent() {
 
 export default function TurnoverDashboardPage() {
   return (
-    <Protected minTier={3}>
+    <Protected minTier={5}>
       <TurnoverDashboardContent />
     </Protected>
   );

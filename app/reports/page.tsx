@@ -80,6 +80,10 @@ function ReportsContent() {
   const [weeklyStartDate, setWeeklyStartDate] = useState(weekDates.start);
   const [weeklyEndDate, setWeeklyEndDate] = useState(weekDates.end);
 
+  // HR/Employment views are super-admin only — non-super-admins get
+  // redirected back to the hub even if they have the URL.
+  const HR_LOCKED_VIEWS = new Set(["personnel", "applications", "hiring"]);
+
   // Read URL params on mount
   useEffect(() => {
     const type = searchParams.get("type");
@@ -90,13 +94,18 @@ function ReportsContent() {
     const selected = view || type;
 
     if (selected && validViews.includes(selected)) {
+      // Block HR-locked views for non-super-admins.
+      if (HR_LOCKED_VIEWS.has(selected) && permissions.tier < 5) {
+        setShowHub(true);
+        return;
+      }
       setActiveReport(selected as ReportType);
       setShowHub(false);
     }
     if (equipmentType) {
       setEquipmentTypeFilter(equipmentType);
     }
-  }, [searchParams]);
+  }, [searchParams, permissions.tier]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Queries
   const personnel = useQuery(api.reports.getPersonnelExport);

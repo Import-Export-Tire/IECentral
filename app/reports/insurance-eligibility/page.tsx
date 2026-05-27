@@ -325,7 +325,7 @@ function InsuranceEligibilityContent() {
 
 export default function InsuranceEligibilityPage() {
   return (
-    <Protected minTier={3}>
+    <Protected minTier={5}>
       <InsuranceEligibilityContent />
     </Protected>
   );

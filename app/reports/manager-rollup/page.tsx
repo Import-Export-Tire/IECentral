@@ -417,7 +417,7 @@ function ManagerRollupContent() {
 
 export default function ManagerRollupPage() {
   return (
-    <Protected minTier={4}>
+    <Protected minTier={5}>
       <ManagerRollupContent />
     </Protected>
   );
