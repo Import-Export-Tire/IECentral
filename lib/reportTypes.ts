@@ -73,6 +73,15 @@ export const REPORT_TYPES: ReportType[] = [
     external: true,
   },
   {
+    id: "manager-rollup",
+    title: "Termination Rollup by Manager",
+    description: "Per-location-manager term rates, leaver tenure, and reason breakdown — isolates the 'is it this manager?' question",
+    icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7zM21 12h-6m0 0l3-3m-3 3l3 3",
+    href: "/reports/manager-rollup",
+    group: "hr",
+    external: true,
+  },
+  {
     id: "turnover",
     title: "Turnover Dashboard",
     description: "Hires vs terminations by month, tenure-at-termination curves, by-location term rates, top reasons",
