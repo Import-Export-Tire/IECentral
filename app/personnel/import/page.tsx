@@ -12,7 +12,7 @@ import Link from "next/link";
 import * as XLSX from "xlsx";
 
 type FieldKey =
-  | "firstName" | "lastName" | "hireDate" | "email" | "phone"
+  | "firstName" | "lastName" | "fullNameLastFirst" | "hireDate" | "email" | "phone"
   | "position" | "department" | "employeeType" | "positionType"
   | "hourlyRate" | "status" | "terminationDate" | "terminationReason"
   | "notes" | "locationName";
@@ -21,6 +21,7 @@ type FieldKey =
 const TARGET_FIELDS: { key: FieldKey; label: string; required?: boolean }[] = [
   { key: "firstName", label: "First Name", required: true },
   { key: "lastName", label: "Last Name", required: true },
+  { key: "fullNameLastFirst", label: "Full Name (Last, First MI) — splits into First + Last" },
   { key: "hireDate", label: "Hire Date (YYYY-MM-DD)", required: true },
   { key: "email", label: "Email" },
   { key: "phone", label: "Phone" },
@@ -40,6 +41,8 @@ const TARGET_FIELDS: { key: FieldKey; label: string; required?: boolean }[] = [
 const HEADER_ALIASES: Record<string, FieldKey> = {
   "first name": "firstName", "firstname": "firstName", "given name": "firstName", "fname": "firstName",
   "last name": "lastName", "lastname": "lastName", "surname": "lastName", "lname": "lastName",
+  "name": "fullNameLastFirst", "employee name": "fullNameLastFirst", "employee": "fullNameLastFirst",
+  "full name": "fullNameLastFirst", "fullname": "fullNameLastFirst",
   "hire date": "hireDate", "hiredate": "hireDate", "start date": "hireDate", "date hired": "hireDate", "hire": "hireDate",
   "email": "email", "e-mail": "email", "email address": "email",
   "phone": "phone", "phone number": "phone", "mobile": "phone", "cell": "phone",
@@ -100,6 +103,30 @@ function normalizeString(v: unknown): string | undefined {
   if (v == null) return undefined;
   const s = String(v).trim();
   return s === "" ? undefined : s;
+}
+
+// Parse "Last, First MI" → { firstName, lastName }. Tolerates extra
+// whitespace, suffixes (Jr/Sr/III), and missing middle initial. Falls back
+// to space-splitting if no comma is present ("First Last" or "First MI Last").
+function splitFullName(raw: unknown): { firstName?: string; lastName?: string } {
+  if (raw == null) return {};
+  const s = String(raw).trim().replace(/\s+/g, " ");
+  if (!s) return {};
+  if (s.includes(",")) {
+    const [lastPart, restPart = ""] = s.split(/,\s*/, 2);
+    const lastName = lastPart.trim();
+    // Strip suffix tokens (Jr/Sr/II/III/IV) from the rest before taking the first token as firstName
+    const restTokens = restPart.trim().split(" ").filter(Boolean);
+    const suffixRe = /^(jr|sr|ii|iii|iv|v)\.?$/i;
+    const cleaned = restTokens.filter(t => !suffixRe.test(t));
+    const firstName = cleaned[0] || "";
+    // Middle initials and middle names are intentionally discarded — schema has no field for them.
+    return { firstName, lastName };
+  }
+  // No comma → assume "First [MI] Last" — take last token as last name.
+  const tokens = s.split(" ").filter(Boolean);
+  if (tokens.length === 1) return { firstName: tokens[0] };
+  return { firstName: tokens[0], lastName: tokens[tokens.length - 1] };
 }
 
 interface ParsedRow {
@@ -208,12 +235,19 @@ function PersonnelImportContent() {
         } else if (f.key === "hourlyRate") {
           const n = normalizeNumber(cell);
           if (n !== undefined) mapped[f.key] = n;
+        } else if (f.key === "fullNameLastFirst") {
+          // Split into first/last and store on those keys. Explicit
+          // firstName/lastName mappings (if any) take precedence below.
+          const { firstName, lastName } = splitFullName(cell);
+          if (firstName && mapped.firstName === undefined) mapped.firstName = firstName;
+          if (lastName && mapped.lastName === undefined) mapped.lastName = lastName;
         } else {
           const s = normalizeString(cell);
           if (s !== undefined) mapped[f.key] = s;
         }
       }
       for (const f of TARGET_FIELDS) {
+        if (f.key === "fullNameLastFirst") continue; // satisfied via firstName/lastName
         if (f.required && !mapped[f.key]) diagnostics.push(`Missing ${f.label}`);
       }
       if (mapped.locationName && !locationNamesLower.has(String(mapped.locationName).toLowerCase().trim())) {
