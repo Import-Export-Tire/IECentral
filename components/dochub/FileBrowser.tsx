@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useDocHub } from "./DocHubContext";
 import Breadcrumbs from "./Breadcrumbs";
 import HelpModal from "./HelpModal";
+import FolderUploadModal from "./FolderUploadModal";
 import { FileGridCard, FileListRow, FolderGridCard, FolderListRow } from "./FileCard";
 import { CATEGORIES } from "./types";
 
@@ -89,6 +90,7 @@ export default function FileBrowser() {
   } = useDocHub();
 
   const dropRef = useRef<HTMLDivElement>(null);
+  const [showFolderUpload, setShowFolderUpload] = useState(false);
   const isSearching = !!searchQuery.trim();
 
   // All folders to display at current level (or search results)
@@ -225,6 +227,22 @@ export default function FileBrowser() {
           {/* Help */}
           <HelpModal />
 
+          {/* Upload folder button */}
+          <button
+            onClick={() => setShowFolderUpload(true)}
+            className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-xl transition-all ${
+              isDark
+                ? "bg-slate-700 text-slate-200 hover:bg-slate-600"
+                : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+            }`}
+            title="Upload a folder with all its subfolders"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+            </svg>
+            <span className="hidden sm:inline">Upload Folder</span>
+          </button>
+
           {/* Upload button */}
           <button
             onClick={() => setShowUploadModal(true)}
@@ -241,6 +259,8 @@ export default function FileBrowser() {
           </button>
         </div>
       </div>
+
+      <FolderUploadModal open={showFolderUpload} onClose={() => setShowFolderUpload(false)} />
 
       {/* Error */}
       {error && (
