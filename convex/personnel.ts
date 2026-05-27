@@ -374,6 +374,10 @@ export const update = mutation({
     notes: v.optional(v.string()),
     locationId: v.optional(v.id("locations")),
     defaultScheduleTemplateId: v.optional(v.id("shiftTemplates")),
+    // Allow patching termination metadata (separate from terminate flow)
+    // so audits/cleanups can correct stray dates and placeholder reasons.
+    terminationDate: v.optional(v.string()),
+    terminationReason: v.optional(v.string()),
     userId: v.optional(v.id("users")),
     requestingUserId: v.id("users"),
   },
