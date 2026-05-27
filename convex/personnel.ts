@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
-import { requireAdmin, requireManagePersonnel } from "./authGuards";
+import { requireAdmin, requireManagePersonnel, requireRole } from "./authGuards";
 
 // ============ QUERIES ============
 
@@ -1268,7 +1268,10 @@ export const remove = mutation({
     requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args.requestingUserId);
+    // Super-admin only — hard delete cascades through write-ups,
+    // attendance, merits, and reviews. Admins can Terminate (soft) but
+    // shouldn't be able to destroy history.
+    await requireRole(ctx, args.requestingUserId, ["super_admin"]);
     // Delete associated records first
     const writeUps = await ctx.db
       .query("writeUps")

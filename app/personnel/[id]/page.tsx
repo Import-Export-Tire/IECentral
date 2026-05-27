@@ -319,7 +319,7 @@ function PersonnelDetailContent() {
   const router = useRouter();
   const params = useParams();
   const personnelId = params.id as Id<"personnel">;
-  const { user, canViewPersonnel, canManagePersonnel, canDeleteRecords, canEditPersonnelInfo } = useAuth();
+  const { user, canViewPersonnel, canManagePersonnel, canDeleteRecords, canEditPersonnelInfo, isSuperAdmin } = useAuth();
 
   const [activeTab, setActiveTab] = useState("overview");
   const [showWriteUpModal, setShowWriteUpModal] = useState(false);
@@ -1850,7 +1850,7 @@ function PersonnelDetailContent() {
                         >
                           Terminate Employee
                         </button>
-                        {canDeleteRecords && (
+                        {isSuperAdmin && (
                           <button
                             onClick={() => { setDeleteConfirmText(""); setShowDeleteModal(true); }}
                             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -1858,7 +1858,7 @@ function PersonnelDetailContent() {
                                 ? "bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-600/40"
                                 : "bg-red-100 hover:bg-red-200 text-red-700 border border-red-300"
                             }`}
-                            title="Permanently delete this record and all associated write-ups, attendance, merits, and reviews. Cannot be undone."
+                            title="Super-admin only. Permanently delete this record and all associated write-ups, attendance, merits, and reviews. Cannot be undone."
                           >
                             Delete Permanently
                           </button>
@@ -1866,8 +1866,8 @@ function PersonnelDetailContent() {
                       </div>
                     )}
 
-                    {/* Delete Permanently button for already-terminated employees (admin-only) */}
-                    {canDeleteRecords && personnel.status === "terminated" && (
+                    {/* Delete Permanently button for already-terminated employees (super-admin only) */}
+                    {isSuperAdmin && personnel.status === "terminated" && (
                       <div className="pt-2">
                         <button
                           onClick={() => { setDeleteConfirmText(""); setShowDeleteModal(true); }}
