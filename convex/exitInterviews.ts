@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { requireRole } from "./authGuards";
 import Anthropic from "@anthropic-ai/sdk";
 
 // ============ QUERIES ============
@@ -287,6 +288,7 @@ export const complete = mutation({
     hrNotes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireRole(ctx, args.conductedBy, ["super_admin"]);
     const interview = await ctx.db.get(args.interviewId);
     if (!interview) throw new Error("Exit interview not found");
 
@@ -317,13 +319,14 @@ export const complete = mutation({
 
 // Sign-off on the termination. Moves status from pending_signoff → scheduled
 // (interview still pending) or → completed (if conducting now). Records who
-// acknowledged and when.
+// acknowledged and when. Super-admin only.
 export const signOff = mutation({
   args: {
     interviewId: v.id("exitInterviews"),
     signedOffByUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireRole(ctx, args.signedOffByUserId, ["super_admin"]);
     const interview = await ctx.db.get(args.interviewId);
     if (!interview) throw new Error("Exit interview not found");
     if (interview.status === "reversed") {
@@ -341,6 +344,7 @@ export const signOff = mutation({
 
 // Reverse the termination — within the 7-day window only. Flips personnel
 // back to active, cancels the calendar event, and records the reversal.
+// Super-admin only.
 export const reverse = mutation({
   args: {
     interviewId: v.id("exitInterviews"),
@@ -348,6 +352,7 @@ export const reverse = mutation({
     reversedReason: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireRole(ctx, args.reversedByUserId, ["super_admin"]);
     const interview = await ctx.db.get(args.interviewId);
     if (!interview) throw new Error("Exit interview not found");
     const now = Date.now();

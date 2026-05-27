@@ -489,7 +489,7 @@ function ExitInterviewsContent() {
 
 export default function ExitInterviewsPage() {
   return (
-    <Protected minTier={4}>
+    <Protected minTier={5}>
       <ExitInterviewsContent />
     </Protected>
   );
