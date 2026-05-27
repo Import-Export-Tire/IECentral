@@ -331,6 +331,9 @@ function PersonnelDetailContent() {
   const [savingNinetyReview, setSavingNinetyReview] = useState(false);
   const [showTerminateModal, setShowTerminateModal] = useState(false);
   const [showRehireModal, setShowRehireModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletingPersonnel, setDeletingPersonnel] = useState(false);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [selectedMilestone, setSelectedMilestone] = useState<string | null>(null);
   const [checkInNotes, setCheckInNotes] = useState("");
@@ -379,6 +382,7 @@ function PersonnelDetailContent() {
   const addAttendanceAttachment = useMutation(api.attendance.addAttachment);
   const removeAttendanceAttachment = useMutation(api.attendance.removeAttachment);
   const terminatePersonnel = useMutation(api.personnel.terminate);
+  const removePersonnel = useMutation(api.personnel.remove);
   const rehirePersonnel = useMutation(api.personnel.rehire);
   const toggleTraining = useMutation(api.personnel.toggleTraining);
   const recordTenureCheckIn = useMutation(api.personnel.recordTenureCheckIn);
@@ -835,6 +839,28 @@ function PersonnelDetailContent() {
         console.error("Error deleting attachment:", error);
         alert("Failed to delete attachment. Please try again.");
       }
+    }
+  };
+
+  const handleDeletePersonnel = async () => {
+    if (!user || !personnel) return;
+    const expected = `${personnel.firstName} ${personnel.lastName}`.trim();
+    if (deleteConfirmText.trim().toLowerCase() !== expected.toLowerCase()) {
+      alert(`Type "${expected}" exactly to confirm.`);
+      return;
+    }
+    setDeletingPersonnel(true);
+    try {
+      await removePersonnel({
+        personnelId,
+        requestingUserId: user._id as Id<"users">,
+      });
+      // Personnel is gone — bounce back to the list.
+      router.push("/personnel");
+    } catch (error) {
+      console.error("Error deleting personnel:", error);
+      alert(error instanceof Error ? error.message : "Failed to delete personnel.");
+      setDeletingPersonnel(false);
     }
   };
 
@@ -1813,7 +1839,7 @@ function PersonnelDetailContent() {
 
                     {/* Terminate Button (admin+ only, non-terminated) */}
                     {canManagePersonnel && personnel.status !== "terminated" && (
-                      <div className="pt-4 border-t border-dashed border-slate-600/50">
+                      <div className="pt-4 border-t border-dashed border-slate-600/50 flex flex-wrap gap-2">
                         <button
                           onClick={() => setShowTerminateModal(true)}
                           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -1823,6 +1849,35 @@ function PersonnelDetailContent() {
                           }`}
                         >
                           Terminate Employee
+                        </button>
+                        {canDeleteRecords && (
+                          <button
+                            onClick={() => { setDeleteConfirmText(""); setShowDeleteModal(true); }}
+                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                              isDark
+                                ? "bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-600/40"
+                                : "bg-red-100 hover:bg-red-200 text-red-700 border border-red-300"
+                            }`}
+                            title="Permanently delete this record and all associated write-ups, attendance, merits, and reviews. Cannot be undone."
+                          >
+                            Delete Permanently
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Delete Permanently button for already-terminated employees (admin-only) */}
+                    {canDeleteRecords && personnel.status === "terminated" && (
+                      <div className="pt-2">
+                        <button
+                          onClick={() => { setDeleteConfirmText(""); setShowDeleteModal(true); }}
+                          className={`px-4 py-2 rounded-lg font-medium transition-colors text-xs ${
+                            isDark
+                              ? "bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-600/40"
+                              : "bg-red-100 hover:bg-red-200 text-red-700 border border-red-300"
+                          }`}
+                        >
+                          Delete Permanently
                         </button>
                       </div>
                     )}
@@ -3430,6 +3485,65 @@ function PersonnelDetailContent() {
                   className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-red-500 hover:bg-red-400 text-white" : "bg-red-600 hover:bg-red-700 text-white"}`}
                 >
                   Confirm Termination
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Permanently Modal — admin-only, hard delete with cascade */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className={`w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-2xl"}`}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`p-2 rounded-full ${isDark ? "bg-red-500/20" : "bg-red-100"}`}>
+                  <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                  Permanently Delete Record
+                </h2>
+              </div>
+              <p className={`text-sm mb-3 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                This will permanently delete <strong>{personnel?.firstName} {personnel?.lastName}</strong> and cascade-delete all associated records:
+              </p>
+              <ul className={`text-xs mb-4 list-disc pl-5 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                <li>Write-ups</li>
+                <li>Attendance records</li>
+                <li>Merit awards</li>
+                <li>Performance reviews</li>
+              </ul>
+              <p className={`text-xs mb-3 font-medium ${isDark ? "text-amber-400" : "text-amber-700"}`}>
+                This cannot be undone. For most cases, &ldquo;Terminate Employee&rdquo; is the right choice — it preserves history.
+              </p>
+              <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                Type <code className={`px-1 py-0.5 rounded ${isDark ? "bg-slate-700 text-slate-200" : "bg-gray-100 text-gray-800"}`}>{personnel?.firstName} {personnel?.lastName}</code> to confirm:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="Employee full name"
+                autoFocus
+                className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-red-500/40 ${
+                  isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-gray-300 text-gray-900"
+                }`}
+              />
+              <div className="flex justify-end gap-2 mt-5">
+                <button
+                  onClick={() => { setShowDeleteModal(false); setDeleteConfirmText(""); }}
+                  disabled={deletingPersonnel}
+                  className={`px-4 py-2 text-sm font-medium rounded-full ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"} disabled:opacity-50`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeletePersonnel}
+                  disabled={deletingPersonnel || deleteConfirmText.trim().toLowerCase() !== `${personnel?.firstName} ${personnel?.lastName}`.trim().toLowerCase()}
+                  className="px-5 py-2 text-sm font-medium rounded-full bg-red-600 hover:bg-red-700 text-white shadow-sm disabled:opacity-50"
+                >
+                  {deletingPersonnel ? "Deleting…" : "Delete forever"}
                 </button>
               </div>
             </div>
