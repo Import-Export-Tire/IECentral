@@ -584,35 +584,85 @@ export const terminate = mutation({
       }
     }
 
-    // Create exit interview record and send survey email
-    if (existing.email) {
-      // Check if exit interview already exists
-      const existingInterview = await ctx.db
-        .query("exitInterviews")
-        .withIndex("by_personnel", (q) => q.eq("personnelId", args.personnelId))
-        .first();
+    // Create exit interview record + auto-schedule calendar event for the
+    // interviewer. The termination is recorded immediately but is reversible
+    // for 7 days via /exit-interviews (per Andy 5/27).
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    // Always Andy by default (per 5/27 spec); could be made configurable later.
+    const INTERVIEWER_ID = "jd711szqxd2fb870qa5cr92nts7xdxxh" as Id<"users">;
+    // Skip the auto-create when the termination came from the bulk sync script
+    // (those are administrative cleanups, not real separations).
+    const isSyncCleanup = /^Not in.*personnel sync$/i.test(args.terminationReason || "");
 
-      let exitInterviewId: Id<"exitInterviews">;
+    const existingInterview = await ctx.db
+      .query("exitInterviews")
+      .withIndex("by_personnel", (q) => q.eq("personnelId", args.personnelId))
+      .first();
 
-      if (existingInterview) {
-        exitInterviewId = existingInterview._id;
-      } else {
-        // Create new exit interview
-        exitInterviewId = await ctx.db.insert("exitInterviews", {
-          personnelId: args.personnelId,
-          personnelName: `${existing.firstName} ${existing.lastName}`,
-          department: existing.department,
-          position: existing.position,
-          hireDate: existing.hireDate,
-          terminationDate: args.terminationDate,
-          terminationReason: args.terminationReason,
-          status: "pending",
+    let exitInterviewId: Id<"exitInterviews"> | null = existingInterview?._id ?? null;
+
+    if (!existingInterview && !isSyncCleanup) {
+      const terminator = args.userId ? await ctx.db.get(args.userId) : null;
+
+      // Schedule the interview 7 business days out at 10:00 local — gives the
+      // employee a cooling-off window and respects Andy's calendar buffer.
+      const termDate = new Date(args.terminationDate + "T10:00:00");
+      const interviewStart = new Date(termDate);
+      let daysAdded = 0;
+      while (daysAdded < 7) {
+        interviewStart.setDate(interviewStart.getDate() + 1);
+        const dow = interviewStart.getDay();
+        if (dow !== 0 && dow !== 6) daysAdded++;
+      }
+      const interviewEnd = new Date(interviewStart.getTime() + 30 * 60 * 1000);
+
+      const interviewer = await ctx.db.get(INTERVIEWER_ID);
+      let calendarEventId: Id<"events"> | undefined;
+      if (interviewer) {
+        calendarEventId = await ctx.db.insert("events", {
+          title: `Exit Interview: ${existing.firstName} ${existing.lastName}`,
+          description: `Auto-scheduled exit interview for ${existing.firstName} ${existing.lastName} (${existing.position || "—"}, ${existing.department || "—"}). Termed ${args.terminationDate} — reason: ${args.terminationReason}. Conduct via /exit-interviews.`,
+          startTime: interviewStart.getTime(),
+          endTime: interviewEnd.getTime(),
+          isAllDay: false,
+          createdBy: interviewer._id,
+          createdByName: interviewer.name,
           createdAt: now,
           updatedAt: now,
         });
+        // Invite Andy (the interviewer) so it lands in his calendar view
+        await ctx.db.insert("eventInvites", {
+          eventId: calendarEventId,
+          userId: interviewer._id,
+          status: "accepted",
+          isRead: false,
+          notifiedAt: now,
+          createdAt: now,
+        });
       }
 
-      // Schedule email to be sent (slight delay to ensure DB write is complete)
+      exitInterviewId = await ctx.db.insert("exitInterviews", {
+        personnelId: args.personnelId,
+        personnelName: `${existing.firstName} ${existing.lastName}`,
+        department: existing.department,
+        position: existing.position,
+        hireDate: existing.hireDate,
+        terminationDate: args.terminationDate,
+        terminationReason: args.terminationReason,
+        status: "pending_signoff",
+        terminatedByUserId: args.userId,
+        terminatedByName: terminator?.name,
+        interviewerUserId: INTERVIEWER_ID,
+        scheduledAt: interviewStart.getTime(),
+        calendarEventId,
+        reversibleUntil: now + SEVEN_DAYS_MS,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    // Send survey email on the original (non-cleanup) path only.
+    if (exitInterviewId && existing.email && !isSyncCleanup) {
       await ctx.scheduler.runAfter(1000, internal.emails.sendExitInterviewEmail, {
         employeeName: `${existing.firstName} ${existing.lastName}`,
         employeeEmail: existing.email,

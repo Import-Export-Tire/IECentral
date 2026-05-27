@@ -279,6 +279,12 @@ export const complete = mutation({
     }),
     interviewerNotes: v.optional(v.string()),
     conductedBy: v.id("users"),
+    // 5/27 extension: structured reason + HR handoff fields
+    leavingCategory: v.optional(v.string()),
+    rehireEligible: v.optional(v.boolean()),
+    severancePaid: v.optional(v.boolean()),
+    finalPaycheckDate: v.optional(v.string()),
+    hrNotes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const interview = await ctx.db.get(args.interviewId);
@@ -289,13 +295,92 @@ export const complete = mutation({
 
     const now = Date.now();
 
-    await ctx.db.patch(args.interviewId, {
+    const patch: Record<string, unknown> = {
       status: "completed",
       responses: args.responses,
       interviewerNotes: args.interviewerNotes,
       conductedBy: args.conductedBy,
       conductedByName: user.name,
       completedAt: now,
+      updatedAt: now,
+    };
+    if (args.leavingCategory !== undefined) patch.leavingCategory = args.leavingCategory;
+    if (args.rehireEligible !== undefined) patch.rehireEligible = args.rehireEligible;
+    if (args.severancePaid !== undefined) patch.severancePaid = args.severancePaid;
+    if (args.finalPaycheckDate !== undefined) patch.finalPaycheckDate = args.finalPaycheckDate;
+    if (args.hrNotes !== undefined) patch.hrNotes = args.hrNotes;
+    await ctx.db.patch(args.interviewId, patch);
+
+    return args.interviewId;
+  },
+});
+
+// Sign-off on the termination. Moves status from pending_signoff → scheduled
+// (interview still pending) or → completed (if conducting now). Records who
+// acknowledged and when.
+export const signOff = mutation({
+  args: {
+    interviewId: v.id("exitInterviews"),
+    signedOffByUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const interview = await ctx.db.get(args.interviewId);
+    if (!interview) throw new Error("Exit interview not found");
+    if (interview.status === "reversed") {
+      throw new Error("Cannot sign off on a reversed termination");
+    }
+    await ctx.db.patch(args.interviewId, {
+      status: interview.status === "completed" ? "completed" : "scheduled",
+      signedOffByUserId: args.signedOffByUserId,
+      signedOffAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    return args.interviewId;
+  },
+});
+
+// Reverse the termination — within the 7-day window only. Flips personnel
+// back to active, cancels the calendar event, and records the reversal.
+export const reverse = mutation({
+  args: {
+    interviewId: v.id("exitInterviews"),
+    reversedByUserId: v.id("users"),
+    reversedReason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const interview = await ctx.db.get(args.interviewId);
+    if (!interview) throw new Error("Exit interview not found");
+    const now = Date.now();
+    if (interview.reversibleUntil && now > interview.reversibleUntil) {
+      throw new Error(
+        `Reversal window expired on ${new Date(interview.reversibleUntil).toLocaleDateString()}. Use the Rehire flow instead.`,
+      );
+    }
+    if (interview.status === "reversed") throw new Error("Already reversed");
+
+    // Flip the personnel record back to active and clear termination fields.
+    await ctx.db.patch(interview.personnelId, {
+      status: "active",
+      terminationDate: undefined,
+      terminationReason: undefined,
+      updatedAt: now,
+    });
+
+    // Cancel the calendar event if one was created.
+    if (interview.calendarEventId) {
+      await ctx.db.patch(interview.calendarEventId, {
+        isCancelled: true,
+        cancelledAt: now,
+        cancelledBy: args.reversedByUserId,
+        updatedAt: now,
+      });
+    }
+
+    await ctx.db.patch(args.interviewId, {
+      status: "reversed",
+      reversedAt: now,
+      reversedByUserId: args.reversedByUserId,
+      reversedReason: args.reversedReason,
       updatedAt: now,
     });
 

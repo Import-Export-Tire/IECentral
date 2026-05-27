@@ -2209,12 +2209,33 @@ export default defineSchema({
     terminationDate: v.string(),
     terminationReason: v.optional(v.string()), // From termination record
     // Exit interview status
-    status: v.string(), // "pending" | "scheduled" | "completed" | "declined"
+    // Includes "pending_signoff" / "reversed" added 5/27 for the sign-off
+    // workflow alongside the original "pending" / "scheduled" / "completed" / "declined"
+    status: v.string(),
     scheduledDate: v.optional(v.string()),
     scheduledTime: v.optional(v.string()),
+    scheduledAt: v.optional(v.number()),         // ms — set when calendar event is created
+    interviewerUserId: v.optional(v.id("users")),// Andy by default
+    calendarEventId: v.optional(v.id("events")), // back-reference to auto-created interview event
     conductedBy: v.optional(v.id("users")),
     conductedByName: v.optional(v.string()),
     completedAt: v.optional(v.number()),
+    // Sign-off and 7-day reversible window
+    terminatedByUserId: v.optional(v.id("users")),
+    terminatedByName: v.optional(v.string()),
+    signedOffByUserId: v.optional(v.id("users")),
+    signedOffAt: v.optional(v.number()),
+    reversibleUntil: v.optional(v.number()),     // ms — sign-off / reversal deadline
+    reversedAt: v.optional(v.number()),
+    reversedByUserId: v.optional(v.id("users")),
+    reversedReason: v.optional(v.string()),
+    // Structured reason category (in addition to terminationReason free text)
+    leavingCategory: v.optional(v.string()),     // voluntary_quit | involuntary | layoff | performance | attendance | no_call_no_show | other
+    // Eligibility / HR handoff
+    rehireEligible: v.optional(v.boolean()),
+    severancePaid: v.optional(v.boolean()),
+    finalPaycheckDate: v.optional(v.string()),
+    hrNotes: v.optional(v.string()),
     // Standard questions and responses
     responses: v.optional(v.object({
       primaryReason: v.optional(v.string()), // Main reason for leaving
