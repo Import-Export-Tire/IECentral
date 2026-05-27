@@ -73,6 +73,15 @@ export const REPORT_TYPES: ReportType[] = [
     external: true,
   },
   {
+    id: "turnover",
+    title: "Turnover Dashboard",
+    description: "Hires vs terminations by month, tenure-at-termination curves, by-location term rates, top reasons",
+    icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6",
+    href: "/reports/turnover",
+    group: "hr",
+    external: true,
+  },
+  {
     id: "exit-interviews-report",
     title: "Exit Interview Report",
     description: "Trends, ratings, and PDF export for sharing with leadership (super-admin only)",
