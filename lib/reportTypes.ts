@@ -6,6 +6,7 @@ export interface ReportType {
   href: string;
   group: "hr" | "operations" | "sales" | "inventory" | "vendor" | "saved" | "admin";
   external?: boolean; // Links to existing page outside /reports/
+  superAdminOnly?: boolean; // Card hidden unless user is super_admin (tier 5)
 }
 
 export const REPORT_GROUPS = [
@@ -64,12 +65,22 @@ export const REPORT_TYPES: ReportType[] = [
   },
   {
     id: "ninety-day-reviews",
-    title: "90-Day Reviews",
-    description: "Who needs a 90-day review, who's overdue, and who's already been reviewed",
+    title: "Review Tracker",
+    description: "90-day reviews and annual reviews — overdue, upcoming, and completed",
     icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
     href: "/reports/ninety-day-reviews",
     group: "hr",
     external: true,
+  },
+  {
+    id: "exit-interviews-report",
+    title: "Exit Interview Report",
+    description: "Trends, ratings, and PDF export for sharing with leadership (super-admin only)",
+    icon: "M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1",
+    href: "/reports/exit-interviews",
+    group: "admin",
+    external: true,
+    superAdminOnly: true,
   },
   // Operations
   {
@@ -141,6 +152,24 @@ export const REPORT_TYPES: ReportType[] = [
     icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
     href: "/reports/inventory/filtered",
     group: "inventory",
+    external: true,
+  },
+  {
+    id: "sales-dashboard",
+    title: "Sales Dashboard",
+    description: "Tires sold by location with WoW / MoM / YTD delta pills, stacked monthly chart, weekly trend",
+    icon: "M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z",
+    href: "/reports/sales-dashboard",
+    group: "sales",
+    external: true,
+  },
+  {
+    id: "sales-by-day",
+    title: "Sales by Day & Location",
+    description: "Daily/weekly/monthly sales by store with line, area, and bar charts — Dollars or Tires",
+    icon: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z",
+    href: "/reports/sales-by-day",
+    group: "sales",
     external: true,
   },
   {

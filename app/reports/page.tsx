@@ -317,6 +317,10 @@ function ReportsContent() {
                 }
 
                 let groupReports = REPORT_TYPES.filter((r) => r.group === group.id);
+                // Per-card super-admin gating (e.g. exit interview report)
+                if (permissions.tier < 5) {
+                  groupReports = groupReports.filter((r) => !r.superAdminOnly);
+                }
                 // Filter by search
                 if (searchQuery) {
                   const q = searchQuery.toLowerCase();
