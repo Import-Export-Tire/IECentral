@@ -912,6 +912,61 @@ export const clearNinetyDayReview = mutation({
   },
 });
 
+// Record an annual review for an employee. cycleYear is the calendar year
+// of the anniversary the review covers (e.g. 2026 for an employee hired
+// 2024-03-15 reviewing their 2026-03-15 anniversary).
+export const markAnnualReview = mutation({
+  args: {
+    personnelId: v.id("personnel"),
+    cycleYear: v.number(),
+    completedBy: v.id("users"),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.completedBy);
+    const reviewer = await ctx.db.get(args.completedBy);
+    if (!reviewer) throw new Error("Reviewer not found");
+    const employee = await ctx.db.get(args.personnelId);
+    if (!employee) throw new Error("Personnel not found");
+    const existing = employee.annualReviews || [];
+    const filtered = existing.filter((r) => r.cycleYear !== args.cycleYear);
+    await ctx.db.patch(args.personnelId, {
+      annualReviews: [
+        ...filtered,
+        {
+          cycleYear: args.cycleYear,
+          completedAt: Date.now(),
+          completedBy: args.completedBy,
+          completedByName: reviewer.name,
+          notes: args.notes,
+        },
+      ],
+      updatedAt: Date.now(),
+    });
+    return args.personnelId;
+  },
+});
+
+// Remove the recorded annual review for a specific cycle year (admin correction)
+export const clearAnnualReview = mutation({
+  args: {
+    personnelId: v.id("personnel"),
+    cycleYear: v.number(),
+    requestingUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    const employee = await ctx.db.get(args.personnelId);
+    if (!employee) throw new Error("Personnel not found");
+    const existing = employee.annualReviews || [];
+    await ctx.db.patch(args.personnelId, {
+      annualReviews: existing.filter((r) => r.cycleYear !== args.cycleYear),
+      updatedAt: Date.now(),
+    });
+    return args.personnelId;
+  },
+});
+
 // Bulk mark all tenure check-ins complete for personnel hired before a date
 export const bulkCompleteTenureCheckIns = mutation({
   args: {
@@ -1025,6 +1080,123 @@ export const removeDuplicates = mutation({
     }
 
     return { deleted, remaining: allPersonnel.length - deleted };
+  },
+});
+
+// Bulk upsert personnel: match by (firstName + lastName + hireDate); overwrite
+// matched rows with the supplied values, insert new rows when no match. Used
+// by the XLSX upload UI under /personnel/import.
+export const bulkUpsert = mutation({
+  args: {
+    requestingUserId: v.id("users"),
+    employees: v.array(
+      v.object({
+        firstName: v.string(),
+        lastName: v.string(),
+        hireDate: v.string(),
+        email: v.optional(v.string()),
+        phone: v.optional(v.string()),
+        position: v.optional(v.string()),
+        department: v.optional(v.string()),
+        employeeType: v.optional(v.string()),
+        positionType: v.optional(v.string()),
+        hourlyRate: v.optional(v.number()),
+        status: v.optional(v.string()),
+        terminationDate: v.optional(v.string()),
+        terminationReason: v.optional(v.string()),
+        notes: v.optional(v.string()),
+        // Location is looked up by name (case-insensitive); pass the location's
+        // display name (e.g. "R20" or "Akron Retail") and the mutation resolves it.
+        locationName: v.optional(v.string()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
+    const now = Date.now();
+
+    const allPersonnel = await ctx.db.query("personnel").collect();
+    const locations = await ctx.db.query("locations").collect();
+
+    const locByName = new Map<string, Id<"locations">>();
+    for (const l of locations) {
+      locByName.set(l.name.toLowerCase().trim(), l._id);
+    }
+
+    const keyFn = (fn: string, ln: string, hd: string) =>
+      `${fn.trim().toLowerCase()}|${ln.trim().toLowerCase()}|${hd.trim()}`;
+    const byKey = new Map<string, (typeof allPersonnel)[number]>();
+    for (const p of allPersonnel) {
+      byKey.set(keyFn(p.firstName, p.lastName, p.hireDate), p);
+    }
+
+    const results = {
+      inserted: 0,
+      updated: 0,
+      errors: [] as { row: number; reason: string }[],
+      unknownLocations: [] as string[],
+    };
+
+    for (let i = 0; i < args.employees.length; i++) {
+      const e = args.employees[i];
+      if (!e.firstName?.trim() || !e.lastName?.trim() || !e.hireDate?.trim()) {
+        results.errors.push({ row: i, reason: "Missing firstName, lastName, or hireDate" });
+        continue;
+      }
+
+      let locationId: Id<"locations"> | undefined;
+      if (e.locationName?.trim()) {
+        locationId = locByName.get(e.locationName.toLowerCase().trim());
+        if (!locationId && !results.unknownLocations.includes(e.locationName)) {
+          results.unknownLocations.push(e.locationName);
+        }
+      }
+
+      const existing = byKey.get(keyFn(e.firstName, e.lastName, e.hireDate));
+
+      if (existing) {
+        const patch: Record<string, unknown> = { updatedAt: now };
+        // Only patch fields the caller actually provided (undefined = leave alone)
+        if (e.email !== undefined) patch.email = e.email.toLowerCase().trim();
+        if (e.phone !== undefined) patch.phone = e.phone.trim();
+        if (e.position !== undefined) patch.position = e.position.trim();
+        if (e.department !== undefined) patch.department = e.department.trim();
+        if (e.employeeType !== undefined) patch.employeeType = e.employeeType.trim();
+        if (e.positionType !== undefined) patch.positionType = e.positionType.trim();
+        if (e.hourlyRate !== undefined) patch.hourlyRate = e.hourlyRate;
+        if (e.status !== undefined) patch.status = e.status.trim();
+        if (e.terminationDate !== undefined) patch.terminationDate = e.terminationDate.trim();
+        if (e.terminationReason !== undefined) patch.terminationReason = e.terminationReason.trim();
+        if (e.notes !== undefined) patch.notes = e.notes.trim();
+        if (locationId !== undefined) patch.locationId = locationId;
+        await ctx.db.patch(existing._id, patch);
+        results.updated++;
+      } else {
+        // Insert requires all base fields with reasonable defaults
+        await ctx.db.insert("personnel", {
+          firstName: e.firstName.trim(),
+          lastName: e.lastName.trim(),
+          email: (e.email || "").toLowerCase().trim(),
+          phone: (e.phone || "").trim(),
+          position: (e.position || "").trim(),
+          department: (e.department || "").trim(),
+          employeeType: (e.employeeType || "full_time").trim(),
+          hireDate: e.hireDate.trim(),
+          status: (e.status || "active").trim(),
+          ...(e.positionType ? { positionType: e.positionType.trim() } : {}),
+          ...(e.hourlyRate !== undefined ? { hourlyRate: e.hourlyRate } : {}),
+          ...(locationId ? { locationId } : {}),
+          ...(e.terminationDate ? { terminationDate: e.terminationDate.trim() } : {}),
+          ...(e.terminationReason ? { terminationReason: e.terminationReason.trim() } : {}),
+          ...(e.notes ? { notes: e.notes.trim() } : {}),
+          createdAt: now,
+          updatedAt: now,
+        });
+        results.inserted++;
+      }
+    }
+
+    return results;
   },
 });
 

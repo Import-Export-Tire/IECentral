@@ -12,6 +12,17 @@ import Link from "next/link";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const REVIEW_MILESTONE_DAYS = 90;
+const ANNUAL_DUE_SOON_DAYS = 30; // alert when an upcoming anniversary is within this window
+
+type Tab = "ninety" | "annual";
+
+type AnnualReview = {
+  cycleYear: number;
+  completedAt: number;
+  completedBy: Id<"users">;
+  completedByName: string;
+  notes?: string;
+};
 
 function daysSince(dateStr: string): number {
   const start = new Date(dateStr);
@@ -26,6 +37,50 @@ function addDays(dateStr: string, days: number): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+// Anniversary on a given year. Uses local time to keep dates from drifting.
+function anniversaryOn(hireDate: string, year: number): Date {
+  const h = new Date(hireDate);
+  return new Date(year, h.getMonth(), h.getDate());
+}
+
+// The next annual cycle that needs a review for this employee.
+// - Returns nextDueDate (Date object), cycleYear (number for the cycle the
+//   review covers), daysToReview (negative = overdue, positive = future),
+//   and last completed review if any.
+function annualState(hireDate: string, annualReviews: AnnualReview[] | undefined) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const hire = new Date(hireDate);
+  if (isNaN(hire.getTime())) return null;
+  hire.setHours(0, 0, 0, 0);
+
+  // Walk forward from the first anniversary until we find one whose review
+  // is missing. If we find a future anniversary, that's the next-upcoming
+  // review and the employee is up-to-date through all earlier cycles.
+  let yearOffset = 1;
+  let nextDue = anniversaryOn(hireDate, hire.getFullYear() + yearOffset);
+  while (nextDue.getTime() <= today.getTime()) {
+    const cycleYear = nextDue.getFullYear();
+    const hasReview = (annualReviews || []).some((r) => r.cycleYear === cycleYear);
+    if (!hasReview) break; // overdue
+    yearOffset += 1;
+    nextDue = anniversaryOn(hireDate, hire.getFullYear() + yearOffset);
+  }
+
+  const cycleYear = nextDue.getFullYear();
+  const daysToReview = Math.round((nextDue.getTime() - today.getTime()) / MS_PER_DAY);
+  const lastCompleted = (annualReviews || [])
+    .slice()
+    .sort((a, b) => b.cycleYear - a.cycleYear)[0];
+
+  return {
+    nextDue,
+    cycleYear,
+    daysToReview,
+    lastCompleted,
+  };
+}
+
 function NinetyDayReviewsContent() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -34,13 +89,16 @@ function NinetyDayReviewsContent() {
   const personnel = useQuery(api.personnel.list, { status: "active" });
   const locations = useQuery(api.locations.list) || [];
   const markReview = useMutation(api.personnel.markNinetyDayReview);
+  const markAnnual = useMutation(api.personnel.markAnnualReview);
 
+  const [tab, setTab] = useState<Tab>("ninety");
   const [locationFilter, setLocationFilter] = useState<Id<"locations"> | "">("");
   const [showCompleted, setShowCompleted] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
 
-  const rows = useMemo(() => {
+  // ===== 90-day rows =====
+  const ninetyRows = useMemo(() => {
     if (!personnel) return [];
     return personnel
       .filter((p) => !locationFilter || p.locationId === locationFilter)
@@ -70,18 +128,70 @@ function NinetyDayReviewsContent() {
       });
   }, [personnel, locations, locationFilter]);
 
+  // ===== Annual rows =====
+  const annualRows = useMemo(() => {
+    if (!personnel) return [];
+    return personnel
+      .filter((p) => !locationFilter || p.locationId === locationFilter)
+      .map((p) => {
+        const annualReviews = (p as { annualReviews?: AnnualReview[] }).annualReviews;
+        const state = annualState(p.hireDate, annualReviews);
+        const location = locations.find((l) => l._id === p.locationId);
+        if (!state) return null;
+
+        let bucket: "overdue" | "due-soon" | "upcoming" | "completed";
+        if (state.daysToReview <= 0) bucket = "overdue";
+        else if (state.daysToReview <= ANNUAL_DUE_SOON_DAYS) bucket = "due-soon";
+        else if (state.lastCompleted && state.lastCompleted.cycleYear === state.cycleYear - 1) {
+          // already reviewed for previous cycle; next is just upcoming
+          bucket = "upcoming";
+        } else {
+          bucket = "upcoming";
+        }
+
+        return {
+          id: p._id,
+          name: `${p.lastName}, ${p.firstName}`,
+          position: p.position,
+          locationName: location?.name || "—",
+          hireDate: p.hireDate,
+          nextDue: state.nextDue,
+          cycleYear: state.cycleYear,
+          daysToReview: state.daysToReview,
+          lastCompleted: state.lastCompleted,
+          bucket,
+        };
+      })
+      .filter(<T,>(r: T | null): r is T => r !== null);
+  }, [personnel, locations, locationFilter]);
+
+  // Buckets for the active tab
+  const rows = tab === "ninety" ? ninetyRows : annualRows;
   const overdue = rows.filter((r) => r.bucket === "overdue");
   const dueSoon = rows.filter((r) => r.bucket === "due-soon");
   const upcoming = rows.filter((r) => r.bucket === "upcoming");
-  const completed = rows.filter((r) => r.bucket === "completed").sort((a, b) =>
-    (b.review?.completedAt ?? 0) - (a.review?.completedAt ?? 0)
-  );
+  const completed = tab === "ninety"
+    ? ninetyRows.filter((r) => r.bucket === "completed").sort(
+      (a, b) => ((b as typeof ninetyRows[number]).review?.completedAt ?? 0) - ((a as typeof ninetyRows[number]).review?.completedAt ?? 0)
+    )
+    : [];
 
-  const handleQuickMark = async (personnelId: Id<"personnel">) => {
+  // ===== Actions =====
+  const handleQuickMarkNinety = async (personnelId: Id<"personnel">) => {
     if (!user) return;
     setSavingId(personnelId);
     try {
       await markReview({ personnelId, completedBy: user._id as Id<"users"> });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleQuickMarkAnnual = async (personnelId: Id<"personnel">, cycleYear: number) => {
+    if (!user) return;
+    setSavingId(personnelId);
+    try {
+      await markAnnual({ personnelId, cycleYear, completedBy: user._id as Id<"users"> });
     } finally {
       setSavingId(null);
     }
@@ -105,8 +215,10 @@ function NinetyDayReviewsContent() {
       const locLabel = locationFilter
         ? locations.find((l) => l._id === locationFilter)?.name || "Location"
         : "All Locations";
-      const title = `90-Day Reviews — ${locLabel}`;
-      const subtitle = `${overdue.length} overdue · ${dueSoon.length} due in 14d · ${completed.length} completed  ·  Ran: ${ranDate} ${ranTime}`;
+      const title = tab === "ninety"
+        ? `90-Day Reviews — ${locLabel}`
+        : `Annual Reviews — ${locLabel}`;
+      const subtitle = `${overdue.length} overdue · ${dueSoon.length} due ${tab === "ninety" ? "in 14d" : `in ${ANNUAL_DUE_SOON_DAYS}d`}${tab === "ninety" ? ` · ${completed.length} completed` : ""}  ·  Ran: ${ranDate} ${ranTime}`;
 
       const drawHeaderFooter = () => {
         doc.setFontSize(13); doc.setFont("helvetica", "bold");
@@ -117,38 +229,83 @@ function NinetyDayReviewsContent() {
         doc.text(`Generated ${ranDate}`, 36, pageHeight - 24);
       };
 
-      const formatStatus = (r: (typeof rows)[number]) => {
-        if (r.review) return `✓ ${new Date(r.review.completedAt).toLocaleDateString()} by ${r.review.completedByName}`;
-        if (r.daysToReview <= 0) return `OVERDUE — ${Math.abs(r.daysToReview)}d past due`;
-        return `Due in ${r.daysToReview}d`;
-      };
+      if (tab === "ninety") {
+        const formatStatus = (r: (typeof ninetyRows)[number]) => {
+          if (r.review) return `✓ ${new Date(r.review.completedAt).toLocaleDateString()} by ${r.review.completedByName}`;
+          if (r.daysToReview <= 0) return `OVERDUE — ${Math.abs(r.daysToReview)}d past due`;
+          return `Due in ${r.daysToReview}d`;
+        };
 
-      const body = [...overdue, ...dueSoon, ...upcoming, ...(showCompleted ? completed : [])].map((r) => [
-        r.name,
-        r.position || "",
-        r.locationName,
-        new Date(r.hireDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
-        r.reviewDueDate,
-        formatStatus(r),
-      ]);
+        const body = [...overdue, ...dueSoon, ...upcoming, ...(showCompleted ? completed : [])].map((r) => {
+          const rr = r as (typeof ninetyRows)[number];
+          return [
+            rr.name,
+            rr.position || "",
+            rr.locationName,
+            new Date(rr.hireDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
+            rr.reviewDueDate,
+            formatStatus(rr),
+          ];
+        });
 
-      autoTable(doc, {
-        head: [["Name", "Position", "Location", "Hire Date", "90-Day Date", "Status"]],
-        body,
-        startY: 76,
-        margin: { top: 76, bottom: 50, left: 28, right: 28 },
-        styles: { fontSize: 9, cellPadding: 4, overflow: "linebreak" },
-        headStyles: { fillColor: [37, 99, 154], textColor: 255, fontStyle: "bold", halign: "left" },
-        columnStyles: {
-          0: { cellWidth: 110, fontStyle: "bold" },
-          1: { cellWidth: 90 },
-          2: { cellWidth: 65 },
-          3: { cellWidth: 65 },
-          4: { cellWidth: 65 },
-          5: { cellWidth: "auto" },
-        },
-        didDrawPage: drawHeaderFooter,
-      });
+        autoTable(doc, {
+          head: [["Name", "Position", "Location", "Hire Date", "90-Day Date", "Status"]],
+          body,
+          startY: 76,
+          margin: { top: 76, bottom: 50, left: 28, right: 28 },
+          styles: { fontSize: 9, cellPadding: 4, overflow: "linebreak" },
+          headStyles: { fillColor: [37, 99, 154], textColor: 255, fontStyle: "bold", halign: "left" },
+          columnStyles: {
+            0: { cellWidth: 110, fontStyle: "bold" },
+            1: { cellWidth: 90 },
+            2: { cellWidth: 65 },
+            3: { cellWidth: 65 },
+            4: { cellWidth: 65 },
+            5: { cellWidth: "auto" },
+          },
+          didDrawPage: drawHeaderFooter,
+        });
+      } else {
+        const body = [...overdue, ...dueSoon, ...upcoming].map((r) => {
+          const rr = r as (typeof annualRows)[number];
+          const status = rr.daysToReview <= 0
+            ? `OVERDUE — ${Math.abs(rr.daysToReview)}d past due`
+            : `Due in ${rr.daysToReview}d`;
+          const last = rr.lastCompleted
+            ? `${rr.lastCompleted.cycleYear} by ${rr.lastCompleted.completedByName} on ${new Date(rr.lastCompleted.completedAt).toLocaleDateString()}`
+            : "—";
+          return [
+            rr.name,
+            rr.position || "",
+            rr.locationName,
+            new Date(rr.hireDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
+            rr.nextDue.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
+            String(rr.cycleYear),
+            last,
+            status,
+          ];
+        });
+
+        autoTable(doc, {
+          head: [["Name", "Position", "Location", "Hire Date", "Next Anniversary", "Cycle", "Last Reviewed", "Status"]],
+          body,
+          startY: 76,
+          margin: { top: 76, bottom: 50, left: 28, right: 28 },
+          styles: { fontSize: 9, cellPadding: 4, overflow: "linebreak" },
+          headStyles: { fillColor: [37, 99, 154], textColor: 255, fontStyle: "bold", halign: "left" },
+          columnStyles: {
+            0: { cellWidth: 100, fontStyle: "bold" },
+            1: { cellWidth: 80 },
+            2: { cellWidth: 60 },
+            3: { cellWidth: 60 },
+            4: { cellWidth: 65 },
+            5: { cellWidth: 38 },
+            6: { cellWidth: 95 },
+            7: { cellWidth: "auto" },
+          },
+          didDrawPage: drawHeaderFooter,
+        });
+      }
 
       const totalPages = (doc as unknown as { internal: { getNumberOfPages: () => number } }).internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
@@ -157,15 +314,19 @@ function NinetyDayReviewsContent() {
         doc.text(`Page ${i} of ${totalPages}`, pageWidth - 36, pageHeight - 24, { align: "right" });
       }
 
-      doc.save(`ninety_day_reviews_${ranDate.replace(/\//g, "")}.pdf`);
+      const filename = tab === "ninety"
+        ? `ninety_day_reviews_${ranDate.replace(/\//g, "")}.pdf`
+        : `annual_reviews_${ranDate.replace(/\//g, "")}.pdf`;
+      doc.save(filename);
     } finally {
       setGenerating(false);
     }
   };
 
-  const sectionCard = (
+  // ===== Render helpers =====
+  const ninetySection = (
     label: string,
-    items: typeof rows,
+    items: typeof ninetyRows,
     accentClass: string,
     isOverdue: boolean,
   ) => (
@@ -218,7 +379,7 @@ function NinetyDayReviewsContent() {
                   <td className="px-5 py-2 text-right">
                     {!r.review && canManagePersonnel && (
                       <button
-                        onClick={() => handleQuickMark(r.id)}
+                        onClick={() => handleQuickMarkNinety(r.id)}
                         disabled={savingId === r.id}
                         className="text-xs font-semibold text-white px-2.5 py-1 rounded-lg disabled:opacity-50"
                         style={{ backgroundColor: "#34C759" }}
@@ -237,6 +398,105 @@ function NinetyDayReviewsContent() {
     </div>
   );
 
+  const annualSection = (
+    label: string,
+    items: typeof annualRows,
+    accentClass: string,
+    emptyMessage: string,
+  ) => (
+    <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
+      <div className={`px-5 py-3 border-b flex items-center justify-between ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+        <h2 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+          <span className={accentClass}>{label}</span>
+          <span className={`ml-2 font-normal ${isDark ? "text-slate-500" : "text-gray-500"}`}>{items.length}</span>
+        </h2>
+      </div>
+      {items.length === 0 ? (
+        <div className={`p-5 text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>{emptyMessage}</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className={isDark ? "bg-slate-900/40" : "bg-gray-50"}>
+              <tr className={isDark ? "text-slate-400" : "text-gray-600"}>
+                <th className="text-left px-5 py-2 font-medium">Name</th>
+                <th className="text-left px-5 py-2 font-medium">Position</th>
+                <th className="text-left px-5 py-2 font-medium">Location</th>
+                <th className="text-left px-5 py-2 font-medium">Hire Date</th>
+                <th className="text-left px-5 py-2 font-medium">Next Anniversary</th>
+                <th className="text-left px-5 py-2 font-medium">Cycle</th>
+                <th className="text-left px-5 py-2 font-medium">Last Reviewed</th>
+                <th className="text-left px-5 py-2 font-medium">Status</th>
+                <th className="px-5 py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((r) => (
+                <tr key={r.id} className={`border-t ${isDark ? "border-slate-700/40" : "border-gray-100"}`}>
+                  <td className={`px-5 py-2 font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                    <Link href={`/personnel/${r.id}`} className={isDark ? "hover:text-cyan-400" : "hover:text-blue-600"}>
+                      {r.name}
+                    </Link>
+                  </td>
+                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.position}</td>
+                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.locationName}</td>
+                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    {new Date(r.hireDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                  </td>
+                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    {r.nextDue.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                  </td>
+                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.cycleYear}</td>
+                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    {r.lastCompleted
+                      ? `${r.lastCompleted.cycleYear} — ${r.lastCompleted.completedByName}`
+                      : "—"}
+                  </td>
+                  <td className={`px-5 py-2 ${accentClass} font-medium`}>
+                    {r.daysToReview <= 0
+                      ? `${Math.abs(r.daysToReview)}d past due`
+                      : `in ${r.daysToReview}d`}
+                  </td>
+                  <td className="px-5 py-2 text-right">
+                    {r.daysToReview <= 0 && canManagePersonnel && (
+                      <button
+                        onClick={() => handleQuickMarkAnnual(r.id, r.cycleYear)}
+                        disabled={savingId === r.id}
+                        className="text-xs font-semibold text-white px-2.5 py-1 rounded-lg disabled:opacity-50"
+                        style={{ backgroundColor: "#34C759" }}
+                        title={`Mark ${r.cycleYear} annual review complete by you`}
+                      >
+                        {savingId === r.id ? "Saving…" : "Mark Done"}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
+  const tabButton = (key: Tab, label: string, count: number) => {
+    const active = tab === key;
+    return (
+      <button
+        onClick={() => setTab(key)}
+        className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+          active
+            ? "bg-[#007AFF] text-white shadow-sm"
+            : isDark
+              ? "theme-text-secondary hover:theme-text-primary theme-bg-hover"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+        }`}
+      >
+        {label}
+        <span className={`ml-1.5 text-[11px] ${active ? "opacity-80" : "opacity-60"}`}>{count}</span>
+      </button>
+    );
+  };
+
   return (
     <div className="flex h-screen theme-bg-primary">
       <Sidebar />
@@ -254,16 +514,22 @@ function NinetyDayReviewsContent() {
             </Link>
             <div>
               <h1 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                90-Day Reviews
+                Review Tracker
               </h1>
               <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                Who needs a review around their 90-day mark, and who's already been reviewed
+                90-day reviews and annual reviews — who's overdue, who's coming up, and who's done
               </p>
             </div>
           </div>
         </header>
 
         <div className="p-8 max-w-6xl space-y-5">
+          {/* Tabs */}
+          <div className={`inline-flex items-center gap-1 rounded-full p-1 ${isDark ? "bg-slate-800/60 border border-slate-700" : "bg-gray-100"}`}>
+            {tabButton("ninety", "90-Day", ninetyRows.length)}
+            {tabButton("annual", "Annual", annualRows.length)}
+          </div>
+
           {/* Filters */}
           <div className={`rounded-2xl border p-5 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -281,15 +547,17 @@ function NinetyDayReviewsContent() {
                 </select>
               </div>
               <div className="flex items-end">
-                <label className={`flex items-center gap-2 text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  <input
-                    type="checkbox"
-                    checked={showCompleted}
-                    onChange={(e) => setShowCompleted(e.target.checked)}
-                    className="rounded"
-                  />
-                  Show completed reviews
-                </label>
+                {tab === "ninety" ? (
+                  <label className={`flex items-center gap-2 text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    <input
+                      type="checkbox"
+                      checked={showCompleted}
+                      onChange={(e) => setShowCompleted(e.target.checked)}
+                      className="rounded"
+                    />
+                    Show completed reviews
+                  </label>
+                ) : null}
               </div>
               <div className="flex items-end justify-end">
                 <button
@@ -305,18 +573,33 @@ function NinetyDayReviewsContent() {
             <div className={`mt-3 text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
               <span className={`font-semibold ${isDark ? "text-red-400" : "text-red-600"}`}>{overdue.length}</span> overdue
               <span className={`mx-3 ${isDark ? "text-slate-600" : "text-gray-300"}`}>·</span>
-              <span className={`font-semibold ${isDark ? "text-amber-400" : "text-amber-600"}`}>{dueSoon.length}</span> due within 14 days
+              <span className={`font-semibold ${isDark ? "text-amber-400" : "text-amber-600"}`}>{dueSoon.length}</span>
+              {" "}due within {tab === "ninety" ? "14" : ANNUAL_DUE_SOON_DAYS} days
               <span className={`mx-3 ${isDark ? "text-slate-600" : "text-gray-300"}`}>·</span>
               <span className={`font-semibold ${isDark ? "text-slate-400" : "text-gray-500"}`}>{upcoming.length}</span> upcoming
-              <span className={`mx-3 ${isDark ? "text-slate-600" : "text-gray-300"}`}>·</span>
-              <span className={`font-semibold ${isDark ? "text-green-400" : "text-green-600"}`}>{completed.length}</span> completed
+              {tab === "ninety" && (
+                <>
+                  <span className={`mx-3 ${isDark ? "text-slate-600" : "text-gray-300"}`}>·</span>
+                  <span className={`font-semibold ${isDark ? "text-green-400" : "text-green-600"}`}>{completed.length}</span> completed
+                </>
+              )}
             </div>
           </div>
 
-          {sectionCard("Overdue", overdue, isDark ? "text-red-400" : "text-red-600", true)}
-          {sectionCard("Due Within 14 Days", dueSoon, isDark ? "text-amber-400" : "text-amber-600", false)}
-          {sectionCard("Upcoming", upcoming, isDark ? "text-slate-400" : "text-gray-500", false)}
-          {showCompleted && sectionCard("Completed", completed, isDark ? "text-green-400" : "text-green-600", false)}
+          {tab === "ninety" ? (
+            <>
+              {ninetySection("Overdue", overdue as typeof ninetyRows, isDark ? "text-red-400" : "text-red-600", true)}
+              {ninetySection("Due Within 14 Days", dueSoon as typeof ninetyRows, isDark ? "text-amber-400" : "text-amber-600", false)}
+              {ninetySection("Upcoming", upcoming as typeof ninetyRows, isDark ? "text-slate-400" : "text-gray-500", false)}
+              {showCompleted && ninetySection("Completed", completed, isDark ? "text-green-400" : "text-green-600", false)}
+            </>
+          ) : (
+            <>
+              {annualSection("Overdue", overdue as typeof annualRows, isDark ? "text-red-400" : "text-red-600", "None overdue — nice.")}
+              {annualSection(`Due Within ${ANNUAL_DUE_SOON_DAYS} Days`, dueSoon as typeof annualRows, isDark ? "text-amber-400" : "text-amber-600", "None in this window.")}
+              {annualSection("Upcoming", upcoming as typeof annualRows, isDark ? "text-slate-400" : "text-gray-500", "No upcoming anniversaries (or no one with 1+ year tenure).")}
+            </>
+          )}
         </div>
       </main>
     </div>

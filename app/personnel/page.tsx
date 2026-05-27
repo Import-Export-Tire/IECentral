@@ -155,17 +155,31 @@ function PersonnelContent() {
               </p>
             </div>
             {canManagePersonnel && (
-              <button
-                onClick={() => router.push("/personnel/new")}
-                className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex-shrink-0 ${
-                  isDark
-                    ? "bg-cyan-500 hover:bg-cyan-400 text-white"
-                    : "bg-blue-600 hover:bg-blue-700 text-white"
-                }`}
-              >
-                <span className="hidden sm:inline">Add Employee</span>
-                <span className="sm:hidden">Add</span>
-              </button>
+              <div className="flex gap-2 flex-shrink-0">
+                <button
+                  onClick={() => router.push("/personnel/import")}
+                  className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors ${
+                    isDark
+                      ? "bg-slate-700 hover:bg-slate-600 text-slate-200"
+                      : "bg-gray-200 hover:bg-gray-300 text-gray-800"
+                  }`}
+                  title="Bulk upload personnel from an XLSX file"
+                >
+                  <span className="hidden sm:inline">Import XLSX</span>
+                  <span className="sm:hidden">Import</span>
+                </button>
+                <button
+                  onClick={() => router.push("/personnel/new")}
+                  className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors ${
+                    isDark
+                      ? "bg-cyan-500 hover:bg-cyan-400 text-white"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                  }`}
+                >
+                  <span className="hidden sm:inline">Add Employee</span>
+                  <span className="sm:hidden">Add</span>
+                </button>
+              </div>
             )}
           </div>
         </header>
