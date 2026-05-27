@@ -50,7 +50,7 @@ interface FormState {
 // Brand code → full name mapping (from OEA07V MFG Id values)
 const BRAND_MAP: Record<string, string> = {
   ACHIL: "Achilles", ADV: "Advance", AGS: "AGS", AM: "Americus", APL: "Aplus",
-  ARC: "Arcomet", ARI: "Arize", AROY: "Arroyo", ARS: "American Roadstar",
+  ARC: "Arcomet", ARI: "ARS", AROY: "Arroyo", ARS: "American Roadstar",
   ATL: "Atlas", ATT: "Atturo", BFG: "BF Goodrich", BLK: "Blacklion",
   BRIDG: "Bridgestone", CARL: "Carlisle", CEL: "Celsius", CNV: "Conversol",
   CON: "Continental", COO: "Cooper", COS: "Cosmo", CRM: "Crossmax",

@@ -7,7 +7,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
-import { brandCodeToName } from "@/lib/brandMapping";
+import { bestBrandLabel } from "@/lib/brandMapping";
 import { buildTireDescription } from "@/lib/tireDescriptions";
 
 const S3_BUCKET = "ietires-dunlop-jmk-uploads";
@@ -318,7 +318,7 @@ export async function GET(request: NextRequest) {
 
           return {
             orderNo: row[COL.INV_ID]?.replace(/"/g, "").trim() || "",
-            brand: tire?.mfgName || brandCodeToName(rawBrand),
+            brand: bestBrandLabel(rawBrand, tire?.mfgName),
             mfgItemId: row[COL.MFG_ITEM_ID]?.replace(/"/g, "").trim() || "",
             description: tire?.desc || row[COL.DESCRIPTION]?.replace(/"/g, "").trim() || "",
             qty,

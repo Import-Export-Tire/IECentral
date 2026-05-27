@@ -27,7 +27,7 @@ export const BRAND_MAP: Record<string, string> = {
   "APL": "APLUS",
   "APT": "APTANY",
   "ARC": "ARCTIC CLAW",
-  "ARI": "ARISUN",
+  "ARI": "ARS",
   "ARM": "ARMSTRONG",
   "AROY": "ARROYO",
   "ARS": "AMERICAN ROADSTAR",
@@ -287,4 +287,30 @@ export function brandCodeToName(code: string): string {
   if (!code) return "";
   const upper = code.trim().toUpperCase();
   return BRAND_MAP[upper] || code;
+}
+
+/**
+ * Normalize stale brand spellings that may come from the tire catalog
+ * (FTP sync that can drift from OEIVAL's authoritative codes).
+ * Currently:
+ *   - "Arisun" / "ARISUN" → "ARS" (IET calls this brand ARS internally)
+ */
+export function normalizeBrandName(name: string): string {
+  if (!name) return name;
+  const n = name.trim();
+  if (/^arisun$/i.test(n)) return "ARS";
+  return n;
+}
+
+/**
+ * Best display label for a brand given the OEIVAL row's brand code and
+ * (optionally) the tire catalog's mfgName. The curated BRAND_MAP wins
+ * when the code is known; otherwise fall back to catalog name; otherwise
+ * the raw code. Result is normalized for known stale spellings.
+ */
+export function bestBrandLabel(rawCode: string, catalogMfgName?: string | null): string {
+  const code = (rawCode || "").trim().toUpperCase();
+  const mapped = code ? BRAND_MAP[code] : undefined;
+  const label = mapped || catalogMfgName || rawCode || "";
+  return normalizeBrandName(label);
 }
