@@ -111,6 +111,9 @@ export async function GET(request: NextRequest) {
     const filterBrand = (searchParams.get("brand") || "").trim().toUpperCase();
     const granularity = ((searchParams.get("granularity") || "day").toLowerCase()) as "day" | "week" | "month";
     const includeVendorReturns = searchParams.get("includeVendorReturns") === "true";
+    // Default true: bare R20 / INV-* / 99-* Sld rows are real store sales
+    // (per Andy 5/27). Pass ?includeInternalAccounts=false to revert.
+    const includeInternalAccounts = (searchParams.get("includeInternalAccounts") ?? "true") !== "false";
 
     // Identify month folders that overlap the date range so we only download
     // CSVs we actually need.
@@ -210,9 +213,11 @@ export async function GET(request: NextRequest) {
           const acct = (row[15] || "").replace(/"/g, "").trim().toUpperCase();
           if (["700", "7001", "7002"].includes(acct)) continue;
           if (/^[WR]\d{2}[WR]\d{2}$/i.test(acct)) continue;
-          if (/^[WR]\d{2}$/i.test(acct)) continue;
-          if (acct.startsWith("INV") && !/^INV[WR]\d{2}$/i.test(acct)) continue;
-          if (acct.startsWith("99-") && !/^99-[WR]\d{2}$/i.test(acct)) continue;
+          if (!includeInternalAccounts) {
+            if (/^[WR]\d{2}$/i.test(acct)) continue;
+            if (acct.startsWith("INV") && !/^INV[WR]\d{2}$/i.test(acct)) continue;
+            if (acct.startsWith("99-") && !/^99-[WR]\d{2}$/i.test(acct)) continue;
+          }
           if (!includeVendorReturns && /^[WR]\d{4,}$/i.test(acct)) continue;
 
           if (filterBrand) {

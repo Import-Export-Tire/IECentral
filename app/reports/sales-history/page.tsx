@@ -31,7 +31,9 @@ export default function SalesHistoryReportPage() {
   const [dclass, setDclass] = useState("");
   const [location, setLocation] = useState("");
   const [includeVendorReturns, setIncludeVendorReturns] = useState(false);
-  const [includeInternalAccounts, setIncludeInternalAccounts] = useState(false);
+  // Default ON per Andy 5/27: bare-R20 / INV-* / 99-* Sld rows are real
+  // store sales (same-day receive-and-sell at a retail location lands here).
+  const [includeInternalAccounts, setIncludeInternalAccounts] = useState(true);
   const [startMonth, setStartMonth] = useState(() => `${new Date().getFullYear()}-01`);
   const [endMonth, setEndMonth] = useState(() => {
     const now = new Date();
