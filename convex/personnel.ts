@@ -1083,6 +1083,26 @@ export const removeDuplicates = mutation({
   },
 });
 
+// Fully unset terminationDate + terminationReason on a personnel record.
+// The standard `update` mutation skips undefined args and won't accept "" for
+// these fields, so the only way to clear them is this dedicated mutation that
+// passes `undefined` to ctx.db.patch (which Convex treats as field-removal).
+export const clearTermination = mutation({
+  args: {
+    personnelId: v.id("personnel"),
+    requestingUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    await ctx.db.patch(args.personnelId, {
+      terminationDate: undefined,
+      terminationReason: undefined,
+      updatedAt: Date.now(),
+    });
+    return args.personnelId;
+  },
+});
+
 // Bulk upsert personnel: match by (firstName + lastName + hireDate); overwrite
 // matched rows with the supplied values, insert new rows when no match. Used
 // by the XLSX upload UI under /personnel/import.
