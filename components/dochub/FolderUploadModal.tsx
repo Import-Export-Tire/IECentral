@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -36,6 +36,20 @@ export default function FolderUploadModal({
   const createDocument = useMutation(api.documents.create);
   const createFolder = useMutation(api.documentFolders.create);
 
+  // Force webkitdirectory + directory attributes onto the input element
+  // directly — React strips these from JSX in some setups, and without them
+  // the file picker opens in single-file mode (which silently treats a
+  // folder selection as a 0-byte file entry).
+  useEffect(() => {
+    if (!open) return;
+    const el = fileInputRef.current;
+    if (el) {
+      el.setAttribute("webkitdirectory", "");
+      el.setAttribute("directory", "");
+      el.setAttribute("mozdirectory", "");
+    }
+  }, [open]);
+
   const [topFolderName, setTopFolderName] = useState<string>("");
   const [pending, setPending] = useState<PendingFile[]>([]);
   const [running, setRunning] = useState(false);
@@ -57,10 +71,24 @@ export default function FolderUploadModal({
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
+    // Sanity check: if the picker gave us exactly one file with no
+    // webkitRelativePath, the input opened in single-file mode (browser
+    // didn't honor webkitdirectory). Bail with a helpful error instead of
+    // silently uploading a 0-byte folder representation.
+    const firstRel = (files[0] as File & { webkitRelativePath?: string }).webkitRelativePath || "";
+    if (files.length === 1 && !firstRel) {
+      setError(
+        "Your browser opened this in single-file mode instead of folder mode. " +
+        "Close this dialog, hard-refresh the page (⌘+Shift+R), and try again. " +
+        "If it still fails, use Chrome — Safari sometimes blocks folder upload."
+      );
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     // Determine top folder from the first file's relative path
     // (webkitRelativePath uses forward slashes regardless of OS)
-    const firstPath =
-      (files[0] as File & { webkitRelativePath?: string }).webkitRelativePath || files[0].name;
+    const firstPath = firstRel || files[0].name;
     const top = firstPath.split("/")[0] || "Uploaded Folder";
     setTopFolderName(top);
 
