@@ -61,6 +61,14 @@ export async function GET(request: NextRequest) {
     const filterDclass = searchParams.get("dclass");
     const filterLocation = (searchParams.get("location") || "").trim().toUpperCase();
     const includeVendorReturns = searchParams.get("includeVendorReturns") === "true";
+    // Relaxes the internal-account filters (bare R20, W08W08, INV-* without
+    // the per-store till pattern, 99-* without per-store pattern). Some
+    // legit Sld rows land with these account formats — surface them here.
+    const includeInternalAccounts = searchParams.get("includeInternalAccounts") === "true";
+    // Optional: return raw row diagnostics for a specific itemId instead of
+    // the normal aggregated payload. Useful for tracing why a sale is or
+    // isn't being counted.
+    const debugItemId = (searchParams.get("debugItemId") || "").trim().toUpperCase();
     const startMonth = searchParams.get("startMonth");
     const endMonth = searchParams.get("endMonth");
 
@@ -149,6 +157,38 @@ export async function GET(request: NextRequest) {
 
     let latestFileDate: string | null = null;
 
+    // Debug-mode capture: every row matching debugItemId, with the would-be
+    // filter status so the caller can see why a row was/wasn't counted.
+    const debugRows: {
+      file: string;
+      transaction: string;
+      productType: string;
+      account: string;
+      location: string;
+      qty: number;
+      extCost: number;
+      activityDate: string;
+      invoiceId: string;
+      filterStatus: string;
+    }[] = [];
+    const filterStatusFor = (row: string[]): string => {
+      const trn = (row[9] || "").replace(/"/g, "").trim();
+      if (trn === "TrI" || trn === "TrO" || trn === "Rcv") return `skipped:transaction=${trn}`;
+      if (trn.startsWith("Adj")) return `skipped:transaction=${trn}`;
+      const pt = (row[3] || "").replace(/"/g, "").trim();
+      if (!pt.startsWith("T") || pt === "T") return `skipped:productType=${pt || "(empty)"}`;
+      const a = (row[15] || "").replace(/"/g, "").trim().toUpperCase();
+      if (["700", "7001", "7002"].includes(a)) return `skipped:account=return-to-vendor(${a})`;
+      if (/^[WR]\d{2}[WR]\d{2}$/i.test(a)) return `skipped:account=warehouse-transfer(${a})`;
+      if (!includeInternalAccounts) {
+        if (/^[WR]\d{2}$/i.test(a)) return `skipped:account=internal-location(${a}); try includeInternalAccounts=true`;
+        if (a.startsWith("INV") && !/^INV[WR]\d{2}$/i.test(a)) return `skipped:account=internal-INV(${a}); try includeInternalAccounts=true`;
+        if (a.startsWith("99-") && !/^99-[WR]\d{2}$/i.test(a)) return `skipped:account=internal-99(${a}); try includeInternalAccounts=true`;
+      }
+      if (!includeVendorReturns && /^[WR]\d{4,}$/i.test(a)) return `skipped:account=vendor(${a}); try includeVendorReturns=true`;
+      return "counted";
+    };
+
     // Download all surviving files in parallel batches so total wall-clock is
     // bounded by the slowest single download instead of summing all of them.
     const CONCURRENCY = 8;
@@ -180,6 +220,23 @@ export async function GET(request: NextRequest) {
         const itemId = (row[0] || "").replace(/"/g, "").trim();
         if (!itemId) continue;
 
+        // Debug-item capture: log this row with would-be filter status,
+        // independent of whether it actually counts.
+        if (debugItemId && itemId.toUpperCase() === debugItemId) {
+          debugRows.push({
+            file: file.key,
+            transaction: (row[9] || "").replace(/"/g, "").trim(),
+            productType: (row[3] || "").replace(/"/g, "").trim(),
+            account: (row[15] || "").replace(/"/g, "").trim().toUpperCase(),
+            location: (row[8] || "").replace(/"/g, "").trim().toUpperCase(),
+            qty: parseFloat((row[10] || "0").replace(/"/g, "").trim()) || 0,
+            extCost: parseFloat((row[12] || "0").replace(/"/g, "").trim()) || 0,
+            activityDate: (row[18] || "").replace(/"/g, "").trim(),
+            invoiceId: (row[16] || "").replace(/"/g, "").trim(),
+            filterStatus: filterStatusFor(row),
+          });
+        }
+
         // Keep only real sales (Sld) and customer returns (ReS).
         // Skip transfers (TrI/TrO), receives (Rcv), and any inventory
         // adjustment (Adj/D damage, Adj/ZZ other, Adj/RS adjustment-return).
@@ -195,13 +252,19 @@ export async function GET(request: NextRequest) {
         const acct = (row[15] || "").replace(/"/g, "").trim().toUpperCase();
         if (["700", "7001", "7002"].includes(acct)) continue;
         if (/^[WR]\d{2}[WR]\d{2}$/i.test(acct)) continue;
-        if (/^[WR]\d{2}$/i.test(acct)) continue;
-        // Keep "INV{LOCATION}" and "99-{LOCATION}" per-store till accounts
-        // (real sales) while still dropping other INV-/99-prefix internal
-        // bookkeeping accounts. Locations vary in which pattern they use:
-        // R30 hits 99-R30, R15/R20/R25/W07/W08 hit INV{LOC}.
-        if (acct.startsWith("INV") && !/^INV[WR]\d{2}$/i.test(acct)) continue;
-        if (acct.startsWith("99-") && !/^99-[WR]\d{2}$/i.test(acct)) continue;
+        // The remaining filters drop accounts that LOOK like internal
+        // bookkeeping (bare R20, INV-* without per-store pattern, etc.).
+        // Sometimes a real Sld lands with one of these — toggle them off
+        // with ?includeInternalAccounts=true to surface those sales.
+        if (!includeInternalAccounts) {
+          if (/^[WR]\d{2}$/i.test(acct)) continue;
+          // Keep "INV{LOCATION}" and "99-{LOCATION}" per-store till accounts
+          // (real sales) while still dropping other INV-/99-prefix internal
+          // bookkeeping accounts. Locations vary in which pattern they use:
+          // R30 hits 99-R30, R15/R20/R25/W07/W08 hit INV{LOC}.
+          if (acct.startsWith("INV") && !/^INV[WR]\d{2}$/i.test(acct)) continue;
+          if (acct.startsWith("99-") && !/^99-[WR]\d{2}$/i.test(acct)) continue;
+        }
         // Vendor accounts look like W4490 / R1234 (W or R + 4+ digits) —
         // distinct from store codes which are exactly 2 digits. Default to
         // excluding so a single 230-unit supplier RA doesn't dwarf real
@@ -258,6 +321,28 @@ export async function GET(request: NextRequest) {
         // Negate qty (sales are negative in OEA07V)
         entry.monthlySales[rowMonth] = (entry.monthlySales[rowMonth] || 0) + (-qty);
       }
+    }
+
+    // Debug mode: return raw row dump for the requested item instead of the
+    // normal aggregated payload.
+    if (debugItemId) {
+      const counted = debugRows.filter(r => r.filterStatus === "counted");
+      const summary = {
+        rowsFound: debugRows.length,
+        countedRows: counted.length,
+        sumQty: counted.reduce((s, r) => s + (-r.qty), 0),     // negate so sales positive
+        sumExtCost: counted.reduce((s, r) => s + (-r.extCost), 0),
+        byFilterStatus: debugRows.reduce<Record<string, number>>((acc, r) => {
+          acc[r.filterStatus] = (acc[r.filterStatus] || 0) + 1;
+          return acc;
+        }, {}),
+      };
+      return NextResponse.json({
+        debugItemId,
+        summary,
+        rows: debugRows.sort((a, b) => a.activityDate.localeCompare(b.activityDate)),
+        flags: { includeInternalAccounts, includeVendorReturns, filterLocation },
+      });
     }
 
     // Build result

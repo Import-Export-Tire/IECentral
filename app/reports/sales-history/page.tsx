@@ -31,6 +31,7 @@ export default function SalesHistoryReportPage() {
   const [dclass, setDclass] = useState("");
   const [location, setLocation] = useState("");
   const [includeVendorReturns, setIncludeVendorReturns] = useState(false);
+  const [includeInternalAccounts, setIncludeInternalAccounts] = useState(false);
   const [startMonth, setStartMonth] = useState(() => `${new Date().getFullYear()}-01`);
   const [endMonth, setEndMonth] = useState(() => {
     const now = new Date();
@@ -62,6 +63,7 @@ export default function SalesHistoryReportPage() {
     if (dclass) params.set("dclass", dclass);
     if (location) params.set("location", location);
     if (includeVendorReturns) params.set("includeVendorReturns", "true");
+    if (includeInternalAccounts) params.set("includeInternalAccounts", "true");
     if (startMonth) params.set("startMonth", startMonth);
     if (endMonth) params.set("endMonth", endMonth);
     if (showAllRows) params.set("showAllRows", "true");
@@ -87,7 +89,7 @@ export default function SalesHistoryReportPage() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [startMonth, endMonth, location, includeVendorReturns]);
+  }, [startMonth, endMonth, location, includeVendorReturns, includeInternalAccounts]);
 
   // Filter month columns to selected range
   const visibleMonths = useMemo((): string[] => {
@@ -216,6 +218,10 @@ export default function SalesHistoryReportPage() {
                 <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs cursor-pointer ${isDark ? "bg-slate-900 border-slate-600 text-slate-300 hover:border-slate-500" : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"}`} title="Include returns to vendors (e.g. acct W4490). Off by default — these can be 100+ units in one row.">
                   <input type="checkbox" checked={includeVendorReturns} onChange={(e) => { setIncludeVendorReturns(e.target.checked); setPage(0); }} className="rounded w-3.5 h-3.5" />
                   Include vendor returns
+                </label>
+                <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs cursor-pointer ${isDark ? "bg-slate-900 border-slate-600 text-slate-300 hover:border-slate-500" : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"}`} title="Include sales recorded under bare location-shaped accounts (e.g. R20) and other internal-looking account codes. Surfaces sales that would otherwise be filtered as transfers.">
+                  <input type="checkbox" checked={includeInternalAccounts} onChange={(e) => { setIncludeInternalAccounts(e.target.checked); setPage(0); }} className="rounded w-3.5 h-3.5" />
+                  Include internal-account sales
                 </label>
 
                 <div className={`h-6 w-px ${isDark ? "bg-slate-700" : "bg-gray-200"}`} />
