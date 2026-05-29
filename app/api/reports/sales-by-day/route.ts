@@ -114,6 +114,10 @@ export async function GET(request: NextRequest) {
     // Default true: bare R20 / INV-* / 99-* Sld rows are real store sales
     // (per Andy 5/27). Pass ?includeInternalAccounts=false to revert.
     const includeInternalAccounts = (searchParams.get("includeInternalAccounts") ?? "true") !== "false";
+    // Debug knob: ?skipDedup=true bypasses the overlap-dedup logic. Useful
+    // for verifying whether duplicate-overlapping daily uploads were
+    // genuinely the cause of dropped rows.
+    const skipDedup = searchParams.get("skipDedup") === "true";
     // Diagnostic mode: when set to a location code (e.g. ?diagnoseLocation=R20),
     // return an unfiltered breakdown of transaction codes + qty signs at that
     // location instead of the normal aggregated series. Use for debugging
@@ -391,9 +395,11 @@ export async function GET(request: NextRequest) {
           if (filterLocations.size > 0 && !filterLocations.has(location)) continue;
 
           const invoiceId = (row[16] || "").replace(/"/g, "").trim();
-          const dedupKey = `${dateRaw}|${invoiceId}|${itemId}|${row[10]}|${location}|${acct}`;
-          if (seenDedup.has(dedupKey)) continue;
-          seenDedup.add(dedupKey);
+          if (!skipDedup) {
+            const dedupKey = `${dateRaw}|${invoiceId}|${itemId}|${row[10]}|${location}|${acct}`;
+            if (seenDedup.has(dedupKey)) continue;
+            seenDedup.add(dedupKey);
+          }
 
           const rawQty = parseFloat((row[10] || "0").replace(/"/g, "").trim()) || 0;
           const rawExt = parseFloat((row[12] || "0").replace(/"/g, "").trim()) || 0;
