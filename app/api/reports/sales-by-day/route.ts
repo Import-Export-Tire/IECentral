@@ -148,11 +148,21 @@ export async function GET(request: NextRequest) {
     const monthName = (yyyymm: string) =>
       ["january","february","march","april","may","june","july","august","september","october","november","december"][parseInt(yyyymm.split("-")[1], 10) - 1];
     const isMonthlyForMonth = (key: string, monthFolder: string) => {
-      const k = key.toLowerCase();
-      if (k.includes("monthly-combined")) return true;
+      // Check the BASENAME only — earlier versions checked the full path,
+      // which always matched the YYYYMM folder name (e.g. "202605"), so
+      // every daily file looked like the monthly-combined and only the
+      // most-recently-uploaded one got processed. That dropped 25+ daily
+      // files for any month with a Michael-style named summary or just
+      // routine daily uploads.
+      const basename = (key.split("/").pop() || "").toLowerCase();
+      if (basename.includes("monthly-combined")) return true;
       const name = monthName(monthFolder);
       const abbr = name.slice(0, 3);
-      return k.includes(name) || k.includes(abbr) || k.includes(monthFolder.replace("-", ""));
+      // Match a named monthly file like "may 2026.csv" but NOT a daily
+      // file like "iet-oea07v_051526.csv" — require the month name to be
+      // surrounded by non-digit boundaries.
+      const nameRe = new RegExp(`(^|[^a-z])${name}([^a-z]|$)`);
+      return nameRe.test(basename);
     };
     const filesByMonthFolder = new Map<string, typeof allFiles>();
     for (const f of allFiles) {
