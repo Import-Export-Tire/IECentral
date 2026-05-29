@@ -807,3 +807,35 @@ export const cleanupExpiredProvisionCodes = internalMutation({
     return { cleaned };
   },
 });
+
+// ============ SETUP LOGS ============
+
+export const logScannerSetupStep = mutation({
+  args: {
+    scannerId: v.id("scanners"),
+    step: v.string(),
+    status: v.string(),
+    durationMs: v.optional(v.number()),
+    error: v.optional(v.string()),
+    browserAgent: v.optional(v.string()),
+    actingUserId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("scannerSetupLogs", {
+      ...args,
+      createdAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
+
+export const listSetupLogsByScanner = query({
+  args: { scannerId: v.id("scanners"), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("scannerSetupLogs")
+      .withIndex("by_scanner_created", (q) => q.eq("scannerId", args.scannerId))
+      .order("desc")
+      .take(args.limit ?? 100);
+  },
+});
