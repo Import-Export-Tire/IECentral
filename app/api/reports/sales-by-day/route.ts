@@ -308,6 +308,28 @@ export async function GET(request: NextRequest) {
           if (transaction === "TrI" || transaction === "TrO" || transaction === "Rcv") continue;
           if (transaction.startsWith("Adj")) continue;
 
+          // ReS rows whose "customer" is one of IET's own house entities
+          // (Import Export Tire, IET, Export Tire, etc.) are stock receipts
+          // from the warehouse mislabeled as returns — they shouldn't be
+          // netted against sales. At R20 specifically these are the
+          // -127 / -130 / etc. spikes Andy flagged on 5/19, 5/27.
+          if (transaction === "ReS") {
+            const customer = (row[19] || "").replace(/"/g, "").toUpperCase().trim();
+            if (
+              customer.startsWith("IMPORT EXPOR") ||
+              customer.startsWith("IMPORT/EXPORT") ||
+              customer === "IET" ||
+              customer.startsWith("IET ") ||
+              customer.startsWith("I.E.T") ||
+              customer.startsWith("EXPORT TIRE") ||
+              customer.startsWith("ESSEY TIRE") ||
+              customer.startsWith("KINGS SUPER") ||
+              customer.startsWith("KINGS TIRE")
+            ) {
+              continue;
+            }
+          }
+
           const productType = (row[3] || "").replace(/"/g, "").trim();
           if (!productType.startsWith("T") || productType === "T") continue;
 

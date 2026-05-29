@@ -254,6 +254,24 @@ export async function GET(request: NextRequest) {
         if (transaction === "TrI" || transaction === "TrO" || transaction === "Rcv") continue;
         if (transaction.startsWith("Adj")) continue;
 
+        // ReS rows from IET house entities (Import Export Tire, IET, etc.)
+        // are internal stock receipts mislabeled as returns. Don't net them
+        // against sales.
+        if (transaction === "ReS") {
+          const customer = (row[19] || "").replace(/"/g, "").toUpperCase().trim();
+          if (
+            customer.startsWith("IMPORT EXPOR") ||
+            customer.startsWith("IMPORT/EXPORT") ||
+            customer === "IET" ||
+            customer.startsWith("IET ") ||
+            customer.startsWith("I.E.T") ||
+            customer.startsWith("EXPORT TIRE") ||
+            customer.startsWith("ESSEY TIRE") ||
+            customer.startsWith("KINGS SUPER") ||
+            customer.startsWith("KINGS TIRE")
+          ) continue;
+        }
+
         // Standard filters: tire types only, no warehouse transfers, no internal accounts
         const productType = (row[3] || "").replace(/"/g, "").trim();
         if (!productType.startsWith("T") || productType === "T") continue;
