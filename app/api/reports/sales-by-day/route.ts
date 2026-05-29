@@ -222,6 +222,8 @@ export async function GET(request: NextRequest) {
       // Capture sample raw ReS rows at the diagnose location so we can tell
       // receipts from real customer returns by the account format.
       sampleReSRows: [] as { activityDate: string; brand: string; itemId: string; qty: number; extCost: number; acct: string; customerName: string }[],
+      // Sample of FAL-brand Sld rows specifically to debug the 417 vs 194 gap.
+      sampleFalSldRows: [] as { activityDate: string; itemId: string; productType: string; qty: number; extCost: number; acct: string; customerName: string; invoiceId: string }[],
       // Unique customer names on ReS rows + the qty volume each represents.
       // Surfaces every entity that's appearing as a "return" so we can extend
       // the IET-house filter list to match.
@@ -286,6 +288,20 @@ export async function GET(request: NextRequest) {
               btCell.rows++;
               btCell.sumQty += rawQty;
               diag.byBrandAndTrn.set(btKey, btCell);
+
+              // Sample FAL Sld rows at this location — debug the 417→194 gap.
+              if (brand === "FAL" && trn === "Sld" && diag.sampleFalSldRows.length < 60) {
+                diag.sampleFalSldRows.push({
+                  activityDate: (row[18] || "").replace(/"/g, "").trim(),
+                  itemId,
+                  productType: pt,
+                  qty: rawQty,
+                  extCost: rawExt,
+                  acct,
+                  customerName: (row[19] || "").replace(/"/g, "").trim(),
+                  invoiceId: (row[16] || "").replace(/"/g, "").trim(),
+                });
+              }
 
               // Sample the first 30 ReS rows so we can eyeball account format,
               // customer name, and qty to tell receipts apart from customer
@@ -450,6 +466,7 @@ export async function GET(request: NextRequest) {
         accountPatterns: sortMapDesc(diag.acctPatterns).map(([k, v]) => ({ pattern: k, rows: v })),
         productTypes: sortMapDesc(diag.productTypes).map(([k, v]) => ({ productType: k, rows: v })),
         sampleReSRows: diag.sampleReSRows,
+        sampleFalSldRows: diag.sampleFalSldRows,
         reSCustomers: sortMapDesc(diag.reSCustomers, (v) => Math.abs(v.sumQty)).slice(0, 50).map(([name, v]) => ({
           customerName: name,
           rows: v.rows,
