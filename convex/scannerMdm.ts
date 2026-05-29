@@ -839,3 +839,28 @@ export const listSetupLogsByScanner = query({
       .take(args.limit ?? 100);
   },
 });
+
+export const markScannerSetupComplete = mutation({
+  args: {
+    scannerId: v.id("scanners"),
+    installedApps: v.object({
+      tireTrack: v.optional(v.string()),
+      rtLocator: v.optional(v.string()),
+      scannerAgent: v.optional(v.string()),
+    }),
+    actingUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const scanner = await ctx.db.get(args.scannerId);
+    if (!scanner) throw new Error("Scanner not found");
+
+    await ctx.db.patch(args.scannerId, {
+      installedApps: args.installedApps,
+      mdmStatus: "provisioned",
+      provisionedAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
