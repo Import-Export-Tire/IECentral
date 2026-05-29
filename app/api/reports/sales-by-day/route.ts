@@ -205,6 +205,7 @@ export async function GET(request: NextRequest) {
       byTrn: new Map<string, { rows: number; sumQty: number; sumExtCost: number }>(),
       byTrnAndSign: new Map<string, { positive: number; negative: number; zero: number }>(),
       byBrandAtLoc: new Map<string, { rows: number; sumQty: number }>(),
+      byBrandAndTrn: new Map<string, { rows: number; sumQty: number }>(),
       acctPatterns: new Map<string, number>(),
       productTypes: new Map<string, number>(),
       sampleRowsAfterFilter: [] as { activityDate: string; transaction: string; brand: string; qty: number; extCost: number; acct: string }[],
@@ -259,6 +260,15 @@ export async function GET(request: NextRequest) {
               brandCell.rows++;
               brandCell.sumQty += rawQty;
               diag.byBrandAtLoc.set(brand, brandCell);
+
+              // Brand × transaction breakdown — surfaces the "where do the 417
+              // Falken come from" question. Sld gross = -sum(Sld.qty) since Sld
+              // qty is stored negative.
+              const btKey = `${brand}|${trn}`;
+              const btCell = diag.byBrandAndTrn.get(btKey) || { rows: 0, sumQty: 0 };
+              btCell.rows++;
+              btCell.sumQty += rawQty;
+              diag.byBrandAndTrn.set(btKey, btCell);
 
               // Classify account pattern
               let acctPattern = "other";
@@ -359,6 +369,12 @@ export async function GET(request: NextRequest) {
           rows: v.rows,
           sumQty: Math.round(v.sumQty * 100) / 100,
         })),
+        // Per-brand per-transaction breakdown. Sld qty is stored negative;
+        // |sum(Sld.qty)| = gross tires sold for that brand.
+        byBrandAndTrn: sortMapDesc(diag.byBrandAndTrn, (v) => v.rows).slice(0, 80).map(([key, v]) => {
+          const [brand, trn] = key.split("|");
+          return { brand, transaction: trn, rows: v.rows, sumQty: Math.round(v.sumQty * 100) / 100 };
+        }),
         accountPatterns: sortMapDesc(diag.acctPatterns).map(([k, v]) => ({ pattern: k, rows: v })),
         productTypes: sortMapDesc(diag.productTypes).map(([k, v]) => ({ productType: k, rows: v })),
         note: "Counts are PRE-filter — every row at this location regardless of transaction/account/productType filters.",
