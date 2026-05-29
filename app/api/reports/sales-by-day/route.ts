@@ -209,6 +209,9 @@ export async function GET(request: NextRequest) {
       acctPatterns: new Map<string, number>(),
       productTypes: new Map<string, number>(),
       sampleRowsAfterFilter: [] as { activityDate: string; transaction: string; brand: string; qty: number; extCost: number; acct: string }[],
+      // Capture sample raw ReS rows at the diagnose location so we can tell
+      // receipts from real customer returns by the account format.
+      sampleReSRows: [] as { activityDate: string; brand: string; itemId: string; qty: number; extCost: number; acct: string; customerName: string }[],
     };
 
     const CONCURRENCY = 8;
@@ -269,6 +272,21 @@ export async function GET(request: NextRequest) {
               btCell.rows++;
               btCell.sumQty += rawQty;
               diag.byBrandAndTrn.set(btKey, btCell);
+
+              // Sample the first 30 ReS rows so we can eyeball account format,
+              // customer name, and qty to tell receipts apart from customer
+              // returns.
+              if (trn === "ReS" && diag.sampleReSRows.length < 30) {
+                diag.sampleReSRows.push({
+                  activityDate: (row[18] || "").replace(/"/g, "").trim(),
+                  brand,
+                  itemId,
+                  qty: rawQty,
+                  extCost: rawExt,
+                  acct,
+                  customerName: (row[19] || "").replace(/"/g, "").trim(),
+                });
+              }
 
               // Classify account pattern
               let acctPattern = "other";
@@ -377,6 +395,7 @@ export async function GET(request: NextRequest) {
         }),
         accountPatterns: sortMapDesc(diag.acctPatterns).map(([k, v]) => ({ pattern: k, rows: v })),
         productTypes: sortMapDesc(diag.productTypes).map(([k, v]) => ({ productType: k, rows: v })),
+        sampleReSRows: diag.sampleReSRows,
         note: "Counts are PRE-filter — every row at this location regardless of transaction/account/productType filters.",
       });
     }
