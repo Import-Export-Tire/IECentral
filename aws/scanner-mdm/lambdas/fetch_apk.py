@@ -39,7 +39,8 @@ def query_convex(deploy_key, path, args):
 
 
 def get_latest_s3_apk(prefix):
-    """Find the most recently uploaded APK with given prefix in S3."""
+    """Find the most recently uploaded APK with given prefix in S3.
+    Returns (key, sha256) or (None, None)."""
     try:
         resp = s3.list_objects_v2(
             Bucket=S3_BUCKET, Prefix=f"apks/{prefix}", MaxKeys=50
@@ -47,10 +48,23 @@ def get_latest_s3_apk(prefix):
         contents = resp.get("Contents", [])
         apks = [c for c in contents if c["Key"].endswith(".apk")]
         if not apks:
-            return None
-        # Sort by last modified, newest first
+            return None, None
         apks.sort(key=lambda x: x["LastModified"], reverse=True)
-        return apks[0]["Key"]
+        key = apks[0]["Key"]
+        # Fetch the object's metadata to read sha256 (set at upload time as x-amz-meta-sha256)
+        head = s3.head_object(Bucket=S3_BUCKET, Key=key)
+        sha256 = head.get("Metadata", {}).get("sha256")
+        return key, sha256
+    except Exception:
+        return None, None
+
+
+def get_sha256_for_key(key):
+    if not key:
+        return None
+    try:
+        head = s3.head_object(Bucket=S3_BUCKET, Key=key)
+        return head.get("Metadata", {}).get("sha256")
     except Exception:
         return None
 
@@ -102,10 +116,12 @@ def handler(event, context):
 
             # S3 fallback or direct S3
             s3_key = None
+            s3_sha256 = None
             if config and config.get("tireTrackApkS3Key"):
                 s3_key = config["tireTrackApkS3Key"]
+                s3_sha256 = get_sha256_for_key(s3_key)
             else:
-                s3_key = get_latest_s3_apk("tiretrack")
+                s3_key, s3_sha256 = get_latest_s3_apk("tiretrack")
 
             if not s3_key:
                 return response(404, {"error": "TireTrack APK not found"})
@@ -121,14 +137,17 @@ def handler(event, context):
                 "version": version,
                 "source": "s3",
                 "s3Key": s3_key,
+                "sha256": s3_sha256,
             })
 
         elif app == "rtlocator":
             s3_key = None
+            s3_sha256 = None
             if config and config.get("rtLocatorApkS3Key"):
                 s3_key = config["rtLocatorApkS3Key"]
+                s3_sha256 = get_sha256_for_key(s3_key)
             else:
-                s3_key = get_latest_s3_apk("rtlocator")
+                s3_key, s3_sha256 = get_latest_s3_apk("rtlocator")
 
             if not s3_key:
                 return response(404, {"error": "RT Locator APK not found"})
@@ -144,14 +163,17 @@ def handler(event, context):
                 "version": version,
                 "source": "s3",
                 "s3Key": s3_key,
+                "sha256": s3_sha256,
             })
 
         elif app == "agent":
             s3_key = None
+            s3_sha256 = None
             if config and config.get("agentApkS3Key"):
                 s3_key = config["agentApkS3Key"]
+                s3_sha256 = get_sha256_for_key(s3_key)
             else:
-                s3_key = get_latest_s3_apk("scanner-agent")
+                s3_key, s3_sha256 = get_latest_s3_apk("scanner-agent")
 
             if not s3_key:
                 return response(404, {"error": "Scanner Agent APK not found"})
@@ -167,6 +189,7 @@ def handler(event, context):
                 "version": version,
                 "source": "s3",
                 "s3Key": s3_key,
+                "sha256": s3_sha256,
             })
 
     except Exception as e:
