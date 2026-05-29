@@ -220,8 +220,10 @@ export function InstallStep({ session }: { session: Session }) {
 
         // 8. Device settings
         await runStep("settings", "Configuring device settings", async () => {
-          await client.shell(`settings put system screen_off_timeout 1800000`);
-          await client.shell(`settings put system accelerometer_rotation 0`);
+          const timeoutMs = mdmConfig?.screenTimeoutMs ?? 1800000;
+          const rotation = mdmConfig?.screenRotation === "landscape" ? 1 : 0;
+          await client.shell(`settings put system screen_off_timeout ${timeoutMs}`);
+          await client.shell(`settings put system accelerometer_rotation ${rotation}`);
         });
 
         // 9. Activate Scanner Agent as Device Admin
@@ -231,8 +233,8 @@ export function InstallStep({ session }: { session: Session }) {
 
         // 10. Disable bloatware
         await runStep("bloatware", "Disabling bloatware", async () => {
-          const n = await client.disablePackages(BLOATWARE);
-          actions.reportProgress("bloatware", "success", `Disabled ${n} packages`);
+          const list = mdmConfig?.bloatwarePackages?.length ? mdmConfig.bloatwarePackages : BLOATWARE;
+          await client.disablePackages(list);
         });
 
         // 11. Launch SetupActivity
