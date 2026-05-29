@@ -114,6 +114,11 @@ export async function GET(request: NextRequest) {
     // Default true: bare R20 / INV-* / 99-* Sld rows are real store sales
     // (per Andy 5/27). Pass ?includeInternalAccounts=false to revert.
     const includeInternalAccounts = (searchParams.get("includeInternalAccounts") ?? "true") !== "false";
+    // Diagnostic mode: when set to a location code (e.g. ?diagnoseLocation=R20),
+    // return an unfiltered breakdown of transaction codes + qty signs at that
+    // location instead of the normal aggregated series. Use for debugging
+    // unexpected net negatives or missing sales.
+    const diagnoseLocation = (searchParams.get("diagnoseLocation") || "").trim().toUpperCase();
 
     // Identify month folders that overlap the date range so we only download
     // CSVs we actually need.
@@ -191,6 +196,20 @@ export async function GET(request: NextRequest) {
     const locTotalsTires = new Map<string, number>();
     const locTotalsDollars = new Map<string, number>();
 
+    // Diagnostic accumulator (only populated when diagnoseLocation is set).
+    // Records the raw transaction-code + qty-sign mix at the target location
+    // BEFORE any filters are applied, so we can see exactly what's there.
+    const diag = {
+      enabled: !!diagnoseLocation,
+      rowsAtLoc: 0,
+      byTrn: new Map<string, { rows: number; sumQty: number; sumExtCost: number }>(),
+      byTrnAndSign: new Map<string, { positive: number; negative: number; zero: number }>(),
+      byBrandAtLoc: new Map<string, { rows: number; sumQty: number }>(),
+      acctPatterns: new Map<string, number>(),
+      productTypes: new Map<string, number>(),
+      sampleRowsAfterFilter: [] as { activityDate: string; transaction: string; brand: string; qty: number; extCost: number; acct: string }[],
+    };
+
     const CONCURRENCY = 8;
     for (let i = 0; i < workingFiles.length; i += CONCURRENCY) {
       const batch = workingFiles.slice(i, i + CONCURRENCY);
@@ -211,6 +230,50 @@ export async function GET(request: NextRequest) {
 
           const itemId = (row[0] || "").replace(/"/g, "").trim();
           if (!itemId) continue;
+
+          // Diagnostic capture — accumulate everything at the target location
+          // BEFORE filters so we can see what's there raw.
+          if (diag.enabled) {
+            const rowLoc = (row[8] || "").replace(/"/g, "").trim().toUpperCase();
+            if (rowLoc === diagnoseLocation) {
+              diag.rowsAtLoc++;
+              const trn = (row[9] || "").replace(/"/g, "").trim();
+              const brand = (row[4] || "").replace(/"/g, "").trim().toUpperCase();
+              const pt = (row[3] || "").replace(/"/g, "").trim();
+              const rawQty = parseFloat((row[10] || "0").replace(/"/g, "").trim()) || 0;
+              const rawExt = parseFloat((row[12] || "0").replace(/"/g, "").trim()) || 0;
+              const acct = (row[15] || "").replace(/"/g, "").trim().toUpperCase();
+
+              const trnCell = diag.byTrn.get(trn) || { rows: 0, sumQty: 0, sumExtCost: 0 };
+              trnCell.rows++;
+              trnCell.sumQty += rawQty;
+              trnCell.sumExtCost += rawExt;
+              diag.byTrn.set(trn, trnCell);
+
+              const sign = rawQty > 0 ? "positive" : rawQty < 0 ? "negative" : "zero";
+              const signCell = diag.byTrnAndSign.get(trn) || { positive: 0, negative: 0, zero: 0 };
+              signCell[sign]++;
+              diag.byTrnAndSign.set(trn, signCell);
+
+              const brandCell = diag.byBrandAtLoc.get(brand) || { rows: 0, sumQty: 0 };
+              brandCell.rows++;
+              brandCell.sumQty += rawQty;
+              diag.byBrandAtLoc.set(brand, brandCell);
+
+              // Classify account pattern
+              let acctPattern = "other";
+              if (["700", "7001", "7002"].includes(acct)) acctPattern = "700-vendor";
+              else if (/^[WR]\d{2}[WR]\d{2}$/.test(acct)) acctPattern = "warehouse-transfer";
+              else if (/^[WR]\d{2}$/.test(acct)) acctPattern = "bare-location";
+              else if (acct.startsWith("INV")) acctPattern = `INV-${/^INV[WR]\d{2}$/.test(acct) ? "till" : "other"}`;
+              else if (acct.startsWith("99-")) acctPattern = `99--${/^99-[WR]\d{2}$/.test(acct) ? "till" : "other"}`;
+              else if (/^[WR]\d{4,}$/.test(acct)) acctPattern = "vendor-4digit";
+              else if (/^\d+$/.test(acct)) acctPattern = "customer-numeric";
+              diag.acctPatterns.set(acctPattern, (diag.acctPatterns.get(acctPattern) || 0) + 1);
+
+              diag.productTypes.set(pt || "(empty)", (diag.productTypes.get(pt || "(empty)") || 0) + 1);
+            }
+          }
 
           const transaction = (row[9] || "").replace(/"/g, "").trim();
           // Sales (Sld) + customer returns (ReS) only — same as sales-history.
@@ -267,6 +330,39 @@ export async function GET(request: NextRequest) {
           locTotalsDollars.set(location, (locTotalsDollars.get(location) || 0) + dollars);
         }
       }
+    }
+
+    // Diagnostic short-circuit: return the breakdown for the target location
+    // instead of the normal aggregated payload.
+    if (diag.enabled) {
+      const sortMapDesc = <V extends { rows?: number; sumQty?: number } | number>(
+        m: Map<string, V>,
+        scoreFn?: (v: V) => number,
+      ) => [...m].sort((a, b) => {
+        const va = scoreFn ? scoreFn(a[1]) : (a[1] as unknown as number);
+        const vb = scoreFn ? scoreFn(b[1]) : (b[1] as unknown as number);
+        return vb - va;
+      });
+      return NextResponse.json({
+        diagnoseLocation,
+        startDate, endDate,
+        rowsAtLocation: diag.rowsAtLoc,
+        byTransaction: sortMapDesc(diag.byTrn, (v) => v.rows).map(([trn, v]) => ({
+          transaction: trn,
+          rows: v.rows,
+          sumQty: Math.round(v.sumQty * 100) / 100,
+          sumExtCost: Math.round(v.sumExtCost * 100) / 100,
+          signs: diag.byTrnAndSign.get(trn),
+        })),
+        byBrand: sortMapDesc(diag.byBrandAtLoc, (v) => v.rows).map(([brand, v]) => ({
+          brand,
+          rows: v.rows,
+          sumQty: Math.round(v.sumQty * 100) / 100,
+        })),
+        accountPatterns: sortMapDesc(diag.acctPatterns).map(([k, v]) => ({ pattern: k, rows: v })),
+        productTypes: sortMapDesc(diag.productTypes).map(([k, v]) => ({ productType: k, rows: v })),
+        note: "Counts are PRE-filter — every row at this location regardless of transaction/account/productType filters.",
+      });
     }
 
     // Build series: one entry per bucket, with a tires/dollars value per
