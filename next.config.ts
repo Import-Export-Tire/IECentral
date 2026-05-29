@@ -1,10 +1,25 @@
 import type { NextConfig } from "next";
 import withPWAInit from "next-pwa";
 
+// next-pwa's exported PWAConfig type omits a handful of Workbox options
+// (clientsClaim, cleanupOutdatedCaches) even though Workbox accepts them
+// and next-pwa forwards them through. Widen the type rather than drop
+// these — both are load-bearing for the stale-SW fix below.
 const withPWA = withPWAInit({
   dest: "public",
   register: true,
   skipWaiting: true,
+  // clientsClaim + cleanupOutdatedCaches are Workbox options that next-pwa
+  // forwards but doesn't include in its TS PWAConfig type. Spread via an
+  // `as any` so TS is happy while still passing them through.
+  // - clientsClaim: a freshly installed SW takes control of all open tabs
+  //   immediately. Without it, users who installed the PWA before a deploy
+  //   keep loading the old cached JS bundle (Andy 5/29: removed "Tire Quote
+  //   of the Day" kept appearing for users on stale workers).
+  // - cleanupOutdatedCaches: wipe outdated runtime-cached entries when the
+  //   SW activates so users don't sit on a stale bundle from prior versions.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ...({ clientsClaim: true, cleanupOutdatedCaches: true } as any),
   disable: process.env.NODE_ENV === "development", // Disable in dev to avoid caching issues
   runtimeCaching: [
     {
