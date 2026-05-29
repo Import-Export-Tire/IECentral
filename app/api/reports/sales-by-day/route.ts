@@ -212,6 +212,10 @@ export async function GET(request: NextRequest) {
       // Capture sample raw ReS rows at the diagnose location so we can tell
       // receipts from real customer returns by the account format.
       sampleReSRows: [] as { activityDate: string; brand: string; itemId: string; qty: number; extCost: number; acct: string; customerName: string }[],
+      // Unique customer names on ReS rows + the qty volume each represents.
+      // Surfaces every entity that's appearing as a "return" so we can extend
+      // the IET-house filter list to match.
+      reSCustomers: new Map<string, { rows: number; sumQty: number }>(),
     };
 
     const CONCURRENCY = 8;
@@ -276,16 +280,19 @@ export async function GET(request: NextRequest) {
               // Sample the first 30 ReS rows so we can eyeball account format,
               // customer name, and qty to tell receipts apart from customer
               // returns.
-              if (trn === "ReS" && diag.sampleReSRows.length < 30) {
-                diag.sampleReSRows.push({
-                  activityDate: (row[18] || "").replace(/"/g, "").trim(),
-                  brand,
-                  itemId,
-                  qty: rawQty,
-                  extCost: rawExt,
-                  acct,
-                  customerName: (row[19] || "").replace(/"/g, "").trim(),
-                });
+              if (trn === "ReS") {
+                const customerName = (row[19] || "").replace(/"/g, "").trim();
+                if (diag.sampleReSRows.length < 30) {
+                  diag.sampleReSRows.push({
+                    activityDate: (row[18] || "").replace(/"/g, "").trim(),
+                    brand, itemId, qty: rawQty, extCost: rawExt, acct, customerName,
+                  });
+                }
+                const key = customerName || "(blank)";
+                const cell = diag.reSCustomers.get(key) || { rows: 0, sumQty: 0 };
+                cell.rows++;
+                cell.sumQty += rawQty;
+                diag.reSCustomers.set(key, cell);
               }
 
               // Classify account pattern
@@ -418,6 +425,11 @@ export async function GET(request: NextRequest) {
         accountPatterns: sortMapDesc(diag.acctPatterns).map(([k, v]) => ({ pattern: k, rows: v })),
         productTypes: sortMapDesc(diag.productTypes).map(([k, v]) => ({ productType: k, rows: v })),
         sampleReSRows: diag.sampleReSRows,
+        reSCustomers: sortMapDesc(diag.reSCustomers, (v) => Math.abs(v.sumQty)).slice(0, 50).map(([name, v]) => ({
+          customerName: name,
+          rows: v.rows,
+          sumQty: Math.round(v.sumQty * 100) / 100,
+        })),
         note: "Counts are PRE-filter — every row at this location regardless of transaction/account/productType filters.",
       });
     }
