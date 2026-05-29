@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, action } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 
 // ============ FLEET OVERVIEW ============
@@ -862,5 +862,33 @@ export const markScannerSetupComplete = mutation({
     });
 
     return { success: true };
+  },
+});
+
+// Returns presigned S3 URLs (+ SHAs) for the three APKs the setup wizard needs.
+// Internally calls the AWS Lambda 3 times in parallel.
+// Must be an action (not query) because of fetch().
+export const getApkDownloadUrls = action({
+  args: { locationCode: v.string() },
+  handler: async (_ctx, args) => {
+    const baseUrl = "https://7brylwlei6.execute-api.us-east-1.amazonaws.com/prod/scanner-mdm/apk";
+    const fetchOne = async (app: string) => {
+      const url = `${baseUrl}?app=${app}&locationCode=${encodeURIComponent(args.locationCode)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Failed to fetch ${app}: ${res.status}`);
+      const json = await res.json();
+      return {
+        url: json.downloadUrl as string,
+        sha256: (json.sha256 ?? null) as string | null,
+        version: (json.version ?? "unknown") as string,
+        s3Key: (json.s3Key ?? null) as string | null,
+      };
+    };
+    const [tireTrack, rtLocator, scannerAgent] = await Promise.all([
+      fetchOne("tiretrack"),
+      fetchOne("rtlocator"),
+      fetchOne("agent"),
+    ]);
+    return { tireTrack, rtLocator, scannerAgent };
   },
 });
