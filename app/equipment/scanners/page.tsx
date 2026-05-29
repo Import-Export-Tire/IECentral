@@ -12,6 +12,12 @@ import { Id } from "@/convex/_generated/dataModel";
 import ScannerStatusDot, { getScannerHealth, ScannerHealth } from "./components/ScannerStatusDot";
 import ScannerBatteryBar from "./components/ScannerBatteryBar";
 import WifiSignalIcon from "./components/WifiSignalIcon";
+import dynamic from "next/dynamic";
+
+const SetupWizard = dynamic(
+  () => import("./setup/SetupWizard").then((m) => ({ default: m.SetupWizard })),
+  { ssr: false, loading: () => null },
+);
 
 type StatusFilter = "all" | "online" | "offline" | "attention" | "unprovisioned";
 
@@ -26,6 +32,8 @@ function ScannerDashboardContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedScannerId, setSelectedScannerId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const webusbSupported = typeof navigator !== "undefined" && "usb" in navigator;
   const [addForm, setAddForm] = useState({ serialNumber: "", model: "Zebra TC51", notes: "", pin: "" });
   const [addLocationId, setAddLocationId] = useState<Id<"locations"> | "">("");
   const [addStep, setAddStep] = useState<"form" | "saving" | "done">("form");
@@ -171,6 +179,21 @@ function ScannerDashboardContent() {
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                       Add Scanner
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button
+                      onClick={() => webusbSupported && setWizardOpen(true)}
+                      disabled={!webusbSupported}
+                      title={webusbSupported ? "Set up a new scanner via USB (Chrome/Edge)" : "Open in Chrome or Edge to enable scanner setup"}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        webusbSupported
+                          ? isDark ? "bg-indigo-600 hover:bg-indigo-500 text-white" : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      }`}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" /></svg>
+                      Setup New Scanner
                     </button>
                   )}
                   {canEdit && (
@@ -677,6 +700,7 @@ function ScannerDashboardContent() {
           )}
         </main>
       </div>
+      {wizardOpen && <SetupWizard onClose={() => setWizardOpen(false)} />}
     </Protected>
   );
 }
