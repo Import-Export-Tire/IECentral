@@ -195,6 +195,16 @@ export async function GET(request: NextRequest) {
     // Per-location running totals — for the picker + summary
     const locTotalsTires = new Map<string, number>();
     const locTotalsDollars = new Map<string, number>();
+    // RETURNS are tracked completely separately from sold. ReS from real
+    // external customers (not IET house) contributes here, never to the
+    // main sold metric. Andy's call: "the number has to be 417" (gross
+    // Sld), but "returns are good too, we need to know about returns."
+    const returnsTireMap = new Map<string, number>();
+    const returnsDollarMap = new Map<string, number>();
+    const locReturnsTires = new Map<string, number>();
+    const locReturnsDollars = new Map<string, number>();
+    let totalReturnsTires = 0;
+    let totalReturnsDollars = 0;
 
     // Diagnostic accumulator (only populated when diagnoseLocation is set).
     // Records the raw transaction-code + qty-sign mix at the target location
@@ -371,14 +381,29 @@ export async function GET(request: NextRequest) {
 
           const rawQty = parseFloat((row[10] || "0").replace(/"/g, "").trim()) || 0;
           const rawExt = parseFloat((row[12] || "0").replace(/"/g, "").trim()) || 0;
-          // Sales are negative in OEA07V — negate so sales positive, returns negative.
-          const qty = -rawQty;
-          const dollars = -rawExt;
-
           const bucket = bucketDate(parsed.iso, granularity);
           seenBuckets.add(bucket);
-          const k: Cell = 0; void k; // (placate ts noUnusedLocals if type alias unused)
+          const k: Cell = 0; void k;
           const key = `${bucket}|${location}`;
+
+          if (transaction === "ReS") {
+            // Real customer return (IET-house ReS was already skipped above).
+            // ReS stores positive qty; record absolute values into the
+            // dedicated returns map. Never net against sold.
+            const rqty = Math.abs(rawQty);
+            const rext = Math.abs(rawExt);
+            returnsTireMap.set(key, (returnsTireMap.get(key) || 0) + rqty);
+            returnsDollarMap.set(key, (returnsDollarMap.get(key) || 0) + rext);
+            totalReturnsTires += rqty;
+            totalReturnsDollars += rext;
+            locReturnsTires.set(location, (locReturnsTires.get(location) || 0) + rqty);
+            locReturnsDollars.set(location, (locReturnsDollars.get(location) || 0) + rext);
+            continue;
+          }
+
+          // Sld: qty stored negative in OEA07V; negate so sold positive.
+          const qty = -rawQty;
+          const dollars = -rawExt;
           tireMap.set(key, (tireMap.get(key) || 0) + qty);
           dollarMap.set(key, (dollarMap.get(key) || 0) + dollars);
           totalTires += qty;
@@ -446,16 +471,26 @@ export async function GET(request: NextRequest) {
       const row: Record<string, string | number> = { bucket };
       let bucketTires = 0;
       let bucketDollars = 0;
+      let bucketReturns = 0;
+      let bucketReturnsDollars = 0;
       for (const loc of reportedLocations) {
         const t = tireMap.get(`${bucket}|${loc}`) || 0;
         const d = dollarMap.get(`${bucket}|${loc}`) || 0;
+        const rt = returnsTireMap.get(`${bucket}|${loc}`) || 0;
+        const rd = returnsDollarMap.get(`${bucket}|${loc}`) || 0;
         row[`tires_${loc}`] = Math.round(t * 100) / 100;
         row[`dollars_${loc}`] = Math.round(d * 100) / 100;
+        row[`returns_${loc}`] = Math.round(rt * 100) / 100;
+        row[`returnsDollars_${loc}`] = Math.round(rd * 100) / 100;
         bucketTires += t;
         bucketDollars += d;
+        bucketReturns += rt;
+        bucketReturnsDollars += rd;
       }
       row.totalTires = Math.round(bucketTires * 100) / 100;
       row.totalDollars = Math.round(bucketDollars * 100) / 100;
+      row.totalReturns = Math.round(bucketReturns * 100) / 100;
+      row.totalReturnsDollars = Math.round(bucketReturnsDollars * 100) / 100;
       return row;
     });
 
@@ -463,15 +498,19 @@ export async function GET(request: NextRequest) {
       location: loc,
       tires: Math.round((locTotalsTires.get(loc) || 0) * 100) / 100,
       dollars: Math.round((locTotalsDollars.get(loc) || 0) * 100) / 100,
+      returns: Math.round((locReturnsTires.get(loc) || 0) * 100) / 100,
+      returnsDollars: Math.round((locReturnsDollars.get(loc) || 0) * 100) / 100,
     })).sort((a, b) => b.dollars - a.dollars);
 
     return NextResponse.json({
       series,
       locations,         // every location seen in the source data
-      perLocation,       // totals per selected location
+      perLocation,       // totals per selected location (sold + returns)
       totals: {
         tires: Math.round(totalTires * 100) / 100,
         dollars: Math.round(totalDollars * 100) / 100,
+        returns: Math.round(totalReturnsTires * 100) / 100,
+        returnsDollars: Math.round(totalReturnsDollars * 100) / 100,
       },
       startDate, endDate, granularity,
       bucketCount: buckets.length,
