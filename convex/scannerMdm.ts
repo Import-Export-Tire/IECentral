@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, action } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 
 // ============ FLEET OVERVIEW ============
@@ -805,5 +805,90 @@ export const cleanupExpiredProvisionCodes = internalMutation({
       }
     }
     return { cleaned };
+  },
+});
+
+// ============ SETUP LOGS ============
+
+export const logScannerSetupStep = mutation({
+  args: {
+    scannerId: v.id("scanners"),
+    step: v.string(),
+    status: v.string(),
+    durationMs: v.optional(v.number()),
+    error: v.optional(v.string()),
+    browserAgent: v.optional(v.string()),
+    actingUserId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("scannerSetupLogs", {
+      ...args,
+      createdAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
+
+export const listSetupLogsByScanner = query({
+  args: { scannerId: v.id("scanners"), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("scannerSetupLogs")
+      .withIndex("by_scanner_created", (q) => q.eq("scannerId", args.scannerId))
+      .order("desc")
+      .take(args.limit ?? 100);
+  },
+});
+
+export const markScannerSetupComplete = mutation({
+  args: {
+    scannerId: v.id("scanners"),
+    installedApps: v.object({
+      tireTrack: v.optional(v.string()),
+      rtLocator: v.optional(v.string()),
+      scannerAgent: v.optional(v.string()),
+    }),
+    actingUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const scanner = await ctx.db.get(args.scannerId);
+    if (!scanner) throw new Error("Scanner not found");
+
+    await ctx.db.patch(args.scannerId, {
+      installedApps: args.installedApps,
+      mdmStatus: "provisioned",
+      provisionedAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+// Returns presigned S3 URLs (+ SHAs) for the three APKs the setup wizard needs.
+// Internally calls the AWS Lambda 3 times in parallel.
+// Must be an action (not query) because of fetch().
+export const getApkDownloadUrls = action({
+  args: { locationCode: v.string() },
+  handler: async (_ctx, args) => {
+    const baseUrl = "https://7brylwlei6.execute-api.us-east-1.amazonaws.com/prod/scanner-mdm/apk";
+    const fetchOne = async (app: string) => {
+      const url = `${baseUrl}?app=${app}&locationCode=${encodeURIComponent(args.locationCode)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Failed to fetch ${app}: ${res.status}`);
+      const json = await res.json();
+      return {
+        url: json.downloadUrl as string,
+        sha256: (json.sha256 ?? null) as string | null,
+        version: (json.version ?? "unknown") as string,
+        s3Key: (json.s3Key ?? null) as string | null,
+      };
+    };
+    const [tireTrack, rtLocator, scannerAgent] = await Promise.all([
+      fetchOne("tiretrack"),
+      fetchOne("rtlocator"),
+      fetchOne("agent"),
+    ]);
+    return { tireTrack, rtLocator, scannerAgent };
   },
 });

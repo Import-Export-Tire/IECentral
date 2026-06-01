@@ -66,6 +66,7 @@ function ScannerDetailContent() {
   const scanner = useQuery(api.scannerMdm.getScannerDetail, { id: scannerId });
   const personnel = useQuery(api.equipment.listActivePersonnel);
   const provisionCode = useQuery(api.scannerMdm.getProvisionCode, { scannerId });
+  const setupLogs = useQuery(api.scannerMdm.listSetupLogsByScanner, scannerId ? { scannerId, limit: 50 } : "skip");
 
   // Mutations
   const logCommand = useMutation(api.scannerMdm.logScannerCommand);
@@ -565,6 +566,26 @@ function ScannerDetailContent() {
                       ))}
                     </div>
                   </div>
+                )}
+
+                {/* Setup History */}
+                {setupLogs && setupLogs.length > 0 && (
+                  <section className={`rounded-xl border ${isDark ? "border-slate-700 bg-slate-800/50" : "border-gray-200 bg-white"} p-4`}>
+                    <h3 className="text-sm font-semibold mb-3">Setup History</h3>
+                    <ul className="space-y-1 text-xs">
+                      {setupLogs.map((log) => (
+                        <li key={log._id} className="flex items-center gap-3">
+                          <span className={`w-5 inline-block text-center ${log.status === "success" ? "text-emerald-500" : log.status === "failed" ? "text-red-500" : "opacity-50"}`}>
+                            {log.status === "success" ? "✓" : log.status === "failed" ? "✗" : "·"}
+                          </span>
+                          <span className="font-mono opacity-70 w-32">{log.step}</span>
+                          {log.durationMs !== undefined && <span className="opacity-60 w-16">{log.durationMs}ms</span>}
+                          <span className="opacity-50">{new Date(log.createdAt).toLocaleString()}</span>
+                          {log.error && <span className="text-red-500 ml-2 truncate">{log.error}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
                 )}
 
                 {/* Timeline */}

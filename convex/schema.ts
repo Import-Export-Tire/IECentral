@@ -1045,6 +1045,20 @@ export default defineSchema({
     .index("by_code", ["code"])
     .index("by_scanner", ["scannerId"]),
 
+  // Scanner setup logs — track step-by-step progress during device setup
+  scannerSetupLogs: defineTable({
+    scannerId: v.id("scanners"),
+    step: v.string(), // "detect" | "location" | "generate" | "installRtl" | "installTireTrack" | "installAgent" | "pushRtConfig" | "grantPerms" | "settings" | "deviceAdmin" | "bloatware" | "launchSetupActivity" | "verify" | "done"
+    status: v.string(), // "started" | "success" | "skipped" | "failed"
+    durationMs: v.optional(v.number()),
+    error: v.optional(v.string()),
+    browserAgent: v.optional(v.string()),
+    actingUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+  })
+    .index("by_scanner", ["scannerId"])
+    .index("by_scanner_created", ["scannerId", "createdAt"]),
+
   // Vehicles (company fleet)
   vehicles: defineTable({
     // Identification
