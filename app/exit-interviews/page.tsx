@@ -67,6 +67,14 @@ function ExitInterviewsContent() {
   const { user } = useAuth();
 
   const interviews = useQuery(api.exitInterviews.list, {}) as any[] | undefined;
+  const personnel = useQuery(api.personnel.list, {}) as { _id: string; email?: string; phone?: string }[] | undefined;
+  // Map personnelId → contact info so we can show email/phone inline + in
+  // the conduct modal without an extra round-trip per row.
+  const contactByPersonnelId = useMemo(() => {
+    const m = new Map<string, { email?: string; phone?: string }>();
+    for (const p of personnel || []) m.set(p._id, { email: p.email, phone: p.phone });
+    return m;
+  }, [personnel]);
   const signOff = useMutation(api.exitInterviews.signOff);
   const reverse = useMutation(api.exitInterviews.reverse);
   const complete = useMutation(api.exitInterviews.complete);
@@ -240,9 +248,28 @@ function ExitInterviewsContent() {
                     {rows.map((i: any) => {
                       const canReverse = i.reversibleUntil && Date.now() < i.reversibleUntil && i.status !== "reversed";
                       const reversibleDays = canReverse ? Math.ceil((i.reversibleUntil - Date.now()) / 86400000) : 0;
+                      const contact = contactByPersonnelId.get(i.personnelId);
                       return (
                         <tr key={i._id} className="border-b theme-border-secondary">
-                          <td className="py-2 px-2 theme-text-primary font-medium">{i.personnelName}</td>
+                          <td className="py-2 px-2">
+                            <a href={`/personnel/${i.personnelId}`} className="theme-text-primary font-medium hover:text-[#007AFF]" title="Open full personnel record">
+                              {i.personnelName}
+                            </a>
+                            {(contact?.email || contact?.phone) && (
+                              <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-[11px] theme-text-tertiary">
+                                {contact?.email && (
+                                  <a href={`mailto:${contact.email}`} className="hover:text-[#007AFF]" onClick={(e) => e.stopPropagation()}>
+                                    ✉ {contact.email}
+                                  </a>
+                                )}
+                                {contact?.phone && (
+                                  <a href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} className="hover:text-[#007AFF]" onClick={(e) => e.stopPropagation()}>
+                                    ☎ {contact.phone}
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                          </td>
                           <td className="py-2 px-2 theme-text-secondary">{i.position || "—"}</td>
                           <td className="py-2 px-2 theme-text-secondary">{i.department || "—"}</td>
                           <td className="py-2 px-2 theme-text-tertiary tabular-nums">{i.terminationDate}</td>
@@ -308,8 +335,29 @@ function ExitInterviewsContent() {
                     {conductingInterview.status === "completed" ? "Exit Interview (view)" : "Conduct Exit Interview"}
                   </h2>
                   <p className="text-xs theme-text-tertiary mt-0.5">
-                    {conductingInterview.personnelName} · {conductingInterview.position || "—"} · termed {conductingInterview.terminationDate} · tenure {tenureStr(conductingInterview)}
+                    <a href={`/personnel/${conductingInterview.personnelId}`} className="font-medium hover:text-[#007AFF] theme-text-primary" target="_blank" rel="noopener noreferrer">
+                      {conductingInterview.personnelName}
+                    </a>
+                    {" · "}{conductingInterview.position || "—"}{" · "}termed {conductingInterview.terminationDate}{" · "}tenure {tenureStr(conductingInterview)}
                   </p>
+                  {(() => {
+                    const c = contactByPersonnelId.get(conductingInterview.personnelId);
+                    if (!c?.email && !c?.phone) return null;
+                    return (
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs">
+                        {c?.email && (
+                          <a href={`mailto:${c.email}`} className="theme-text-primary hover:text-[#007AFF] font-medium">
+                            ✉ {c.email}
+                          </a>
+                        )}
+                        {c?.phone && (
+                          <a href={`tel:${c.phone.replace(/[^+\d]/g, "")}`} className="theme-text-primary hover:text-[#007AFF] font-medium">
+                            ☎ {c.phone}
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <button onClick={() => { setConductId(null); setForm(EMPTY_FORM); }} className="p-1.5 theme-text-tertiary hover:theme-text-primary rounded-full theme-bg-hover">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
