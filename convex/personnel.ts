@@ -598,10 +598,22 @@ export const terminate = mutation({
     // (those are administrative cleanups, not real separations).
     const isSyncCleanup = /^Not in.*personnel sync$/i.test(args.terminationReason || "");
 
-    const existingInterview = await ctx.db
+    // Look for an OPEN (still-actionable) exit interview for this person.
+    // Reversed / completed / declined records are from a prior termination
+    // cycle (e.g. rehire-then-terminate-again, per Andy 6/01: Chase Stouffer
+    // had an old reversed interview, so the new termination didn't surface
+    // in the queue). Treat those as absent so a fresh interview gets created.
+    const allInterviews = await ctx.db
       .query("exitInterviews")
       .withIndex("by_personnel", (q) => q.eq("personnelId", args.personnelId))
-      .first();
+      .collect();
+    const OPEN_STATUSES = new Set(["pending", "pending_signoff", "scheduled"]);
+    const existingInterview = allInterviews.find((i) => OPEN_STATUSES.has(i.status));
+    // If there's only a stale (reversed/completed/declined) record, reuse
+    // its ID via reset rather than orphaning it — keeps history clean.
+    const staleInterview = !existingInterview
+      ? allInterviews.find((i) => !OPEN_STATUSES.has(i.status))
+      : null;
 
     let exitInterviewId: Id<"exitInterviews"> | null = existingInterview?._id ?? null;
 
@@ -645,24 +657,58 @@ export const terminate = mutation({
         });
       }
 
-      exitInterviewId = await ctx.db.insert("exitInterviews", {
-        personnelId: args.personnelId,
-        personnelName: `${existing.firstName} ${existing.lastName}`,
-        department: existing.department,
-        position: existing.position,
-        hireDate: existing.hireDate,
-        terminationDate: args.terminationDate,
-        terminationReason: args.terminationReason,
-        status: "pending_signoff",
-        terminatedByUserId: args.userId,
-        terminatedByName: terminator?.name,
-        interviewerUserId: INTERVIEWER_ID,
-        scheduledAt: interviewStart.getTime(),
-        calendarEventId,
-        reversibleUntil: now + SEVEN_DAYS_MS,
-        createdAt: now,
-        updatedAt: now,
-      });
+      if (staleInterview) {
+        // Reuse the stale (reversed / completed / declined) record from
+        // a prior cycle. Patch it with this termination's details and
+        // reset back to pending_signoff so it shows up in the queue.
+        await ctx.db.patch(staleInterview._id, {
+          personnelName: `${existing.firstName} ${existing.lastName}`,
+          department: existing.department,
+          position: existing.position,
+          hireDate: existing.hireDate,
+          terminationDate: args.terminationDate,
+          terminationReason: args.terminationReason,
+          status: "pending_signoff",
+          terminatedByUserId: args.userId,
+          terminatedByName: terminator?.name,
+          interviewerUserId: INTERVIEWER_ID,
+          scheduledAt: interviewStart.getTime(),
+          calendarEventId,
+          reversibleUntil: now + SEVEN_DAYS_MS,
+          // Clear prior-cycle fields so the record is genuinely fresh
+          reversedAt: undefined,
+          reversedByUserId: undefined,
+          reversedReason: undefined,
+          signedOffAt: undefined,
+          signedOffByUserId: undefined,
+          completedAt: undefined,
+          conductedBy: undefined,
+          conductedByName: undefined,
+          responses: undefined,
+          interviewerNotes: undefined,
+          updatedAt: now,
+        });
+        exitInterviewId = staleInterview._id;
+      } else {
+        exitInterviewId = await ctx.db.insert("exitInterviews", {
+          personnelId: args.personnelId,
+          personnelName: `${existing.firstName} ${existing.lastName}`,
+          department: existing.department,
+          position: existing.position,
+          hireDate: existing.hireDate,
+          terminationDate: args.terminationDate,
+          terminationReason: args.terminationReason,
+          status: "pending_signoff",
+          terminatedByUserId: args.userId,
+          terminatedByName: terminator?.name,
+          interviewerUserId: INTERVIEWER_ID,
+          scheduledAt: interviewStart.getTime(),
+          calendarEventId,
+          reversibleUntil: now + SEVEN_DAYS_MS,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
     }
 
     // Send survey email on the original (non-cleanup) path only.
