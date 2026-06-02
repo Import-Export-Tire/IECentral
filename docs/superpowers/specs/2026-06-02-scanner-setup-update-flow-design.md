@@ -12,6 +12,8 @@ The scanner setup wizard (`app/equipment/scanners/setup/`) only supports **creat
 3. Still **set up new** scanners (unchanged).
 4. See **retail locations** in the location picker (greyed out, "Coming soon") — a retail scanning program is coming.
 5. Have setup configure **DataWedge to send a Tab key after each scan** (keystroke output + Tab suffix), for both new and update flows.
+6. **Lock the scanner down to only necessities** — disable *all* non-essential apps, not just a fixed bloatware list, leaving only an approved allowlist enabled.
+7. Make the **locks configurable** via a single **global lock policy** (allowlist + lock settings) editable in one place.
 
 ## Current architecture (for context)
 
@@ -50,11 +52,18 @@ Pre-filled from the matched scanner; lets the operator edit:
 
 These are held in session (`manage: { conditionNotes, status, assignedTo }`) and written at Done by `updateScannerFromSetup`. Continue → `install`.
 
-### 4. Install step + DataWedge Tab (both flows)
+### 4. Install step — DataWedge Tab + allowlist lockdown (both flows)
 
-`InstallStep` runs its existing sequence (APKs, RT config push, permissions, device-admin, bloatware, etc.). **Add a DataWedge configuration step** that enables **Keystroke Output with a Tab key after each scan** on the device's active DataWedge profile, logged as setup step `datawedge`.
+`InstallStep` runs its existing sequence (APKs, RT config push, permissions, device-admin) and gains two policy-driven steps, both **idempotent** and run in **new and update** flows. Both read the **global lock policy** (§6).
 
-Mechanism (to finalize in the plan, validated against the connected TC51): configure DataWedge via its intent API over ADB — `adb shell am broadcast -a com.symbol.datawedge.api.ACTION` with `SET_CONFIG` enabling the Keystroke Output plugin and a Tab key-event suffix (or push a DataWedge auto-import profile to `/enterprise/device/settings/datawedge/autoimport/`). Idempotent (re-applying is safe), so it runs in both flows.
+**4a. DataWedge Tab** (`datawedge` step) — enable **Keystroke Output with a Tab key after each scan** on the active DataWedge profile (gated by `policy.dataWedgeTab`, default on). Mechanism (finalize in plan, validated on the TC51): DataWedge intent API over ADB — `am broadcast -a com.symbol.datawedge.api.ACTION` with `SET_CONFIG` enabling the Keystroke Output plugin + a Tab key-event suffix, or push a DataWedge auto-import profile to `/enterprise/device/settings/datawedge/autoimport/`.
+
+**4b. Allowlist lockdown** (`lockdown` step, replaces the fixed `bloatware` step) — gated by `policy.lockdownEnabled` (default on):
+1. Enumerate installed packages: new `WebAdbClient.listPackages()` → `pm list packages` (parse `package:<name>`).
+2. Compute `toDisable = installed − policy.allowedPackages − ESSENTIAL_SYSTEM`, where `ESSENTIAL_SYSTEM` is a hard-coded floor of packages that must never be disabled (launcher, SystemUI, settings, IME/keyboard, DataWedge `com.symbol.datawedge`, the 3 IET apps, core `com.android.*`/`com.qualcomm.*`/`com.zebra.*` framework). The allowlist is the union of `policy.allowedPackages` ∪ `ESSENTIAL_SYSTEM` ∪ the 3 app packages.
+3. **Dry-run safety:** log the exact `toDisable` list (as the `lockdown` setup-log `error`/note field) BEFORE disabling, so we have a record; disable via existing `disablePackages()` (`pm disable-user --user 0`, which is reversible with `enable`). Never use `pm uninstall` on system packages.
+
+This is strict ("only necessities") but recoverable (disable-user is reversible) and bounded by the essential-system floor so the device stays usable.
 
 ### 5. Location step — retail locations greyed out (new flow)
 
@@ -64,7 +73,13 @@ Mechanism (to finalize in the plan, validated against the connected TC51): confi
 
 - **`updateScannerFromSetup`** (new mutation): args `{ scannerId, installedApps?, agentVersion?, androidVersion?, conditionNotes?, status?, assignedTo? (id | null) }`. Patches the existing record in place: sets `installedApps`/versions, `mdmStatus: "provisioned"`, `provisionedAt`/`updatedAt`, and any provided condition/status/assignment (clearing `assignedTo` when null, stamping `assignedAt` when set). **Never** changes `number`, `locationId`, or IoT identity. No dup guard (it's an update).
 - **Retail locations query:** `locations.listByType({ type })` (or extend an existing locations query) returning `{ _id, name, locationCode?, locationType }` for `locationType === type` and active.
+- **Global lock policy** (new single-row table `scannerLockPolicy`): `{ allowedPackages: string[], lockdownEnabled: boolean, dataWedgeTab: boolean, screenTimeoutMs?: number, screenRotation?: string, updatedAt, updatedBy }`. Queries/mutations: `getLockPolicy()` (returns the row or seeded defaults), `setLockPolicy(...)` (admin-gated, single row — upsert). Seed defaults on first read/use. The `mdmConfigs.bloatwarePackages` per-location field is superseded by this global allowlist for the lockdown step (left in place but no longer the lockdown driver).
+- `WebAdbClient.listPackages(): Promise<string[]>` — `pm list packages`, parse `package:<name>` lines.
 - Reuse `getScannerBySerialNumber` (detect branch) and `personnel.list` (Manage assignment).
+
+### 8b. MDM Admin — Lock Policy editor
+
+Add a **"Lock Policy"** section to the existing MDM/scanner admin UI (TireTrack Admin / scanner MDM settings page) to edit the global policy: a toggle for **Lockdown enabled**, a toggle for **DataWedge Tab**, screen timeout/rotation, and an editable **allowlist** of package names (add/remove). Reads `getLockPolicy`, saves via `setLockPolicy`. This is the single configurable place for the locks.
 
 ### 7. Session-state changes (`useSetupSession.ts`)
 
@@ -82,7 +97,7 @@ Mechanism (to finalize in the plan, validated against the connected TC51): confi
 
 ## Testing / verification
 
-- No formal test framework in repo → verify via: (a) `npm run build` type-check; (b) live run against the connected TC51 (serial `20192522528692`, registered as W08-700) — confirm Detect recognizes it, Update flow skips numbering, software re-installs, DataWedge emits Tab after a scan (scan into a text field, cursor tabs), and condition/status/assignment persist via `updateScannerFromSetup`; (c) confirm new-scanner flow still works on an unregistered serial; (d) confirm retail locations appear greyed with "Coming soon" and are non-clickable.
+- No formal test framework in repo → verify via: (a) `npm run build` type-check; (b) live run against the connected TC51 (serial `20192522528692`, registered as W08-700) — confirm Detect recognizes it, Update flow skips numbering, software re-installs, DataWedge emits Tab after a scan (scan into a text field, cursor tabs), and condition/status/assignment persist via `updateScannerFromSetup`; (c) confirm new-scanner flow still works on an unregistered serial; (d) confirm retail locations appear greyed with "Coming soon" and are non-clickable; (e) **lockdown:** confirm the `lockdown` step logs the to-disable list, that after lockdown the device still boots/launches (home screen, keyboard, Settings, the 3 IET apps, DataWedge all work) and non-essential apps are disabled; verify a disabled app can be re-enabled via `pm enable` (recoverability); (f) confirm the Lock Policy editor persists allowlist/toggles and the install reads them.
 
 ## Open questions (resolve during plan)
 
