@@ -152,6 +152,17 @@ export const deleteDealer = mutation({
 
 // ============ UPLOAD HISTORY ============
 
+// Shared breakdown validator: one entry per (dealer, activity-month). qty is NET tires.
+const dealerBreakdownValidator = v.array(v.object({
+  jmk: v.string(),
+  name: v.string(),
+  fanaticId: v.optional(v.number()),
+  dealerNumber: v.optional(v.string()),
+  month: v.optional(v.string()),
+  qty: v.optional(v.number()),
+  rowCount: v.number(),
+}));
+
 export const saveUpload = mutation({
   args: {
     fileName: v.string(),
@@ -159,21 +170,26 @@ export const saveUpload = mutation({
     totalInputRows: v.number(),
     filteredRows: v.number(),
     matchedRows: v.number(),
+    matchedQty: v.optional(v.number()), // optional for backward-compat with already-deployed client
     dealersMatched: v.number(),
     resultData: v.string(),
-    dealerBreakdown: v.array(v.object({
-      jmk: v.string(),
-      name: v.string(),
-      fanaticId: v.optional(v.number()),
-      dealerNumber: v.optional(v.string()),
-      rowCount: v.number(),
-    })),
+    dealerBreakdown: dealerBreakdownValidator,
     uploadedBy: v.id("users"),
     dateRangeStart: v.optional(v.string()),
     dateRangeEnd: v.optional(v.string()),
+    s3Key: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx, args.uploadedBy);
+    // Idempotency: replace any prior upload for the same source file + program
+    // so re-processing / backfill never double-counts.
+    if (args.s3Key) {
+      const existing = await ctx.db
+        .query("dealerRebateUploads")
+        .withIndex("by_s3key_program", (q) => q.eq("s3Key", args.s3Key).eq("program", args.program))
+        .collect();
+      for (const e of existing) await ctx.db.delete(e._id);
+    }
     const id = await ctx.db.insert("dealerRebateUploads", {
       uploadDate: Date.now(),
       fileName: args.fileName,
@@ -181,12 +197,14 @@ export const saveUpload = mutation({
       totalInputRows: args.totalInputRows,
       filteredRows: args.filteredRows,
       matchedRows: args.matchedRows,
+      matchedQty: args.matchedQty,
       dealersMatched: args.dealersMatched,
       resultData: args.resultData,
       dealerBreakdown: args.dealerBreakdown,
       uploadedBy: args.uploadedBy,
       dateRangeStart: args.dateRangeStart,
       dateRangeEnd: args.dateRangeEnd,
+      s3Key: args.s3Key,
       createdAt: Date.now(),
     });
     return { success: true, id };

@@ -2411,24 +2411,30 @@ export default defineSchema({
     program: v.string(), // "falken" | "milestar"
     totalInputRows: v.number(), // Total CSV rows parsed
     filteredRows: v.number(), // Rows after T-prefix filter
-    matchedRows: v.number(), // Rows that matched enrolled dealers
+    matchedRows: v.number(), // Invoice lines that matched enrolled dealers (reference)
+    matchedQty: v.optional(v.number()), // NET tires (sales positive, returns negative) — the real volume
     dealersMatched: v.number(), // Unique dealers matched
     resultData: v.string(), // JSON stringified output rows
+    // Normalized per (dealer, activity-month). qty is NET tires.
     dealerBreakdown: v.array(v.object({
       jmk: v.string(),
       name: v.string(),
       fanaticId: v.optional(v.number()),
       dealerNumber: v.optional(v.string()),
+      month: v.optional(v.string()), // "YYYY-MM" from activity date (optional: legacy rows lack it)
+      qty: v.optional(v.number()),   // NET tires for this dealer-month (optional: legacy rows lack it)
       rowCount: v.number(),
     })),
-    uploadedBy: v.id("users"),
+    uploadedBy: v.optional(v.id("users")), // optional: automated pipeline has no user
     dateRangeStart: v.optional(v.string()), // Earliest Activity Date in file (MM/DD/YY)
     dateRangeEnd: v.optional(v.string()), // Latest Activity Date in file (MM/DD/YY)
+    s3Key: v.optional(v.string()), // Source file key — idempotency for auto-process & backfill
     createdAt: v.number(),
   })
     .index("by_date", ["uploadDate"])
     .index("by_program", ["program"])
-    .index("by_uploaded_by", ["uploadedBy"]),
+    .index("by_uploaded_by", ["uploadedBy"])
+    .index("by_s3key_program", ["s3Key", "program"]),
 
   // ============ DEVELOPMENT CREDENTIALS ============
   // Secure storage for API keys, deploy keys, and other credentials (Development team only)
