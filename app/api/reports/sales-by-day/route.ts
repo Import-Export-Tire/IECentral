@@ -396,7 +396,9 @@ export async function GET(request: NextRequest) {
 
           const invoiceId = (row[16] || "").replace(/"/g, "").trim();
           if (!skipDedup) {
-            const dedupKey = `${dateRaw}|${invoiceId}|${itemId}|${row[10]}|${location}|${acct}`;
+            // No qty in the key: an invoice line is unique by date+invoice+item+location+account,
+            // so a re-exported line with a corrected qty dedups instead of double-counting.
+            const dedupKey = `${dateRaw}|${invoiceId}|${itemId}|${location}|${acct}`;
             if (seenDedup.has(dedupKey)) continue;
             seenDedup.add(dedupKey);
           }

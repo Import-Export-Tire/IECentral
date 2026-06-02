@@ -320,7 +320,9 @@ export async function GET(request: NextRequest) {
 
         // Dedup across overlapping daily/monthly uploads.
         const invoiceId = (row[16] || "").replace(/"/g, "").trim();
-        const dedupKey = `${dateRaw}|${invoiceId}|${itemId}|${row[10]}|${rowLocation}|${acct}`;
+        // No qty in the key: an invoice line is unique by date+invoice+item+location+account,
+        // so a re-exported line with a corrected qty dedups instead of double-counting.
+        const dedupKey = `${dateRaw}|${invoiceId}|${itemId}|${rowLocation}|${acct}`;
         if (seenDedupKeys.has(dedupKey)) continue;
         seenDedupKeys.add(dedupKey);
 
