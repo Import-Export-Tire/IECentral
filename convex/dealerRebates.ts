@@ -249,39 +249,132 @@ export const getUploadById = query({
   },
 });
 
+// Helpers shared by the stats queries below.
+// Net tires for a breakdown entry, with legacy fallback to row count.
+function breakdownQty(b: { qty?: number; rowCount: number }): number {
+  return b.qty ?? b.rowCount;
+}
+// Activity month for an entry, with legacy fallback to the upload month.
+function breakdownMonth(b: { month?: string }, uploadDate: number): string {
+  return b.month ?? new Date(uploadDate).toISOString().slice(0, 7);
+}
+
+// #3 — Dealer search: combined monthly totals for the matched dealer(s) + the per-file list.
 export const searchUploadsByDealer = query({
   args: { searchTerm: v.string() },
   handler: async (ctx, args) => {
     const term = args.searchTerm.toLowerCase().trim();
-    if (!term) return [];
+    if (!term) return { monthly: [], uploads: [] };
 
-    const uploads = await ctx.db
+    const uploads = await ctx.db.query("dealerRebateUploads").order("desc").collect();
+    const match = (d: { jmk: string; name: string; fanaticId?: number; dealerNumber?: string }) =>
+      d.jmk.toLowerCase().includes(term) ||
+      d.name.toLowerCase().includes(term) ||
+      (d.fanaticId != null && String(d.fanaticId).includes(term)) ||
+      (d.dealerNumber != null && d.dealerNumber.toLowerCase().includes(term));
+
+    const monthMap: Record<string, { falken: number; milestar: number }> = {};
+    const matchedUploads: Array<{
+      _id: typeof uploads[number]["_id"]; uploadDate: number; fileName: string;
+      program: string; matchedDealers: typeof uploads[number]["dealerBreakdown"];
+    }> = [];
+
+    for (const u of uploads) {
+      const hits = u.dealerBreakdown.filter(match);
+      if (hits.length === 0) continue;
+      for (const b of hits) {
+        const month = breakdownMonth(b, u.uploadDate);
+        const bucket = (monthMap[month] ??= { falken: 0, milestar: 0 });
+        if (u.program === "falken") bucket.falken += breakdownQty(b);
+        else bucket.milestar += breakdownQty(b);
+      }
+      matchedUploads.push({
+        _id: u._id, uploadDate: u.uploadDate, fileName: u.fileName,
+        program: u.program, matchedDealers: hits,
+      });
+    }
+
+    const monthly = Object.entries(monthMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, v]) => ({ month, falken: v.falken, milestar: v.milestar, total: v.falken + v.milestar }));
+    return { monthly, uploads: matchedUploads };
+  },
+});
+
+// Stats: aggregate by ACTIVITY month + NET tire qty (replaces upload-time/row-count bucketing).
+export const getStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const uploads = await ctx.db.query("dealerRebateUploads").collect();
+    const monthMap: Record<string, { falken: number; milestar: number }> = {};
+    const dealerMap: Record<string, { name: string; falken: number; milestar: number }> = {};
+    for (const u of uploads) {
+      for (const b of u.dealerBreakdown) {
+        const month = breakdownMonth(b, u.uploadDate);
+        const qty = breakdownQty(b);
+        const mb = (monthMap[month] ??= { falken: 0, milestar: 0 });
+        const db = (dealerMap[b.name] ??= { name: b.name, falken: 0, milestar: 0 });
+        if (u.program === "falken") { mb.falken += qty; db.falken += qty; }
+        else { mb.milestar += qty; db.milestar += qty; }
+      }
+    }
+    return { monthMap, dealers: Object.values(dealerMap) };
+  },
+});
+
+// #1 — Per-dealer monthly totals (net tires) for the compare-to-JMK view.
+export const getDealerMonthlyTotals = query({
+  args: { search: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const term = (args.search ?? "").toLowerCase().trim();
+    const uploads = await ctx.db.query("dealerRebateUploads").collect();
+    const map: Record<string, { jmk: string; name: string; months: Record<string, { falken: number; milestar: number }> }> = {};
+    for (const u of uploads) {
+      for (const b of u.dealerBreakdown) {
+        if (term && !(b.name.toLowerCase().includes(term) || b.jmk.toLowerCase().includes(term))) continue;
+        const month = breakdownMonth(b, u.uploadDate);
+        const qty = breakdownQty(b);
+        const d = (map[b.name] ??= { jmk: b.jmk, name: b.name, months: {} });
+        const mm = (d.months[month] ??= { falken: 0, milestar: 0 });
+        if (u.program === "falken") mm.falken += qty;
+        else mm.milestar += qty;
+      }
+    }
+    return Object.values(map).sort((a, b) => a.name.localeCompare(b.name));
+  },
+});
+
+// Server-side ingest for the automated daily pipeline (no admin user). Idempotent by
+// s3Key+program so re-processing the same file never double-counts. Public (called from
+// /api/dealer-rebates/auto-process via ConvexHttpClient) — matches the existing jmkUploads
+// server-write pattern. Not user-facing.
+export const saveUploadAuto = mutation({
+  args: {
+    fileName: v.string(),
+    program: v.string(),
+    totalInputRows: v.number(),
+    filteredRows: v.number(),
+    matchedRows: v.number(),
+    matchedQty: v.number(),
+    dealersMatched: v.number(),
+    resultData: v.string(),
+    dealerBreakdown: dealerBreakdownValidator,
+    dateRangeStart: v.optional(v.string()),
+    dateRangeEnd: v.optional(v.string()),
+    s3Key: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
       .query("dealerRebateUploads")
-      .order("desc")
+      .withIndex("by_s3key_program", (q) => q.eq("s3Key", args.s3Key).eq("program", args.program))
       .collect();
-
-    return uploads
-      .filter(u => u.dealerBreakdown.some(d =>
-        d.jmk.toLowerCase().includes(term) ||
-        d.name.toLowerCase().includes(term) ||
-        (d.fanaticId && String(d.fanaticId).includes(term)) ||
-        (d.dealerNumber && d.dealerNumber.toLowerCase().includes(term))
-      ))
-      .map(u => ({
-        _id: u._id,
-        uploadDate: u.uploadDate,
-        fileName: u.fileName,
-        program: u.program,
-        matchedRows: u.matchedRows,
-        dealersMatched: u.dealersMatched,
-        createdAt: u.createdAt,
-        matchedDealers: u.dealerBreakdown.filter(d =>
-          d.jmk.toLowerCase().includes(term) ||
-          d.name.toLowerCase().includes(term) ||
-          (d.fanaticId && String(d.fanaticId).includes(term)) ||
-          (d.dealerNumber && d.dealerNumber.toLowerCase().includes(term))
-        ),
-      }));
+    for (const e of existing) await ctx.db.delete(e._id);
+    const id = await ctx.db.insert("dealerRebateUploads", {
+      uploadDate: Date.now(),
+      ...args,
+      createdAt: Date.now(),
+    });
+    return { success: true, id };
   },
 });
 
