@@ -410,6 +410,103 @@ export const deleteOldUploads = internalMutation({
   },
 });
 
+// ============ BACKFILL / MAINTENANCE ============
+// One-off maintenance mutations for the qty/activity-month migration. Idempotent
+// where noted. resultData CSV columns contain no embedded commas (toCSV only quotes
+// fields with commas, and none of the rebate columns have them), so split(",") is safe.
+
+// Recompute matchedQty + per-(dealer,month) breakdown for legacy uploads (those saved
+// before qty/month existed) by re-deriving from their stored resultData CSV.
+// Skips rows that already have matchedQty, so it is safe to re-run.
+export const recomputeLegacyResultData = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const uploads = await ctx.db.query("dealerRebateUploads").collect();
+    let patched = 0;
+    for (const u of uploads) {
+      if (u.matchedQty != null) continue;
+      const lines = (u.resultData || "").split(/\r?\n/).filter((l) => l.trim());
+      if (lines.length < 2) {
+        await ctx.db.patch(u._id, { matchedQty: 0 });
+        patched++;
+        continue;
+      }
+      const hdr = lines[0].split(",");
+      const qi = hdr.indexOf("Quantity");
+      const di = u.program === "falken" ? hdr.indexOf("Date") : hdr.indexOf("InvoiceDate");
+      const idi = u.program === "falken"
+        ? hdr.indexOf("FANATIC_Dealer_Account_Number")
+        : hdr.indexOf("DealerNumber");
+
+      // Map dealer-id -> existing breakdown entry (for name/jmk lookup).
+      const byId = new Map<string, (typeof u.dealerBreakdown)[number]>();
+      for (const b of u.dealerBreakdown) {
+        const id = u.program === "falken" ? String(b.fanaticId ?? "") : String(b.dealerNumber ?? "");
+        if (id) byId.set(id, b);
+      }
+
+      const groups = new Map<string, { id: string; month: string; qty: number; rowCount: number }>();
+      let totalQty = 0;
+      for (const ln of lines.slice(1)) {
+        const p = ln.split(",");
+        const q = parseFloat(p[qi] ?? "0") || 0;
+        totalQty += q;
+        const dm = (p[di] ?? "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+        let month = "";
+        if (dm) {
+          const mm = String(parseInt(dm[1], 10)).padStart(2, "0");
+          let y = parseInt(dm[3], 10);
+          if (y < 100) y += 2000;
+          month = `${y}-${mm}`;
+        }
+        const id = (p[idi] ?? "").trim();
+        const key = `${id}|${month}`;
+        const g = groups.get(key) ?? { id, month, qty: 0, rowCount: 0 };
+        g.qty += q;
+        g.rowCount += 1;
+        groups.set(key, g);
+      }
+
+      const newBreakdown = [...groups.values()].map((g) => {
+        const orig = byId.get(g.id);
+        return {
+          jmk: orig?.jmk ?? "",
+          name: orig?.name ?? "",
+          fanaticId: orig?.fanaticId,
+          dealerNumber: orig?.dealerNumber,
+          month: g.month || undefined,
+          qty: g.qty,
+          rowCount: g.rowCount,
+        };
+      });
+      await ctx.db.patch(u._id, { matchedQty: totalQty, dealerBreakdown: newBreakdown });
+      patched++;
+    }
+    return { patched };
+  },
+});
+
+// Delete MANUAL uploads (no s3Key) whose activity month >= fromMonth ("YYYY-MM").
+// Used when re-ingesting those months from S3 as the source of truth (avoids double count).
+// Leaves S3-ingested rows (those with s3Key) and earlier manual months untouched.
+export const deleteManualUploadsFromMonth = mutation({
+  args: { fromMonth: v.string() },
+  handler: async (ctx, args) => {
+    const uploads = await ctx.db.query("dealerRebateUploads").collect();
+    const deleted: string[] = [];
+    for (const u of uploads) {
+      if (u.s3Key) continue; // keep S3-ingested rows
+      const months = (u.dealerBreakdown.map((b) => b.month).filter(Boolean) as string[]).sort();
+      const rowMonth = months[months.length - 1];
+      if (rowMonth && rowMonth >= args.fromMonth) {
+        await ctx.db.delete(u._id);
+        deleted.push(`${u.fileName} (${u.program}, ${rowMonth})`);
+      }
+    }
+    return { deletedCount: deleted.length, deleted };
+  },
+});
+
 // ============ SEED DATA ============
 
 export const seedDealers = mutation({
