@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            s3_key: monthlyFileKey, month: monthLabel, env: "prod",
+            s3_key: monthlyFileKey, month: monthStr, env: "prod",
             runBy: "Monthly Auto-Run (explicit monthly file)", fanaticJmks,
           }),
         });
@@ -152,10 +152,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 2. Download and parse all files
+    // 2. Download and parse all files (oldest\u2192newest), deduping by invoice line.
     let header: string | null = null;
-    const allDataRows: string[] = [];
-    const seenKeys = new Set<string>(); // dedup by invoice + date + itemId
+    // Key = itemId|accountId|invoiceId|activityDate (NO qty): if a later daily file
+    // re-exports the same line with a corrected quantity, the newest value wins
+    // (files are sorted oldest\u2192newest, so Map last-write keeps the latest).
+    const rowByKey = new Map<string, string>();
 
     for (const obj of oea07vFiles) {
       if (!obj.Key) continue;
@@ -170,25 +172,24 @@ export async function GET(request: NextRequest) {
         header = lines[0];
       }
 
-      // Parse rows and dedup
+      // Parse rows; last (newest) occurrence of a line supersedes earlier ones.
       const rows = parseCSV(body.replace(/^\uFEFF/, "").replace(/\0/g, ""));
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
         if (!row || row.length < 19) continue;
 
-        // Dedup key: itemId(0) + accountId(15) + invoiceId(16) + activityDate(18) + qty(10)
-        const dedupKey = `${(row[0] || "").trim()}|${(row[15] || "").trim()}|${(row[16] || "").trim()}|${(row[18] || "").trim()}|${(row[10] || "").trim()}`;
-        if (seenKeys.has(dedupKey)) continue;
-        seenKeys.add(dedupKey);
+        const dedupKey = `${(row[0] || "").trim()}|${(row[15] || "").trim()}|${(row[16] || "").trim()}|${(row[18] || "").trim()}`;
 
         // Reconstruct the CSV line with proper escaping
         const csvLine = row.map(field => {
           const f = field.trim();
           return f.includes(",") || f.includes('"') ? `"${f.replace(/"/g, '""')}"` : f;
         }).join(",");
-        allDataRows.push(csvLine);
+        rowByKey.set(dedupKey, csvLine);
       }
     }
+
+    const allDataRows = [...rowByKey.values()];
 
     if (allDataRows.length === 0) {
       return NextResponse.json({
@@ -239,7 +240,7 @@ export async function GET(request: NextRequest) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           s3_key: combinedKey,
-          month: monthLabel,
+          month: monthStr, // Lambda expects YYYYMM (parses month[:4]/month[4:6]); NOT monthLabel (YYYY-MM)
           env: "prod",
           runBy: "Monthly Auto-Run",
           fanaticJmks,
@@ -255,7 +256,7 @@ export async function GET(request: NextRequest) {
       month: monthLabel,
       filesProcessed: oea07vFiles.length,
       totalRows: allDataRows.length,
-      deduplicated: seenKeys.size,
+      deduplicated: rowByKey.size,
       combinedS3Key: combinedKey,
       dunlopResult,
     });

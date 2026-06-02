@@ -69,6 +69,12 @@ function isValidOEA07VRow(row: string[]): boolean {
   const pt = (row[3] || "").replace(/"/g, "").trim();
   if (!pt.startsWith("T") || pt === "T") return false;
 
+  // Keep only real sales (Sld) and customer returns (ReS). Exclude warehouse
+  // transfers (TrI/TrO), receives (Rcv) and inventory adjustments (Adj/*) so the
+  // export's quantities match the sales reports.
+  const trn = (row[9] || "").replace(/"/g, "").trim();
+  if (trn !== "Sld" && trn !== "ReS") return false;
+
   // Exclude internal accounts
   const acct = (row[15] || "").replace(/"/g, "").trim().toUpperCase();
   if (["700", "7001", "7002"].includes(acct)) return false;
