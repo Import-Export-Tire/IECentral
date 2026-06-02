@@ -402,7 +402,9 @@ export async function GET(request: NextRequest) {
           }
 
           const rawQty = parseFloat((row[10] || "0").replace(/"/g, "").trim()) || 0;
-          const rawExt = parseFloat((row[12] || "0").replace(/"/g, "").trim()) || 0;
+          // "Dollars" metric is sales REVENUE = Ext Sell (col 14), not Ext Cost (col 12).
+          // (The per-location diagnostic block above intentionally tracks col 12 as sumExtCost.)
+          const rawExt = parseFloat((row[14] || "0").replace(/"/g, "").trim()) || 0;
           const bucket = bucketDate(parsed.iso, granularity);
           seenBuckets.add(bucket);
           const k: Cell = 0; void k;
