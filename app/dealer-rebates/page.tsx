@@ -1062,7 +1062,11 @@ function UploadHistoryTab({ isDark }: { isDark: boolean }) {
       size: r.size,
     }));
 
-  const convexUploads = (debouncedSearch.length >= 2 ? searchResults : uploads) || [];
+  // searchResults now returns { monthly, uploads } — extract just the uploads array for display
+  const searchUploads = debouncedSearch.length >= 2 ? (searchResults?.uploads ?? null) : null;
+  const searchMonthly = debouncedSearch.length >= 2 ? (searchResults?.monthly ?? null) : null;
+
+  const convexUploads = (searchUploads !== null ? searchUploads : uploads) || [];
   const displayUploads = [...s3AsUploads, ...convexUploads].sort((a: any, b: any) => {
     const aDate = a.uploadDate || a.createdAt || 0;
     const bDate = b.uploadDate || b.createdAt || 0;
@@ -1098,6 +1102,39 @@ function UploadHistoryTab({ isDark }: { isDark: boolean }) {
           <option value="milestar">Milestar</option>
         </select>
       </div>
+
+      {/* Monthly Totals summary when searching */}
+      {debouncedSearch.length >= 2 && searchMonthly && searchMonthly.length > 0 && (
+        <div className={`rounded-xl border overflow-hidden mb-6 ${isDark ? "border-slate-700" : "border-gray-200 shadow-sm"}`}>
+          <div className={`px-5 py-3 border-b ${isDark ? "bg-slate-800/80 border-slate-700" : "bg-gray-50 border-gray-200"}`}>
+            <h3 className={`text-sm font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              Monthly Totals &mdash; {debouncedSearch}
+            </h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className={isDark ? "text-slate-400" : "text-gray-500"}>
+                  <th className="text-left py-2 px-4 font-medium text-xs">Month</th>
+                  <th className="text-right py-2 px-4 font-medium text-xs">Falken</th>
+                  <th className="text-right py-2 px-4 font-medium text-xs">Milestar</th>
+                  <th className="text-right py-2 px-4 font-medium text-xs">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {searchMonthly.map((m) => (
+                  <tr key={m.month} className={`border-t ${isDark ? "border-slate-700/50" : "border-gray-100"}`}>
+                    <td className={`py-2 px-4 font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{m.month}</td>
+                    <td className="py-2 px-4 text-right font-mono text-amber-400">{m.falken || "—"}</td>
+                    <td className="py-2 px-4 text-right font-mono text-blue-400">{m.milestar || "—"}</td>
+                    <td className={`py-2 px-4 text-right font-mono font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{m.total || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Upload List */}
       {!displayUploads ? (
@@ -1149,9 +1186,11 @@ function UploadHistoryTab({ isDark }: { isDark: boolean }) {
               <div className={`flex gap-4 mt-2 text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
                 {u._s3 ? (
                   <span>{(u.size / 1024).toFixed(0)} KB</span>
-                ) : (
-                  <><span>{u.matchedRows} rows</span><span>{u.dealersMatched} dealers</span></>
-                )}
+                ) : "matchedRows" in u && u.matchedRows != null ? (
+                  <><span>{(u as any).matchedRows} rows</span><span>{(u as any).dealersMatched} dealers</span></>
+                ) : "matchedDealers" in u && Array.isArray((u as any).matchedDealers) ? (
+                  <span>{(u as any).matchedDealers.length} dealer{(u as any).matchedDealers.length !== 1 ? "s" : ""} matched</span>
+                ) : null}
                 {(u as { dateRangeStart?: string; dateRangeEnd?: string }).dateRangeStart && (
                   <span className={`font-medium ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
                     {(u as { dateRangeStart?: string }).dateRangeStart} — {(u as { dateRangeEnd?: string }).dateRangeEnd}
@@ -1267,26 +1306,29 @@ interface MonthData {
 function StatsTab({ isDark }: { isDark: boolean }) {
   const uploads = useQuery(api.dealerRebates.getUploads, {});
   const dealers = useQuery(api.dealerRebates.listDealers, { activeOnly: true });
+  const statsData = useQuery(api.dealerRebates.getStats, {});
+
+  // Task 6: per-dealer monthly totals panel state
+  const [dealerSearch, setDealerSearch] = useState("");
+  const [debouncedDealerSearch, setDebouncedDealerSearch] = useState("");
+  const dealerSearchTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const handleDealerSearch = (val: string) => {
+    setDealerSearch(val);
+    if (dealerSearchTimeout.current) clearTimeout(dealerSearchTimeout.current);
+    dealerSearchTimeout.current = setTimeout(() => setDebouncedDealerSearch(val), 300);
+  };
+  const dealerMonthly = useQuery(api.dealerRebates.getDealerMonthlyTotals, { search: debouncedDealerSearch || undefined });
 
   const stats = useMemo(() => {
-    if (!uploads || uploads.length === 0) return null;
+    if (!statsData) return null;
+
+    const { monthMap, dealers: statsDealers } = statsData;
 
     const now = new Date();
     const thisYear = now.getFullYear();
-    const thisMonth = now.getMonth();
-    const lastYear = thisYear - 1;
+    const thisMonth = now.getMonth(); // 0-based
 
-    // Aggregate by month
-    const monthMap: Record<string, { falken: number; milestar: number }> = {};
-    uploads.forEach(u => {
-      const d = new Date(u.uploadDate);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      if (!monthMap[key]) monthMap[key] = { falken: 0, milestar: 0 };
-      if (u.program === "falken") monthMap[key].falken += u.matchedRows;
-      else if (u.program === "milestar") monthMap[key].milestar += u.matchedRows;
-    });
-
-    // Build sorted month array (last 12 months)
+    // Build last 12 months array from activity-month data
     const months: MonthData[] = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(thisYear, thisMonth - i, 1);
@@ -1301,55 +1343,44 @@ function StatsTab({ isDark }: { isDark: boolean }) {
       });
     }
 
-    // Current year totals
-    const cyFalken = months.filter(m => m.key.startsWith(String(thisYear))).reduce((s, m) => s + m.falken, 0);
-    const cyMilestar = months.filter(m => m.key.startsWith(String(thisYear))).reduce((s, m) => s + m.milestar, 0);
+    const maxMonth = Math.max(...months.map(m => m.total), 1);
 
-    // Last year totals (from uploads)
-    const lyFalken = uploads
-      .filter(u => { const d = new Date(u.uploadDate); return d.getFullYear() === lastYear && u.program === "falken"; })
-      .reduce((s, u) => s + u.matchedRows, 0);
-    const lyMilestar = uploads
-      .filter(u => { const d = new Date(u.uploadDate); return d.getFullYear() === lastYear && u.program === "milestar"; })
-      .reduce((s, u) => s + u.matchedRows, 0);
-
-    // This month
+    // This month / last month
     const currentMonthKey = `${thisYear}-${String(thisMonth + 1).padStart(2, "0")}`;
     const cmData = monthMap[currentMonthKey] || { falken: 0, milestar: 0 };
-
-    // Last month
     const lm = new Date(thisYear, thisMonth - 1, 1);
     const lastMonthKey = `${lm.getFullYear()}-${String(lm.getMonth() + 1).padStart(2, "0")}`;
     const lmData = monthMap[lastMonthKey] || { falken: 0, milestar: 0 };
 
-    // YoY same months comparison (Jan-current month)
-    const cyToDate = uploads
-      .filter(u => { const d = new Date(u.uploadDate); return d.getFullYear() === thisYear && d.getMonth() <= thisMonth; })
-      .reduce((s, u) => s + u.matchedRows, 0);
-    const lyToDate = uploads
-      .filter(u => { const d = new Date(u.uploadDate); return d.getFullYear() === lastYear && d.getMonth() <= thisMonth; })
-      .reduce((s, u) => s + u.matchedRows, 0);
+    // Current year totals: sum months whose key starts with thisYear
+    const cyFalken = months.filter(m => m.key.startsWith(String(thisYear))).reduce((s, m) => s + m.falken, 0);
+    const cyMilestar = months.filter(m => m.key.startsWith(String(thisYear))).reduce((s, m) => s + m.milestar, 0);
+
+    // Last year totals: sum ALL monthMap keys starting with (thisYear-1), not limited to the 12-month window
+    const lastYearStr = String(thisYear - 1);
+    const lyFalken = Object.entries(monthMap)
+      .filter(([k]) => k.startsWith(lastYearStr))
+      .reduce((s, [, v]) => s + v.falken, 0);
+    const lyMilestar = Object.entries(monthMap)
+      .filter(([k]) => k.startsWith(lastYearStr))
+      .reduce((s, [, v]) => s + v.milestar, 0);
+
+    // YoY to-date: sum monthMap entries for thisYear/lastYear where month number <= (thisMonth+1)
+    const thisMonthNum = thisMonth + 1; // 1-based
+    const cyToDate = Object.entries(monthMap)
+      .filter(([k]) => k.startsWith(String(thisYear)) && parseInt(k.slice(5), 10) <= thisMonthNum)
+      .reduce((s, [, v]) => s + v.falken + v.milestar, 0);
+    const lyToDate = Object.entries(monthMap)
+      .filter(([k]) => k.startsWith(lastYearStr) && parseInt(k.slice(5), 10) <= thisMonthNum)
+      .reduce((s, [, v]) => s + v.falken + v.milestar, 0);
 
     const yoyGrowth = lyToDate > 0 ? ((cyToDate - lyToDate) / lyToDate * 100) : null;
 
-    // Top dealers by volume (across all uploads)
-    const dealerVolume: Record<string, { name: string; falken: number; milestar: number }> = {};
-    uploads.forEach(u => {
-      if (!u.dealerBreakdown) return;
-      u.dealerBreakdown.forEach(d => {
-        const key = d.name;
-        if (!dealerVolume[key]) dealerVolume[key] = { name: d.name, falken: 0, milestar: 0 };
-        if (u.program === "falken") dealerVolume[key].falken += d.rowCount;
-        else dealerVolume[key].milestar += d.rowCount;
-      });
-    });
-    const topDealers = Object.values(dealerVolume)
+    // Top 10 dealers by total net tires
+    const topDealers = [...statsDealers]
       .map(d => ({ ...d, total: d.falken + d.milestar }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
-
-    // Max for chart scaling
-    const maxMonth = Math.max(...months.map(m => m.total), 1);
 
     return {
       months,
@@ -1362,11 +1393,11 @@ function StatsTab({ isDark }: { isDark: boolean }) {
       cyToDate,
       lyToDate,
       topDealers,
-      totalUploads: uploads.length,
+      totalUploads: uploads?.length ?? 0,
     };
-  }, [uploads]);
+  }, [statsData, uploads]);
 
-  if (!uploads || !dealers) {
+  if (!uploads || !dealers || !statsData) {
     return <div className={`text-center py-12 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Loading stats...</div>;
   }
 
@@ -1554,6 +1585,84 @@ function StatsTab({ isDark }: { isDark: boolean }) {
           </div>
         </div>
       </div>
+
+      {/* Per-Dealer Monthly Totals Panel (Task 6) */}
+      {(() => {
+        // Compute the last 6 activity month keys
+        const now = new Date();
+        const sixMonthKeys: Array<{ key: string; label: string }> = [];
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+          const label = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+          sixMonthKeys.push({ key, label });
+        }
+
+        // Sort dealerMonthly by total tires descending
+        const sorted = dealerMonthly
+          ? [...dealerMonthly]
+              .map(d => {
+                const total = Object.values(d.months).reduce((s, m) => s + m.falken + m.milestar, 0);
+                return { ...d, _total: total };
+              })
+              .sort((a, b) => b._total - a._total)
+          : null;
+
+        return (
+          <div className={`rounded-xl border overflow-hidden mb-6 ${isDark ? "border-slate-700" : "border-gray-200 shadow-sm"}`}>
+            <div className={`px-5 py-3 border-b flex items-center gap-3 ${isDark ? "bg-slate-800/80 border-slate-700" : "bg-gray-50 border-gray-200"}`}>
+              <h3 className={`text-sm font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Per-Dealer Monthly Totals</h3>
+              <input
+                type="text"
+                placeholder="Search dealer name or JMK…"
+                value={dealerSearch}
+                onChange={e => handleDealerSearch(e.target.value)}
+                className={`flex-1 max-w-xs px-3 py-1.5 rounded-lg text-sm border ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"}`}
+              />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className={isDark ? "text-slate-400 bg-slate-800/60" : "text-gray-500 bg-gray-50"}>
+                    <th className="text-left py-2 px-4 font-medium text-xs whitespace-nowrap">Dealer</th>
+                    {sixMonthKeys.map(({ key, label }) => (
+                      <th key={key} className="text-right py-2 px-3 font-medium text-xs whitespace-nowrap">{label}</th>
+                    ))}
+                    <th className="text-right py-2 px-4 font-medium text-xs">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted && sorted.length > 0 ? sorted.map(d => (
+                    <tr key={d.name} className={`border-t ${isDark ? "border-slate-700/50 hover:bg-slate-800/40" : "border-gray-100 hover:bg-gray-50"}`}>
+                      <td className={`py-2 px-4 font-medium whitespace-nowrap ${isDark ? "text-white" : "text-gray-900"}`}>
+                        <div>{d.name}</div>
+                        {d.jmk && <div className={`text-[10px] font-mono ${isDark ? "text-slate-500" : "text-gray-400"}`}>{d.jmk}</div>}
+                      </td>
+                      {sixMonthKeys.map(({ key }) => {
+                        const val = (d.months[key]?.falken ?? 0) + (d.months[key]?.milestar ?? 0);
+                        return (
+                          <td key={key} className={`py-2 px-3 text-right font-mono text-xs ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                            {val > 0 ? val : "—"}
+                          </td>
+                        );
+                      })}
+                      <td className={`py-2 px-4 text-right font-mono font-bold text-xs ${isDark ? "text-white" : "text-gray-900"}`}>
+                        {d._total}
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={sixMonthKeys.length + 2} className={`py-8 text-center text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                        {sorted === null ? "Loading…" : "No data"}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* YoY Comparison */}
       <div className={`rounded-xl border p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
