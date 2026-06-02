@@ -179,6 +179,20 @@ export const saveReport = mutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
+    // Idempotency: one report per (customer, period). Replace any prior report
+    // for the same customerNumber + date range so a retried or concurrent daily
+    // run cannot create duplicate commission records. (Convex mutations are
+    // serializable, so a true race resolves to a single surviving row.)
+    const existing = await ctx.db.query("wtdCommissionReports").collect();
+    for (const r of existing) {
+      if (
+        r.customerNumber === args.customerNumber &&
+        r.startDate === args.startDate &&
+        r.endDate === args.endDate
+      ) {
+        await ctx.db.delete(r._id);
+      }
+    }
     return await ctx.db.insert("wtdCommissionReports", {
       ...args,
       lineItemCount: args.lineItems.length,

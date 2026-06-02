@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
 
     // If we found an explicit monthly file, skip the combine step and use it directly.
     if (monthlyFileKey) {
-      let fanaticJmks: string[] = [];
+      let fanaticJmks: string[];
       try {
         const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL || "https://outstanding-dalmatian-787.convex.cloud");
         const dealers = await convex.query(api.dealerRebates.listDealers, { program: "falken", activeOnly: true });
@@ -111,7 +111,15 @@ export async function GET(request: NextRequest) {
           .filter((d) => d.fanaticId)
           .map((d) => d.jmk.toLowerCase().trim())
           .filter((jmk) => jmk && jmk !== "0");
-      } catch { /* proceed without exclusions */ }
+      } catch (err) {
+        // Do NOT submit to Dunlop without the Falken Fanatic exclusion list —
+        // proceeding with no exclusions would over-report sellout. Abort instead.
+        return NextResponse.json({
+          status: "aborted", month: monthLabel,
+          reason: "Could not load Falken Fanatic exclusion list from Convex; refusing to submit to Dunlop without it",
+          error: err instanceof Error ? err.message : String(err),
+        }, { status: 502 });
+      }
 
       let dunlopResult: any = null;
       try {
@@ -202,7 +210,7 @@ export async function GET(request: NextRequest) {
     }));
 
     // 4. Get Falken exclusion list
-    let fanaticJmks: string[] = [];
+    let fanaticJmks: string[];
     try {
       const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL || "https://outstanding-dalmatian-787.convex.cloud");
       const dealers = await convex.query(api.dealerRebates.listDealers, {
@@ -213,8 +221,14 @@ export async function GET(request: NextRequest) {
         .filter((d) => d.fanaticId)
         .map((d) => d.jmk.toLowerCase().trim())
         .filter((jmk) => jmk && jmk !== "0");
-    } catch {
-      // Proceed without exclusions
+    } catch (err) {
+      // Do NOT submit to Dunlop without the Falken Fanatic exclusion list —
+      // proceeding with no exclusions would over-report sellout. Abort instead.
+      return NextResponse.json({
+        status: "aborted", month: monthLabel,
+        reason: "Could not load Falken Fanatic exclusion list from Convex; refusing to submit to Dunlop without it",
+        error: err instanceof Error ? err.message : String(err),
+      }, { status: 502 });
     }
 
     // 5. Trigger Dunlop Lambda

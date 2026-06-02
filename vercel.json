@@ -10,7 +10,7 @@
       "schedule": "0 9 * * 1-5"
     },
     {
-      "path": "/api/dunlop/run-monthly",
+      "path": "/api/dunlop/monthly-run",
       "schedule": "0 14 1 * *"
     }
   ],
