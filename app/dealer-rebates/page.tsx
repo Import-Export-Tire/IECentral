@@ -9,72 +9,9 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { usePermissions } from "@/lib/usePermissions";
-
-// ─── IE TIRES STATIC FIELDS ───────────────────────────────────────────────────
-const IE_FALKEN = { distributorAccount: "20118", address: "400 Unity St.  STE. 100", city: "Latrobe", state: "PA", zip: "15650" };
-const IE_MILESTAR = { parentDistributor: "119662", distributorCenter: "119662:0" };
-
-// ─── OEA07V COLUMN INDICES (zero-based) ──────────────────────────────────────
-const COL = {
-  ITEM_ID: 0,         // A: Item Id (internal SKU)
-  PRODUCT_TYPE: 3,    // D: Product Type
-  MFG_ID: 4,          // E: MFG Id (brand code: FAL, MIL, etc.)
-  MFG_ITEM_ID: 5,     // F: MFG's Item Id (manufacturer part number)
-  LOC_ID: 8,          // I: Loc Id
-  QTY: 10,            // K: Qty Sl/Rc (negative = sold, multiply by -1)
-  SELL_PRICE: 13,     // N: U/Sell FET/In
-  ACCOUNT_ID: 15,     // P: Account Id (JMK)
-  INV_ID: 16,         // Q: Inv Id (invoice number)
-  ACTIVITY_DATE: 18,  // S: Activity Date (MM/DD/YY)
-};
-
-// ─── STORE ACCOUNT MAPPINGS ──────────────────────────────────────────────────
-// Map all Account ID variants to the store's dealer JMK as stored in the database
-// TRD Tire / Essey Tire = W08R20, Command Trax / Export Tire = W08R25, King Super Tire = W08R35
-const STORE_ACCOUNTS: Record<string, string> = {
-  // TRD Tire / Essey Tire (JMK: W08R20)
-  "w08r20": "w08r20", "r20w08": "w08r20",
-  // Command Trax / Export Tire (JMK: W08R25)
-  "w08r25": "w08r25", "r25w08": "w08r25",
-  // King Super Tire (JMK: W08R35)
-  "w08r35": "w08r35", "r35w08": "w08r35",
-};
+import { aggregate, COL, type RebateDealer, type OutputRow } from "@/lib/dealerRebates/aggregate";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-
-function parseCSVRow(line: string): string[] {
-  const fields: string[] = [];
-  let cur = "", inQ = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (c === '"') { inQ = !inQ; }
-    else if (c === ',' && !inQ) { fields.push(cur); cur = ""; }
-    else { cur += c; }
-  }
-  fields.push(cur);
-  return fields;
-}
-
-function parsePositionalCSV(text: string): string[][] {
-  // Remove BOM and null bytes
-  const cleaned = text.replace(/^\uFEFF/, "").replace(/\0/g, "");
-  const lines = cleaned.trim().split(/\r?\n/);
-  // Skip first row (header/null-byte row) and empty lines
-  return lines.slice(1).filter(l => l.trim()).map(parseCSVRow);
-}
-
-function normalizeAcct(raw: string): string {
-  let s = raw.trim().toLowerCase();
-  // Skip blank/empty accounts
-  if (!s) return "xxx";
-  // Skip employee/internal E-prefix accounts (E1216, E1260, etc.)
-  if (s.match(/^e\d/)) return "xxx";
-  // Check for known store account mappings (transfers, retail counter)
-  if (STORE_ACCOUNTS[s]) return STORE_ACCOUNTS[s];
-  // Strip leading zeros and whitespace
-  s = s.replace(/^\s+/, '').replace(/^0+/, '') || 'xxx';
-  return s;
-}
 
 function cleanSku(raw: string): string { return raw.replace(/\[+$/, "").trim(); }
 
@@ -100,42 +37,13 @@ function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-// ─── TYPES ────────────────────────────────────────────────────────────────────
-
-interface FalkenRow {
-  Falken_Distributor_Account_Number: string;
-  FANATIC_Dealer_Account_Number: number;
-  Distributor_Center_Address: string;
-  Distributor_Center_City: string;
-  Distributor_Center_State: string;
-  Distributor_Center_Postal_Code: string;
-  Invoice_Number: string;
-  SKU: string;
-  Date: string;
-  Quantity: string;
-  Price_Per_Tire: string;
-  _dealer: string;
-  _jmk: string;
-}
-
-interface MilestarRow {
-  ParentDistributorNumber: string;
-  DistributorCenterNumber: string;
-  DealerNumber: string;
-  InvoiceNumber: string;
-  InvoiceDate: string;
-  ProductCode: string;
-  Quantity: string;
-  SellPricePerTire: string;
-  _dealer: string;
-  _jmk: string;
-}
+// ─── TYPES ──────────────────────────────────────────────────────────────────────────────
 
 interface ProcessResults {
-  falkenOut: FalkenRow[];
-  milestarOut: MilestarRow[];
-  falkenDealersSeen: Set<string>;
-  milestarDealersSeen: Set<string>;
+  falkenOut: OutputRow[];
+  milestarOut: OutputRow[];
+  falkenDealersMatched: number;
+  milestarDealersMatched: number;
   totalInputRows: number;
   filteredRows: number;
 }
@@ -240,6 +148,7 @@ function UploadTab({ isDark, userId }: { isDark: boolean; userId?: Id<"users"> }
   const [step, setStep] = useState(0);
   const [rawRows, setRawRows] = useState<string[][]>([]);
   const [filteredRows, setFilteredRows] = useState<string[][]>([]);
+  const [rawText, setRawText] = useState("");
   const [fileName, setFileName] = useState("");
   const [fileError, setFileError] = useState("");
   const [programs, setPrograms] = useState({ falken: true, milestar: true });
@@ -259,11 +168,27 @@ function UploadTab({ isDark, userId }: { isDark: boolean; userId?: Id<"users"> }
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const allRows = parsePositionalCSV(text);
+      setRawText(text);
+
+      // Parse rows for preview display (step indicator counts)
+      const cleaned = text.replace(/^\uFEFF/, "").replace(/\0/g, "");
+      const lines = cleaned.trim().split(/\r?\n/);
+      const allRows = lines.slice(1).filter((l: string) => l.trim()).map((line: string) => {
+        const fields: string[] = [];
+        let cur = "", inQ = false;
+        for (let i = 0; i < line.length; i++) {
+          const c = line[i];
+          if (c === '"') { inQ = !inQ; }
+          else if (c === ',' && !inQ) { fields.push(cur); cur = ""; }
+          else { cur += c; }
+        }
+        fields.push(cur);
+        return fields;
+      });
       if (allRows.length === 0) { setFileError("File is empty or could not be parsed."); return; }
 
-      // Filter to tire types (starts with T, not T alone) + FAL/MIL brands
-      const brandRows = allRows.filter(cols => {
+      // Filter to tire types (starts with T, not T alone) + FAL/MIL brands for preview count
+      const brandRows = allRows.filter((cols: string[]) => {
         const pt = (cols[COL.PRODUCT_TYPE] ?? "").trim();
         if (!pt.startsWith("T") || pt === "T") return false;
         const brand = (cols[COL.MFG_ID] ?? "").trim().toUpperCase();
@@ -280,132 +205,46 @@ function UploadTab({ isDark, userId }: { isDark: boolean; userId?: Id<"users"> }
   const processData = async () => {
     if (!dealers) return;
 
-    // Build lookup maps from Convex dealers
-    const falkenByJmk: Record<string, Dealer[]> = {};
-    falkenDealers.forEach(d => {
-      const key = d.jmk.toLowerCase().trim();
-      if (!key || key === "0" || key === "xxx") return; // Skip dealers with blank/invalid JMK
-      if (!falkenByJmk[key]) falkenByJmk[key] = [];
-      falkenByJmk[key].push(d);
-    });
-    const milestarByJmk: Record<string, Dealer> = {};
-    milestarDealers.forEach(d => {
-      const key = d.jmk.toLowerCase().trim();
-      if (!key || key === "0" || key === "xxx") return; // Skip dealers with blank/invalid JMK
-      milestarByJmk[key] = d;
-    });
+    const dealerList: RebateDealer[] = (dealers ?? []).map(d => ({
+      jmk: d.jmk, name: d.name, fanaticId: d.fanaticId, dealerNumber: d.dealerNumber,
+      programs: d.programs, isActive: d.isActive,
+    }));
+    const result = aggregate(rawText, dealerList);
 
-    const falkenOut: FalkenRow[] = [];
-    const milestarOut: MilestarRow[] = [];
-    const falkenDealersSeen = new Set<string>();
-    const milestarDealersSeen = new Set<string>();
+    // Filter to selected programs
+    const falkenOut = programs.falken ? result.falken.outRows : [];
+    const milestarOut = programs.milestar ? result.milestar.outRows : [];
 
-    filteredRows.forEach(cols => {
-      const jmk = normalizeAcct(cols[COL.ACCOUNT_ID] ?? "");
-      const invoice = (cols[COL.INV_ID] ?? "").trim();
-      const dateRaw = (cols[COL.ACTIVITY_DATE] ?? "").trim();
-      const brand = (cols[COL.MFG_ID] ?? "").trim().toUpperCase();
-      const mfrPartNumber = (cols[COL.MFG_ITEM_ID] ?? "").trim();
-      // Qty in OEA07V: sold/transferred = negative. Multiply by -1
-      // so purchases become positive in output.
-      // R##W08 return rows keep original sign (negative = return/credit)
-      const rawAcct = (cols[COL.ACCOUNT_ID] ?? "").trim().toLowerCase();
-      const isReturn = /^r\d{2}w\d{2}$/.test(rawAcct);
-      const rawQty = parseFloat((cols[COL.QTY] ?? "0").trim()) || 0;
-      const qty = String(isReturn ? rawQty : rawQty * -1);
-      const price = (cols[COL.SELL_PRICE] ?? "").trim();
-
-      // Only include Falken-brand tires on Falken report
-      if (programs.falken && brand === "FAL" && falkenByJmk[jmk]) {
-        falkenByJmk[jmk].forEach(dealer => {
-          if (!dealer.fanaticId) return;
-          falkenOut.push({
-            Falken_Distributor_Account_Number: IE_FALKEN.distributorAccount,
-            FANATIC_Dealer_Account_Number: dealer.fanaticId,
-            Distributor_Center_Address: IE_FALKEN.address,
-            Distributor_Center_City: IE_FALKEN.city,
-            Distributor_Center_State: IE_FALKEN.state,
-            Distributor_Center_Postal_Code: IE_FALKEN.zip,
-            Invoice_Number: invoice,
-            SKU: mfrPartNumber,
-            Date: dateRaw,
-            Quantity: qty,
-            Price_Per_Tire: price,
-            _dealer: dealer.name,
-            _jmk: dealer.jmk,
-          });
-          falkenDealersSeen.add(jmk);
-        });
-      }
-
-      // Only include Milestar-brand tires on Milestar report
-      if (programs.milestar && brand === "MIL" && milestarByJmk[jmk]) {
-        const dealer = milestarByJmk[jmk];
-        if (dealer.dealerNumber) {
-          milestarOut.push({
-            ParentDistributorNumber: IE_MILESTAR.parentDistributor,
-            DistributorCenterNumber: IE_MILESTAR.distributorCenter,
-            DealerNumber: dealer.dealerNumber,
-            InvoiceNumber: invoice,
-            InvoiceDate: dateRaw,
-            ProductCode: mfrPartNumber,
-            Quantity: qty,
-            SellPricePerTire: price,
-            _dealer: dealer.name,
-            _jmk: dealer.jmk,
-          });
-          milestarDealersSeen.add(jmk);
-        }
-      }
-    });
-
-    const newResults: ProcessResults = { falkenOut, milestarOut, falkenDealersSeen, milestarDealersSeen, totalInputRows: rawRows.length, filteredRows: filteredRows.length };
+    const newResults: ProcessResults = {
+      falkenOut,
+      milestarOut,
+      falkenDealersMatched: programs.falken ? result.falken.dealersMatched : 0,
+      milestarDealersMatched: programs.milestar ? result.milestar.dealersMatched : 0,
+      totalInputRows: result.totalInputRows,
+      filteredRows: result.filteredRows,
+    };
     setResults(newResults);
     setStep(2);
 
-    // Extract date range from all filtered rows
-    const allDates = filteredRows
-      .map(cols => (cols[COL.ACTIVITY_DATE] ?? "").trim())
-      .filter(d => d.length > 0)
-      .sort();
-    const dateRangeStart = allDates.length > 0 ? allDates[0] : undefined;
-    const dateRangeEnd = allDates.length > 0 ? allDates[allDates.length - 1] : undefined;
-
     // Auto-save upload history for each program
     if (userId) {
-      if (programs.falken && falkenOut.length > 0) {
+      if (programs.falken && result.falken.outRows.length > 0) {
         const falkenHeaders = ["Falken_Distributor_Account_Number","FANATIC_Dealer_Account_Number","Distributor_Center_Address","Distributor_Center_City","Distributor_Center_State","Distributor_Center_Postal_Code","Invoice_Number","SKU","Date","Quantity","Price_Per_Tire"];
-        const falkenClean = falkenOut.map(r => {
-          const o = {...r} as Record<string, string | number>;
-          delete o._dealer;
-          delete o._jmk;
-          return o;
-        });
-        const falkenCsv = toCSV(falkenHeaders, falkenClean);
-        const falkenBreakdown: Record<string, { name: string; fanaticId?: number; count: number }> = {};
-        falkenOut.forEach(r => {
-          const key = `${r._jmk}-${r.FANATIC_Dealer_Account_Number}`;
-          if (!falkenBreakdown[key]) falkenBreakdown[key] = { name: r._dealer, fanaticId: r.FANATIC_Dealer_Account_Number, count: 0 };
-          falkenBreakdown[key].count++;
-        });
+        const falkenCsv = toCSV(falkenHeaders, result.falken.outRows);
         try {
           await saveUpload({
             fileName,
             program: "falken",
-            totalInputRows: rawRows.length,
-            filteredRows: filteredRows.length,
-            matchedRows: falkenOut.length,
-            dealersMatched: falkenDealersSeen.size,
+            totalInputRows: result.totalInputRows,
+            filteredRows: result.filteredRows,
+            matchedRows: result.falken.matchedRows,
+            matchedQty: result.falken.matchedQty,
+            dealersMatched: result.falken.dealersMatched,
             resultData: falkenCsv,
-            dealerBreakdown: Object.entries(falkenBreakdown).map(([key, v]) => ({
-              jmk: key.split("-")[0],
-              name: v.name,
-              fanaticId: v.fanaticId,
-              rowCount: v.count,
-            })),
+            dealerBreakdown: result.falken.breakdown,
             uploadedBy: userId,
-            dateRangeStart,
-            dateRangeEnd,
+            dateRangeStart: result.dateRangeStart,
+            dateRangeEnd: result.dateRangeEnd,
           });
           setSaved(p => ({ ...p, falken: true }));
         } catch (err) {
@@ -413,39 +252,23 @@ function UploadTab({ isDark, userId }: { isDark: boolean; userId?: Id<"users"> }
         }
       }
 
-      if (programs.milestar && milestarOut.length > 0) {
+      if (programs.milestar && result.milestar.outRows.length > 0) {
         const milestarHeaders = ["ParentDistributorNumber","DistributorCenterNumber","DealerNumber","InvoiceNumber","InvoiceDate","ProductCode","Quantity","SellPricePerTire"];
-        const milestarClean = milestarOut.map(r => {
-          const o = {...r} as Record<string, string | number>;
-          delete o._dealer;
-          delete o._jmk;
-          return o;
-        });
-        const milestarCsv = toCSV(milestarHeaders, milestarClean);
-        const milestarBreakdown: Record<string, { name: string; dealerNumber?: string; count: number }> = {};
-        milestarOut.forEach(r => {
-          const key = `${r._jmk}-${r.DealerNumber}`;
-          if (!milestarBreakdown[key]) milestarBreakdown[key] = { name: r._dealer, dealerNumber: r.DealerNumber, count: 0 };
-          milestarBreakdown[key].count++;
-        });
+        const milestarCsv = toCSV(milestarHeaders, result.milestar.outRows);
         try {
           await saveUpload({
             fileName,
             program: "milestar",
-            totalInputRows: rawRows.length,
-            filteredRows: filteredRows.length,
-            matchedRows: milestarOut.length,
-            dealersMatched: milestarDealersSeen.size,
+            totalInputRows: result.totalInputRows,
+            filteredRows: result.filteredRows,
+            matchedRows: result.milestar.matchedRows,
+            matchedQty: result.milestar.matchedQty,
+            dealersMatched: result.milestar.dealersMatched,
             resultData: milestarCsv,
-            dealerBreakdown: Object.entries(milestarBreakdown).map(([key, v]) => ({
-              jmk: key.split("-")[0],
-              name: v.name,
-              dealerNumber: v.dealerNumber,
-              rowCount: v.count,
-            })),
+            dealerBreakdown: result.milestar.breakdown,
             uploadedBy: userId,
-            dateRangeStart,
-            dateRangeEnd,
+            dateRangeStart: result.dateRangeStart,
+            dateRangeEnd: result.dateRangeEnd,
           });
           setSaved(p => ({ ...p, milestar: true }));
         } catch (err) {
@@ -458,31 +281,20 @@ function UploadTab({ isDark, userId }: { isDark: boolean; userId?: Id<"users"> }
   const exportFalken = () => {
     if (!results) return;
     const headers = ["Falken_Distributor_Account_Number","FANATIC_Dealer_Account_Number","Distributor_Center_Address","Distributor_Center_City","Distributor_Center_State","Distributor_Center_Postal_Code","Invoice_Number","SKU","Date","Quantity","Price_Per_Tire"];
-    const clean = results.falkenOut.map(r => {
-      const o = {...r} as Record<string, string | number>;
-      delete o._dealer;
-      delete o._jmk;
-      return o;
-    });
-    downloadCSV(`Falken_Fanatic_${todayStamp()}.csv`, toCSV(headers, clean));
+    downloadCSV(`Falken_Fanatic_${todayStamp()}.csv`, toCSV(headers, results.falkenOut));
   };
 
   const exportMilestar = () => {
     if (!results) return;
     const headers = ["ParentDistributorNumber","DistributorCenterNumber","DealerNumber","InvoiceNumber","InvoiceDate","ProductCode","Quantity","SellPricePerTire"];
-    const clean = results.milestarOut.map(r => {
-      const o = {...r} as Record<string, string | number>;
-      delete o._dealer;
-      delete o._jmk;
-      return o;
-    });
-    downloadCSV(`Milestar_Momentum_${todayStamp()}.csv`, toCSV(headers, clean));
+    downloadCSV(`Milestar_Momentum_${todayStamp()}.csv`, toCSV(headers, results.milestarOut));
   };
 
   const resetAll = () => {
     setStep(0);
     setRawRows([]);
     setFilteredRows([]);
+    setRawText("");
     setResults(null);
     setFileName("");
     setFileError("");
@@ -640,13 +452,13 @@ function UploadTab({ isDark, userId }: { isDark: boolean; userId?: Id<"users"> }
             {programs.falken && (
               <div className={`rounded-xl border p-4 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
                 <div className="text-3xl font-mono font-bold text-green-400">{results.falkenOut.length}</div>
-                <div className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Falken &middot; {results.falkenDealersSeen.size} dealers</div>
+                <div className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Falken &middot; {results.falkenDealersMatched} dealers</div>
               </div>
             )}
             {programs.milestar && (
               <div className={`rounded-xl border p-4 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
                 <div className="text-3xl font-mono font-bold text-blue-400">{results.milestarOut.length}</div>
-                <div className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Milestar &middot; {results.milestarDealersSeen.size} dealers</div>
+                <div className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Milestar &middot; {results.milestarDealersMatched} dealers</div>
               </div>
             )}
           </div>
@@ -674,7 +486,6 @@ function UploadTab({ isDark, userId }: { isDark: boolean; userId?: Id<"users"> }
                       <table className="w-full text-xs">
                         <thead>
                           <tr className={isDark ? "text-slate-400" : "text-gray-500"}>
-                            <th className="text-left py-2 px-2 font-medium">Dealer</th>
                             <th className="text-left py-2 px-2 font-medium">Fanatic ID</th>
                             <th className="text-left py-2 px-2 font-medium">Invoice</th>
                             <th className="text-left py-2 px-2 font-medium">SKU</th>
@@ -686,7 +497,6 @@ function UploadTab({ isDark, userId }: { isDark: boolean; userId?: Id<"users"> }
                         <tbody>
                           {results.falkenOut.slice(0, 8).map((r, i) => (
                             <tr key={i} className={`border-t ${isDark ? "border-slate-700/50 hover:bg-slate-700/30" : "border-gray-100 hover:bg-gray-50"}`}>
-                              <td className={`py-1.5 px-2 ${isDark ? "text-white" : "text-gray-900"}`}>{r._dealer}</td>
                               <td className={`py-1.5 px-2 font-mono ${isDark ? "text-slate-300" : "text-gray-600"}`}>{r.FANATIC_Dealer_Account_Number}</td>
                               <td className={`py-1.5 px-2 font-mono ${isDark ? "text-slate-300" : "text-gray-600"}`}>{r.Invoice_Number}</td>
                               <td className={`py-1.5 px-2 font-mono ${isDark ? "text-slate-300" : "text-gray-600"}`}>{r.SKU}</td>
@@ -734,7 +544,6 @@ function UploadTab({ isDark, userId }: { isDark: boolean; userId?: Id<"users"> }
                       <table className="w-full text-xs">
                         <thead>
                           <tr className={isDark ? "text-slate-400" : "text-gray-500"}>
-                            <th className="text-left py-2 px-2 font-medium">Dealer</th>
                             <th className="text-left py-2 px-2 font-medium">Dealer #</th>
                             <th className="text-left py-2 px-2 font-medium">Invoice</th>
                             <th className="text-left py-2 px-2 font-medium">SKU</th>
@@ -746,7 +555,6 @@ function UploadTab({ isDark, userId }: { isDark: boolean; userId?: Id<"users"> }
                         <tbody>
                           {results.milestarOut.slice(0, 8).map((r, i) => (
                             <tr key={i} className={`border-t ${isDark ? "border-slate-700/50 hover:bg-slate-700/30" : "border-gray-100 hover:bg-gray-50"}`}>
-                              <td className={`py-1.5 px-2 ${isDark ? "text-white" : "text-gray-900"}`}>{r._dealer}</td>
                               <td className={`py-1.5 px-2 font-mono ${isDark ? "text-slate-300" : "text-gray-600"}`}>{r.DealerNumber}</td>
                               <td className={`py-1.5 px-2 font-mono ${isDark ? "text-slate-300" : "text-gray-600"}`}>{r.InvoiceNumber}</td>
                               <td className={`py-1.5 px-2 font-mono ${isDark ? "text-slate-300" : "text-gray-600"}`}>{r.ProductCode}</td>
