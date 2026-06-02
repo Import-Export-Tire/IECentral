@@ -8,8 +8,6 @@ import { AdbDaemonWebUsbDeviceManager } from "@yume-chan/adb-daemon-webusb";
 import AdbWebCredentialStore from "@yume-chan/adb-credential-web";
 import { ReadableStream } from "@yume-chan/stream-extra";
 
-const ZEBRA_VENDOR_ID = 0x05e0; // Symbol/Zebra Technologies
-
 let credentialStore: AdbWebCredentialStore | null = null;
 
 function getCredentialStore() {
@@ -43,9 +41,12 @@ export class WebAdbClient {
     const manager = AdbDaemonWebUsbDeviceManager.BROWSER;
     if (!manager) throw new Error("Could not initialize WebUSB device manager.");
 
-    const device = await manager.requestDevice({
-      filters: [{ vendorId: ZEBRA_VENDOR_ID }],
-    });
+    // No vendorId filter: in ADB mode the TC51 (and most Android devices)
+    // enumerate under Google's ADB composite vendor ID (0x18D1), not the
+    // Symbol/Zebra ID (0x05E0). Passing no filter lets the library apply its
+    // vendor-agnostic ADB interface filter (classCode 0xFF / subclass 0x42 /
+    // protocol 1), which matches any device exposing an ADB interface.
+    const device = await manager.requestDevice();
     if (!device) throw new Error("No device selected.");
 
     const connection = await device.connect();
