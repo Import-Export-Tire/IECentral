@@ -6,7 +6,11 @@ frontend:
         - npm ci
     build:
       commands:
-        - npm run build
+        # Deploy the Convex backend (functions + schema + indexes) to the prod
+        # deployment tied to CONVEX_DEPLOY_KEY, then build the frontend with the
+        # correct NEXT_PUBLIC_CONVEX_URL injected. Requires CONVEX_DEPLOY_KEY in
+        # the Amplify environment variables.
+        - npx convex deploy --cmd 'npm run build'
   artifacts:
     baseDirectory: .next
     files:
