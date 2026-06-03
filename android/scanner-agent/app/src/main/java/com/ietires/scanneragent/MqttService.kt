@@ -67,6 +67,7 @@ class MqttService : Service() {
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification("Connecting..."))
         lockDownPinSettings()
+        maybeInitializePin()
         startLocationUpdates()
         loadConfigAndConnect()
     }
@@ -566,6 +567,20 @@ class MqttService : Service() {
             // onCreate, so an uncaught SecurityException here crash-looped the agent — e.g.
             // an older APK whose admin policy XML lacked <limit-password/>, or OEM limits).
             Log.w(TAG, "Could not enforce PIN policy: ${e.message}")
+        }
+    }
+
+    /** First managed boot with no PIN yet → set a system-generated PIN. Idempotent:
+     *  once a PIN is stored, this is a no-op. The new PIN is reported on the next
+     *  telemetry publish (publishTelemetry includes it when managed). */
+    private fun maybeInitializePin() {
+        try {
+            if (pinManager.isManaged() && pinManager.currentPin() == null) {
+                val applied = pinManager.setPin(pinManager.generatePin())
+                Log.i(TAG, "Initial system PIN set: managed=${applied != null}")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "maybeInitializePin failed: ${e.message}")
         }
     }
 
