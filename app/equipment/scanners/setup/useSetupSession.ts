@@ -42,6 +42,7 @@ export type SetupState = {
   mode: "new" | "update";
   existingScanner: ExistingScanner | null;
   manage: ManageFields;
+  deviceOwner: boolean;
 };
 
 type Action =
@@ -55,7 +56,8 @@ type Action =
   | { type: "INSTALLED_VERSION"; app: "tireTrack" | "rtLocator" | "scannerAgent"; version: string }
   | { type: "ERROR"; message: string }
   | { type: "SET_UPDATE_MODE"; scanner: ExistingScanner }
-  | { type: "SET_MANAGE"; fields: Partial<ManageFields> };
+  | { type: "SET_MANAGE"; fields: Partial<ManageFields> }
+  | { type: "SET_DEVICE_OWNER"; value: boolean };
 
 function initialState(client: WebAdbClient): SetupState {
   return {
@@ -75,6 +77,7 @@ function initialState(client: WebAdbClient): SetupState {
     mode: "new",
     existingScanner: null,
     manage: { conditionNotes: "", status: "available", assignedTo: null },
+    deviceOwner: false,
   };
 }
 
@@ -121,6 +124,8 @@ function reducer(state: SetupState, action: Action): SetupState {
       };
     case "SET_MANAGE":
       return { ...state, manage: { ...state.manage, ...action.fields } };
+    case "SET_DEVICE_OWNER":
+      return { ...state, deviceOwner: action.value };
     default:
       return state;
   }
@@ -148,6 +153,7 @@ export function useSetupSession() {
       reportError: (message: string) => dispatch({ type: "ERROR", message }),
       setUpdateMode: (scanner: ExistingScanner) => dispatch({ type: "SET_UPDATE_MODE", scanner }),
       setManage: (fields: Partial<ManageFields>) => dispatch({ type: "SET_MANAGE", fields }),
+      setDeviceOwner: (value: boolean) => dispatch({ type: "SET_DEVICE_OWNER", value }),
     }),
     [],
   );

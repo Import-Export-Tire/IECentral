@@ -253,6 +253,20 @@ export function InstallStep({ session }: { session: Session }) {
           await client.setActiveAdmin(`${AGENT_PKG}/.DeviceAdminReceiver`);
         });
 
+        // Promote to Device Owner (required for managed PINs). No-op if already owner.
+        await runStep("deviceOwner", "Promoting to Device Owner", async () => {
+          if (await client.isDeviceOwner()) { actions.setDeviceOwner(true); return; }
+          const accounts = await client.listAccounts();
+          if (accounts.length > 0) {
+            await client.openAccountsSettings();
+            throw new Error(
+              `Remove the account(s) on the scanner first (Settings → Accounts: ${accounts.join(", ")}), then re-run setup.`,
+            );
+          }
+          await client.setDeviceOwner();
+          actions.setDeviceOwner(true);
+        });
+
         // 10a. DataWedge: emit a Tab key after each scan (policy-gated, idempotent)
         if (lockPolicy.dataWedgeTab) {
           await runStep("datawedge", "Configuring DataWedge (Tab)", async () => {

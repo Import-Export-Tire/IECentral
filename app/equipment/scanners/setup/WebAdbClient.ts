@@ -202,6 +202,25 @@ export class WebAdbClient {
     }
   }
 
+  async listAccounts(): Promise<string[]> {
+    const out = await this.shell("dumpsys account");
+    return [...out.matchAll(/Account \{name=([^,]+), type=([^}]+)\}/g)].map((m) => `${m[1]} (${m[2]})`);
+  }
+
+  async isDeviceOwner(pkg = "com.ietires.scanneragent"): Promise<boolean> {
+    const out = await this.shell("dumpsys device_policy");
+    return new RegExp(`Device Owner:[\\s\\S]*?${pkg.replace(/\./g, "\\.")}`).test(out);
+  }
+
+  async setDeviceOwner(component = "com.ietires.scanneragent/.DeviceAdminReceiver"): Promise<void> {
+    const out = await this.shell(`dpm set-device-owner ${component} 2>&1`);
+    if (!/Success/.test(out)) throw new Error(`set-device-owner failed: ${out.trim()}`);
+  }
+
+  async openAccountsSettings(): Promise<void> {
+    await this.shell("am start -a android.settings.SYNC_SETTINGS");
+  }
+
   async disablePackages(packages: string[]): Promise<number> {
     let disabled = 0;
     for (const pkg of packages) {
