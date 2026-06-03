@@ -302,20 +302,29 @@ export const searchUploadsByDealer = query({
 });
 
 // Stats: aggregate by ACTIVITY month + NET tire qty (replaces upload-time/row-count bucketing).
+// Stats read the deduped dealerRebateMonthly table. Any month that has NO monthly
+// rows (e.g. March — manual-only, no S3 folder) falls back to summing the raw uploads,
+// so a month is never counted from both sources.
 export const getStats = query({
   args: {},
   handler: async (ctx) => {
-    const uploads = await ctx.db.query("dealerRebateUploads").collect();
+    const monthly = await ctx.db.query("dealerRebateMonthly").collect();
+    const monthsWithData = new Set(monthly.map((m) => m.month));
     const monthMap: Record<string, { falken: number; milestar: number }> = {};
     const dealerMap: Record<string, { name: string; falken: number; milestar: number }> = {};
+    const add = (month: string, program: string, name: string, qty: number) => {
+      const mb = (monthMap[month] ??= { falken: 0, milestar: 0 });
+      const db = (dealerMap[name] ??= { name, falken: 0, milestar: 0 });
+      if (program === "falken") { mb.falken += qty; db.falken += qty; }
+      else { mb.milestar += qty; db.milestar += qty; }
+    };
+    for (const r of monthly) add(r.month, r.program, r.name, r.qty);
+    const uploads = await ctx.db.query("dealerRebateUploads").collect();
     for (const u of uploads) {
       for (const b of u.dealerBreakdown) {
         const month = breakdownMonth(b, u.uploadDate);
-        const qty = breakdownQty(b);
-        const mb = (monthMap[month] ??= { falken: 0, milestar: 0 });
-        const db = (dealerMap[b.name] ??= { name: b.name, falken: 0, milestar: 0 });
-        if (u.program === "falken") { mb.falken += qty; db.falken += qty; }
-        else { mb.milestar += qty; db.milestar += qty; }
+        if (monthsWithData.has(month)) continue; // deduped table wins for this month
+        add(month, u.program, b.name, breakdownQty(b));
       }
     }
     return { monthMap, dealers: Object.values(dealerMap) };
@@ -327,17 +336,23 @@ export const getDealerMonthlyTotals = query({
   args: { search: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const term = (args.search ?? "").toLowerCase().trim();
-    const uploads = await ctx.db.query("dealerRebateUploads").collect();
+    const monthly = await ctx.db.query("dealerRebateMonthly").collect();
+    const monthsWithData = new Set(monthly.map((m) => m.month));
     const map: Record<string, { jmk: string; name: string; months: Record<string, { falken: number; milestar: number }> }> = {};
+    const add = (jmk: string, name: string, month: string, program: string, qty: number) => {
+      if (term && !(name.toLowerCase().includes(term) || jmk.toLowerCase().includes(term))) return;
+      const d = (map[name] ??= { jmk, name, months: {} });
+      const mm = (d.months[month] ??= { falken: 0, milestar: 0 });
+      if (program === "falken") mm.falken += qty;
+      else mm.milestar += qty;
+    };
+    for (const r of monthly) add(r.jmk, r.name, r.month, r.program, r.qty);
+    const uploads = await ctx.db.query("dealerRebateUploads").collect();
     for (const u of uploads) {
       for (const b of u.dealerBreakdown) {
-        if (term && !(b.name.toLowerCase().includes(term) || b.jmk.toLowerCase().includes(term))) continue;
         const month = breakdownMonth(b, u.uploadDate);
-        const qty = breakdownQty(b);
-        const d = (map[b.name] ??= { jmk: b.jmk, name: b.name, months: {} });
-        const mm = (d.months[month] ??= { falken: 0, milestar: 0 });
-        if (u.program === "falken") mm.falken += qty;
-        else mm.milestar += qty;
+        if (monthsWithData.has(month)) continue;
+        add(b.jmk, b.name, month, u.program, breakdownQty(b));
       }
     }
     return Object.values(map).sort((a, b) => a.name.localeCompare(b.name));

@@ -121,6 +121,7 @@ export default function ReportUploadPage() {
       let dateRangeEnd: string | undefined;
       let dataMonth: string | undefined;
       let isMonthlyData = false;
+      let oeaHasNoDate = false;
       if (reportType === "OEA07V" && data.valid) {
         const dates: Date[] = [];
         // Scan each line for MM/DD/YY date patterns (handles quoted CSV fields)
@@ -163,12 +164,17 @@ export default function ReportUploadPage() {
           const sameMonth = first.getFullYear() === last.getFullYear() && first.getMonth() === last.getMonth();
           const lastDayOfMonth = new Date(last.getFullYear(), last.getMonth() + 1, 0).getDate();
           isMonthlyData = sameMonth && first.getDate() <= 5 && last.getDate() >= lastDayOfMonth - 4;
+        } else {
+          oeaHasNoDate = true; // valid headers but no parseable Activity Date → reject
         }
       }
 
-      setValidation({ ...data, dateRangeStart, dateRangeEnd, dataMonth, isMonthlyData });
-      setUploadState(data.valid ? "idle" : "error");
-      if (!data.valid) setErrorMsg("Validation failed — check column errors below");
+      const effectiveValid = data.valid && !oeaHasNoDate;
+      setValidation({ ...data, valid: effectiveValid, dateRangeStart, dateRangeEnd, dataMonth, isMonthlyData });
+      setUploadState(effectiveValid ? "idle" : "error");
+      if (!effectiveValid) setErrorMsg(oeaHasNoDate
+        ? "No rows with a parseable Activity Date — this doesn't look like an OEA07V export."
+        : "Validation failed — check column errors below");
     } catch (err) {
       setUploadState("error");
       setErrorMsg(err instanceof Error ? err.message : "Validation failed");
