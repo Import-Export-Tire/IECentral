@@ -7,6 +7,7 @@ import { DeviceDetectStep } from "./steps/DeviceDetectStep";
 import { LocationStep } from "./steps/LocationStep";
 import { IdentityStep } from "./steps/IdentityStep";
 import { GenerateStep } from "./steps/GenerateStep";
+import { ManageStep } from "./steps/ManageStep";
 import { InstallStep } from "./steps/InstallStep";
 import { VerifyStep } from "./steps/VerifyStep";
 import { DoneStep } from "./steps/DoneStep";
@@ -39,7 +40,7 @@ export function SetupWizard({ onClose }: { onClose: () => void }) {
       >
         <header className={`px-6 py-4 border-b ${isDark ? "border-slate-800" : "border-gray-200"}`}>
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">New Scanner Setup</h2>
+            <h2 className="text-lg font-semibold">{session.state.mode === "update" ? "Update Scanner" : "New Scanner Setup"}</h2>
             <button
               onClick={onClose}
               disabled={session.state.step === "install" || session.state.step === "verify"}
@@ -48,7 +49,7 @@ export function SetupWizard({ onClose }: { onClose: () => void }) {
               ✕
             </button>
           </div>
-          <StepBreadcrumb current={session.state.step} isDark={isDark} />
+          <StepBreadcrumb current={session.state.step} mode={session.state.mode} isDark={isDark} />
         </header>
 
         <div className="px-6 py-5">
@@ -56,6 +57,7 @@ export function SetupWizard({ onClose }: { onClose: () => void }) {
           {session.state.step === "location" && <LocationStep session={session} />}
           {session.state.step === "identity" && <IdentityStep session={session} />}
           {session.state.step === "generate" && <GenerateStep session={session} />}
+          {session.state.step === "manage" && <ManageStep session={session} />}
           {session.state.step === "install" && <InstallStep session={session} />}
           {session.state.step === "verify" && <VerifyStep session={session} />}
           {session.state.step === "done" && <DoneStep session={session} onClose={onClose} />}
@@ -77,7 +79,7 @@ export function SetupWizard({ onClose }: { onClose: () => void }) {
   );
 }
 
-const STEP_ORDER: Array<{ key: string; label: string }> = [
+const NEW_STEPS: Array<{ key: string; label: string }> = [
   { key: "detect", label: "Detect" },
   { key: "location", label: "Location" },
   { key: "identity", label: "Identity" },
@@ -87,7 +89,16 @@ const STEP_ORDER: Array<{ key: string; label: string }> = [
   { key: "done", label: "Done" },
 ];
 
-function StepBreadcrumb({ current, isDark }: { current: string; isDark: boolean }) {
+const UPDATE_STEPS: Array<{ key: string; label: string }> = [
+  { key: "detect", label: "Detect" },
+  { key: "manage", label: "Manage" },
+  { key: "install", label: "Install" },
+  { key: "verify", label: "Verify" },
+  { key: "done", label: "Done" },
+];
+
+function StepBreadcrumb({ current, mode, isDark }: { current: string; mode: "new" | "update"; isDark: boolean }) {
+  const STEP_ORDER = mode === "update" ? UPDATE_STEPS : NEW_STEPS;
   const currentIndex = STEP_ORDER.findIndex((s) => s.key === current);
   return (
     <ol className="flex items-center gap-1 mt-3 text-xs">
