@@ -840,6 +840,8 @@ export default defineSchema({
   scanners: defineTable({
     number: v.string(), // Scanner identifier (e.g., "W08-001", "R10-042")
     pin: v.optional(v.string()),
+    deviceOwner: v.optional(v.boolean()),
+    pinManaged: v.optional(v.boolean()),
     serialNumber: v.optional(v.string()),
     model: v.optional(v.string()), // e.g., "Zebra TC51", "Zebra MC3300"
     locationId: v.id("locations"),

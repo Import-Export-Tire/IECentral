@@ -203,6 +203,9 @@ export const updateScannerTelemetry = internalMutation({
     lastCommandAck: v.optional(v.string()),
     storageTotal: v.optional(v.number()),
     storageFree: v.optional(v.number()),
+    deviceOwner: v.optional(v.boolean()),
+    pinManaged: v.optional(v.boolean()),
+    pin: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const scanner = await ctx.db
@@ -229,6 +232,9 @@ export const updateScannerTelemetry = internalMutation({
     if (args.isLocked !== undefined) updates.isLocked = args.isLocked;
     if (args.storageTotal !== undefined) updates.storageTotal = args.storageTotal;
     if (args.storageFree !== undefined) updates.storageFree = args.storageFree;
+    if (args.deviceOwner !== undefined) updates.deviceOwner = args.deviceOwner;
+    if (args.pinManaged !== undefined) updates.pinManaged = args.pinManaged;
+    if (args.pin !== undefined) updates.pin = args.pin;
 
     // === Alert generation ===
     const existingAlerts: Array<{

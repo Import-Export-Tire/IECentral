@@ -34,6 +34,9 @@ http.route({
         androidVersion: body.androidVersion,
         isLocked: body.isLocked,
         lastCommandAck: body.lastCommandAck,
+        deviceOwner: body.deviceOwner,
+        pinManaged: body.pinManaged,
+        pin: body.pin,
       });
 
       return new Response(JSON.stringify({ success: true }), {
