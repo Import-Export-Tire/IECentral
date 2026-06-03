@@ -8,6 +8,24 @@ import { AdbDaemonWebUsbDeviceManager } from "@yume-chan/adb-daemon-webusb";
 import AdbWebCredentialStore from "@yume-chan/adb-credential-web";
 import { ReadableStream } from "@yume-chan/stream-extra";
 
+export const IET_PACKAGES = {
+  tireTrack: "com.importexporttire.tiretrack",
+  rtLocator: "com.rt_systems.rtlhandsfree",
+  scannerAgent: "com.ietires.scanneragent",
+};
+
+// System packages that must NEVER be disabled (device stays usable). Prefixes + exact ids.
+// Disabling launcher/SystemUI/IME/Settings/DataWedge can brick usability — keep these.
+export const ESSENTIAL_SYSTEM_PREFIXES = [
+  "com.android.", "android", "com.qualcomm.", "com.zebra.", "com.symbol.",
+  "com.google.android.packageinstaller", "com.android.systemui",
+  "com.android.settings", "com.android.inputmethod", "com.google.android.inputmethod",
+];
+export const ESSENTIAL_SYSTEM_EXACT = [
+  "com.symbol.datawedge", "com.android.launcher3", "com.android.settings",
+  "com.android.systemui", "com.android.shell", "com.android.providers.settings",
+];
+
 let credentialStore: AdbWebCredentialStore | null = null;
 
 function getCredentialStore() {
@@ -182,6 +200,28 @@ export class WebAdbClient {
 
   async grantPermission(pkg: string, permission: string): Promise<void> {
     await this.shell(`pm grant ${pkg} ${permission}`);
+  }
+
+  async listPackages(): Promise<string[]> {
+    const out = await this.shell("pm list packages");
+    return out
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith("package:"))
+      .map((l) => l.slice("package:".length).trim())
+      .filter(Boolean);
+  }
+
+  // Enable DataWedge Keystroke Output with a Tab key after each scanned barcode.
+  // Uses the DataWedge intent API on the active/default profile.
+  async configureDataWedgeTab(): Promise<void> {
+    await this.shell(
+      `am broadcast -a com.symbol.datawedge.api.ACTION --es com.symbol.datawedge.api.SET_CONFIG ` +
+      `'{"PROFILE_NAME":"Profile0 (default)","PROFILE_ENABLED":"true","CONFIG_MODE":"UPDATE",` +
+      `"PLUGIN_CONFIG":{"PLUGIN_NAME":"KEYSTROKE","RESET_CONFIG":"true",` +
+      `"PARAM_LIST":{"keystroke_output_enabled":"true","keystroke_action_char_set":"1",` +
+      `"keystroke_key_event_send_mode":"1","keystroke_send_tab":"true"}}}'`
+    );
   }
 
   getConnection(): AdbConnection | null {
