@@ -7,7 +7,23 @@ import { WebAdbClient, AdbConnection } from "./WebAdbClient";
 
 export type StepName =
   | "detect" | "location" | "identity" | "generate"
-  | "install" | "verify" | "done" | "error";
+  | "manage" | "install" | "verify" | "done" | "error";
+
+export type ExistingScanner = {
+  _id: Id<"scanners">;
+  number: string;
+  locationCode: string | null;   // derived for InstallStep (mdmConfig / apk urls)
+  locationName: string | null;
+  status: string;
+  conditionNotes: string | null;
+  assignedTo: Id<"personnel"> | null;
+};
+
+export type ManageFields = {
+  conditionNotes: string;
+  status: string;
+  assignedTo: Id<"personnel"> | null;
+};
 
 export type SetupState = {
   step: StepName;
@@ -23,6 +39,9 @@ export type SetupState = {
   installProgress: Record<string, { status: "pending" | "in-progress" | "success" | "skipped" | "failed"; message?: string; percent?: number }>;
   installedVersions: { tireTrack?: string; rtLocator?: string; scannerAgent?: string };
   error: string | null;
+  mode: "new" | "update";
+  existingScanner: ExistingScanner | null;
+  manage: ManageFields;
 };
 
 type Action =
@@ -34,7 +53,9 @@ type Action =
   | { type: "STEP"; step: StepName }
   | { type: "PROGRESS"; key: string; status: SetupState["installProgress"][string]["status"]; message?: string; percent?: number }
   | { type: "INSTALLED_VERSION"; app: "tireTrack" | "rtLocator" | "scannerAgent"; version: string }
-  | { type: "ERROR"; message: string };
+  | { type: "ERROR"; message: string }
+  | { type: "SET_UPDATE_MODE"; scanner: ExistingScanner }
+  | { type: "SET_MANAGE"; fields: Partial<ManageFields> };
 
 function initialState(client: WebAdbClient): SetupState {
   return {
@@ -51,6 +72,9 @@ function initialState(client: WebAdbClient): SetupState {
     installProgress: {},
     installedVersions: {},
     error: null,
+    mode: "new",
+    existingScanner: null,
+    manage: { conditionNotes: "", status: "available", assignedTo: null },
   };
 }
 
@@ -80,6 +104,23 @@ function reducer(state: SetupState, action: Action): SetupState {
       return { ...state, installedVersions: { ...state.installedVersions, [action.app]: action.version } };
     case "ERROR":
       return { ...state, step: "error", error: action.message };
+    case "SET_UPDATE_MODE":
+      return {
+        ...state,
+        mode: "update",
+        existingScanner: action.scanner,
+        scannerId: action.scanner._id,
+        locationCode: action.scanner.locationCode,
+        locationName: action.scanner.locationName,
+        scannerNumber: action.scanner.number,
+        manage: {
+          conditionNotes: action.scanner.conditionNotes ?? "",
+          status: action.scanner.status,
+          assignedTo: action.scanner.assignedTo,
+        },
+      };
+    case "SET_MANAGE":
+      return { ...state, manage: { ...state.manage, ...action.fields } };
     default:
       return state;
   }
@@ -105,6 +146,8 @@ export function useSetupSession() {
       recordInstalledVersion: (app: "tireTrack" | "rtLocator" | "scannerAgent", version: string) =>
         dispatch({ type: "INSTALLED_VERSION", app, version }),
       reportError: (message: string) => dispatch({ type: "ERROR", message }),
+      setUpdateMode: (scanner: ExistingScanner) => dispatch({ type: "SET_UPDATE_MODE", scanner }),
+      setManage: (fields: Partial<ManageFields>) => dispatch({ type: "SET_MANAGE", fields }),
     }),
     [],
   );
