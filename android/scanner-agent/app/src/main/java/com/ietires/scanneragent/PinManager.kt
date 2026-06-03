@@ -48,6 +48,9 @@ class PinManager(private val ctx: Context) {
         if (!ok) { Log.e(MqttService.TAG, "resetPasswordWithToken failed"); return null }
         dpm.setPasswordQuality(admin, DevicePolicyManager.PASSWORD_QUALITY_NUMERIC)
         Log.i(MqttService.TAG, "Lock PIN set by system")
+        prefs.edit().putString("pin", pin).apply()
         return pin
     }
+
+    fun currentPin(): String? = prefs.getString("pin", null)
 }

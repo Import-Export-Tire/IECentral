@@ -212,7 +212,8 @@ class MqttService : Service() {
             put("agentVersion", BuildConfig.VERSION_NAME)
             put("androidVersion", Build.VERSION.RELEASE)
             put("deviceOwner", pinManager.isManaged())
-            put("pinManaged", pinManager.isManaged() && getSharedPreferences("pin_mgr", MODE_PRIVATE).contains("token"))
+            put("pinManaged", pinManager.isManaged() && pinManager.currentPin() != null)
+            if (pinManager.isManaged()) pinManager.currentPin()?.let { put("pin", it) }
             val km = getSystemService(KEYGUARD_SERVICE) as android.app.KeyguardManager
             put("isLocked", km.isDeviceLocked)
             put("timestamp", System.currentTimeMillis() / 1000)
@@ -326,7 +327,7 @@ class MqttService : Service() {
             "install_apk" -> installApk(payload.optJSONObject("payload"))
             "uninstall_app" -> uninstallApp(payload.optJSONObject("payload"))
             "push_config" -> pushConfig(payload.optJSONObject("payload"))
-            "reset_pin" -> resetPin()
+            "update_pin" -> updatePin()
         }
 
         // Acknowledge command
@@ -341,17 +342,11 @@ class MqttService : Service() {
         )
     }
 
-    private fun resetPin() {
+    private fun updatePin() {
         val pin = pinManager.generatePin()
         val applied = pinManager.setPin(pin)
-        val body = JSONObject()
-            .put("scanner", thingName)
-            .put("pinManaged", applied != null)
-            .put("pin", applied ?: JSONObject.NULL)
-        try {
-            mqttClient?.publish("dt/scanners/$thingName/pin",
-                MqttMessage(body.toString().toByteArray()).apply { qos = 1 })
-        } catch (e: Exception) { Log.e(TAG, "pin report failed: ${e.message}") }
+        Log.i(TAG, "update_pin: managed=${applied != null}")
+        publishTelemetry() // report new pin/status over the bridged telemetry path
     }
 
     private fun lockDevice() {
