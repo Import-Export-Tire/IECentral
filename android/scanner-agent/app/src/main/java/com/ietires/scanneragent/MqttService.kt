@@ -51,6 +51,7 @@ class MqttService : Service() {
     private var iotEndpoint: String = ""
     @Volatile private var lastLocation: Location? = null
     private var locationManager: LocationManager? = null
+    private val pinManager by lazy { PinManager(this) }
 
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
@@ -210,6 +211,8 @@ class MqttService : Service() {
             put("apps", getInstalledAppVersions())
             put("agentVersion", BuildConfig.VERSION_NAME)
             put("androidVersion", Build.VERSION.RELEASE)
+            put("deviceOwner", pinManager.isManaged())
+            put("pinManaged", pinManager.isManaged() && getSharedPreferences("pin_mgr", MODE_PRIVATE).contains("token"))
             val km = getSystemService(KEYGUARD_SERVICE) as android.app.KeyguardManager
             put("isLocked", km.isDeviceLocked)
             put("timestamp", System.currentTimeMillis() / 1000)
@@ -323,6 +326,7 @@ class MqttService : Service() {
             "install_apk" -> installApk(payload.optJSONObject("payload"))
             "uninstall_app" -> uninstallApp(payload.optJSONObject("payload"))
             "push_config" -> pushConfig(payload.optJSONObject("payload"))
+            "reset_pin" -> resetPin()
         }
 
         // Acknowledge command
@@ -335,6 +339,19 @@ class MqttService : Service() {
             "cmd/scanners/$thingName/ack",
             MqttMessage(ack.toString().toByteArray()).apply { qos = 1 }
         )
+    }
+
+    private fun resetPin() {
+        val pin = pinManager.generatePin()
+        val applied = pinManager.setPin(pin)
+        val body = JSONObject()
+            .put("scanner", thingName)
+            .put("pinManaged", applied != null)
+            .put("pin", applied ?: JSONObject.NULL)
+        try {
+            mqttClient?.publish("dt/scanners/$thingName/pin",
+                MqttMessage(body.toString().toByteArray()).apply { qos = 1 })
+        } catch (e: Exception) { Log.e(TAG, "pin report failed: ${e.message}") }
     }
 
     private fun lockDevice() {
