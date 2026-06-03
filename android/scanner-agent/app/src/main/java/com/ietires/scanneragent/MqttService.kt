@@ -575,9 +575,18 @@ class MqttService : Service() {
      *  telemetry publish (publishTelemetry includes it when managed). */
     private fun maybeInitializePin() {
         try {
-            if (pinManager.isManaged() && pinManager.currentPin() == null) {
+            if (!pinManager.isManaged()) return
+            val stored = pinManager.currentPin()
+            if (stored == null) {
+                // First managed boot: generate + set a system PIN.
                 val applied = pinManager.setPin(pinManager.generatePin())
                 Log.i(TAG, "Initial system PIN set: managed=${applied != null}")
+            } else {
+                // Re-assert the stored system PIN on every boot. Android 8.1 has no API to
+                // forbid on-device PIN changes, so re-asserting reverts any user change on
+                // the next reboot — the practical enforcement of "system PIN only".
+                val applied = pinManager.setPin(stored)
+                Log.i(TAG, "System PIN re-asserted: ok=${applied != null}")
             }
         } catch (e: Exception) {
             Log.w(TAG, "maybeInitializePin failed: ${e.message}")
