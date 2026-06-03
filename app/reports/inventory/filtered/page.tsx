@@ -308,14 +308,22 @@ export default function FilteredInventoryReportPage() {
     const qtyNum = Number(adjQty);
     if (!itemIdTrim) { setAdjError("Item ID is required"); return; }
     if (!Number.isFinite(qtyNum) || qtyNum === 0) { setAdjError("Qty change must be a non-zero number (use - for negative)"); return; }
-    const meta = adjLookupMatch;
+    let manufacturerName = adjLookupMatch?.manufacturerName;
+    let description = adjLookupMatch?.description;
+    if (!manufacturerName) {
+      try {
+        const res = await fetch(`/api/reports/resolve-brand?itemId=${encodeURIComponent(adjItemId.trim())}`);
+        const data = await res.json();
+        if (data?.found) { manufacturerName = data.manufacturerName; description = description || data.description; }
+      } catch { /* best-effort; save without brand if resolver unavailable */ }
+    }
     setAdjSaving(true);
     try {
       await addAdjustment({
         locationCode: location,
         itemId: itemIdTrim,
-        manufacturerName: meta?.manufacturerName,
-        description: meta?.description,
+        manufacturerName,
+        description,
         qtyChange: qtyNum,
         notes: adjNotes.trim() || undefined,
         enteredBy: user?._id,
@@ -987,32 +995,32 @@ export default function FilteredInventoryReportPage() {
                 {/* Per-item MoM */}
                 {adjStats.perItemMoM.length > 0 && (
                   <div className={`rounded-xl border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-                    <div className={`px-4 py-3 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                      <h2 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                    <div className={`px-4 py-2 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                      <h2 className={`text-xs font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
                         Per-item MoM ({ymLabel(adjStats.priorYm)} → {ymLabel(adjStats.currentYm)})
                       </h2>
                     </div>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
+                      <table className="w-full text-[11px]">
                         <thead className={isDark ? "bg-slate-900/50 text-slate-400" : "bg-gray-50 text-gray-600"}>
                           <tr>
-                            <th className="text-left px-3 py-2 font-semibold">Item ID</th>
-                            <th className="text-left px-3 py-2 font-semibold">Mfg</th>
-                            <th className="text-left px-3 py-2 font-semibold">Description</th>
-                            <th className="text-right px-3 py-2 font-semibold">{ymLabel(adjStats.priorYm)}</th>
-                            <th className="text-right px-3 py-2 font-semibold">{ymLabel(adjStats.currentYm)}</th>
-                            <th className="text-right px-3 py-2 font-semibold">Δ</th>
+                            <th className="text-left px-2 py-1 font-semibold">Item ID</th>
+                            <th className="text-left px-2 py-1 font-semibold">Mfg</th>
+                            <th className="text-left px-2 py-1 font-semibold">Description</th>
+                            <th className="text-right px-2 py-1 font-semibold">{ymLabel(adjStats.priorYm)}</th>
+                            <th className="text-right px-2 py-1 font-semibold">{ymLabel(adjStats.currentYm)}</th>
+                            <th className="text-right px-2 py-1 font-semibold">Δ</th>
                           </tr>
                         </thead>
                         <tbody>
                           {adjStats.perItemMoM.map((r) => (
                             <tr key={r.itemId} className={`border-t ${isDark ? "border-slate-700/50" : "border-gray-100"}`}>
-                              <td className={`px-3 py-2 font-mono ${isDark ? "text-slate-300" : "text-gray-800"}`}>{r.itemId}</td>
-                              <td className={`px-3 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.meta.manufacturerName}</td>
-                              <td className={`px-3 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.meta.description}</td>
-                              <td className={`px-3 py-2 text-right font-mono ${isDark ? "text-slate-400" : "text-gray-600"}`}>{r.prior > 0 ? "+" : ""}{r.prior}</td>
-                              <td className={`px-3 py-2 text-right font-mono ${isDark ? "text-slate-400" : "text-gray-600"}`}>{r.current > 0 ? "+" : ""}{r.current}</td>
-                              <td className={`px-3 py-2 text-right font-mono font-bold ${(r.current - r.prior) > 0 ? (isDark ? "text-emerald-400" : "text-emerald-700") : (r.current - r.prior) < 0 ? (isDark ? "text-red-400" : "text-red-700") : ""}`}>{(r.current - r.prior) > 0 ? "+" : ""}{r.current - r.prior}</td>
+                              <td className={`px-2 py-0.5 font-mono ${isDark ? "text-slate-300" : "text-gray-800"}`}>{r.itemId}</td>
+                              <td className={`px-2 py-0.5 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.meta.manufacturerName}</td>
+                              <td className={`px-2 py-0.5 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.meta.description}</td>
+                              <td className={`px-2 py-0.5 text-right font-mono ${isDark ? "text-slate-400" : "text-gray-600"}`}>{r.prior > 0 ? "+" : ""}{r.prior}</td>
+                              <td className={`px-2 py-0.5 text-right font-mono ${isDark ? "text-slate-400" : "text-gray-600"}`}>{r.current > 0 ? "+" : ""}{r.current}</td>
+                              <td className={`px-2 py-0.5 text-right font-mono font-bold ${(r.current - r.prior) > 0 ? (isDark ? "text-emerald-400" : "text-emerald-700") : (r.current - r.prior) < 0 ? (isDark ? "text-red-400" : "text-red-700") : ""}`}>{(r.current - r.prior) > 0 ? "+" : ""}{r.current - r.prior}</td>
                             </tr>
                           ))}
                         </tbody>
