@@ -540,13 +540,20 @@ class MqttService : Service() {
     }
 
     private fun lockDownPinSettings() {
-        val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        val admin = ComponentName(this, DeviceAdminReceiver::class.java)
-        if (dpm.isAdminActive(admin)) {
-            // Require numeric PIN with minimum 4 digits — prevents disabling or weakening the lock
-            dpm.setPasswordQuality(admin, DevicePolicyManager.PASSWORD_QUALITY_NUMERIC)
-            dpm.setPasswordMinimumLength(admin, 4)
-            Log.i(TAG, "PIN policy enforced: numeric, min 4 digits")
+        try {
+            val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            val admin = ComponentName(this, DeviceAdminReceiver::class.java)
+            if (dpm.isAdminActive(admin)) {
+                // Require numeric PIN with minimum 4 digits — prevents disabling or weakening the lock
+                dpm.setPasswordQuality(admin, DevicePolicyManager.PASSWORD_QUALITY_NUMERIC)
+                dpm.setPasswordMinimumLength(admin, 4)
+                Log.i(TAG, "PIN policy enforced: numeric, min 4 digits")
+            }
+        } catch (e: Exception) {
+            // A device-policy hiccup must never crash the foreground service (this ran in
+            // onCreate, so an uncaught SecurityException here crash-looped the agent — e.g.
+            // an older APK whose admin policy XML lacked <limit-password/>, or OEM limits).
+            Log.w(TAG, "Could not enforce PIN policy: ${e.message}")
         }
     }
 

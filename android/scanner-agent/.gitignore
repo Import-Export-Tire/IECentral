@@ -1,0 +1,7 @@
+# Machine-specific SDK path — never commit
+local.properties
+
+# Build outputs / caches
+/build/
+/app/build/
+.gradle/

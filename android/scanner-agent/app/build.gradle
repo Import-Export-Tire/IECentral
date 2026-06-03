@@ -11,8 +11,8 @@ android {
         applicationId "com.ietires.scanneragent"
         minSdk 26  // Zebra TC51 runs Android 8.1 (API 27)
         targetSdk 34
-        versionCode 2
-        versionName "1.1.0"
+        versionCode 3
+        versionName "1.1.1"
 
         buildConfigField "String", "CLAIM_URL", '"https://outstanding-dalmatian-787.convex.site/claim-provision"'
         buildConfigField "String", "APK_API_URL", '"https://7brylwlei6.execute-api.us-east-1.amazonaws.com/prod/scanner-mdm/apk"'
