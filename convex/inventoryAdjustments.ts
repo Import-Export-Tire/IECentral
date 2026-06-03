@@ -77,3 +77,45 @@ export const listByLocationSince = query({
       .collect();
   },
 });
+
+// Maintenance query — lists adjustments missing a brand across ALL
+// locations so they can be backfilled. Returns minimal identifying
+// fields only.
+export const listMissingBrand = query({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("inventoryAdjustments").collect();
+    return all
+      .filter((a) => !(a.manufacturerName ?? "").trim())
+      .map((a) => ({ id: a._id, locationCode: a.locationCode, itemId: a.itemId }));
+  },
+});
+
+// Backfill mutation — patches brand + optional description on the given
+// records. Idempotent: skips any record that already has a brand so it
+// won't clobber existing values.
+export const backfillBrands = mutation({
+  args: {
+    entries: v.array(
+      v.object({
+        id: v.id("inventoryAdjustments"),
+        manufacturerName: v.string(),
+        description: v.optional(v.string()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    let patched = 0;
+    for (const e of args.entries) {
+      const row = await ctx.db.get(e.id);
+      if (!row) continue;
+      if ((row.manufacturerName ?? "").trim()) continue; // don't clobber existing
+      await ctx.db.patch(e.id, {
+        manufacturerName: e.manufacturerName,
+        ...(e.description !== undefined ? { description: e.description } : {}),
+      });
+      patched++;
+    }
+    return { patched };
+  },
+});
