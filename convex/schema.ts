@@ -897,6 +897,22 @@ export default defineSchema({
     .index("by_serial", ["serialNumber"])
     .index("by_online", ["isOnline"]),
 
+  // Deduped per-(program, dealer, activity-month) net tires — source of truth for rebate stats.
+  // Rebuilt from all of a month's S3 OEA07V files by /api/dealer-rebates/rebuild-month.
+  dealerRebateMonthly: defineTable({
+    month: v.string(),        // "YYYY-MM"
+    program: v.string(),      // "falken" | "milestar"
+    jmk: v.string(),
+    name: v.string(),
+    fanaticId: v.optional(v.number()),
+    dealerNumber: v.optional(v.string()),
+    qty: v.number(),          // NET tires
+    rowCount: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_month", ["month"])
+    .index("by_month_program", ["month", "program"]),
+
   // Global scanner lock-down policy (single row). Drives the allowlist lockdown
   // + DataWedge/screen settings applied during scanner setup.
   scannerLockPolicy: defineTable({

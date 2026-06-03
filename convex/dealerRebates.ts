@@ -410,6 +410,33 @@ export const deleteOldUploads = internalMutation({
   },
 });
 
+// ============ DEDUPED MONTHLY (source of truth for stats) ============
+
+// Replace all rows for a month with the deduped aggregates (idempotent).
+// Written by /api/dealer-rebates/rebuild-month.
+export const setRebateMonthly = mutation({
+  args: {
+    month: v.string(), // "YYYY-MM"
+    rows: v.array(v.object({
+      program: v.string(), jmk: v.string(), name: v.string(),
+      fanaticId: v.optional(v.number()), dealerNumber: v.optional(v.string()),
+      qty: v.number(), rowCount: v.number(),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("dealerRebateMonthly")
+      .withIndex("by_month", (q) => q.eq("month", args.month))
+      .collect();
+    for (const e of existing) await ctx.db.delete(e._id);
+    const now = Date.now();
+    for (const r of args.rows) {
+      await ctx.db.insert("dealerRebateMonthly", { month: args.month, ...r, updatedAt: now });
+    }
+    return { month: args.month, written: args.rows.length };
+  },
+});
+
 // ============ BACKFILL / MAINTENANCE ============
 // One-off maintenance mutations for the qty/activity-month migration. Idempotent
 // where noted. resultData CSV columns contain no embedded commas (toCSV only quotes
