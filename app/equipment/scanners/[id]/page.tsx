@@ -14,7 +14,7 @@ import ScannerStatusDot, { getScannerHealth } from "../components/ScannerStatusD
 import ScannerBatteryBar from "../components/ScannerBatteryBar";
 import WifiSignalIcon from "../components/WifiSignalIcon";
 
-type CommandType = "lock" | "unlock" | "wipe" | "install_apk" | "push_config" | "restart";
+type CommandType = "lock" | "unlock" | "wipe" | "install_apk" | "push_config" | "restart" | "update_pin";
 const EQUIPMENT_VALUE = 100;
 
 function ScannerDetailContent() {
@@ -222,9 +222,10 @@ function ScannerDetailContent() {
   const sectionTitle = `text-[11px] font-semibold uppercase tracking-widest mb-4 ${isDark ? "text-slate-500" : "text-gray-400"}`;
   const inputClass = `w-full px-3 py-2 text-sm border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`;
 
-  const commandButtons: { cmd: CommandType; label: string; icon: string; color: string; requiresAdmin?: boolean }[] = [
+  const commandButtons: { cmd: CommandType; label: string; icon: string; color: string; requiresAdmin?: boolean; requiresDeviceOwner?: boolean }[] = [
     { cmd: "lock", label: "Lock", icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z", color: "amber" },
     { cmd: "unlock", label: "Unlock", icon: "M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z", color: "emerald" },
+    { cmd: "update_pin", label: "Reset PIN", icon: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z", color: "blue", requiresDeviceOwner: true },
     { cmd: "install_apk", label: "Push Update", icon: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4", color: "cyan" },
     { cmd: "push_config", label: "Push Config", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z", color: "purple" },
 
@@ -297,6 +298,16 @@ function ScannerDetailContent() {
                 {/* Device Info */}
                 <div className={cardClass}>
                   <h3 className={sectionTitle}>Device</h3>
+                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                    {scanner.deviceOwner ? (
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${isDark ? "bg-emerald-500/15 text-emerald-400" : "bg-green-50 text-green-600"}`}>Device Owner</span>
+                    ) : (
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${isDark ? "bg-slate-800 text-slate-400" : "bg-gray-100 text-gray-500"}`}>Admin only</span>
+                    )}
+                    {scanner.pinManaged && (
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${isDark ? "bg-blue-500/15 text-blue-400" : "bg-blue-50 text-blue-600"}`}>PIN managed</span>
+                    )}
+                  </div>
                   <div className="space-y-2.5">
                     {[
                       { label: "Model", value: scanner.model },
@@ -314,7 +325,7 @@ function ScannerDetailContent() {
                     ))}
                     {/* PIN with change button */}
                     <div className="flex items-center justify-between">
-                      <span className={`text-[11px] ${isDark ? "text-slate-600" : "text-gray-400"}`}>PIN</span>
+                      <span className={`text-[11px] ${isDark ? "text-slate-600" : "text-gray-400"}`}>System PIN</span>
                       <div className="flex items-center gap-2">
                         <span className={`text-xs font-mono font-medium ${isDark ? "text-slate-300" : "text-gray-700"}`}>{scanner.pin || "Not set"}</span>
                         {canEdit && (
@@ -557,13 +568,17 @@ function ScannerDetailContent() {
                   <div className={cardClass}>
                     <h3 className={sectionTitle}>Remote Control</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {commandButtons.filter((b) => !b.requiresAdmin || isSuperAdmin).map((btn) => (
-                        <button key={btn.cmd} onClick={() => initiateCommand(btn.cmd)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors border ${isDark ? `bg-${btn.color}-500/5 text-${btn.color}-400 hover:bg-${btn.color}-500/15 border-${btn.color}-500/15` : `bg-${btn.color}-50/50 text-${btn.color}-600 hover:bg-${btn.color}-50 border-${btn.color}-200/50`}`}>
-                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={btn.icon} /></svg>
-                          {btn.label}
-                        </button>
-                      ))}
+                      {commandButtons.filter((b) => !b.requiresAdmin || isSuperAdmin).map((btn) => {
+                        const blockedByOwner = btn.requiresDeviceOwner && !scanner.deviceOwner;
+                        return (
+                          <button key={btn.cmd} onClick={() => initiateCommand(btn.cmd)} disabled={blockedByOwner}
+                            title={blockedByOwner ? "Requires Device Owner" : undefined}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors border disabled:opacity-40 disabled:cursor-not-allowed ${isDark ? `bg-${btn.color}-500/5 text-${btn.color}-400 hover:bg-${btn.color}-500/15 border-${btn.color}-500/15` : `bg-${btn.color}-50/50 text-${btn.color}-600 hover:bg-${btn.color}-50 border-${btn.color}-200/50`}`}>
+                            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={btn.icon} /></svg>
+                            {btn.label}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -676,6 +691,7 @@ function ScannerDetailContent() {
                     {pendingCommand === "install_apk" && "Push latest APK updates to the scanner."}
                     {pendingCommand === "push_config" && "Push latest RT Locator configuration."}
                     {pendingCommand === "restart" && "Restart the scanner device."}
+                    {pendingCommand === "update_pin" && "Generate a new system PIN on the scanner and apply it."}
                   </p>
                 )}
                 <div className="flex justify-end gap-3">
