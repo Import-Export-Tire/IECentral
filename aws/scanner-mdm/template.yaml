@@ -131,6 +131,7 @@ Resources:
                   - iot:CreateKeysAndCertificate
                   - iot:AttachPolicy
                   - iot:AttachThingPrincipal
+                  - iot:ListThingPrincipals
                   - iot:UpdateThingShadow
                   - iot:GetThingShadow
                   - iot:Publish

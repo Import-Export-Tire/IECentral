@@ -39,6 +39,37 @@ def call_convex_mutation(deploy_key, path, args):
         return json.loads(resp.read())
 
 
+def retire_thing_certs(thing_name):
+    """Detach + deactivate + delete every certificate currently attached to a thing.
+    Best-effort: any failure is logged and skipped so it never blocks provisioning.
+    Returns the count of certificates retired. Requires iot:ListThingPrincipals; if that
+    permission is absent the listing fails and 0 is returned (provisioning still succeeds).
+    """
+    retired = 0
+    try:
+        principals = iot.list_thing_principals(thingName=thing_name).get("principals", [])
+    except Exception as e:
+        print(f"retire: list_thing_principals failed for {thing_name}: {e}")
+        return retired
+
+    for principal_arn in principals:
+        if ":cert/" not in principal_arn:
+            continue  # only certificate principals
+        cert_id = principal_arn.split("/")[-1]
+        try:
+            try:
+                iot.detach_policy(policyName=POLICY_NAME, target=principal_arn)
+            except Exception:
+                pass  # policy may already be detached / a different policy
+            iot.detach_thing_principal(thingName=thing_name, principal=principal_arn)
+            iot.update_certificate(certificateId=cert_id, newStatus="INACTIVE")
+            iot.delete_certificate(certificateId=cert_id, forceDelete=True)
+            retired += 1
+        except Exception as e:
+            print(f"retire: failed to retire cert {cert_id}: {e}")
+    return retired
+
+
 def handler(event, context):
     try:
         body = json.loads(event.get("body", "{}"))
@@ -51,13 +82,17 @@ def handler(event, context):
             return response(400, {"error": "Missing required fields"})
 
         thing_name = f"scanner-{scanner_number}"
+        # thingArn is deterministic — derive it instead of calling DescribeThing, so the
+        # Lambda role needs no extra read permission on the re-provision path.
+        region = os.environ.get("AWS_REGION", "us-east-1")
+        account_id = context.invoked_function_arn.split(":")[4]
+        thing_arn = f"arn:aws:iot:{region}:{account_id}:thing/{thing_name}"
 
         # Create IoT thing — idempotent. On a software-update re-provision the thing
         # already exists, so tolerate ResourceAlreadyExists and reuse it. We always
-        # mint a fresh certificate below (the device's private key can't be re-fetched),
-        # and a thing may hold multiple certificate principals.
+        # mint a fresh certificate below (the device's private key can't be re-fetched).
         try:
-            thing = iot.create_thing(
+            iot.create_thing(
                 thingName=thing_name,
                 thingTypeName="Scanner",
                 attributePayload={
@@ -69,7 +104,7 @@ def handler(event, context):
                 },
             )
         except iot.exceptions.ResourceAlreadyExistsException:
-            thing = iot.describe_thing(thingName=thing_name)
+            pass
 
         # Add to thing group
         try:
@@ -79,6 +114,15 @@ def handler(event, context):
             )
         except Exception:
             pass  # Group may not exist yet in dev
+
+        # Retire any certificate already attached to this thing BEFORE minting the new
+        # one. Each re-provision supersedes the device's previous certificate; leaving the
+        # old one ACTIVE means a stale private key (on the wiped device and in the claimed
+        # provision-code record) could still connect to IoT. Best-effort per certificate
+        # so cleanup never blocks provisioning. Safe at this point: provisioning only runs
+        # during a new-setup or software-update flow where the device is being
+        # (re)configured, so the old certificate's session is going away regardless.
+        retired_certs = retire_thing_certs(thing_name)
 
         # Create certificate and keys
         cert = iot.create_keys_and_certificate(setAsActive=True)
@@ -128,7 +172,7 @@ def handler(event, context):
                     {
                         "scannerId": scanner_id,
                         "iotThingName": thing_name,
-                        "iotThingArn": thing["thingArn"],
+                        "iotThingArn": thing_arn,
                         "iotCertificateArn": cert_arn,
                     },
                 )
@@ -139,12 +183,13 @@ def handler(event, context):
             200,
             {
                 "thingName": thing_name,
-                "thingArn": thing["thingArn"],
+                "thingArn": thing_arn,
                 "certificateArn": cert_arn,
                 "certificatePem": cert_pem,
                 "privateKey": private_key,
                 "publicKey": public_key,
                 "iotEndpoint": iot_endpoint,
+                "retiredCerts": retired_certs,
             },
         )
 
