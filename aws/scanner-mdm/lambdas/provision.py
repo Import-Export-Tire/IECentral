@@ -52,18 +52,24 @@ def handler(event, context):
 
         thing_name = f"scanner-{scanner_number}"
 
-        # Create IoT thing
-        thing = iot.create_thing(
-            thingName=thing_name,
-            thingTypeName="Scanner",
-            attributePayload={
-                "attributes": {
-                    "serialNumber": serial_number,
-                    "locationCode": location_code,
-                    "scannerNumber": scanner_number,
-                }
-            },
-        )
+        # Create IoT thing — idempotent. On a software-update re-provision the thing
+        # already exists, so tolerate ResourceAlreadyExists and reuse it. We always
+        # mint a fresh certificate below (the device's private key can't be re-fetched),
+        # and a thing may hold multiple certificate principals.
+        try:
+            thing = iot.create_thing(
+                thingName=thing_name,
+                thingTypeName="Scanner",
+                attributePayload={
+                    "attributes": {
+                        "serialNumber": serial_number,
+                        "locationCode": location_code,
+                        "scannerNumber": scanner_number,
+                    }
+                },
+            )
+        except iot.exceptions.ResourceAlreadyExistsException:
+            thing = iot.describe_thing(thingName=thing_name)
 
         # Add to thing group
         try:

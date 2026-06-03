@@ -20,6 +20,7 @@ export function InstallStep({ session }: { session: Session }) {
   const logStep = useMutation(api.scannerMdm.logScannerSetupStep);
   const markComplete = useMutation(api.scannerMdm.markScannerSetupComplete);
   const updateScanner = useMutation(api.scannerMdm.updateScannerFromSetup);
+  const storePendingProvision = useMutation(api.scannerMdm.storePendingProvision);
   const lockPolicy = useQuery(api.scannerMdm.getLockPolicy, {});
   const mdmConfig = useQuery(
     api.scannerMdm.getMdmConfigByCode,
@@ -77,6 +78,45 @@ export function InstallStep({ session }: { session: Session }) {
         const client = session.state.client;
         const { state, actions } = session;
         if (!state.locationCode) throw new Error("Missing locationCode");
+
+        // 0. Update flow: mint a fresh certificate + claim code. The new-scanner flow
+        // does this in GenerateStep, but the update flow skips Generate — so without this
+        // the Verify step shows an empty code box and the reinstalled agent can't connect.
+        if (state.mode === "update" && !state.provisionCode) {
+          await runStep("provision", "Provisioning device certificate", async () => {
+            if (!user) throw new Error("Not signed in");
+            if (!state.connection) throw new Error("No device connection");
+            if (!state.scannerId) throw new Error("Missing scanner record");
+            const scannerId = state.scannerId;
+            const serial = state.connection.serial;
+            const provisionRes = await fetch("/api/scanner-mdm/provision", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                serialNumber: serial,
+                locationCode: state.locationCode,
+                scannerNumber: state.scannerNumber,
+                scannerId,
+              }),
+            });
+            if (!provisionRes.ok) {
+              const e = await provisionRes.json().catch(() => ({}));
+              throw new Error(e.error || "IoT provisioning failed");
+            }
+            const iot = await provisionRes.json();
+            const { code } = await storePendingProvision({
+              scannerId,
+              thingName: iot.thingName,
+              thingArn: iot.thingArn,
+              certificateArn: iot.certificateArn,
+              certificatePem: iot.certificatePem,
+              privateKey: iot.privateKey,
+              iotEndpoint: iot.iotEndpoint,
+              userId: user._id,
+            });
+            actions.setGenerated(scannerId, code, state.pin ?? "");
+          });
+        }
 
         // 1. Fetch APK URLs
         let urls: Awaited<ReturnType<typeof getApkUrls>> | undefined;
