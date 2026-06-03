@@ -66,6 +66,10 @@ function ScannerSettingsContent() {
   const mdmConfigs = useQuery(api.scannerMdm.listMdmConfigs);
   const upsertConfig = useMutation(api.scannerMdm.upsertMdmConfig);
 
+  // Lock Policy (global — not per-location)
+  const lockPolicy = useQuery(api.scannerMdm.getLockPolicy, {});
+  const setLockPolicy = useMutation(api.scannerMdm.setLockPolicy);
+
   const [selectedLocationId, setSelectedLocationId] = useState<Id<"locations"> | null>(null);
   const [form, setForm] = useState<ConfigForm>({
     rtLocatorUrl: "",
@@ -87,6 +91,17 @@ function ScannerSettingsContent() {
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // Lock Policy form state
+  const [lockForm, setLockForm] = useState({
+    lockdownEnabled: false,
+    dataWedgeTab: false,
+    screenTimeoutMs: 30000,
+    screenRotation: "portrait",
+    allowedPackagesText: "",
+  });
+  const [lockSaving, setLockSaving] = useState(false);
+  const [lockSaved, setLockSaved] = useState(false);
 
   // Auto-select first location
   useEffect(() => {
@@ -143,6 +158,44 @@ function ScannerSettingsContent() {
       });
     }
   }, [selectedLocationId, mdmConfigs, locations]);
+
+  // Sync lock policy query into form state once resolved
+  useEffect(() => {
+    if (lockPolicy === undefined) return;
+    setLockForm({
+      lockdownEnabled: lockPolicy.lockdownEnabled,
+      dataWedgeTab: lockPolicy.dataWedgeTab,
+      screenTimeoutMs: lockPolicy.screenTimeoutMs ?? 30000,
+      screenRotation: lockPolicy.screenRotation ?? "portrait",
+      allowedPackagesText: lockPolicy.allowedPackages.join("\n"),
+    });
+  }, [lockPolicy]);
+
+  const handleSaveLockPolicy = async () => {
+    if (!user) return;
+    const allowedPackages = lockForm.allowedPackagesText
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setLockSaving(true);
+    try {
+      await setLockPolicy({
+        allowedPackages,
+        lockdownEnabled: lockForm.lockdownEnabled,
+        dataWedgeTab: lockForm.dataWedgeTab,
+        screenTimeoutMs: lockForm.screenTimeoutMs,
+        screenRotation: lockForm.screenRotation,
+        requestingUserId: user._id,
+      });
+      setLockSaved(true);
+      setTimeout(() => setLockSaved(false), 2000);
+    } catch (err) {
+      console.error("Failed to save lock policy:", err);
+      alert("Failed to save lock policy. See console for details.");
+    } finally {
+      setLockSaving(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!selectedLocationId || !user) return;
@@ -428,6 +481,109 @@ function ScannerSettingsContent() {
                 <p>cd /path/to/IECentral/tools/scanner-setup</p>
                 <p>npm install</p>
                 <p>npx ts-node src/index.ts --location {LOCATION_DEFAULTS[locations?.find((l) => l._id === selectedLocationId)?.name ?? ""]?.code ?? "W08"}</p>
+              </div>
+            </div>
+
+            {/* Lock Policy */}
+            <div className={sectionClass}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className={sectionTitleClass + " !mb-0"}>Lock Policy</h3>
+                <button
+                  onClick={handleSaveLockPolicy}
+                  disabled={lockSaving || !user}
+                  className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
+                    lockSaved
+                      ? "bg-emerald-500 text-white"
+                      : isDark
+                      ? "bg-cyan-500 text-white hover:bg-cyan-600"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  } disabled:opacity-50`}
+                >
+                  {lockSaved ? (
+                    <>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Saved
+                    </>
+                  ) : lockSaving ? "Saving..." : "Save"}
+                </button>
+              </div>
+
+              <p className={`text-xs mb-4 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                Global policy applied during the lockdown + DataWedge steps of the setup wizard.
+              </p>
+
+              <div className="space-y-4">
+                {/* Toggles */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-gray-50 border border-gray-200"}`}>
+                    <input
+                      type="checkbox"
+                      checked={lockForm.lockdownEnabled}
+                      onChange={(e) => setLockForm({ ...lockForm, lockdownEnabled: e.target.checked })}
+                      className="mt-0.5 rounded"
+                    />
+                    <div>
+                      <span className={`text-sm font-medium block ${isDark ? "text-white" : "text-gray-900"}`}>Lockdown Enabled</span>
+                      <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Disable all apps except the allowlist + essentials</span>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-gray-50 border border-gray-200"}`}>
+                    <input
+                      type="checkbox"
+                      checked={lockForm.dataWedgeTab}
+                      onChange={(e) => setLockForm({ ...lockForm, dataWedgeTab: e.target.checked })}
+                      className="mt-0.5 rounded"
+                    />
+                    <div>
+                      <span className={`text-sm font-medium block ${isDark ? "text-white" : "text-gray-900"}`}>DataWedge Tab</span>
+                      <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Send a Tab key after each scan</span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Screen Timeout + Rotation */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>Screen Timeout (ms)</label>
+                    <input
+                      type="number"
+                      value={lockForm.screenTimeoutMs}
+                      onChange={(e) => setLockForm({ ...lockForm, screenTimeoutMs: Number(e.target.value) })}
+                      className={inputClass}
+                      placeholder="30000"
+                      min={0}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Screen Rotation</label>
+                    <select
+                      value={lockForm.screenRotation}
+                      onChange={(e) => setLockForm({ ...lockForm, screenRotation: e.target.value })}
+                      className={inputClass}
+                    >
+                      <option value="portrait">Portrait</option>
+                      <option value="landscape">Landscape</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Allowed Packages */}
+                <div>
+                  <label className={labelClass}>Allowed Packages</label>
+                  <textarea
+                    value={lockForm.allowedPackagesText}
+                    onChange={(e) => setLockForm({ ...lockForm, allowedPackagesText: e.target.value })}
+                    className={`${inputClass} font-mono text-xs`}
+                    rows={5}
+                    placeholder={"com.example.myapp\ncom.example.otherapp"}
+                  />
+                  <p className={`text-xs mt-1.5 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                    Extra app package names to keep enabled (one per line). The 3 IET apps + essential system apps are always kept.
+                  </p>
+                </div>
               </div>
             </div>
 
