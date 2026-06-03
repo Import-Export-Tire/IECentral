@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation, action } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { requireAdmin } from "./authGuards";
 
 // ============ FLEET OVERVIEW ============
 
@@ -890,5 +891,80 @@ export const getApkDownloadUrls = action({
       fetchOne("agent"),
     ]);
     return { tireTrack, rtLocator, scannerAgent };
+  },
+});
+
+// ============ GLOBAL LOCK POLICY ============
+
+const LOCK_POLICY_DEFAULTS = {
+  allowedPackages: [] as string[],
+  lockdownEnabled: true,
+  dataWedgeTab: true,
+  screenTimeoutMs: 1800000,
+  screenRotation: "portrait",
+};
+
+export const getLockPolicy = query({
+  args: {},
+  handler: async (ctx) => {
+    const row = await ctx.db.query("scannerLockPolicy").first();
+    if (!row) return { ...LOCK_POLICY_DEFAULTS, _id: null };
+    return row;
+  },
+});
+
+export const setLockPolicy = mutation({
+  args: {
+    allowedPackages: v.array(v.string()),
+    lockdownEnabled: v.boolean(),
+    dataWedgeTab: v.boolean(),
+    screenTimeoutMs: v.optional(v.number()),
+    screenRotation: v.optional(v.string()),
+    requestingUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
+    const { requestingUserId, ...fields } = args;
+    const existing = await ctx.db.query("scannerLockPolicy").first();
+    if (existing) {
+      await ctx.db.patch(existing._id, { ...fields, updatedAt: Date.now(), updatedBy: requestingUserId });
+      return existing._id;
+    }
+    return await ctx.db.insert("scannerLockPolicy", { ...fields, updatedAt: Date.now(), updatedBy: requestingUserId });
+  },
+});
+
+// In-place update for the "update existing scanner" setup flow. Never changes
+// number / locationId / IoT identity. No duplicate guard (it's an update).
+export const updateScannerFromSetup = mutation({
+  args: {
+    scannerId: v.id("scanners"),
+    installedApps: v.optional(v.object({
+      tireTrack: v.optional(v.string()),
+      rtLocator: v.optional(v.string()),
+      scannerAgent: v.optional(v.string()),
+    })),
+    agentVersion: v.optional(v.string()),
+    androidVersion: v.optional(v.string()),
+    conditionNotes: v.optional(v.string()),
+    status: v.optional(v.string()),
+    assignedTo: v.optional(v.union(v.id("personnel"), v.null())),
+  },
+  handler: async (ctx, args) => {
+    const scanner = await ctx.db.get(args.scannerId);
+    if (!scanner) throw new Error("Scanner not found");
+    const now = Date.now();
+    const patch: Record<string, unknown> = { updatedAt: now };
+    if (args.installedApps) { patch.installedApps = args.installedApps; patch.mdmStatus = "provisioned"; patch.provisionedAt = now; }
+    if (args.agentVersion !== undefined) patch.agentVersion = args.agentVersion;
+    if (args.androidVersion !== undefined) patch.androidVersion = args.androidVersion;
+    if (args.conditionNotes !== undefined) patch.conditionNotes = args.conditionNotes;
+    if (args.status !== undefined) patch.status = args.status;
+    if (args.assignedTo !== undefined) {
+      patch.assignedTo = args.assignedTo ?? undefined;
+      patch.assignedAt = args.assignedTo ? now : undefined;
+    }
+    await ctx.db.patch(args.scannerId, patch);
+    return { scannerId: args.scannerId, number: scanner.number };
   },
 });

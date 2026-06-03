@@ -138,6 +138,9 @@ export const update = mutation({
     warehouseManagerName: v.optional(v.string()),
     warehouseManagerPhone: v.optional(v.string()),
     warehouseManagerEmail: v.optional(v.string()),
+    // Proper FK to the user who manages this location. Used by the
+    // termination-rollup-by-manager report (added 5/27).
+    managerId: v.optional(v.id("users")),
     requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
@@ -259,5 +262,20 @@ export const seedLocations = mutation({
     }
 
     return { created, message: `Created ${created.length} new locations` };
+  },
+});
+
+// Active locations of a given type (e.g. "retail") — used by the scanner setup
+// location picker to show retail locations greyed out ("coming soon").
+export const listByType = query({
+  args: { type: v.string() },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("locations")
+      .withIndex("by_type", (q) => q.eq("locationType", args.type))
+      .collect();
+    return rows
+      .filter((l) => l.isActive)
+      .map((l) => ({ _id: l._id, name: l.name, locationType: l.locationType }));
   },
 });

@@ -897,6 +897,18 @@ export default defineSchema({
     .index("by_serial", ["serialNumber"])
     .index("by_online", ["isOnline"]),
 
+  // Global scanner lock-down policy (single row). Drives the allowlist lockdown
+  // + DataWedge/screen settings applied during scanner setup.
+  scannerLockPolicy: defineTable({
+    allowedPackages: v.array(v.string()), // extra packages to KEEP enabled (beyond essentials + IET apps)
+    lockdownEnabled: v.boolean(),
+    dataWedgeTab: v.boolean(),
+    screenTimeoutMs: v.optional(v.number()),
+    screenRotation: v.optional(v.string()), // "portrait" | "landscape"
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.id("users")),
+  }),
+
   // Pickers (order picking devices/equipment)
   pickers: defineTable({
     number: v.string(), // Picker identifier (e.g., "1", "P-01", "PK-A")

@@ -17,6 +17,7 @@ import type * as applications from "../applications.js";
 import type * as attendance from "../attendance.js";
 import type * as auditLogs from "../auditLogs.js";
 import type * as auth from "../auth.js";
+import type * as authGuards from "../authGuards.js";
 import type * as broadcastMessages from "../broadcastMessages.js";
 import type * as bulkUpload from "../bulkUpload.js";
 import type * as callOffs from "../callOffs.js";
@@ -132,6 +133,7 @@ declare const fullApi: ApiFromModules<{
   attendance: typeof attendance;
   auditLogs: typeof auditLogs;
   auth: typeof auth;
+  authGuards: typeof authGuards;
   broadcastMessages: typeof broadcastMessages;
   bulkUpload: typeof bulkUpload;
   callOffs: typeof callOffs;
