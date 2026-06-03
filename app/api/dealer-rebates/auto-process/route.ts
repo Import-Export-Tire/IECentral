@@ -55,8 +55,17 @@ export async function POST(request: NextRequest) {
     const result = aggregate(body, dealers);
 
     const fileName = s3Key.split("/").pop() || s3Key;
-    const now = new Date();
-    const dateStr = `${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${now.getFullYear()}`;
+    // Name the output by the file's ACTIVITY date (YYYY-MM-DD), not the run date, so a
+    // day has one stable, regenerable submission file. Fall back to run date if unknown.
+    const dm = (result.dateRangeStart || "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    let dateStr: string;
+    if (dm) {
+      let y = parseInt(dm[3], 10); if (y < 100) y += 2000;
+      dateStr = `${y}-${String(+dm[1]).padStart(2, "0")}-${String(+dm[2]).padStart(2, "0")}`;
+    } else {
+      const now = new Date();
+      dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    }
     const results: { type: string; rows: number; qty: number; dealers: number; s3Key?: string }[] = [];
 
     // 3. Falken: write CSV to S3 + record stats

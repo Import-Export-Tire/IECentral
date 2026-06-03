@@ -2,7 +2,7 @@
 // Build deduped per-(program, dealer) monthly rows from a set of OEA07V files.
 // Dedups matched invoice-lines by SKU/ProductCode + dealer-id + invoice + date
 // (newest file wins on an amended qty), keeping only lines in the target month.
-import { aggregate, activityMonth, type RebateDealer } from "./aggregate";
+import { aggregate, activityMonth, type RebateDealer, type OutputRow } from "./aggregate";
 
 export interface MonthlyRow {
   program: string; jmk: string; name: string;
@@ -52,4 +52,26 @@ export function buildMonthlyRows(
     agg.set(k, cur);
   }
   return [...agg.values()];
+}
+
+// Deduped matched OUTPUT rows for a target month, per program — used to regenerate the
+// daily portal-submission CSVs. Same dedup as buildMonthlyRows (newest file wins), returns rows.
+export function buildDedupedLines(
+  files: { csvText: string }[],
+  dealers: RebateDealer[],
+  targetMonth: string,
+): { falken: OutputRow[]; milestar: OutputRow[] } {
+  const seen = new Map<string, { program: string; row: OutputRow }>();
+  for (const f of files) {
+    const res = aggregate(f.csvText, dealers);
+    for (const prog of ["falken", "milestar"] as const) {
+      for (const row of res[prog].outRows) {
+        if (activityMonth(lineDate(prog, row)) !== targetMonth) continue;
+        seen.set(lineKey(prog, row), { program: prog, row });
+      }
+    }
+  }
+  const falken: OutputRow[] = [], milestar: OutputRow[] = [];
+  for (const v of seen.values()) (v.program === "falken" ? falken : milestar).push(v.row);
+  return { falken, milestar };
 }
