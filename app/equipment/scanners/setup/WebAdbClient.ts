@@ -162,10 +162,13 @@ export class WebAdbClient {
     } finally {
       await sync.dispose();
     }
-    const result = await this.shell(`pm install -r ${remotePath}`);
+    // Redirect stderr→stdout: pm/cmd writes "Failure [INSTALL_FAILED_...]" to stderr on
+    // Android 8.1, but shellProtocol only returns stdout. Without this the error message
+    // is blank AND InstallStep's INSTALL_FAILED_UPDATE_INCOMPATIBLE auto-retry can't match.
+    const result = await this.shell(`pm install -r ${remotePath} 2>&1`);
     await this.shell(`rm -f ${remotePath}`);
     if (!/Success/.test(result)) {
-      throw new Error(`Install failed: ${result.trim()}`);
+      throw new Error(`Install failed: ${result.trim() || "pm install produced no output"}`);
     }
   }
 
