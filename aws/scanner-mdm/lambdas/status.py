@@ -76,6 +76,10 @@ def handler(event, context):
             telemetry["storageTotal"] = event["storageTotal"]
         if "storageFree" in event:
             telemetry["storageFree"] = event["storageFree"]
+        telemetry["deviceOwner"] = event.get("deviceOwner", False)
+        telemetry["pinManaged"] = event.get("pinManaged", False)
+        if "pin" in event:
+            telemetry["pin"] = event["pin"]
 
         # POST to Convex HTTP endpoint
         creds = get_credentials()
