@@ -1,7 +1,7 @@
 // app/equipment/scanners/setup/SetupWizard.tsx
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useSetupSession } from "./useSetupSession";
 import { DeviceDetectStep } from "./steps/DeviceDetectStep";
 import { LocationStep } from "./steps/LocationStep";
@@ -18,19 +18,39 @@ export function SetupWizard({ onClose }: { onClose: () => void }) {
   const isDark = theme === "dark";
   const session = useSetupSession();
 
+  // The WebAdbClient instance is stable across renders (and across reset), so
+  // releasing through it works even after the reducer's connection ref is cleared.
+  const clientRef = useRef(session.state.client);
+  clientRef.current = session.state.client;
+
+  // Release the WebUSB/ADB device, then close. Without this Chrome keeps the
+  // interface claimed after the wizard closes or errors, so the next setup
+  // attempt fails with "device in use by another program".
+  const handleClose = useCallback(() => {
+    clientRef.current?.disconnect().catch(() => {});
+    onClose();
+  }, [onClose]);
+
+  // Safety net: release the device if the wizard unmounts for any reason.
+  useEffect(() => {
+    return () => {
+      clientRef.current?.disconnect().catch(() => {});
+    };
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && session.state.step !== "install" && session.state.step !== "verify") onClose();
+      if (e.key === "Escape" && session.state.step !== "install" && session.state.step !== "verify") handleClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [session.state.step, onClose]);
+  }, [session.state.step, handleClose]);
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={(e) => {
-        if (e.target === e.currentTarget && session.state.step !== "install" && session.state.step !== "verify") onClose();
+        if (e.target === e.currentTarget && session.state.step !== "install" && session.state.step !== "verify") handleClose();
       }}
     >
       <div
@@ -42,7 +62,7 @@ export function SetupWizard({ onClose }: { onClose: () => void }) {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">{session.state.mode === "update" ? "Update Scanner" : "New Scanner Setup"}</h2>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               disabled={session.state.step === "install" || session.state.step === "verify"}
               className={`text-sm ${isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-black"} disabled:opacity-30 disabled:cursor-not-allowed`}
             >
@@ -60,13 +80,16 @@ export function SetupWizard({ onClose }: { onClose: () => void }) {
           {session.state.step === "manage" && <ManageStep session={session} />}
           {session.state.step === "install" && <InstallStep session={session} />}
           {session.state.step === "verify" && <VerifyStep session={session} />}
-          {session.state.step === "done" && <DoneStep session={session} onClose={onClose} />}
+          {session.state.step === "done" && <DoneStep session={session} onClose={handleClose} />}
           {session.state.step === "error" && (
             <div className="text-red-500">
               <p className="font-semibold mb-2">Setup failed</p>
               <p className="text-sm">{session.state.error}</p>
               <button
-                onClick={() => session.actions.reset()}
+                onClick={() => {
+                  clientRef.current?.disconnect().catch(() => {});
+                  session.actions.reset();
+                }}
                 className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
               >
                 Start over

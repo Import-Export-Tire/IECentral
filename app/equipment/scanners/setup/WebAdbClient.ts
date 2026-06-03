@@ -93,6 +93,24 @@ export class WebAdbClient {
     return this.connection;
   }
 
+  /**
+   * Release the active device: closes the ADB transport, which drops Chrome's
+   * WebUSB interface claim. Idempotent and safe to call when already idle.
+   * Must be called whenever the wizard closes/errors, or the device stays
+   * claimed and the next attempt fails with "device in use by another program".
+   */
+  async disconnect(): Promise<void> {
+    const conn = this.connection;
+    this.connection = null;
+    if (conn) {
+      try {
+        await conn.adb.close();
+      } catch {
+        /* already closed / device unplugged */
+      }
+    }
+  }
+
   private async shellCommand(adb: Adb, cmd: string): Promise<string> {
     // Prefer shell protocol (multiplexed stdout/stderr + exit code) when available;
     // fall back to none protocol (merged output stream) for older Android builds.
