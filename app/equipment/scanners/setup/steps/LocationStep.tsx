@@ -8,6 +8,7 @@ type Session = ReturnType<typeof useSetupSession>;
 
 export function LocationStep({ session }: { session: Session }) {
   const configs = useQuery(api.scannerMdm.listMdmConfigs);
+  const retail = useQuery(api.locations.listByType, { type: "retail" }) ?? [];
 
   const handlePick = (code: string, name: string) => {
     session.actions.setLocation(code, name);
@@ -29,6 +30,20 @@ export function LocationStep({ session }: { session: Session }) {
             <div className="font-semibold">{c.locationName ?? c.locationCode}</div>
             <div className="text-xs opacity-70 mt-0.5">{c.locationCode}</div>
           </button>
+        ))}
+        {/* Retail locations — coming soon, not yet selectable */}
+        {retail.map((l) => (
+          <div
+            key={l._id}
+            className="relative px-4 py-3 rounded-lg border border-current/10 opacity-50 cursor-not-allowed text-left"
+            title="Retail scanning program coming soon"
+          >
+            <div className="font-semibold">{l.name}</div>
+            <div className="text-xs opacity-70 mt-0.5">Retail</div>
+            <span className="absolute top-1.5 right-1.5 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600">
+              Coming soon
+            </span>
+          </div>
         ))}
       </div>
       <button

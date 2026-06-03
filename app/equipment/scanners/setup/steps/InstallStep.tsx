@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { useAuth } from "../../../../auth-context";
 import { useSetupSession } from "../useSetupSession";
 import { fetchApk } from "../apkManifest";
+import { IET_PACKAGES, ESSENTIAL_SYSTEM_PREFIXES, ESSENTIAL_SYSTEM_EXACT } from "../WebAdbClient";
 
 type Session = ReturnType<typeof useSetupSession>;
 
@@ -13,34 +14,13 @@ const TIRETRACK_PKG = "com.importexporttire.tiretrack";
 const RTL_PKG = "com.rt_systems.rtlhandsfree";
 const AGENT_PKG = "com.ietires.scanneragent";
 
-const BLOATWARE = [
-  "com.google.android.googlequicksearchbox",
-  "com.google.android.apps.docs",
-  "com.google.android.apps.maps",
-  "com.google.android.apps.photos",
-  "com.google.android.apps.tachyon",
-  "com.google.android.gm",
-  "com.google.android.music",
-  "com.google.android.videos",
-  "com.google.android.youtube",
-  "com.google.android.calendar",
-  "com.google.android.contacts",
-  "com.google.android.apps.messaging",
-  "com.google.android.dialer",
-  "com.google.android.apps.walletnfcrel",
-  "com.android.chrome",
-  "com.android.camera2",
-  "com.android.calculator2",
-  "com.android.deskclock",
-  "com.android.vending",
-  "com.google.android.gms.setup",
-];
-
 export function InstallStep({ session }: { session: Session }) {
   const { user } = useAuth();
   const getApkUrls = useAction(api.scannerMdm.getApkDownloadUrls);
   const logStep = useMutation(api.scannerMdm.logScannerSetupStep);
   const markComplete = useMutation(api.scannerMdm.markScannerSetupComplete);
+  const updateScanner = useMutation(api.scannerMdm.updateScannerFromSetup);
+  const lockPolicy = useQuery(api.scannerMdm.getLockPolicy, {});
   const mdmConfig = useQuery(
     api.scannerMdm.getMdmConfigByCode,
     session.state.locationCode ? { locationCode: session.state.locationCode } : "skip",
@@ -50,7 +30,9 @@ export function InstallStep({ session }: { session: Session }) {
   const [started, setStarted] = useState(false);
 
   useEffect(() => {
-    if (!mdmConfig || started) return;
+    if (!lockPolicy || started) return;
+    // New flow needs the location's MDM config; update flow tolerates its absence (uses fallbacks).
+    if (session.state.mode === "new" && !mdmConfig) return;
     setStarted(true);
     let cancelled = false;
 
@@ -231,11 +213,31 @@ export function InstallStep({ session }: { session: Session }) {
           await client.setActiveAdmin(`${AGENT_PKG}/.DeviceAdminReceiver`);
         });
 
-        // 10. Disable bloatware
-        await runStep("bloatware", "Disabling bloatware", async () => {
-          const list = mdmConfig?.bloatwarePackages?.length ? mdmConfig.bloatwarePackages : BLOATWARE;
-          await client.disablePackages(list);
-        });
+        // 10a. DataWedge: emit a Tab key after each scan (policy-gated, idempotent)
+        if (lockPolicy.dataWedgeTab) {
+          await runStep("datawedge", "Configuring DataWedge (Tab)", async () => {
+            await client.configureDataWedgeTab();
+          });
+        }
+
+        // 10b. Lockdown: disable every non-allowlisted user package (policy-gated)
+        if (lockPolicy.lockdownEnabled) {
+          await runStep("lockdown", "Locking down to allowlist", async () => {
+            const installed = await client.listPackages();
+            const keep = new Set<string>([
+              ...Object.values(IET_PACKAGES),
+              ...ESSENTIAL_SYSTEM_EXACT,
+              ...lockPolicy.allowedPackages,
+            ]);
+            const isEssential = (pkg: string) =>
+              keep.has(pkg) || ESSENTIAL_SYSTEM_PREFIXES.some((p) => pkg === p || pkg.startsWith(p));
+            const toDisable = installed.filter((pkg) => !isEssential(pkg));
+            // Dry-run record: log exactly what will be disabled BEFORE acting
+            // (pm disable-user is reversible via `pm enable`).
+            log("lockdown", "started", undefined, `disabling ${toDisable.length}: ${toDisable.join(",")}`.slice(0, 4000));
+            await client.disablePackages(toDisable);
+          });
+        }
 
         // 11. Launch SetupActivity
         await runStep("launchSetupActivity", "Launching Scanner Agent setup", async () => {
@@ -243,15 +245,27 @@ export function InstallStep({ session }: { session: Session }) {
         });
 
         // Record completion
-        await markComplete({
-          scannerId: state.scannerId!,
-          installedApps: {
-            tireTrack: state.installedVersions.tireTrack ?? apks!.versions.tireTrack,
-            rtLocator: state.installedVersions.rtLocator ?? apks!.versions.rtLocator,
-            scannerAgent: state.installedVersions.scannerAgent ?? apks!.versions.scannerAgent,
-          },
-          actingUserId: user!._id,
-        });
+        const installedApps = {
+          tireTrack: state.installedVersions.tireTrack ?? apks!.versions.tireTrack,
+          rtLocator: state.installedVersions.rtLocator ?? apks!.versions.rtLocator,
+          scannerAgent: state.installedVersions.scannerAgent ?? apks!.versions.scannerAgent,
+        };
+        if (state.mode === "update") {
+          await updateScanner({
+            scannerId: state.scannerId!,
+            installedApps,
+            androidVersion: state.connection?.androidVersion,
+            conditionNotes: state.manage.conditionNotes,
+            status: state.manage.status,
+            assignedTo: state.manage.assignedTo,
+          });
+        } else {
+          await markComplete({
+            scannerId: state.scannerId!,
+            installedApps,
+            actingUserId: user!._id,
+          });
+        }
 
         if (cancelled) return;
         actions.goToStep("verify");
@@ -267,7 +281,7 @@ export function InstallStep({ session }: { session: Session }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mdmConfig]);
+  }, [mdmConfig, lockPolicy]);
 
   return (
     <div className="space-y-3">
