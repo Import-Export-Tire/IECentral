@@ -287,6 +287,18 @@ def handler(event, _context):
         ContentType="application/json",
     )
 
+    # Auto-heal: ask IECentral to backfill any brand-less inventory adjustments now
+    # that a fresh OEIVAL cache is available. Best-effort — never block processing.
+    try:
+        import urllib.request
+        heal_url = os.environ.get("IECENTRAL_URL", "https://www.iecentral.com") + "/api/reports/heal-adjustment-brands"
+        req = urllib.request.Request(heal_url, data=b"{}", method="POST",
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            print(f"heal-adjustment-brands: {resp.status} {resp.read()[:200]}")
+    except Exception as e:
+        print(f"heal-adjustment-brands call failed (non-fatal): {e}")
+
     return {
         "fileKey": key,
         "totalRows": len(items),
