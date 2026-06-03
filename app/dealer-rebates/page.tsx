@@ -1047,31 +1047,36 @@ function UploadHistoryTab({ isDark }: { isDark: boolean }) {
     selectedUploadId ? { id: selectedUploadId } : "skip"
   );
 
-  // Convert S3 reports to same shape as Convex uploads
-  const s3AsUploads = s3Reports
-    .filter(r => programFilter === "all" || r.program.toLowerCase().includes(programFilter))
-    .map(r => ({
-      _id: r.key as any,
-      _s3: true as const,
-      program: r.program.includes("Falken") ? "falken" : "milestar",
-      fileName: r.fileName,
-      matchedRows: 0,
-      dealersMatched: 0,
-      uploadDate: new Date(r.date).getTime(),
-      downloadUrl: r.downloadUrl,
-      size: r.size,
-    }));
+  const [showIngested, setShowIngested] = useState(false);
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
 
   // searchResults now returns { monthly, uploads } — extract just the uploads array for display
   const searchUploads = debouncedSearch.length >= 2 ? (searchResults?.uploads ?? null) : null;
   const searchMonthly = debouncedSearch.length >= 2 ? (searchResults?.monthly ?? null) : null;
-
   const convexUploads = (searchUploads !== null ? searchUploads : uploads) || [];
-  const displayUploads = [...s3AsUploads, ...convexUploads].sort((a: any, b: any) => {
-    const aDate = a.uploadDate || a.createdAt || 0;
-    const bDate = b.uploadDate || b.createdAt || 0;
-    return bDate - aDate;
-  });
+
+  // Daily submission files: group the generated S3 outputs by month → day → {falken, milestar}.
+  const dailyByMonth = useMemo(() => {
+    const filtered = s3Reports.filter(r => programFilter === "all" || r.program.toLowerCase().includes(programFilter));
+    const months = new Map<string, Map<string, { falken?: typeof filtered[number]; milestar?: typeof filtered[number] }>>();
+    for (const r of filtered) {
+      const m = r.fileName.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (!m) continue;
+      const day = `${m[1]}-${m[2]}-${m[3]}`;
+      const month = `${m[1]}-${m[2]}`;
+      if (!months.has(month)) months.set(month, new Map());
+      const days = months.get(month)!;
+      if (!days.has(day)) days.set(day, {});
+      days.get(day)![r.program.includes("Falken") ? "falken" : "milestar"] = r;
+    }
+    return [...months.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([month, days]) => ({
+      month,
+      days: [...days.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([day, brands]) => ({ day, ...brands })),
+    }));
+  }, [s3Reports, programFilter]);
+
+  const monthLabel = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const dayLabel = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
   const reExport = () => {
     if (!selectedUpload?.resultData) return;
@@ -1080,6 +1085,57 @@ function UploadHistoryTab({ isDark }: { isDark: boolean }) {
     const stamp = `${date.getMonth()+1}${String(date.getDate()).padStart(2,"0")}${date.getFullYear()}`;
     downloadCSV(`${program}_${stamp}_reexport.csv`, selectedUpload.resultData);
   };
+
+  // One ingested source-file record (expandable → breakdown + Re-export/Delete).
+  const renderSourceCard = (u: any) => (
+    <div
+      key={u._id}
+      className={`rounded-xl border p-4 transition-all cursor-pointer ${
+        selectedUploadId === u._id
+          ? isDark ? "border-orange-500/40 bg-orange-500/10" : "border-orange-300 bg-orange-50"
+          : isDark ? "border-slate-700 bg-slate-800/50 hover:border-slate-600" : "border-gray-200 bg-white hover:border-gray-300 shadow-sm"
+      }`}
+      onClick={() => setSelectedUploadId(selectedUploadId === u._id ? null : u._id)}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${u.program === "falken" ? (isDark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-700") : (isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-700")}`}>{u.program}</span>
+          <span className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{u.fileName}</span>
+        </div>
+        <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>{formatDate(u.uploadDate || u.createdAt)}</span>
+      </div>
+      <div className={`flex gap-4 mt-2 text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+        {"matchedRows" in u && u.matchedRows != null ? (
+          <><span>{u.matchedRows} rows</span><span>{u.dealersMatched} dealers</span></>
+        ) : "matchedDealers" in u && Array.isArray(u.matchedDealers) ? (
+          <span>{u.matchedDealers.length} dealer{u.matchedDealers.length !== 1 ? "s" : ""} matched</span>
+        ) : null}
+        {u.dateRangeStart && (<span className={`font-medium ${isDark ? "text-cyan-400" : "text-blue-600"}`}>{u.dateRangeStart} — {u.dateRangeEnd}</span>)}
+      </div>
+      {selectedUploadId === u._id && (
+        <div className={`mt-4 pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+          {(("dealerBreakdown" in u && u.dealerBreakdown) || ("matchedDealers" in u && u.matchedDealers)) && (
+            <div className="mb-3">
+              <div className={`text-xs font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-600"}`}>{"matchedDealers" in u && u.matchedDealers ? "Matching Dealers:" : "Dealer Breakdown:"}</div>
+              <div className="grid grid-cols-2 gap-1">
+                {((u.matchedDealers ?? u.dealerBreakdown) as any[]).map((d: any, i: number) => (
+                  <div key={i} className={`flex justify-between text-xs py-1 px-2 rounded ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
+                    <span className={isDark ? "text-white" : "text-gray-900"}>{d.name}</span>
+                    <span className={`font-mono ${isDark ? "text-slate-400" : "text-gray-500"}`}>{d.qty ?? d.rowCount} {d.qty != null ? "tires" : "rows"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-3">
+            {selectedUpload?.resultData && (<button onClick={e => { e.stopPropagation(); reExport(); }} className="px-4 py-1.5 rounded-lg text-sm font-bold bg-green-600 hover:bg-green-700 text-white transition-colors">Re-export CSV</button>)}
+            {selectedUpload && !selectedUpload.resultData && (<span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>Loading export data...</span>)}
+            {canDeleteUploads && (<button onClick={e => { e.stopPropagation(); setConfirmDeleteId(u._id); setConfirmDeleteName(u.fileName); }} className="px-4 py-1.5 rounded-lg text-sm font-bold bg-red-600 hover:bg-red-700 text-white transition-colors">Delete</button>)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div>
@@ -1136,123 +1192,75 @@ function UploadHistoryTab({ isDark }: { isDark: boolean }) {
         </div>
       )}
 
-      {/* Upload List */}
-      {!displayUploads ? (
-        <div className={`text-center py-12 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Loading...</div>
-      ) : !displayUploads || displayUploads.length === 0 ? (
-        <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-          {debouncedSearch ? "No uploads found matching your search" : "No upload history yet"}
+      {/* Search mode: matching ingested records (monthly totals card shown above) */}
+      {debouncedSearch.length >= 2 ? (
+        <div className="space-y-3">
+          {searchUploads && searchUploads.length > 0
+            ? (searchUploads as any[]).map(renderSourceCard)
+            : <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-400"}`}>No records matching your search</div>}
         </div>
       ) : (
-        <div className="space-y-3">
-          {displayUploads.map((u: any) => (
-            <div
-              key={u._id}
-              className={`rounded-xl border p-4 transition-all ${
-                u._s3 ? (isDark ? "border-slate-700 bg-slate-800/50" : "border-gray-200 bg-white shadow-sm") :
-                `cursor-pointer ${selectedUploadId === u._id
-                  ? isDark ? "border-orange-500/40 bg-orange-500/10" : "border-orange-300 bg-orange-50"
-                  : isDark ? "border-slate-700 bg-slate-800/50 hover:border-slate-600" : "border-gray-200 bg-white hover:border-gray-300 shadow-sm"
-                }`
-              }`}
-              onClick={() => !u._s3 && setSelectedUploadId(selectedUploadId === u._id ? null : u._id)}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                    u.program === "falken"
-                      ? isDark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-700"
-                      : isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-700"
-                  }`}>
-                    {u.program}
-                  </span>
-                  <span className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                    {u.fileName}
-                  </span>
-                  {u._s3 && <span className={`px-1.5 py-0.5 rounded text-[9px] ${isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"}`}>Auto</span>}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                    {formatDate(u.uploadDate || u.createdAt)}
-                  </span>
-                  {u._s3 && (
-                    <a href={u.downloadUrl} download={u.fileName} onClick={(e) => e.stopPropagation()}
-                      className={`px-3 py-1 rounded-lg text-xs font-medium ${isDark ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"}`}>
-                      Download
-                    </a>
-                  )}
-                </div>
-              </div>
-              <div className={`flex gap-4 mt-2 text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                {u._s3 ? (
-                  <span>{(u.size / 1024).toFixed(0)} KB</span>
-                ) : "matchedRows" in u && u.matchedRows != null ? (
-                  <><span>{(u as any).matchedRows} rows</span><span>{(u as any).dealersMatched} dealers</span></>
-                ) : "matchedDealers" in u && Array.isArray((u as any).matchedDealers) ? (
-                  <span>{(u as any).matchedDealers.length} dealer{(u as any).matchedDealers.length !== 1 ? "s" : ""} matched</span>
-                ) : null}
-                {(u as { dateRangeStart?: string; dateRangeEnd?: string }).dateRangeStart && (
-                  <span className={`font-medium ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
-                    {(u as { dateRangeStart?: string }).dateRangeStart} — {(u as { dateRangeEnd?: string }).dateRangeEnd}
-                  </span>
-                )}
-              </div>
-
-              {/* Expanded detail */}
-              {selectedUploadId === u._id && (
-                <div className={`mt-4 pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                  {"dealerBreakdown" in u && u.dealerBreakdown && (
-                    <div className="mb-3">
-                      <div className={`text-xs font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-600"}`}>Dealer Breakdown:</div>
-                      <div className="grid grid-cols-2 gap-1">
-                        {u.dealerBreakdown.map((d: any, i: number) => (
-                          <div key={i} className={`flex justify-between text-xs py-1 px-2 rounded ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
-                            <span className={isDark ? "text-white" : "text-gray-900"}>{d.name}</span>
-                            <span className={`font-mono ${isDark ? "text-slate-400" : "text-gray-500"}`}>{d.rowCount} rows</span>
+        <>
+          {/* Daily Submission Files — the deliverables to upload to the portal */}
+          <div className="mb-3 flex items-end justify-between">
+            <h3 className={`text-sm font-bold uppercase tracking-wider ${isDark ? "text-slate-300" : "text-gray-600"}`}>Daily Submission Files</h3>
+            <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>one file per brand per day · download to submit</span>
+          </div>
+          {dailyByMonth.length === 0 ? (
+            <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-400"}`}>No submission files yet</div>
+          ) : (
+            <div className="space-y-4">
+              {dailyByMonth.map(({ month, days }) => {
+                const open = !collapsedMonths.has(month);
+                return (
+                  <div key={month} className={`rounded-xl border overflow-hidden ${isDark ? "border-slate-700" : "border-gray-200 shadow-sm"}`}>
+                    <button
+                      onClick={() => setCollapsedMonths(prev => { const n = new Set(prev); if (n.has(month)) n.delete(month); else n.add(month); return n; })}
+                      className={`w-full flex items-center justify-between px-5 py-3 text-left ${isDark ? "bg-slate-800/80 hover:bg-slate-800" : "bg-gray-50 hover:bg-gray-100"}`}
+                    >
+                      <span className={`text-sm font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{monthLabel(month)}</span>
+                      <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>{open ? "▾" : "▸"} {days.length} day{days.length !== 1 ? "s" : ""}</span>
+                    </button>
+                    {open && (
+                      <div className={`divide-y ${isDark ? "divide-slate-700/50" : "divide-gray-100"}`}>
+                        {days.map(({ day, falken, milestar }) => (
+                          <div key={day} className="flex items-center justify-between px-5 py-2.5">
+                            <span className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{dayLabel(day)}</span>
+                            <div className="flex items-center gap-2">
+                              {falken
+                                ? <a href={falken.downloadUrl} download={falken.fileName} className={`px-3 py-1 rounded-lg text-xs font-medium ${isDark ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30" : "bg-amber-100 text-amber-700 hover:bg-amber-200"}`}>Falken ↓</a>
+                                : <span className={`px-3 py-1 text-xs ${isDark ? "text-slate-600" : "text-gray-300"}`}>Falken —</span>}
+                              {milestar
+                                ? <a href={milestar.downloadUrl} download={milestar.fileName} className={`px-3 py-1 rounded-lg text-xs font-medium ${isDark ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}>Milestar ↓</a>
+                                : <span className={`px-3 py-1 text-xs ${isDark ? "text-slate-600" : "text-gray-300"}`}>Milestar —</span>}
+                            </div>
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
-                  {"matchedDealers" in u && u.matchedDealers && (
-                    <div className="mb-3">
-                      <div className={`text-xs font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-600"}`}>Matching Dealers:</div>
-                      <div className="grid grid-cols-2 gap-1">
-                        {u.matchedDealers.map((d: any, i: number) => (
-                          <div key={i} className={`flex justify-between text-xs py-1 px-2 rounded ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
-                            <span className={isDark ? "text-white" : "text-gray-900"}>{d.name}</span>
-                            <span className={`font-mono ${isDark ? "text-slate-400" : "text-gray-500"}`}>{d.rowCount} rows</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-3">
-                    {selectedUpload?.resultData && (
-                      <button
-                        onClick={e => { e.stopPropagation(); reExport(); }}
-                        className="px-4 py-1.5 rounded-lg text-sm font-bold bg-green-600 hover:bg-green-700 text-white transition-colors"
-                      >
-                        Re-export CSV
-                      </button>
-                    )}
-                    {selectedUpload && !selectedUpload.resultData && (
-                      <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>Loading export data...</span>
-                    )}
-                    {canDeleteUploads && (
-                      <button
-                        onClick={e => { e.stopPropagation(); setConfirmDeleteId(u._id); setConfirmDeleteName(u.fileName); }}
-                        className="px-4 py-1.5 rounded-lg text-sm font-bold bg-red-600 hover:bg-red-700 text-white transition-colors"
-                      >
-                        Delete
-                      </button>
                     )}
                   </div>
-                </div>
-              )}
+                );
+              })}
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* Ingested source files — raw records, collapsed by default */}
+          <div className="mt-6">
+            <button
+              onClick={() => setShowIngested(v => !v)}
+              className={`text-sm font-medium ${isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-900"}`}
+            >
+              {showIngested ? "▾" : "▸"} Ingested source files ({convexUploads.length})
+            </button>
+            {showIngested && (
+              <div className="space-y-3 mt-3">
+                {convexUploads.length === 0
+                  ? <div className={`text-center py-6 text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>No ingested files</div>
+                  : (convexUploads as any[]).map(renderSourceCard)}
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Delete Confirmation Modal */}
