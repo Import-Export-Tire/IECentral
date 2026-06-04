@@ -102,6 +102,7 @@ class MqttService : Service() {
 
     private fun connectMqtt() {
         val serverUri = "ssl://$iotEndpoint:8883"
+        Log.i(TAG, "Connecting to $serverUri as $thingName")
         mqttClient = MqttAsyncClient(serverUri, thingName, MemoryPersistence())
 
         mqttClient?.setCallback(object : MqttCallbackExtended {
@@ -129,13 +130,33 @@ class MqttService : Service() {
             isCleanSession = true
             connectionTimeout = 30
             keepAliveInterval = 60
-            socketFactory = createSslSocketFactory()
+            try {
+                socketFactory = createSslSocketFactory()
+            } catch (e: Exception) {
+                Log.e(TAG, "SSL setup failed: ${e.message}", e)
+            }
         }
 
+        // connect() with a listener so initial-connect FAILURES are logged + retried.
+        // (isAutomaticReconnect only covers drops AFTER a successful connect, so a failed
+        // first connect was previously silent — the agent looked dead with no log.)
+        val listener = object : IMqttActionListener {
+            override fun onSuccess(asyncActionToken: IMqttToken?) {
+                Log.i(TAG, "connect() onSuccess")
+            }
+            override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {
+                Log.e(TAG, "connect() onFailure: ${exception?.javaClass?.simpleName}: ${exception?.message}", exception)
+                updateNotification("Connection failed")
+                handler.postDelayed({
+                    try { mqttClient?.connect(options, null, this) }
+                    catch (e: Exception) { Log.e(TAG, "retry connect threw: ${e.message}") }
+                }, 15_000)
+            }
+        }
         try {
-            mqttClient?.connect(options)
+            mqttClient?.connect(options, null, listener)
         } catch (e: Exception) {
-            Log.e(TAG, "MQTT connect failed: ${e.message}")
+            Log.e(TAG, "MQTT connect threw: ${e.message}", e)
             updateNotification("Connection failed")
         }
     }
