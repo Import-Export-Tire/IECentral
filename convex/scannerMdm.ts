@@ -770,6 +770,7 @@ export const claimProvision = internalMutation({
     return {
       success: true,
       thingName: record.thingName,
+      certificateArn: record.certificateArn,
       certificatePem: record.certificatePem,
       privateKey: record.privateKey,
       iotEndpoint: record.iotEndpoint,

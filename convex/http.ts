@@ -82,6 +82,25 @@ http.route({
         );
       }
 
+      // Retire-at-claim: now that the device has adopted this cert, retire any OTHER
+      // (older) certs on the thing. Best-effort — never block/fail the claim. This is what
+      // makes provisioning safe: old certs are only retired once the new one is claimed,
+      // so an abandoned provision can't strand a device.
+      try {
+        const base = process.env.IECENTRAL_URL || "https://www.iecentral.com";
+        await fetch(`${base}/api/scanner-mdm/provision`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "retire",
+            thingName: result.thingName,
+            keepCertArn: result.certificateArn,
+          }),
+        });
+      } catch (e) {
+        console.error("retire-at-claim call failed (non-fatal):", e);
+      }
+
       return new Response(
         JSON.stringify({
           thingName: result.thingName,

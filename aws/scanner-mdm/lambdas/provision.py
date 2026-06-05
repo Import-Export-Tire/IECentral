@@ -39,11 +39,14 @@ def call_convex_mutation(deploy_key, path, args):
         return json.loads(resp.read())
 
 
-def retire_thing_certs(thing_name):
-    """Detach + deactivate + delete every certificate currently attached to a thing.
-    Best-effort: any failure is logged and skipped so it never blocks provisioning.
-    Returns the count of certificates retired. Requires iot:ListThingPrincipals; if that
-    permission is absent the listing fails and 0 is returned (provisioning still succeeds).
+def retire_thing_certs(thing_name, keep_arn=None):
+    """Detach + deactivate + delete certificates attached to a thing, EXCEPT keep_arn.
+    Best-effort: any failure is logged and skipped. Returns the count retired. Requires
+    iot:ListThingPrincipals; if absent the listing fails and 0 is returned.
+
+    Called at CLAIM time (keep_arn = the cert the device just adopted) so an abandoned or
+    incomplete provision can never strand a device — the old cert is only retired once the
+    new one has actually been claimed.
     """
     retired = 0
     try:
@@ -55,6 +58,8 @@ def retire_thing_certs(thing_name):
     for principal_arn in principals:
         if ":cert/" not in principal_arn:
             continue  # only certificate principals
+        if keep_arn and principal_arn == keep_arn:
+            continue  # never retire the cert the device just claimed
         cert_id = principal_arn.split("/")[-1]
         try:
             try:
@@ -73,6 +78,18 @@ def retire_thing_certs(thing_name):
 def handler(event, context):
     try:
         body = json.loads(event.get("body", "{}"))
+
+        # Retire-at-claim mode: called after a device claims its new cert. Retires every
+        # OTHER cert on the thing, keeping the just-claimed one. Decouples retirement from
+        # provisioning so an unclaimed provision never strands a device.
+        if body.get("action") == "retire":
+            thing_name = body.get("thingName")
+            keep_arn = body.get("keepCertArn")
+            if not thing_name:
+                return response(400, {"error": "thingName required for retire"})
+            retired = retire_thing_certs(thing_name, keep_arn)
+            return response(200, {"retired": retired, "thingName": thing_name})
+
         serial_number = body.get("serialNumber")
         location_code = body.get("locationCode")
         scanner_number = body.get("scannerNumber")
@@ -115,14 +132,10 @@ def handler(event, context):
         except Exception:
             pass  # Group may not exist yet in dev
 
-        # Retire any certificate already attached to this thing BEFORE minting the new
-        # one. Each re-provision supersedes the device's previous certificate; leaving the
-        # old one ACTIVE means a stale private key (on the wiped device and in the claimed
-        # provision-code record) could still connect to IoT. Best-effort per certificate
-        # so cleanup never blocks provisioning. Safe at this point: provisioning only runs
-        # during a new-setup or software-update flow where the device is being
-        # (re)configured, so the old certificate's session is going away regardless.
-        retired_certs = retire_thing_certs(thing_name)
+        # NOTE: old certs are NOT retired here anymore. Retiring before the device claims
+        # the new cert can strand a device (it ends up holding a deleted cert) if the claim
+        # is never completed. Retirement now happens at CLAIM time (action=="retire" above),
+        # once the device has actually adopted the new cert.
 
         # Create certificate and keys
         cert = iot.create_keys_and_certificate(setAsActive=True)
@@ -189,7 +202,6 @@ def handler(event, context):
                 "privateKey": private_key,
                 "publicKey": public_key,
                 "iotEndpoint": iot_endpoint,
-                "retiredCerts": retired_certs,
             },
         )
 
