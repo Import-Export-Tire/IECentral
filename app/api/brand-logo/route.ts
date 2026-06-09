@@ -4,7 +4,9 @@ import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 // Brand logos live in S3 (the "database"), not the repo, so they persist + are shared
 // without commits. Upload as: brand-logos/<slug>.png in this bucket. The tire label
 // resolves a logo by brand name; a missing logo 404s and the label falls back to text.
-const BUCKET = process.env.SCANNER_ASSETS_BUCKET || "ietires-scanner-assets";
+// NOTE: this is the same bucket the inventory report reads — Vercel's S3 creds have
+// access here (they do NOT have access to ietires-scanner-assets).
+const BUCKET = process.env.BRAND_LOGO_BUCKET || "ietires-dunlop-jmk-uploads";
 
 const s3 = new S3Client({
   region: process.env.S3_REGION || "us-east-1",
