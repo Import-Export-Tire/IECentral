@@ -3510,4 +3510,25 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_endpoint", ["endpoint"]),
+
+  labelWorkOrders: defineTable({
+    title: v.string(),
+    labelType: v.string(),              // "tire"
+    labels: v.array(v.object({
+      itemId: v.string(),
+      brand: v.string(),
+      model: v.string(),
+      sizeDesc: v.string(),
+    })),
+    copies: v.number(),
+    notes: v.optional(v.string()),
+    status: v.string(),                 // "open" | "printed"
+    createdBy: v.optional(v.id("users")),
+    createdByName: v.string(),
+    createdAt: v.number(),
+    printedAt: v.optional(v.number()),
+    printedByName: v.optional(v.string()),
+  })
+    .index("by_status_created", ["status", "createdAt"])
+    .index("by_created", ["createdAt"]),
 });
