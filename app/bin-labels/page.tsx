@@ -1076,21 +1076,24 @@ function PrintTireLabel({
     if (svgRef.current && itemId) {
       JsBarcode(svgRef.current, itemId, {
         format: "CODE128",
-        width: 3,
-        height: 80,
+        width: 2,          // narrow bars so a long item-ID fits within the 4" label width
+        height: 70,
         displayValue: true,
-        fontSize: 20,
+        fontSize: 18,
         font: "monospace",
-        textMargin: 5,
-        margin: 5,
+        textMargin: 4,
+        margin: 4,
       });
     }
   }, [itemId]);
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4 h-full w-full text-center text-black px-6">
+    <div
+      className="flex flex-col items-center justify-center gap-3 text-center text-black px-4"
+      style={{ width: "4in", height: "6in", overflow: "hidden", boxSizing: "border-box" }}
+    >
       {brand && (
-        <div className="flex flex-col items-center" style={{ gap: "8px" }}>
+        <div className="flex flex-col items-center" style={{ gap: "8px", maxWidth: "100%" }}>
           {brandLogoSrc(brand) && (
             <img
               src={brandLogoSrc(brand)!}
@@ -1098,15 +1101,15 @@ function PrintTireLabel({
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
-              style={{ maxHeight: "1in", maxWidth: "3in", objectFit: "contain", filter: "grayscale(1) contrast(1.15)" }}
+              style={{ maxHeight: "1in", maxWidth: "3.25in", objectFit: "contain", filter: "grayscale(1) contrast(1.15)" }}
             />
           )}
-          <p style={{ fontSize: "44px", fontWeight: "bold", lineHeight: 1.1 }}>{brand}</p>
+          <p style={{ fontSize: "40px", fontWeight: "bold", lineHeight: 1.1, maxWidth: "100%", wordBreak: "break-word" }}>{brand}</p>
         </div>
       )}
-      {model && <p style={{ fontSize: "28px", fontWeight: 500, lineHeight: 1.2 }}>{model}</p>}
-      {sizeDesc && <p style={{ fontSize: "24px", fontWeight: 500, lineHeight: 1.3 }}>{sizeDesc}</p>}
-      {itemId && <svg ref={svgRef} className="flex-shrink-0 mt-2" />}
+      {model && <p style={{ fontSize: "26px", fontWeight: 500, lineHeight: 1.2, maxWidth: "100%", wordBreak: "break-word" }}>{model}</p>}
+      {sizeDesc && <p style={{ fontSize: "22px", fontWeight: 500, lineHeight: 1.3, maxWidth: "100%", wordBreak: "break-word" }}>{sizeDesc}</p>}
+      {itemId && <svg ref={svgRef} className="flex-shrink-0 mt-1" style={{ maxWidth: "100%" }} />}
     </div>
   );
 }
