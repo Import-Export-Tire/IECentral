@@ -11,14 +11,30 @@ interface LabelData {
   locationName: string;
 }
 
+interface TireLabelData {
+  itemId: string;
+  brand: string;
+  model: string;
+  sizeDesc: string;
+}
+
+type Mode = "bin" | "tire";
+
 export default function BinLabelsPage() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const [mode, setMode] = useState<Mode>("bin");
   const [labels, setLabels] = useState<LabelData[]>([{ locationId: "", locationName: "" }]);
+  const [tireLabels, setTireLabels] = useState<TireLabelData[]>([
+    { itemId: "", brand: "", model: "", sizeDesc: "" },
+  ]);
   const [copies, setCopies] = useState(1);
+  const [lookupLoading, setLookupLoading] = useState<number | null>(null);
+  const [lookupNotFound, setLookupNotFound] = useState<Record<number, boolean>>({});
   const barcodeRefs = useRef<(SVGSVGElement | null)[]>([]);
+  const tireBarcodeRefs = useRef<(SVGSVGElement | null)[]>([]);
 
-  // Generate barcodes when labels change
+  // Generate bin barcodes when labels change
   useEffect(() => {
     labels.forEach((label, index) => {
       if (label.locationId && barcodeRefs.current[index]) {
@@ -40,14 +56,35 @@ export default function BinLabelsPage() {
     });
   }, [labels]);
 
+  // Generate tire barcodes when tire labels change
+  useEffect(() => {
+    tireLabels.forEach((label, index) => {
+      if (label.itemId && tireBarcodeRefs.current[index]) {
+        try {
+          JsBarcode(tireBarcodeRefs.current[index], label.itemId, {
+            format: "CODE128",
+            width: 2.5,
+            height: 70,
+            displayValue: true,
+            fontSize: 18,
+            font: "monospace",
+            textMargin: 5,
+            margin: 5,
+          });
+        } catch (e) {
+          console.error("Tire barcode generation error:", e);
+        }
+      }
+    });
+  }, [tireLabels]);
+
   const addLabel = () => {
     setLabels([...labels, { locationId: "", locationName: "" }]);
   };
 
   const removeLabel = (index: number) => {
     if (labels.length > 1) {
-      const newLabels = labels.filter((_, i) => i !== index);
-      setLabels(newLabels);
+      setLabels(labels.filter((_, i) => i !== index));
     }
   };
 
@@ -57,19 +94,80 @@ export default function BinLabelsPage() {
     setLabels(newLabels);
   };
 
+  const addTireLabel = () => {
+    setTireLabels([...tireLabels, { itemId: "", brand: "", model: "", sizeDesc: "" }]);
+  };
+
+  const removeTireLabel = (index: number) => {
+    if (tireLabels.length > 1) {
+      setTireLabels(tireLabels.filter((_, i) => i !== index));
+      setLookupNotFound((prev) => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
+    }
+  };
+
+  const updateTireLabel = (index: number, field: keyof TireLabelData, value: string) => {
+    const newLabels = [...tireLabels];
+    newLabels[index] = { ...newLabels[index], [field]: value };
+    setTireLabels(newLabels);
+  };
+
+  const lookupTire = async (index: number) => {
+    const itemId = tireLabels[index].itemId.trim();
+    if (!itemId) return;
+    setLookupLoading(index);
+    setLookupNotFound((prev) => ({ ...prev, [index]: false }));
+    try {
+      const res = await fetch(`/api/reports/resolve-brand?itemId=${encodeURIComponent(itemId)}`);
+      const data = await res.json();
+      if (data.found) {
+        const newLabels = [...tireLabels];
+        newLabels[index] = {
+          ...newLabels[index],
+          brand: data.manufacturerName || "",
+          model: data.model || "",
+          sizeDesc: data.description || "",
+        };
+        setTireLabels(newLabels);
+      } else {
+        setLookupNotFound((prev) => ({ ...prev, [index]: true }));
+      }
+    } catch (e) {
+      console.error("Brand lookup error:", e);
+      setLookupNotFound((prev) => ({ ...prev, [index]: true }));
+    } finally {
+      setLookupLoading(null);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
 
   const clearAll = () => {
-    setLabels([{ locationId: "", locationName: "" }]);
+    if (mode === "bin") {
+      setLabels([{ locationId: "", locationName: "" }]);
+    } else {
+      setTireLabels([{ itemId: "", brand: "", model: "", sizeDesc: "" }]);
+      setLookupNotFound({});
+    }
     setCopies(1);
   };
 
   // Generate labels with copies
-  const labelsWithCopies = labels.flatMap((label) =>
-    Array(copies).fill(label)
-  );
+  const labelsWithCopies = labels.flatMap((label) => Array(copies).fill(label));
+  const tireLabelsWithCopies = tireLabels.flatMap((label) => Array(copies).fill(label));
+
+  const tireIsPrintable = (l: TireLabelData) => Boolean(l.itemId || l.brand);
+  const canPrint =
+    mode === "bin"
+      ? labels.some((l) => l.locationId)
+      : tireLabels.some(tireIsPrintable);
+
+  const isTire = mode === "tire";
 
   return (
     <Protected>
@@ -82,13 +180,35 @@ export default function BinLabelsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Bin Label Printer
+                  {isTire ? "Tire Label Printer" : "Bin Label Printer"}
                 </h1>
                 <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                  Generate Code 128 barcode labels for warehouse bins (6" × 2" thermal labels)
+                  {isTire
+                    ? 'Print replacement labels for tires missing them (4" × 6" shipping labels)'
+                    : 'Generate Code 128 barcode labels for warehouse bins (6" × 2" thermal labels)'}
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                {/* Mode toggle - segmented control */}
+                <div className={`flex items-center p-1 rounded-lg ${isDark ? "bg-slate-700" : "bg-gray-100"}`}>
+                  {(["bin", "tire"] as Mode[]).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setMode(m)}
+                      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                        mode === m
+                          ? isDark
+                            ? "bg-cyan-500 text-white"
+                            : "bg-white text-gray-900 shadow-sm"
+                          : isDark
+                            ? "text-slate-300 hover:text-white"
+                            : "text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      {m === "bin" ? "Bin Labels" : "Tire Labels"}
+                    </button>
+                  ))}
+                </div>
                 <button
                   onClick={clearAll}
                   className={`px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
@@ -98,9 +218,9 @@ export default function BinLabelsPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handlePrint}
-                    disabled={!labels.some(l => l.locationId)}
+                    disabled={!canPrint}
                     className={`px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                      labels.some(l => l.locationId)
+                      canPrint
                         ? isDark
                           ? "bg-cyan-500 hover:bg-cyan-400 text-white"
                           : "bg-blue-600 hover:bg-blue-700 text-white"
@@ -122,7 +242,7 @@ export default function BinLabelsPage() {
                       <p className={`font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>Print Setup Tips:</p>
                       <ol className={`text-sm space-y-1.5 ${isDark ? "text-slate-300" : "text-gray-600"}`}>
                         <li>1. Select your label printer</li>
-                        <li>2. Set paper size to <strong>6" × 2"</strong></li>
+                        <li>2. Set paper size to <strong>{isTire ? '4" × 6"' : '6" × 2"'}</strong></li>
                         <li>3. Set margins to <strong>None</strong></li>
                         <li>4. Disable headers/footers</li>
                         <li>5. Set scale to <strong>100%</strong></li>
@@ -135,259 +255,546 @@ export default function BinLabelsPage() {
           </header>
 
           <div className="p-6 print:p-0">
-            {/* Input Form - Hidden when printing */}
-            <div className={`rounded-xl p-6 mb-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Label Details
-                </h2>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <label className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                      Copies per label:
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="50"
-                      value={copies}
-                      onChange={(e) => setCopies(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
-                      className={`w-20 px-3 py-1.5 rounded-lg text-center ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                    />
-                  </div>
-                  <button
-                    onClick={addLabel}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Label
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {labels.map((label, index) => (
-                  <div
-                    key={index}
-                    className={`flex items-center gap-4 p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}
-                  >
-                    <span className={`text-sm font-medium w-8 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                      #{index + 1}
-                    </span>
-                    <div className="flex-1 grid grid-cols-2 gap-4">
-                      <div>
-                        <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                          Location ID (Barcode Value)
+            {mode === "bin" && (
+              <>
+                {/* Input Form - Hidden when printing */}
+                <div className={`rounded-xl p-6 mb-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                      Label Details
+                    </h2>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <label className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          Copies per label:
                         </label>
                         <input
-                          type="text"
-                          value={label.locationId}
-                          onChange={(e) => updateLabel(index, "locationId", e.target.value.toUpperCase())}
-                          placeholder="e.g., A01-B02-C03"
-                          className={`w-full px-4 py-2 rounded-lg font-mono ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                          type="number"
+                          min="1"
+                          max="50"
+                          value={copies}
+                          onChange={(e) => setCopies(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
+                          className={`w-20 px-3 py-1.5 rounded-lg text-center ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                         />
                       </div>
-                      <div>
-                        <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                          Location Name (Human Readable)
-                        </label>
-                        <input
-                          type="text"
-                          value={label.locationName}
-                          onChange={(e) => updateLabel(index, "locationName", e.target.value)}
-                          placeholder="e.g., Aisle 1, Bay 2, Shelf 3"
-                          className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                        />
-                      </div>
+                      <button
+                        onClick={addLabel}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Label
+                      </button>
                     </div>
-                    <button
-                      onClick={() => removeLabel(index)}
-                      disabled={labels.length === 1}
-                      className={`p-2 rounded-lg transition-colors ${
-                        labels.length === 1
-                          ? "opacity-30 cursor-not-allowed"
-                          : isDark
-                            ? "hover:bg-slate-600 text-slate-400 hover:text-red-400"
-                            : "hover:bg-gray-200 text-gray-400 hover:text-red-500"
-                      }`}
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Preview Section - Hidden when printing */}
-            <div className={`rounded-xl p-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Print Preview ({labelsWithCopies.filter(l => l.locationId).length} label{labelsWithCopies.filter(l => l.locationId).length !== 1 ? "s" : ""})
-                </h2>
-                <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                  Actual size: 6" × 2" (horizontal)
-                </span>
-              </div>
-
-              {labels.some(l => l.locationId) ? (
-                <div className={`p-8 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
-                  <div className="flex flex-col gap-6 items-center">
+                  <div className="space-y-4">
                     {labels.map((label, index) => (
-                      label.locationId && (
-                        <div key={index} className="flex flex-col items-center">
-                          {/* Label number indicator */}
-                          <span className={`text-xs font-medium mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                            Label #{index + 1} {copies > 1 && `(×${copies})`}
-                          </span>
-
-                          {/* Thermal label mockup - HORIZONTAL 6" x 2" */}
-                          <div
-                            className="relative bg-white shadow-xl rounded-sm"
-                            style={{
-                              width: "576px",  // 6 inches at 96dpi
-                              height: "192px", // 2 inches at 96dpi
-                              boxShadow: "0 4px 20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)"
-                            }}
-                          >
-                            {/* Label edge styling */}
-                            <div
-                              className="absolute inset-0 rounded-sm"
-                              style={{
-                                background: "linear-gradient(to right, #fafafa 0%, #ffffff 2%, #ffffff 98%, #f5f5f5 100%)",
-                              }}
+                      <div
+                        key={index}
+                        className={`flex items-center gap-4 p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}
+                      >
+                        <span className={`text-sm font-medium w-8 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          #{index + 1}
+                        </span>
+                        <div className="flex-1 grid grid-cols-2 gap-4">
+                          <div>
+                            <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              Location ID (Barcode Value)
+                            </label>
+                            <input
+                              type="text"
+                              value={label.locationId}
+                              onChange={(e) => updateLabel(index, "locationId", e.target.value.toUpperCase())}
+                              placeholder="e.g., A01-B02-C03"
+                              className={`w-full px-4 py-2 rounded-lg font-mono ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                             />
-
-                            {/* Label content - horizontal layout */}
-                            <div className="relative h-full flex items-center justify-center gap-6 px-6 text-black">
-                              {/* Barcode */}
-                              <svg
-                                ref={(el) => { barcodeRefs.current[index] = el; }}
-                                className="flex-shrink-0"
-                              />
-
-                              {/* Location name */}
-                              {label.locationName && (
-                                <div className="text-center flex-shrink-0">
-                                  <p className="text-2xl font-bold leading-tight text-black">{label.locationName}</p>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Subtle perforation line indicators */}
-                            <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-200 to-transparent" />
-                            <div className="absolute right-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-200 to-transparent" />
+                          </div>
+                          <div>
+                            <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              Location Name (Human Readable)
+                            </label>
+                            <input
+                              type="text"
+                              value={label.locationName}
+                              onChange={(e) => updateLabel(index, "locationName", e.target.value)}
+                              placeholder="e.g., Aisle 1, Bay 2, Shelf 3"
+                              className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                            />
                           </div>
                         </div>
-                      )
+                        <button
+                          onClick={() => removeLabel(index)}
+                          disabled={labels.length === 1}
+                          className={`p-2 rounded-lg transition-colors ${
+                            labels.length === 1
+                              ? "opacity-30 cursor-not-allowed"
+                              : isDark
+                                ? "hover:bg-slate-600 text-slate-400 hover:text-red-400"
+                                : "hover:bg-gray-200 text-gray-400 hover:text-red-500"
+                          }`}
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>
-              ) : (
-                <div className={`text-center py-16 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
-                  <svg className="w-20 h-20 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                  </svg>
-                  <p className={`text-lg font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                    Enter a Location ID to preview label
-                  </p>
-                  <p className={`text-sm mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                    The barcode will be generated using Code 128 format
-                  </p>
+
+                {/* Preview Section - Hidden when printing */}
+                <div className={`rounded-xl p-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                      Print Preview ({labelsWithCopies.filter(l => l.locationId).length} label{labelsWithCopies.filter(l => l.locationId).length !== 1 ? "s" : ""})
+                    </h2>
+                    <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      Actual size: 6" × 2" (horizontal)
+                    </span>
+                  </div>
+
+                  {labels.some(l => l.locationId) ? (
+                    <div className={`p-8 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
+                      <div className="flex flex-col gap-6 items-center">
+                        {labels.map((label, index) => (
+                          label.locationId && (
+                            <div key={index} className="flex flex-col items-center">
+                              {/* Label number indicator */}
+                              <span className={`text-xs font-medium mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                                Label #{index + 1} {copies > 1 && `(×${copies})`}
+                              </span>
+
+                              {/* Thermal label mockup - HORIZONTAL 6" x 2" */}
+                              <div
+                                className="relative bg-white shadow-xl rounded-sm"
+                                style={{
+                                  width: "576px",  // 6 inches at 96dpi
+                                  height: "192px", // 2 inches at 96dpi
+                                  boxShadow: "0 4px 20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)"
+                                }}
+                              >
+                                {/* Label edge styling */}
+                                <div
+                                  className="absolute inset-0 rounded-sm"
+                                  style={{
+                                    background: "linear-gradient(to right, #fafafa 0%, #ffffff 2%, #ffffff 98%, #f5f5f5 100%)",
+                                  }}
+                                />
+
+                                {/* Label content - horizontal layout */}
+                                <div className="relative h-full flex items-center justify-center gap-6 px-6 text-black">
+                                  {/* Barcode */}
+                                  <svg
+                                    ref={(el) => { barcodeRefs.current[index] = el; }}
+                                    className="flex-shrink-0"
+                                  />
+
+                                  {/* Location name */}
+                                  {label.locationName && (
+                                    <div className="text-center flex-shrink-0">
+                                      <p className="text-2xl font-bold leading-tight text-black">{label.locationName}</p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Subtle perforation line indicators */}
+                                <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-200 to-transparent" />
+                                <div className="absolute right-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-200 to-transparent" />
+                              </div>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`text-center py-16 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
+                      <svg className="w-20 h-20 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                      </svg>
+                      <p className={`text-lg font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        Enter a Location ID to preview label
+                      </p>
+                      <p className={`text-sm mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                        The barcode will be generated using Code 128 format
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
+
+            {mode === "tire" && (
+              <>
+                {/* Tire Input Form - Hidden when printing */}
+                <div className={`rounded-xl p-6 mb-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                      Tire Details
+                    </h2>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <label className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          Copies per label:
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="50"
+                          value={copies}
+                          onChange={(e) => setCopies(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
+                          className={`w-20 px-3 py-1.5 rounded-lg text-center ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                        />
+                      </div>
+                      <button
+                        onClick={addTireLabel}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Tire
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {tireLabels.map((label, index) => (
+                      <div
+                        key={index}
+                        className={`flex items-start gap-4 p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}
+                      >
+                        <span className={`text-sm font-medium w-8 pt-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          #{index + 1}
+                        </span>
+                        <div className="flex-1 space-y-4">
+                          {/* Item ID + Look up */}
+                          <div className="flex items-end gap-3">
+                            <div className="flex-1">
+                              <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                                Item ID (Barcode Value)
+                              </label>
+                              <input
+                                type="text"
+                                value={label.itemId}
+                                onChange={(e) => updateTireLabel(index, "itemId", e.target.value.toUpperCase())}
+                                placeholder="e.g., 12345"
+                                className={`w-full px-4 py-2 rounded-lg font-mono ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                              />
+                            </div>
+                            <button
+                              onClick={() => lookupTire(index)}
+                              disabled={!label.itemId.trim() || lookupLoading === index}
+                              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+                                !label.itemId.trim() || lookupLoading === index
+                                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                  : isDark
+                                    ? "bg-cyan-500 hover:bg-cyan-400 text-white"
+                                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                              }`}
+                            >
+                              {lookupLoading === index ? "Looking up…" : "Look up"}
+                            </button>
+                          </div>
+                          {lookupNotFound[index] && (
+                            <p className={`text-xs ${isDark ? "text-amber-400" : "text-amber-600"}`}>
+                              Not found — enter manually below.
+                            </p>
+                          )}
+                          {/* Brand / Model / Size */}
+                          <div className="grid grid-cols-3 gap-4">
+                            <div>
+                              <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                                Brand
+                              </label>
+                              <input
+                                type="text"
+                                value={label.brand}
+                                onChange={(e) => updateTireLabel(index, "brand", e.target.value)}
+                                placeholder="e.g., Goodyear"
+                                className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                              />
+                            </div>
+                            <div>
+                              <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                                Model
+                              </label>
+                              <input
+                                type="text"
+                                value={label.model}
+                                onChange={(e) => updateTireLabel(index, "model", e.target.value)}
+                                placeholder="e.g., Assurance MaxLife"
+                                className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                              />
+                            </div>
+                            <div>
+                              <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                                Size / Description
+                              </label>
+                              <input
+                                type="text"
+                                value={label.sizeDesc}
+                                onChange={(e) => updateTireLabel(index, "sizeDesc", e.target.value)}
+                                placeholder="e.g., 215/55R17 94V"
+                                className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removeTireLabel(index)}
+                          disabled={tireLabels.length === 1}
+                          className={`p-2 mt-6 rounded-lg transition-colors ${
+                            tireLabels.length === 1
+                              ? "opacity-30 cursor-not-allowed"
+                              : isDark
+                                ? "hover:bg-slate-600 text-slate-400 hover:text-red-400"
+                                : "hover:bg-gray-200 text-gray-400 hover:text-red-500"
+                          }`}
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tire Preview Section - Hidden when printing */}
+                <div className={`rounded-xl p-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                      Print Preview ({tireLabelsWithCopies.filter(tireIsPrintable).length} label{tireLabelsWithCopies.filter(tireIsPrintable).length !== 1 ? "s" : ""})
+                    </h2>
+                    <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      Actual size: 4" × 6" (portrait)
+                    </span>
+                  </div>
+
+                  {tireLabels.some(tireIsPrintable) ? (
+                    <div className={`p-8 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
+                      <div className="flex flex-wrap gap-6 items-start justify-center">
+                        {tireLabels.map((label, index) => (
+                          tireIsPrintable(label) && (
+                            <div key={index} className="flex flex-col items-center">
+                              <span className={`text-xs font-medium mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                                Label #{index + 1} {copies > 1 && `(×${copies})`}
+                              </span>
+
+                              {/* Shipping label mockup - PORTRAIT 4" x 6" */}
+                              <div
+                                className="relative bg-white shadow-xl rounded-sm"
+                                style={{
+                                  width: "384px",  // 4 inches at 96dpi
+                                  height: "576px", // 6 inches at 96dpi
+                                  boxShadow: "0 4px 20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)",
+                                }}
+                              >
+                                <div className="relative h-full flex flex-col items-center justify-center gap-4 px-6 text-center text-black">
+                                  {label.brand && (
+                                    <p className="text-4xl font-bold leading-tight text-black">{label.brand}</p>
+                                  )}
+                                  {label.model && (
+                                    <p className="text-2xl font-medium leading-tight text-black">{label.model}</p>
+                                  )}
+                                  {label.sizeDesc && (
+                                    <p className="text-xl font-medium leading-snug text-black">{label.sizeDesc}</p>
+                                  )}
+                                  {label.itemId && (
+                                    <svg
+                                      ref={(el) => { tireBarcodeRefs.current[index] = el; }}
+                                      className="mt-4"
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`text-center py-16 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
+                      <svg className="w-20 h-20 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                      </svg>
+                      <p className={`text-lg font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        Enter an Item ID or Brand to preview label
+                      </p>
+                      <p className={`text-sm mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                        Use "Look up" to auto-fill, or type details manually
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
 
             {/* Print-Only Labels */}
             <div className="hidden print:block print-labels-container">
-              {labelsWithCopies.map((label, index) => (
-                label.locationId && (
-                  <div
-                    key={index}
-                    className="print-label"
-                  >
-                    <PrintBarcode locationId={label.locationId} locationName={label.locationName} />
-                  </div>
-                )
-              ))}
+              {mode === "bin" &&
+                labelsWithCopies.map((label, index) => (
+                  label.locationId && (
+                    <div key={index} className="print-label">
+                      <PrintBarcode locationId={label.locationId} locationName={label.locationName} />
+                    </div>
+                  )
+                ))}
+              {mode === "tire" &&
+                tireLabelsWithCopies.map((label, index) => (
+                  tireIsPrintable(label) && (
+                    <div key={index} className="print-tire-label">
+                      <PrintTireLabel
+                        itemId={label.itemId}
+                        brand={label.brand}
+                        model={label.model}
+                        sizeDesc={label.sizeDesc}
+                      />
+                    </div>
+                  )
+                ))}
             </div>
           </div>
         </main>
       </div>
 
-      {/* Print Styles */}
-      <style jsx global>{`
-        @media print {
-          @page {
-            size: 6in 2in;
-            margin: 0;
-          }
+      {/* Print Styles - Bin (6" x 2") */}
+      {mode === "bin" && (
+        <style jsx global>{`
+          @media print {
+            @page {
+              size: 6in 2in;
+              margin: 0;
+            }
 
-          /* Hide everything */
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            width: 6in !important;
-            height: 2in !important;
-          }
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background: white !important;
+              width: 6in !important;
+              height: 2in !important;
+            }
 
-          /* Hide all page elements */
-          body > * {
-            display: none !important;
-          }
+            body > * {
+              display: none !important;
+            }
 
-          /* Hide sidebar, header, forms */
-          aside,
-          header,
-          nav,
-          .no-print,
-          .print\\:hidden {
-            display: none !important;
-          }
+            aside,
+            header,
+            nav,
+            .no-print,
+            .print\\:hidden {
+              display: none !important;
+            }
 
-          /* Show only print labels container */
-          .print-labels-container {
-            display: block !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 6in !important;
-            background: white !important;
-          }
+            .print-labels-container {
+              display: block !important;
+              position: fixed !important;
+              top: 0 !important;
+              left: 0 !important;
+              width: 6in !important;
+              background: white !important;
+            }
 
-          .print-label {
-            width: 6in !important;
-            height: 2in !important;
-            page-break-after: always !important;
-            page-break-inside: avoid !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            background: white !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
+            .print-label {
+              width: 6in !important;
+              height: 2in !important;
+              page-break-after: always !important;
+              page-break-inside: avoid !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              background: white !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
 
-          .print-label:last-child {
-            page-break-after: auto !important;
-          }
+            .print-label:last-child {
+              page-break-after: auto !important;
+            }
 
-          /* Ensure barcode is visible */
-          .print-label svg {
-            display: block !important;
-          }
+            .print-label svg {
+              display: block !important;
+            }
 
-          .print-label * {
-            color: black !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            .print-label * {
+              color: black !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
           }
-        }
-      `}</style>
+        `}</style>
+      )}
+
+      {/* Print Styles - Tire (4" x 6") */}
+      {mode === "tire" && (
+        <style jsx global>{`
+          @media print {
+            @page {
+              size: 4in 6in;
+              margin: 0;
+            }
+
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background: white !important;
+              width: 4in !important;
+              height: 6in !important;
+            }
+
+            body > * {
+              display: none !important;
+            }
+
+            aside,
+            header,
+            nav,
+            .no-print,
+            .print\\:hidden {
+              display: none !important;
+            }
+
+            .print-labels-container {
+              display: block !important;
+              position: fixed !important;
+              top: 0 !important;
+              left: 0 !important;
+              width: 4in !important;
+              background: white !important;
+            }
+
+            .print-tire-label {
+              width: 4in !important;
+              height: 6in !important;
+              page-break-after: always !important;
+              page-break-inside: avoid !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              background: white !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+
+            .print-tire-label:last-child {
+              page-break-after: auto !important;
+            }
+
+            .print-tire-label svg {
+              display: block !important;
+            }
+
+            .print-tire-label * {
+              color: black !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+          }
+        `}</style>
+      )}
     </Protected>
   );
 }
@@ -419,6 +826,45 @@ function PrintBarcode({ locationId, locationName }: { locationId: string; locati
           <p style={{ fontSize: "24px", fontWeight: "bold", lineHeight: 1.2 }}>{locationName}</p>
         </div>
       )}
+    </div>
+  );
+}
+
+// Separate component for print tire labels (4" x 6" portrait)
+function PrintTireLabel({
+  itemId,
+  brand,
+  model,
+  sizeDesc,
+}: {
+  itemId: string;
+  brand: string;
+  model: string;
+  sizeDesc: string;
+}) {
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    if (svgRef.current && itemId) {
+      JsBarcode(svgRef.current, itemId, {
+        format: "CODE128",
+        width: 3,
+        height: 80,
+        displayValue: true,
+        fontSize: 20,
+        font: "monospace",
+        textMargin: 5,
+        margin: 5,
+      });
+    }
+  }, [itemId]);
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 h-full w-full text-center text-black px-6">
+      {brand && <p style={{ fontSize: "44px", fontWeight: "bold", lineHeight: 1.1 }}>{brand}</p>}
+      {model && <p style={{ fontSize: "28px", fontWeight: 500, lineHeight: 1.2 }}>{model}</p>}
+      {sizeDesc && <p style={{ fontSize: "24px", fontWeight: 500, lineHeight: 1.3 }}>{sizeDesc}</p>}
+      {itemId && <svg ref={svgRef} className="flex-shrink-0 mt-2" />}
     </div>
   );
 }

@@ -23,6 +23,8 @@ const s3 = new S3Client({
 export interface BrandEntry {
   manufacturerName: string;
   description: string;
+  model: string;
+  mfgItemId: string;
 }
 
 interface CacheMeta {
@@ -75,7 +77,12 @@ async function buildMap(meta: CacheMeta | null): Promise<BrandCache> {
       if (map.has(rawId)) continue;
       const manufacturerName = brandCodeToName(String(o.manufacturerName ?? ""));
       if (!manufacturerName) continue;
-      map.set(rawId, { manufacturerName, description: String(o.description ?? "") });
+      map.set(rawId, {
+        manufacturerName,
+        description: String(o.description ?? ""),
+        model: String(o.model ?? ""),
+        mfgItemId: String(o.mfgItemId ?? ""),
+      });
     }
   }
 
