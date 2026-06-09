@@ -56,6 +56,7 @@ export default function BinLabelsPage() {
   const barcodeRefs = useRef<(SVGSVGElement | null)[]>([]);
   const tireBarcodeRefs = useRef<(SVGSVGElement | null)[]>([]);
   const tirePreviewRef = useRef<HTMLDivElement>(null);
+  const tireFormRef = useRef<HTMLDivElement>(null);
 
   // Work orders (tire mode)
   const workOrders = useQuery(
@@ -225,7 +226,7 @@ export default function BinLabelsPage() {
     setLoadedWorkOrderId(wo._id);
     setLookupNotFound({});
     setTimeout(() => {
-      tirePreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      tireFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 50);
   };
 
@@ -532,7 +533,7 @@ export default function BinLabelsPage() {
             {mode === "tire" && (
               <>
                 {/* Tire Input Form - Hidden when printing */}
-                <div className={`rounded-xl p-6 mb-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                <div ref={tireFormRef} className={`rounded-xl p-6 mb-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
                   <div className="flex items-center justify-between mb-4">
                     <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
                       Tire Details
@@ -836,7 +837,7 @@ export default function BinLabelsPage() {
                                 onClick={() => loadWorkOrder(wo)}
                                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-cyan-500 hover:bg-cyan-400 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
                               >
-                                Load
+                                Open to print/edit
                               </button>
                               {!isPrinted && (
                                 <button
