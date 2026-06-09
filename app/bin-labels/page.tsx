@@ -4,6 +4,9 @@ import { useState, useEffect, useRef } from "react";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useTheme } from "../theme-context";
+import { useAuth } from "../auth-context";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import JsBarcode from "jsbarcode";
 import { brandLogoSrc } from "@/lib/brandLogo";
 
@@ -21,9 +24,22 @@ interface TireLabelData {
 
 type Mode = "bin" | "tire";
 
+interface WorkOrderRow {
+  _id: string;
+  title: string;
+  labels: TireLabelData[];
+  copies: number;
+  status: string;
+  createdByName: string;
+  createdAt: number;
+  printedAt?: number;
+  printedByName?: string;
+}
+
 export default function BinLabelsPage() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const { user } = useAuth();
   const [mode, setMode] = useState<Mode>("bin");
   const [labels, setLabels] = useState<LabelData[]>([{ locationId: "", locationName: "" }]);
   const [tireLabels, setTireLabels] = useState<TireLabelData[]>([
@@ -34,6 +50,20 @@ export default function BinLabelsPage() {
   const [lookupNotFound, setLookupNotFound] = useState<Record<number, boolean>>({});
   const barcodeRefs = useRef<(SVGSVGElement | null)[]>([]);
   const tireBarcodeRefs = useRef<(SVGSVGElement | null)[]>([]);
+  const tirePreviewRef = useRef<HTMLDivElement>(null);
+
+  // Work orders (tire mode)
+  const workOrders = useQuery(
+    api.labelWorkOrders.list,
+    mode === "tire" ? { limit: 50 } : "skip",
+  );
+  const createWorkOrder = useMutation(api.labelWorkOrders.create);
+  const markWorkOrderPrinted = useMutation(api.labelWorkOrders.markPrinted);
+  const removeWorkOrder = useMutation(api.labelWorkOrders.remove);
+  const [woTitle, setWoTitle] = useState("");
+  const [woSaving, setWoSaving] = useState(false);
+  const [woSaved, setWoSaved] = useState(false);
+  const [loadedWorkOrderId, setLoadedWorkOrderId] = useState<string | null>(null);
 
   // Generate bin barcodes when labels change
   useEffect(() => {
@@ -156,6 +186,74 @@ export default function BinLabelsPage() {
       setLookupNotFound({});
     }
     setCopies(1);
+  };
+
+  const userName = user?.name ?? user?.email ?? "Unknown";
+
+  const saveWorkOrder = async () => {
+    const labelsToSave = tireLabels.filter((l) => l.itemId || l.brand);
+    if (labelsToSave.length === 0 || woSaving) return;
+    const title = woTitle.trim() || window.prompt("Work order name") || "";
+    if (!title.trim()) return;
+    setWoSaving(true);
+    try {
+      await createWorkOrder({
+        title: title.trim(),
+        labels: labelsToSave.map((l) => ({ ...l })),
+        copies,
+        createdBy: user?._id,
+        createdByName: userName,
+      });
+      setWoTitle("");
+      setWoSaved(true);
+      setTimeout(() => setWoSaved(false), 2500);
+    } catch (e) {
+      console.error("Save work order error:", e);
+    } finally {
+      setWoSaving(false);
+    }
+  };
+
+  const loadWorkOrder = (wo: { _id: string; labels: TireLabelData[]; copies: number }) => {
+    setTireLabels(wo.labels.map((l) => ({ ...l })));
+    setCopies(wo.copies);
+    setLoadedWorkOrderId(wo._id);
+    setLookupNotFound({});
+    setTimeout(() => {
+      tirePreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
+
+  const handleMarkPrinted = async (id: string) => {
+    try {
+      await markWorkOrderPrinted({ id: id as any, printedByName: userName });
+    } catch (e) {
+      console.error("Mark printed error:", e);
+    }
+  };
+
+  const handleDeleteWorkOrder = async (id: string, title: string) => {
+    if (!window.confirm(`Delete work order "${title}"?`)) return;
+    try {
+      await removeWorkOrder({ id: id as any });
+      if (loadedWorkOrderId === id) setLoadedWorkOrderId(null);
+    } catch (e) {
+      console.error("Delete work order error:", e);
+    }
+  };
+
+  const formatWoDate = (ts: number) => {
+    const d = new Date(ts);
+    const now = Date.now();
+    const diffMs = now - ts;
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return "just now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    const diffDay = Math.floor(diffHr / 24);
+    if (diffDay < 7) return `${diffDay}d ago`;
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   };
 
   // Generate labels with copies
@@ -460,6 +558,38 @@ export default function BinLabelsPage() {
                     </div>
                   </div>
 
+                  {/* Save as Work Order */}
+                  <div className={`flex items-center gap-3 mb-4 pb-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                    <input
+                      type="text"
+                      value={woTitle}
+                      onChange={(e) => setWoTitle(e.target.value)}
+                      placeholder="Work order name (optional — will prompt if blank)"
+                      className={`flex-1 px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                    />
+                    <button
+                      onClick={saveWorkOrder}
+                      disabled={!tireLabels.some(tireIsPrintable) || woSaving}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
+                        !tireLabels.some(tireIsPrintable) || woSaving
+                          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                          : isDark
+                            ? "bg-emerald-500 hover:bg-emerald-400 text-white"
+                            : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      }`}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {woSaving ? "Saving…" : "Save as Work Order"}
+                    </button>
+                    {woSaved && (
+                      <span className={`text-sm font-medium ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
+                        Saved ✓
+                      </span>
+                    )}
+                  </div>
+
                   <div className="space-y-4">
                     {tireLabels.map((label, index) => (
                       <div
@@ -564,7 +694,7 @@ export default function BinLabelsPage() {
                 </div>
 
                 {/* Tire Preview Section - Hidden when printing */}
-                <div className={`rounded-xl p-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                <div ref={tirePreviewRef} className={`rounded-xl p-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
                   <div className="flex items-center justify-between mb-4">
                     <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
                       Print Preview ({tireLabelsWithCopies.filter(tireIsPrintable).length} label{tireLabelsWithCopies.filter(tireIsPrintable).length !== 1 ? "s" : ""})
@@ -639,6 +769,91 @@ export default function BinLabelsPage() {
                       <p className={`text-sm mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
                         Use "Look up" to auto-fill, or type details manually
                       </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Work Orders Panel - Hidden when printing */}
+                <div className={`rounded-xl p-6 mt-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                      Work Orders
+                    </h2>
+                    <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      {workOrders ? `${workOrders.length} saved` : "Loading…"}
+                    </span>
+                  </div>
+
+                  {workOrders === undefined ? (
+                    <div className={`text-center py-10 rounded-lg ${isDark ? "bg-slate-900/50 text-slate-400" : "bg-gray-100 text-gray-500"}`}>
+                      Loading work orders…
+                    </div>
+                  ) : workOrders.length === 0 ? (
+                    <div className={`text-center py-10 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
+                      <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        No saved work orders yet.
+                      </p>
+                      <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                        Fill in tire details above and click "Save as Work Order".
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {(workOrders as WorkOrderRow[]).map((wo) => {
+                        const isPrinted = wo.status === "printed";
+                        const isLoaded = loadedWorkOrderId === wo._id;
+                        return (
+                          <div
+                            key={wo._id}
+                            className={`flex items-center gap-4 p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"} ${isLoaded ? (isDark ? "ring-2 ring-cyan-500" : "ring-2 ring-blue-500") : ""}`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className={`font-semibold truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                                  {wo.title}
+                                </p>
+                                {isPrinted ? (
+                                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                                    Printed{wo.printedByName ? ` · ${wo.printedByName}` : ""}
+                                  </span>
+                                ) : (
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-amber-100 text-amber-700"}`}>
+                                    Open
+                                  </span>
+                                )}
+                              </div>
+                              <p className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                                {wo.labels.length} label{wo.labels.length !== 1 ? "s" : ""} · ×{wo.copies} copies · {wo.createdByName} · {formatWoDate(wo.createdAt)}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <button
+                                onClick={() => loadWorkOrder(wo)}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-cyan-500 hover:bg-cyan-400 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
+                              >
+                                Load
+                              </button>
+                              {!isPrinted && (
+                                <button
+                                  onClick={() => handleMarkPrinted(wo._id)}
+                                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-slate-600 hover:bg-slate-500 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                                >
+                                  Mark printed
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDeleteWorkOrder(wo._id, wo.title)}
+                                className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-600 text-slate-400 hover:text-red-400" : "hover:bg-gray-200 text-gray-400 hover:text-red-500"}`}
+                                aria-label="Delete work order"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -883,7 +1098,7 @@ function PrintTireLabel({
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
-              style={{ maxHeight: "1in", maxWidth: "3in", objectFit: "contain" }}
+              style={{ maxHeight: "1in", maxWidth: "3in", objectFit: "contain", filter: "grayscale(1) contrast(1.15)" }}
             />
           )}
           <p style={{ fontSize: "44px", fontWeight: "bold", lineHeight: 1.1 }}>{brand}</p>
