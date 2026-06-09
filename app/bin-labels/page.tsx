@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useTheme } from "../theme-context";
@@ -41,6 +42,10 @@ export default function BinLabelsPage() {
   const isDark = theme === "dark";
   const { user } = useAuth();
   const [mode, setMode] = useState<Mode>("bin");
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [labels, setLabels] = useState<LabelData[]>([{ locationId: "", locationName: "" }]);
   const [tireLabels, setTireLabels] = useState<TireLabelData[]>([
     { itemId: "", brand: "", model: "", sizeDesc: "" },
@@ -859,170 +864,55 @@ export default function BinLabelsPage() {
                 </div>
               </>
             )}
-
-            {/* Print-Only Labels */}
-            <div className="hidden print:block print-labels-container">
-              {mode === "bin" &&
-                labelsWithCopies.map((label, index) => (
-                  label.locationId && (
-                    <div key={index} className="print-label">
-                      <PrintBarcode locationId={label.locationId} locationName={label.locationName} />
-                    </div>
-                  )
-                ))}
-              {mode === "tire" &&
-                tireLabelsWithCopies.map((label, index) => (
-                  tireIsPrintable(label) && (
-                    <div key={index} className="print-tire-label">
-                      <PrintTireLabel
-                        itemId={label.itemId}
-                        brand={label.brand}
-                        model={label.model}
-                        sizeDesc={label.sizeDesc}
-                      />
-                    </div>
-                  )
-                ))}
-            </div>
           </div>
         </main>
       </div>
 
-      {/* Print Styles - Bin (6" x 2") */}
-      {mode === "bin" && (
-        <style jsx global>{`
-          @media print {
-            @page {
-              size: 6in 2in;
-              margin: 0;
+      {mounted &&
+        createPortal(
+          <div id="print-root">
+            {mode === "bin" &&
+              labelsWithCopies.map((label, index) =>
+                label.locationId ? (
+                  <div key={index} className="print-label">
+                    <PrintBarcode locationId={label.locationId} locationName={label.locationName} />
+                  </div>
+                ) : null,
+              )}
+            {mode === "tire" &&
+              tireLabelsWithCopies.map((label, index) =>
+                tireIsPrintable(label) ? (
+                  <div key={index} className="print-tire-label">
+                    <PrintTireLabel itemId={label.itemId} brand={label.brand} model={label.model} sizeDesc={label.sizeDesc} />
+                  </div>
+                ) : null,
+              )}
+          </div>,
+          document.body,
+        )}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            #print-root { display: none; }
+            @media print {
+              @page { size: ${isTire ? "4in 6in" : "6in 2in"}; margin: 0; }
+              html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+              body > :not(#print-root) { display: none !important; }
+              #print-root { display: block !important; }
+              #print-root .print-label, #print-root .print-tire-label {
+                width: ${isTire ? "4in" : "6in"} !important;
+                height: ${isTire ? "6in" : "2in"} !important;
+                page-break-after: always; page-break-inside: avoid;
+                display: flex; align-items: center; justify-content: center;
+                overflow: hidden; background: #fff; margin: 0; padding: 0;
+              }
+              #print-root > :last-child { page-break-after: auto !important; }
+              #print-root svg { display: block !important; }
+              #print-root * { color: #000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             }
-
-            html, body {
-              margin: 0 !important;
-              padding: 0 !important;
-              background: white !important;
-              width: 6in !important;
-              height: 2in !important;
-            }
-
-            body > * {
-              display: none !important;
-            }
-
-            aside,
-            header,
-            nav,
-            .no-print,
-            .print\\:hidden {
-              display: none !important;
-            }
-
-            .print-labels-container {
-              display: block !important;
-              position: fixed !important;
-              top: 0 !important;
-              left: 0 !important;
-              width: 6in !important;
-              background: white !important;
-            }
-
-            .print-label {
-              width: 6in !important;
-              height: 2in !important;
-              page-break-after: always !important;
-              page-break-inside: avoid !important;
-              display: flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-              background: white !important;
-              margin: 0 !important;
-              padding: 0 !important;
-            }
-
-            .print-label:last-child {
-              page-break-after: auto !important;
-            }
-
-            .print-label svg {
-              display: block !important;
-            }
-
-            .print-label * {
-              color: black !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-          }
-        `}</style>
-      )}
-
-      {/* Print Styles - Tire (4" x 6") */}
-      {mode === "tire" && (
-        <style jsx global>{`
-          @media print {
-            @page {
-              size: 4in 6in;
-              margin: 0;
-            }
-
-            html, body {
-              margin: 0 !important;
-              padding: 0 !important;
-              background: white !important;
-              width: 4in !important;
-              height: 6in !important;
-            }
-
-            body > * {
-              display: none !important;
-            }
-
-            aside,
-            header,
-            nav,
-            .no-print,
-            .print\\:hidden {
-              display: none !important;
-            }
-
-            .print-labels-container {
-              display: block !important;
-              position: fixed !important;
-              top: 0 !important;
-              left: 0 !important;
-              width: 4in !important;
-              background: white !important;
-            }
-
-            .print-tire-label {
-              width: 4in !important;
-              height: 6in !important;
-              page-break-after: always !important;
-              page-break-inside: avoid !important;
-              display: flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-              background: white !important;
-              margin: 0 !important;
-              padding: 0 !important;
-            }
-
-            .print-tire-label:last-child {
-              page-break-after: auto !important;
-            }
-
-            .print-tire-label svg {
-              display: block !important;
-            }
-
-            .print-tire-label * {
-              color: black !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-          }
-        `}</style>
-      )}
+          `,
+        }}
+      />
     </Protected>
   );
 }
