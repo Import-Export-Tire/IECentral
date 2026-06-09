@@ -5,6 +5,7 @@ import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useTheme } from "../theme-context";
 import JsBarcode from "jsbarcode";
+import { brandLogoSrc } from "@/lib/brandLogo";
 
 interface LabelData {
   locationId: string;
@@ -594,7 +595,19 @@ export default function BinLabelsPage() {
                               >
                                 <div className="relative h-full flex flex-col items-center justify-center gap-4 px-6 text-center text-black">
                                   {label.brand && (
-                                    <p className="text-4xl font-bold leading-tight text-black">{label.brand}</p>
+                                    <div className="flex flex-col items-center gap-2">
+                                      {brandLogoSrc(label.brand) && (
+                                        <img
+                                          src={brandLogoSrc(label.brand)!}
+                                          alt={label.brand}
+                                          onError={(e) => {
+                                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                                          }}
+                                          style={{ maxHeight: "90px", maxWidth: "320px", objectFit: "contain" }}
+                                        />
+                                      )}
+                                      <p className="text-4xl font-bold leading-tight text-black">{label.brand}</p>
+                                    </div>
                                   )}
                                   {label.model && (
                                     <p className="text-2xl font-medium leading-tight text-black">{label.model}</p>
@@ -861,7 +874,21 @@ function PrintTireLabel({
 
   return (
     <div className="flex flex-col items-center justify-center gap-4 h-full w-full text-center text-black px-6">
-      {brand && <p style={{ fontSize: "44px", fontWeight: "bold", lineHeight: 1.1 }}>{brand}</p>}
+      {brand && (
+        <div className="flex flex-col items-center" style={{ gap: "8px" }}>
+          {brandLogoSrc(brand) && (
+            <img
+              src={brandLogoSrc(brand)!}
+              alt={brand}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+              style={{ maxHeight: "1in", maxWidth: "3in", objectFit: "contain" }}
+            />
+          )}
+          <p style={{ fontSize: "44px", fontWeight: "bold", lineHeight: 1.1 }}>{brand}</p>
+        </div>
+      )}
       {model && <p style={{ fontSize: "28px", fontWeight: 500, lineHeight: 1.2 }}>{model}</p>}
       {sizeDesc && <p style={{ fontSize: "24px", fontWeight: 500, lineHeight: 1.3 }}>{sizeDesc}</p>}
       {itemId && <svg ref={svgRef} className="flex-shrink-0 mt-2" />}
