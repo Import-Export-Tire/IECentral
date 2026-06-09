@@ -1,25 +1,28 @@
 # Brand Logos
 
-Drop a brand logo image here so it shows up on the **tire label** (preview + print) above the brand name.
+Brand logos for the **tire label** are stored in **S3**, not in this folder:
+`s3://ietires-scanner-assets/brand-logos/<slug>.png`. The label resolves a logo by brand
+name and loads it via `/api/brand-logo?slug=<slug>`. If none exists, the label falls back
+to the brand name text (no broken image).
 
 ## Naming
 
-Save the file as `public/brand-logos/<slug>.png`, where `<slug>` is the brand name:
+`<slug>` = the brand name, lowercased, with every run of non-alphanumeric characters
+replaced by a single hyphen (leading/trailing hyphens trimmed) — the same transform as
+`brandLogoSlug()` in `lib/brandLogo.ts`.
 
-- lowercased, and
-- with every run of non-alphanumeric characters replaced by a single hyphen (leading/trailing hyphens trimmed).
+| Brand name    | S3 key                          |
+| ------------- | ------------------------------- |
+| `GOODYEAR`    | `brand-logos/goodyear.png`      |
+| `BF GOODRICH` | `brand-logos/bf-goodrich.png`   |
+| `DOUBLE COIN` | `brand-logos/double-coin.png`   |
 
-This is the same transform used by `brandLogoSlug()` in `lib/brandLogo.ts`.
+## Adding a logo
 
-### Examples
+Upload a transparent-background PNG (label background is white):
 
-| Brand name    | File name          |
-| ------------- | ------------------ |
-| `GOODYEAR`    | `goodyear.png`     |
-| `BF GOODRICH` | `bf-goodrich.png`  |
-| `DOUBLE COIN` | `double-coin.png`  |
+```
+aws s3 cp goodyear.png s3://ietires-scanner-assets/brand-logos/goodyear.png --content-type image/png
+```
 
-## Notes
-
-- **PNG with a transparent background works best** (the label background is white).
-- If no matching file exists for a brand, the label gracefully **falls back to the brand name text** — no broken-image icon is shown.
+(This `public/brand-logos/` folder is no longer the source — kept only for this note.)

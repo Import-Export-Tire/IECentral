@@ -1,4 +1,5 @@
-// Maps a brand/manufacturer name to a logo file slug + path under /public/brand-logos.
+// Maps a brand/manufacturer name to its logo. Logos are stored in S3 (brand-logos/<slug>.png)
+// and served via /api/brand-logo, so they persist centrally without living in the repo.
 export function brandLogoSlug(name: string): string {
   return (name || "")
     .trim()
@@ -9,5 +10,5 @@ export function brandLogoSlug(name: string): string {
 // e.g. "GOODYEAR" -> "goodyear", "BF GOODRICH" -> "bf-goodrich", "DOUBLE COIN" -> "double-coin"
 export function brandLogoSrc(name: string): string | null {
   const slug = brandLogoSlug(name);
-  return slug ? `/brand-logos/${slug}.png` : null;
+  return slug ? `/api/brand-logo?slug=${encodeURIComponent(slug)}` : null;
 }
