@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -9,6 +10,7 @@ import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useTheme } from "@/app/theme-context";
 import { useAuth } from "@/app/auth-context";
 import Link from "next/link";
+import ReviewPrintForm, { type ReviewFormPerson } from "@/components/ReviewPrintForm";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const REVIEW_MILESTONE_DAYS = 90;
@@ -96,6 +98,14 @@ function NinetyDayReviewsContent() {
   const [showCompleted, setShowCompleted] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [printPeople, setPrintPeople] = useState<ReviewFormPerson[]>([]);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    const clear = () => setPrintPeople([]);
+    window.addEventListener("afterprint", clear);
+    return () => window.removeEventListener("afterprint", clear);
+  }, []);
 
   // ===== 90-day rows =====
   const ninetyRows = useMemo(() => {
@@ -117,6 +127,7 @@ function NinetyDayReviewsContent() {
           id: p._id,
           name: `${p.lastName}, ${p.firstName}`,
           position: p.position,
+          department: p.department,
           locationName: location?.name || "—",
           hireDate: p.hireDate,
           totalDays,
@@ -153,6 +164,7 @@ function NinetyDayReviewsContent() {
           id: p._id,
           name: `${p.lastName}, ${p.firstName}`,
           position: p.position,
+          department: p.department,
           locationName: location?.name || "—",
           hireDate: p.hireDate,
           nextDue: state.nextDue,
@@ -175,6 +187,31 @@ function NinetyDayReviewsContent() {
       (a, b) => ((b as typeof ninetyRows[number]).review?.completedAt ?? 0) - ((a as typeof ninetyRows[number]).review?.completedAt ?? 0)
     )
     : [];
+
+  // ===== Print pre-filled review forms (one per due person, current tab) =====
+  const fmtDate = (d: Date | string | undefined) => {
+    if (!d) return "—";
+    const dt = typeof d === "string" ? new Date(d) : d;
+    return isNaN(dt.getTime()) ? "—" : dt.toLocaleDateString();
+  };
+  const printForms = (which: "due" | "all") => {
+    const src = which === "all" ? [...overdue, ...dueSoon, ...upcoming] : [...overdue, ...dueSoon];
+    const people: ReviewFormPerson[] = src.map((r) => {
+      const rr = r as typeof ninetyRows[number] & typeof annualRows[number];
+      return {
+        name: rr.name,
+        position: rr.position,
+        department: (rr as { department?: string }).department,
+        locationName: rr.locationName,
+        hireDate: rr.hireDate,
+        dueDateLabel: tab === "ninety" ? "90-Day Due" : "Annual Due",
+        dueDate: fmtDate(tab === "ninety" ? (rr as typeof ninetyRows[number]).reviewDueDate : (rr as typeof annualRows[number]).nextDue),
+      };
+    });
+    if (people.length === 0) return;
+    setPrintPeople(people);
+    setTimeout(() => window.print(), 80);
+  };
 
   // ===== Actions =====
   const handleQuickMarkNinety = async (personnelId: Id<"personnel">) => {
@@ -559,7 +596,15 @@ function NinetyDayReviewsContent() {
                   </label>
                 ) : null}
               </div>
-              <div className="flex items-end justify-end">
+              <div className="flex items-end justify-end gap-2">
+                <button
+                  onClick={() => printForms("due")}
+                  disabled={overdue.length + dueSoon.length === 0}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 ${isDark ? "bg-orange-500 hover:bg-orange-400 text-white" : "bg-orange-600 hover:bg-orange-700 text-white"}`}
+                  title="Print a pre-filled blank form for each person due (overdue + due-soon)"
+                >
+                  Print Forms ({overdue.length + dueSoon.length})
+                </button>
                 <button
                   onClick={handleGeneratePDF}
                   disabled={rows.length === 0 || generating}
@@ -602,6 +647,27 @@ function NinetyDayReviewsContent() {
           )}
         </div>
       </main>
+
+      {/* Pre-filled forms for printing (portal to body). Print CSS is only injected
+          while forms are queued, so normal Ctrl+P of the tracker is unaffected. */}
+      {mounted && printPeople.length > 0 && createPortal(
+        <div id="rv-forms-print-root">
+          {printPeople.map((p, i) => (
+            <ReviewPrintForm key={i} person={p} type={tab === "annual" ? "annual" : "90_day"} />
+          ))}
+        </div>,
+        document.body,
+      )}
+      {mounted && printPeople.length > 0 && (
+        <style dangerouslySetInnerHTML={{ __html: `
+          #rv-forms-print-root { display: none; }
+          @media print {
+            @page { size: letter portrait; margin: 0.5in; }
+            body > :not(#rv-forms-print-root) { display: none !important; }
+            #rv-forms-print-root { display: block !important; color: #000; }
+          }
+        ` }} />
+      )}
     </div>
   );
 }
