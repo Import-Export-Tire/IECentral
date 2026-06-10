@@ -58,20 +58,35 @@ function annualState(hireDate: string, annualReviews: AnnualReview[] | undefined
   if (isNaN(hire.getTime())) return null;
   hire.setHours(0, 0, 0, 0);
 
-  // Walk forward from the first anniversary until we find one whose review
-  // is missing. If we find a future anniversary, that's the next-upcoming
-  // review and the employee is up-to-date through all earlier cycles.
-  let yearOffset = 1;
-  let nextDue = anniversaryOn(hireDate, hire.getFullYear() + yearOffset);
-  while (nextDue.getTime() <= today.getTime()) {
-    const cycleYear = nextDue.getFullYear();
-    const hasReview = (annualReviews || []).some((r) => r.cycleYear === cycleYear);
-    if (!hasReview) break; // overdue
-    yearOffset += 1;
-    nextDue = anniversaryOn(hireDate, hire.getFullYear() + yearOffset);
+  // The relevant cycle is the CURRENT one — the most recent anniversary that has
+  // already passed. If that cycle has no review, they're overdue for it now; if it
+  // does, the next (future) anniversary is upcoming. We don't chase the oldest gap,
+  // so someone last reviewed years ago shows as overdue for the CURRENT cycle, not
+  // for an ancient year.
+  const firstAnniversary = anniversaryOn(hireDate, hire.getFullYear() + 1);
+  let nextDue: Date;
+  let cycleYear: number;
+  if (today.getTime() < firstAnniversary.getTime()) {
+    // Not yet at their first anniversary — upcoming, never due before.
+    nextDue = firstAnniversary;
+    cycleYear = firstAnniversary.getFullYear();
+  } else {
+    // Most recent anniversary on/before today.
+    let y = today.getFullYear();
+    let ann = anniversaryOn(hireDate, y);
+    if (ann.getTime() > today.getTime()) { y -= 1; ann = anniversaryOn(hireDate, y); }
+    const currentDone = (annualReviews || []).some((r) => r.cycleYear === y);
+    if (currentDone) {
+      // Up to date for the current cycle — next anniversary is upcoming.
+      cycleYear = y + 1;
+      nextDue = anniversaryOn(hireDate, y + 1);
+    } else {
+      // Overdue for the current cycle.
+      cycleYear = y;
+      nextDue = ann;
+    }
   }
 
-  const cycleYear = nextDue.getFullYear();
   const daysToReview = Math.round((nextDue.getTime() - today.getTime()) / MS_PER_DAY);
   const lastCompleted = (annualReviews || [])
     .slice()
@@ -94,6 +109,8 @@ function NinetyDayReviewsContent() {
   const locations = useQuery(api.locations.list) || [];
   const markReview = useMutation(api.personnel.markNinetyDayReview);
   const markAnnual = useMutation(api.personnel.markAnnualReview);
+  const clearNinety = useMutation(api.personnel.clearNinetyDayReview);
+  const clearAnnual = useMutation(api.personnel.clearAnnualReview);
 
   const [tab, setTab] = useState<Tab>("ninety");
   const [locationFilter, setLocationFilter] = useState<Id<"locations"> | "">("");
@@ -162,7 +179,11 @@ function NinetyDayReviewsContent() {
           review,
           bucket,
         };
-      });
+      })
+      // A 90-day review is for recent hires. Drop anyone well past the mark (>180d)
+      // who never had one logged — they're established, not 90-day candidates. Keep
+      // recently-completed ones so the Completed view still shows them.
+      .filter((r) => r.totalDays <= 180 || !!r.review);
   }, [personnel, locations, locationFilter]);
 
   // ===== Annual rows =====
@@ -258,6 +279,28 @@ function NinetyDayReviewsContent() {
     setSavingId(personnelId);
     try {
       await markAnnual({ personnelId, cycleYear, completedBy: user._id as Id<"users"> });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleClearNinety = async (personnelId: Id<"personnel">) => {
+    if (!user?._id) return;
+    if (!window.confirm("Remove this 90-day review record?")) return;
+    setSavingId(personnelId);
+    try {
+      await clearNinety({ personnelId, requestingUserId: user._id });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleClearAnnual = async (personnelId: Id<"personnel">, cycleYear: number) => {
+    if (!user?._id) return;
+    if (!window.confirm(`Remove the ${cycleYear} annual review record?`)) return;
+    setSavingId(personnelId);
+    try {
+      await clearAnnual({ personnelId, cycleYear, requestingUserId: user._id });
     } finally {
       setSavingId(null);
     }
@@ -468,6 +511,16 @@ function NinetyDayReviewsContent() {
                         {savingId === r.id ? "Saving…" : "Mark Done"}
                       </button>
                     )}
+                    {r.review && canManagePersonnel && (
+                      <button
+                        onClick={() => handleClearNinety(r.id)}
+                        disabled={savingId === r.id}
+                        className={`text-xs font-medium px-2.5 py-1 rounded-lg disabled:opacity-50 ${isDark ? "bg-slate-700 hover:bg-red-500/30 text-slate-300 hover:text-red-300" : "bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-600"}`}
+                        title="Remove this 90-day review record"
+                      >
+                        Remove
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -527,9 +580,21 @@ function NinetyDayReviewsContent() {
                   </td>
                   <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.cycleYear}</td>
                   <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    {r.lastCompleted
-                      ? `${r.lastCompleted.cycleYear} — ${r.lastCompleted.completedByName}`
-                      : "—"}
+                    {r.lastCompleted ? (
+                      <span className="inline-flex items-center gap-2">
+                        {r.lastCompleted.cycleYear} — {r.lastCompleted.completedByName}
+                        {canManagePersonnel && (
+                          <button
+                            onClick={() => handleClearAnnual(r.id, r.lastCompleted!.cycleYear)}
+                            disabled={savingId === r.id}
+                            className={`text-xs px-1.5 py-0.5 rounded disabled:opacity-50 ${isDark ? "text-slate-500 hover:text-red-400 hover:bg-red-500/10" : "text-gray-400 hover:text-red-500 hover:bg-red-50"}`}
+                            title={`Remove the ${r.lastCompleted.cycleYear} annual review record`}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </span>
+                    ) : "—"}
                   </td>
                   <td className={`px-5 py-2 ${accentClass} font-medium`}>
                     {r.daysToReview <= 0

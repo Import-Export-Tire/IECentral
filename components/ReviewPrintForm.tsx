@@ -72,14 +72,14 @@ export default function ReviewPrintForm({ person, type, pageBreak = true }: { pe
       ))}
 
       <div style={{ marginTop: "8px" }}>
-        <strong>Reviewer Comments (Travis):</strong>
+        <strong>Reviewer Comments:</strong>
         <div style={{ border: "1px solid #000", height: "90px", marginTop: "4px" }} />
       </div>
 
       <table style={{ width: "100%", marginTop: "22px", fontSize: "12px" }}>
         <tbody>
           <tr>
-            <td style={{ paddingTop: "18px", width: "50%" }}><div style={{ borderTop: "1px solid #000", paddingTop: "3px" }}>Reviewer (Travis) &nbsp; Date: ________</div></td>
+            <td style={{ paddingTop: "18px", width: "50%" }}><div style={{ borderTop: "1px solid #000", paddingTop: "3px" }}>Reviewer &nbsp; Date: ________</div></td>
             <td style={{ paddingTop: "18px", paddingLeft: "20px" }}><div style={{ borderTop: "1px solid #000", paddingTop: "3px" }}>Andy Barrows &nbsp; Date: ________</div></td>
           </tr>
           <tr>
