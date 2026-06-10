@@ -48,7 +48,10 @@ export const listEligible = query({
       const days = daysSince(p.hireDate);
       const existing = byPerson.get(p._id as unknown as string) ?? [];
       if (args.reviewType === "90_day") {
-        if (days < 80) continue;
+        // Recent-hire window: at/just past the 90-day mark, with a grace period.
+        // (An open review already generated for them still shows even if past the window.)
+        const open90 = existing.find((r) => r.status !== "decided");
+        if ((days < 75 || days > 200) && !open90) continue;
         if (existing.length > 0) {
           // already has one — surface it only if still open (not decided)
           const open = existing.find((r) => r.status !== "decided");
