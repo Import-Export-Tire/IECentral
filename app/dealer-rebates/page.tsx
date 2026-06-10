@@ -62,7 +62,7 @@ type Dealer = {
 };
 
 // ─── TABS ─────────────────────────────────────────────────────────────────────
-const TABS = ["Dealer Management", "Upload History", "Stats"] as const;
+const TABS = ["Dealer Management", "Upload History", "Monthly Reports", "Stats"] as const;
 type TabType = typeof TABS[number];
 
 const UPLOAD_STEPS = ["Upload OEA07V", "Select Programs", "Review & Export"];
@@ -129,11 +129,87 @@ export default function DealerRebatesPage() {
           <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
             {activeTab === "Dealer Management" && <DealerManagementTab isDark={isDark} />}
             {activeTab === "Upload History" && <UploadHistoryTab isDark={isDark} />}
+            {activeTab === "Monthly Reports" && <MonthlyReportsTab isDark={isDark} />}
             {activeTab === "Stats" && <StatsTab isDark={isDark} />}
           </div>
         </main>
       </div>
     </Protected>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB: MONTHLY REPORTS — consolidated, downloadable submission CSVs (one per month/program)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type MonthlyReport = { program: string; display: string; month: string; label: string; fileName: string; days: number };
+
+const RPT_MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+function rptMonthLabel(m: string): string {
+  const [y, mm] = m.split("-");
+  return `${RPT_MONTH_NAMES[+mm - 1] ?? mm} ${y}`;
+}
+
+function MonthlyReportsTab({ isDark }: { isDark: boolean }) {
+  const [reports, setReports] = useState<MonthlyReport[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/dealer-rebates/monthly-report?list=1")
+      .then((r) => r.json())
+      .then((d) => { if (cancelled) return; if (d.error) setError(d.error); else setReports(d.reports || []); })
+      .catch((e) => { if (!cancelled) setError(String(e)); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const byMonth = new Map<string, MonthlyReport[]>();
+  for (const r of reports ?? []) {
+    if (!byMonth.has(r.month)) byMonth.set(r.month, []);
+    byMonth.get(r.month)!.push(r);
+  }
+  const months = [...byMonth.keys()].sort((a, b) => b.localeCompare(a));
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Monthly Submission Reports</h2>
+        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+          One consolidated CSV per program per month (all dealers, single header), built fresh from current data. Download and submit to the portal.
+        </p>
+      </div>
+
+      {error && <div className={`p-3 rounded-lg text-sm ${isDark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600"}`}>{error}</div>}
+      {reports === null && !error && <div className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Loading…</div>}
+      {reports !== null && months.length === 0 && !error && (
+        <div className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>No reports available yet.</div>
+      )}
+
+      {months.map((month) => (
+        <div key={month} className={`rounded-xl border p-4 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
+          <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-slate-200" : "text-gray-800"}`}>{rptMonthLabel(month)}</h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {byMonth.get(month)!.sort((a, b) => a.program.localeCompare(b.program)).map((r) => (
+              <a
+                key={r.program}
+                href={`/api/dealer-rebates/monthly-report?program=${r.program}&month=${r.month}`}
+                download={r.fileName}
+                className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg border transition-colors ${isDark ? "border-slate-600 hover:bg-slate-700/50" : "border-gray-200 hover:bg-gray-50"}`}
+              >
+                <div className="min-w-0">
+                  <div className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{r.display}</div>
+                  <div className={`text-xs font-mono truncate ${isDark ? "text-slate-400" : "text-gray-500"}`}>{r.fileName} · {r.days} days</div>
+                </div>
+                <span className={`flex items-center gap-1 text-sm font-medium whitespace-nowrap ${isDark ? "text-orange-400" : "text-orange-600"}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                  Download
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
