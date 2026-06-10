@@ -11,6 +11,8 @@ import { useTheme } from "@/app/theme-context";
 import { useAuth } from "@/app/auth-context";
 import Link from "next/link";
 import ReviewPrintForm, { type ReviewFormPerson } from "@/components/ReviewPrintForm";
+import ReviewScorePanel from "@/components/ReviewScorePanel";
+import ReviewSummaryPrint from "@/components/ReviewSummaryPrint";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const REVIEW_MILESTONE_DAYS = 90;
@@ -99,13 +101,37 @@ function NinetyDayReviewsContent() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [printPeople, setPrintPeople] = useState<ReviewFormPerson[]>([]);
+  const [printSummary, setPrintSummary] = useState(false);
+  const [scoreReviewId, setScoreReviewId] = useState<Id<"employeeReviews"> | null>(null);
+  const [openingScore, setOpeningScore] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   useEffect(() => {
-    const clear = () => setPrintPeople([]);
+    const clear = () => { setPrintPeople([]); setPrintSummary(false); };
     window.addEventListener("afterprint", clear);
     return () => window.removeEventListener("afterprint", clear);
   }, []);
+
+  const reviewType = tab === "annual" ? "annual" : "90_day";
+  const empReviews = useQuery(
+    api.employeeReviews.list,
+    user?._id && canManagePersonnel ? { requestingUserId: user._id, reviewType } : "skip",
+  );
+  const generateReview = useMutation(api.employeeReviews.generate);
+  const reviewByPersonnel = useMemo(() => {
+    const m = new Map<string, NonNullable<typeof empReviews>[number]>();
+    for (const r of empReviews ?? []) m.set(r.personnelId as unknown as string, r);
+    return m;
+  }, [empReviews]);
+
+  const openScore = async (personnelId: Id<"personnel">) => {
+    if (!user?._id) return;
+    setOpeningScore(personnelId);
+    try {
+      const res = await generateReview({ requestingUserId: user._id, personnelId, reviewType, createdByName: user.name ?? user.email ?? "" });
+      setScoreReviewId(res.id as Id<"employeeReviews">);
+    } finally { setOpeningScore(null); }
+  };
 
   // ===== 90-day rows =====
   const ninetyRows = useMemo(() => {
@@ -177,8 +203,11 @@ function NinetyDayReviewsContent() {
       .filter(<T,>(r: T | null): r is T => r !== null);
   }, [personnel, locations, locationFilter]);
 
-  // Buckets for the active tab
-  const rows = tab === "ninety" ? ninetyRows : annualRows;
+  // Buckets for the active tab — sorted by location (then name) so each location groups together.
+  const rowsRaw = tab === "ninety" ? ninetyRows : annualRows;
+  const rows = [...rowsRaw].sort((a, b) =>
+    (a.locationName || "").localeCompare(b.locationName || "") || a.name.localeCompare(b.name),
+  );
   const overdue = rows.filter((r) => r.bucket === "overdue");
   const dueSoon = rows.filter((r) => r.bucket === "due-soon");
   const upcoming = rows.filter((r) => r.bucket === "upcoming");
@@ -413,7 +442,21 @@ function NinetyDayReviewsContent() {
                         ? `${Math.abs(r.daysToReview)}d past due`
                         : `in ${r.daysToReview}d`}
                   </td>
-                  <td className="px-5 py-2 text-right">
+                  <td className="px-5 py-2 text-right whitespace-nowrap">
+                    {(() => { const er = reviewByPersonnel.get(r.id as unknown as string); return er && er.averageScore != null ? (
+                      <span className={`mr-2 text-xs ${isDark ? "text-slate-300" : "text-gray-600"}`}>avg {er.averageScore.toFixed(1)}{er.decision !== "pending" ? ` · ${er.decision}` : ""}</span>
+                    ) : null; })()}
+                    {canManagePersonnel && (
+                      <button
+                        onClick={() => openScore(r.id)}
+                        disabled={openingScore === r.id}
+                        className="text-xs font-semibold text-white px-2.5 py-1 rounded-lg mr-2 disabled:opacity-50"
+                        style={{ backgroundColor: "#FF9500" }}
+                        title="Enter scores, see the recommended raise, and approve/deny"
+                      >
+                        {openingScore === r.id ? "…" : "Score"}
+                      </button>
+                    )}
                     {!r.review && canManagePersonnel && (
                       <button
                         onClick={() => handleQuickMarkNinety(r.id)}
@@ -493,7 +536,21 @@ function NinetyDayReviewsContent() {
                       ? `${Math.abs(r.daysToReview)}d past due`
                       : `in ${r.daysToReview}d`}
                   </td>
-                  <td className="px-5 py-2 text-right">
+                  <td className="px-5 py-2 text-right whitespace-nowrap">
+                    {(() => { const er = reviewByPersonnel.get(r.id as unknown as string); return er && er.averageScore != null ? (
+                      <span className={`mr-2 text-xs ${isDark ? "text-slate-300" : "text-gray-600"}`}>avg {er.averageScore.toFixed(1)}{er.decision !== "pending" ? ` · ${er.decision}` : ""}</span>
+                    ) : null; })()}
+                    {canManagePersonnel && (
+                      <button
+                        onClick={() => openScore(r.id)}
+                        disabled={openingScore === r.id}
+                        className="text-xs font-semibold text-white px-2.5 py-1 rounded-lg mr-2 disabled:opacity-50"
+                        style={{ backgroundColor: "#FF9500" }}
+                        title="Enter scores, see the recommended raise, and approve/deny"
+                      >
+                        {openingScore === r.id ? "…" : "Score"}
+                      </button>
+                    )}
                     {r.daysToReview <= 0 && canManagePersonnel && (
                       <button
                         onClick={() => handleQuickMarkAnnual(r.id, r.cycleYear)}
@@ -606,6 +663,14 @@ function NinetyDayReviewsContent() {
                   Print Forms ({overdue.length + dueSoon.length})
                 </button>
                 <button
+                  onClick={() => { setPrintSummary(true); setTimeout(() => window.print(), 80); }}
+                  disabled={!(empReviews && empReviews.some((r) => r.averageScore != null))}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 ${isDark ? "bg-slate-600 hover:bg-slate-500 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"}`}
+                  title="Print a scores + recommended-raise summary for Terry"
+                >
+                  Print Summary
+                </button>
+                <button
                   onClick={handleGeneratePDF}
                   disabled={rows.length === 0 || generating}
                   className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
@@ -648,17 +713,30 @@ function NinetyDayReviewsContent() {
         </div>
       </main>
 
+      {/* Inline score-entry + approve/deny modal */}
+      {scoreReviewId && user?._id && (
+        <ReviewScorePanel
+          reviewId={scoreReviewId}
+          reqId={user._id}
+          userName={user.name ?? user.email ?? "Unknown"}
+          isDark={isDark}
+          onClose={() => setScoreReviewId(null)}
+        />
+      )}
+
       {/* Pre-filled forms for printing (portal to body). Print CSS is only injected
           while forms are queued, so normal Ctrl+P of the tracker is unaffected. */}
-      {mounted && printPeople.length > 0 && createPortal(
+      {mounted && (printPeople.length > 0 || printSummary) && createPortal(
         <div id="rv-forms-print-root">
-          {printPeople.map((p, i) => (
-            <ReviewPrintForm key={i} person={p} type={tab === "annual" ? "annual" : "90_day"} />
-          ))}
+          {printPeople.length > 0
+            ? printPeople.map((p, i) => (
+              <ReviewPrintForm key={i} person={p} type={reviewType} />
+            ))
+            : <ReviewSummaryPrint rows={(empReviews ?? []) as any} type={reviewType} />}
         </div>,
         document.body,
       )}
-      {mounted && printPeople.length > 0 && (
+      {mounted && (printPeople.length > 0 || printSummary) && (
         <style dangerouslySetInnerHTML={{ __html: `
           #rv-forms-print-root { display: none; }
           @media print {

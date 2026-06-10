@@ -157,7 +157,7 @@ function PersonnelContent() {
             {canManagePersonnel && (
               <div className="flex gap-2 flex-shrink-0">
                 <button
-                  onClick={() => router.push("/personnel/reviews")}
+                  onClick={() => router.push("/reports/ninety-day-reviews")}
                   className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors ${
                     isDark
                       ? "bg-orange-500/20 hover:bg-orange-500/30 text-orange-300"
