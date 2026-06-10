@@ -60,6 +60,7 @@ import type * as email_tokenRefresh from "../email/tokenRefresh.js";
 import type * as emails from "../emails.js";
 import type * as employeeChat from "../employeeChat.js";
 import type * as employeePortal from "../employeePortal.js";
+import type * as employeeReviews from "../employeeReviews.js";
 import type * as equipment from "../equipment.js";
 import type * as events from "../events.js";
 import type * as exitInterviews from "../exitInterviews.js";
@@ -177,6 +178,7 @@ declare const fullApi: ApiFromModules<{
   emails: typeof emails;
   employeeChat: typeof employeeChat;
   employeePortal: typeof employeePortal;
+  employeeReviews: typeof employeeReviews;
   equipment: typeof equipment;
   events: typeof events;
   exitInterviews: typeof exitInterviews;

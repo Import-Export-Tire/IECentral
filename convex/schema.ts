@@ -764,6 +764,39 @@ export default defineSchema({
     .index("by_personnel", ["personnelId"])
     .index("by_date", ["reviewDate"]),
 
+  // Employee performance reviews (90-day + annual). Travis rates 1-5 on paper;
+  // scores entered here compute an average + recommended raise tier; Andy marks
+  // approved/denied + the approved increase. Questions/tiers in lib/reviewQuestions.ts.
+  employeeReviews: defineTable({
+    personnelId: v.id("personnel"),
+    reviewType: v.string(),                 // "90_day" | "annual"
+    employeeName: v.string(),               // snapshot at generation (preprinted on form)
+    position: v.optional(v.string()),
+    department: v.optional(v.string()),
+    hireDate: v.optional(v.string()),
+    reviewPeriodLabel: v.string(),          // "90-Day Review" | "Annual Review 2026"
+    reviewerName: v.optional(v.string()),   // who completed the paper form (e.g. Travis)
+    ratings: v.array(v.object({
+      questionId: v.string(),
+      section: v.string(),
+      rating: v.number(),                   // 1-5 (0 = unrated)
+    })),
+    averageScore: v.optional(v.number()),
+    recommendedIncrease: v.optional(v.string()),
+    generalComments: v.optional(v.string()),
+    decision: v.string(),                   // "pending" | "approved" | "denied"
+    approvedIncrease: v.optional(v.string()), // what Andy/Terry approved (free text, e.g. "2.5%")
+    decidedByName: v.optional(v.string()),
+    decidedAt: v.optional(v.number()),
+    status: v.string(),                     // "generated" | "scored" | "decided"
+    createdByName: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_personnel", ["personnelId"])
+    .index("by_type_status", ["reviewType", "status"])
+    .index("by_status", ["status"]),
+
   // ============ NOTIFICATIONS ============
   notifications: defineTable({
     userId: v.id("users"), // Who should receive the notification
