@@ -72,8 +72,8 @@ export default function ReviewPrintForm({ person, type, pageBreak = true }: { pe
       ))}
 
       <div style={{ marginTop: "8px" }}>
-        <strong>Comments:</strong>
-        <div style={{ border: "1px solid #000", height: "54px", marginTop: "4px" }} />
+        <strong>Reviewer Comments (Travis):</strong>
+        <div style={{ border: "1px solid #000", height: "90px", marginTop: "4px" }} />
       </div>
 
       <table style={{ width: "100%", marginTop: "22px", fontSize: "12px" }}>
