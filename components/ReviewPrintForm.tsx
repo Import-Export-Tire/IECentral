@@ -71,19 +71,19 @@ export default function ReviewPrintForm({ person, type, pageBreak = true }: { pe
         </div>
       ))}
 
-      <div style={{ marginTop: "8px" }}>
+      <div style={{ marginTop: "6px" }}>
         <strong>Reviewer Comments:</strong>
-        <div style={{ border: "1px solid #000", height: "90px", marginTop: "4px" }} />
+        <div style={{ border: "1px solid #000", height: "62px", marginTop: "3px" }} />
       </div>
 
-      <table style={{ width: "100%", marginTop: "22px", fontSize: "12px" }}>
+      <table style={{ width: "100%", marginTop: "14px", fontSize: "12px" }}>
         <tbody>
           <tr>
-            <td style={{ paddingTop: "18px", width: "50%" }}><div style={{ borderTop: "1px solid #000", paddingTop: "3px" }}>Reviewer &nbsp; Date: ________</div></td>
-            <td style={{ paddingTop: "18px", paddingLeft: "20px" }}><div style={{ borderTop: "1px solid #000", paddingTop: "3px" }}>Andy Barrows &nbsp; Date: ________</div></td>
+            <td style={{ paddingTop: "12px", width: "50%" }}><div style={{ borderTop: "1px solid #000", paddingTop: "3px" }}>Reviewer &nbsp; Date: ________</div></td>
+            <td style={{ paddingTop: "12px", paddingLeft: "20px" }}><div style={{ borderTop: "1px solid #000", paddingTop: "3px" }}>Andy Barrows &nbsp; Date: ________</div></td>
           </tr>
           <tr>
-            <td style={{ paddingTop: "24px" }}><div style={{ borderTop: "1px solid #000", paddingTop: "3px" }}>Terry &nbsp; Date: ________</div></td>
+            <td style={{ paddingTop: "16px" }}><div style={{ borderTop: "1px solid #000", paddingTop: "3px" }}>Terry &nbsp; Date: ________</div></td>
             <td />
           </tr>
         </tbody>

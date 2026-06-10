@@ -883,9 +883,13 @@ function NinetyDayReviewsContent() {
         <style dangerouslySetInnerHTML={{ __html: `
           #rv-forms-print-root { display: none; }
           @media print {
-            @page { size: letter portrait; margin: 0.5in; }
+            @page { size: letter portrait; margin: 0.4in; }
             body > :not(#rv-forms-print-root) { display: none !important; }
             #rv-forms-print-root { display: block !important; color: #000; }
+            /* Keep each form on its own page, but don't emit a trailing blank page
+               after the last one (the inline page-break-after: always would). */
+            #rv-forms-print-root > div { page-break-inside: avoid; }
+            #rv-forms-print-root > div:last-child { page-break-after: auto !important; }
           }
         ` }} />
       )}
