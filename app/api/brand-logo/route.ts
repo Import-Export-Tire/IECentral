@@ -33,8 +33,10 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": res.ContentType || "image/png",
-        // Cache a day at the edge/browser; logos rarely change.
-        "Cache-Control": "public, max-age=86400, s-maxage=86400",
+        // Short fresh window so a re-uploaded logo propagates within minutes, with a long
+        // stale-while-revalidate so we still serve instantly from cache the rest of the time.
+        // (brandLogoSrc also carries a ?v= version to force-evict on a known swap.)
+        "Cache-Control": "public, max-age=600, s-maxage=600, stale-while-revalidate=604800",
       },
     });
   } catch {
