@@ -62,7 +62,7 @@ type Dealer = {
 };
 
 // ─── TABS ─────────────────────────────────────────────────────────────────────
-const TABS = ["Dealer Management", "Upload History", "Monthly Reports", "Stats"] as const;
+const TABS = ["Dealer Management", "Upload History", "Reports", "Stats"] as const;
 type TabType = typeof TABS[number];
 
 const UPLOAD_STEPS = ["Upload OEA07V", "Select Programs", "Review & Export"];
@@ -129,7 +129,7 @@ export default function DealerRebatesPage() {
           <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
             {activeTab === "Dealer Management" && <DealerManagementTab isDark={isDark} />}
             {activeTab === "Upload History" && <UploadHistoryTab isDark={isDark} />}
-            {activeTab === "Monthly Reports" && <MonthlyReportsTab isDark={isDark} />}
+            {activeTab === "Reports" && <MonthlyReportsTab isDark={isDark} />}
             {activeTab === "Stats" && <StatsTab isDark={isDark} />}
           </div>
         </main>
@@ -139,19 +139,18 @@ export default function DealerRebatesPage() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// TAB: MONTHLY REPORTS — consolidated, downloadable submission CSVs (one per month/program)
+// TAB: REPORTS — one consolidated, downloadable submission CSV per program per quarter
 // ═══════════════════════════════════════════════════════════════════════════════
 
-type MonthlyReport = { program: string; display: string; month: string; label: string; fileName: string; days: number };
+type QuarterReport = { program: string; display: string; quarter: string; range: string; label: string; fileName: string; days: number; months: number };
 
-const RPT_MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-function rptMonthLabel(m: string): string {
-  const [y, mm] = m.split("-");
-  return `${RPT_MONTH_NAMES[+mm - 1] ?? mm} ${y}`;
+function rptQuarterLabel(q: string): string {
+  const [y, qn] = q.split("-Q");
+  return `Q${qn} ${y}`;
 }
 
 function MonthlyReportsTab({ isDark }: { isDark: boolean }) {
-  const [reports, setReports] = useState<MonthlyReport[] | null>(null);
+  const [reports, setReports] = useState<QuarterReport[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -163,42 +162,47 @@ function MonthlyReportsTab({ isDark }: { isDark: boolean }) {
     return () => { cancelled = true; };
   }, []);
 
-  const byMonth = new Map<string, MonthlyReport[]>();
+  const byQuarter = new Map<string, QuarterReport[]>();
   for (const r of reports ?? []) {
-    if (!byMonth.has(r.month)) byMonth.set(r.month, []);
-    byMonth.get(r.month)!.push(r);
+    if (!byQuarter.has(r.quarter)) byQuarter.set(r.quarter, []);
+    byQuarter.get(r.quarter)!.push(r);
   }
-  const months = [...byMonth.keys()].sort((a, b) => b.localeCompare(a));
+  const quarters = [...byQuarter.keys()].sort((a, b) => b.localeCompare(a));
 
   return (
     <div className="space-y-4">
       <div>
-        <h2 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Monthly Submission Reports</h2>
+        <h2 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Submission Reports</h2>
         <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-          One consolidated CSV per program per month (all dealers, single header), built fresh from current data. Download and submit to the portal.
+          One consolidated CSV per program per quarter (all dealers, single header), built fresh from current data. Download and submit to the portal.
         </p>
       </div>
 
       {error && <div className={`p-3 rounded-lg text-sm ${isDark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600"}`}>{error}</div>}
       {reports === null && !error && <div className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Loading…</div>}
-      {reports !== null && months.length === 0 && !error && (
+      {reports !== null && quarters.length === 0 && !error && (
         <div className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>No reports available yet.</div>
       )}
 
-      {months.map((month) => (
-        <div key={month} className={`rounded-xl border p-4 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-          <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-slate-200" : "text-gray-800"}`}>{rptMonthLabel(month)}</h3>
+      {quarters.map((quarter) => (
+        <div key={quarter} className={`rounded-xl border p-4 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
+          <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-slate-200" : "text-gray-800"}`}>
+            {rptQuarterLabel(quarter)}
+            {byQuarter.get(quarter)![0]?.range && (
+              <span className={`ml-2 font-normal text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>({byQuarter.get(quarter)![0].range})</span>
+            )}
+          </h3>
           <div className="grid gap-2 sm:grid-cols-2">
-            {byMonth.get(month)!.sort((a, b) => a.program.localeCompare(b.program)).map((r) => (
+            {byQuarter.get(quarter)!.sort((a, b) => a.program.localeCompare(b.program)).map((r) => (
               <a
                 key={r.program}
-                href={`/api/dealer-rebates/monthly-report?program=${r.program}&month=${r.month}`}
+                href={`/api/dealer-rebates/monthly-report?program=${r.program}&quarter=${r.quarter}`}
                 download={r.fileName}
                 className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg border transition-colors ${isDark ? "border-slate-600 hover:bg-slate-700/50" : "border-gray-200 hover:bg-gray-50"}`}
               >
                 <div className="min-w-0">
                   <div className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{r.display}</div>
-                  <div className={`text-xs font-mono truncate ${isDark ? "text-slate-400" : "text-gray-500"}`}>{r.fileName} · {r.days} days</div>
+                  <div className={`text-xs font-mono truncate ${isDark ? "text-slate-400" : "text-gray-500"}`}>{r.fileName} · {r.months} mo · {r.days} days</div>
                 </div>
                 <span className={`flex items-center gap-1 text-sm font-medium whitespace-nowrap ${isDark ? "text-orange-400" : "text-orange-600"}`}>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
