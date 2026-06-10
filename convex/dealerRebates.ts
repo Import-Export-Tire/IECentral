@@ -266,14 +266,28 @@ export const searchUploadsByDealer = query({
     const term = args.searchTerm.toLowerCase().trim();
     if (!term) return { monthly: [], uploads: [] };
 
-    const uploads = await ctx.db.query("dealerRebateUploads").order("desc").collect();
-    const match = (d: { jmk: string; name: string; fanaticId?: number; dealerNumber?: string }) =>
-      d.jmk.toLowerCase().includes(term) ||
-      d.name.toLowerCase().includes(term) ||
+    const match = (d: { jmk?: string; name?: string; fanaticId?: number; dealerNumber?: string }) =>
+      (d.jmk?.toLowerCase().includes(term) ?? false) ||
+      (d.name?.toLowerCase().includes(term) ?? false) ||
       (d.fanaticId != null && String(d.fanaticId).includes(term)) ||
       (d.dealerNumber != null && d.dealerNumber.toLowerCase().includes(term));
 
     const monthMap: Record<string, { falken: number; milestar: number }> = {};
+
+    // Monthly totals come from the DEDUPED dealerRebateMonthly table (source of truth,
+    // rebuilt from all of a month's files) — NOT raw per-upload breakdowns, which are
+    // stale at upload time. Same precedence as getStats/getDealerMonthlyTotals: a month
+    // present in the deduped table wins; raw uploads only fill months it doesn't cover.
+    const monthlyRows = await ctx.db.query("dealerRebateMonthly").collect();
+    const monthsWithData = new Set(monthlyRows.map((r) => r.month));
+    for (const r of monthlyRows) {
+      if (!match(r)) continue;
+      const bucket = (monthMap[r.month] ??= { falken: 0, milestar: 0 });
+      if (r.program === "falken") bucket.falken += r.qty;
+      else bucket.milestar += r.qty;
+    }
+
+    const uploads = await ctx.db.query("dealerRebateUploads").order("desc").collect();
     const matchedUploads: Array<{
       _id: typeof uploads[number]["_id"]; uploadDate: number; fileName: string;
       program: string; matchedDealers: typeof uploads[number]["dealerBreakdown"];
@@ -284,6 +298,7 @@ export const searchUploadsByDealer = query({
       if (hits.length === 0) continue;
       for (const b of hits) {
         const month = breakdownMonth(b, u.uploadDate);
+        if (monthsWithData.has(month)) continue; // deduped table wins for this month
         const bucket = (monthMap[month] ??= { falken: 0, milestar: 0 });
         if (u.program === "falken") bucket.falken += breakdownQty(b);
         else bucket.milestar += breakdownQty(b);
