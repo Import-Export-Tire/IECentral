@@ -3519,6 +3519,7 @@ export default defineSchema({
       brand: v.string(),
       model: v.string(),
       sizeDesc: v.string(),
+      qty: v.optional(v.number()),
     })),
     copies: v.number(),
     notes: v.optional(v.string()),

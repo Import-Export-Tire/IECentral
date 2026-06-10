@@ -21,6 +21,7 @@ interface TireLabelData {
   brand: string;
   model: string;
   sizeDesc: string;
+  qty: number; // how many copies of THIS label to print
 }
 
 type Mode = "bin" | "tire";
@@ -28,7 +29,7 @@ type Mode = "bin" | "tire";
 interface WorkOrderRow {
   _id: string;
   title: string;
-  labels: TireLabelData[];
+  labels: (Omit<TireLabelData, "qty"> & { qty?: number })[];
   copies: number;
   status: string;
   createdByName: string;
@@ -48,7 +49,7 @@ export default function BinLabelsPage() {
   }, []);
   const [labels, setLabels] = useState<LabelData[]>([{ locationId: "", locationName: "" }]);
   const [tireLabels, setTireLabels] = useState<TireLabelData[]>([
-    { itemId: "", brand: "", model: "", sizeDesc: "" },
+    { itemId: "", brand: "", model: "", sizeDesc: "", qty: 1 },
   ]);
   const [copies, setCopies] = useState(1);
   const [lookupLoading, setLookupLoading] = useState<number | null>(null);
@@ -132,7 +133,7 @@ export default function BinLabelsPage() {
   };
 
   const addTireLabel = () => {
-    setTireLabels([...tireLabels, { itemId: "", brand: "", model: "", sizeDesc: "" }]);
+    setTireLabels([...tireLabels, { itemId: "", brand: "", model: "", sizeDesc: "", qty: 1 }]);
   };
 
   const removeTireLabel = (index: number) => {
@@ -146,9 +147,15 @@ export default function BinLabelsPage() {
     }
   };
 
-  const updateTireLabel = (index: number, field: keyof TireLabelData, value: string) => {
+  const updateTireLabel = (index: number, field: "itemId" | "brand" | "model" | "sizeDesc", value: string) => {
     const newLabels = [...tireLabels];
     newLabels[index] = { ...newLabels[index], [field]: value };
+    setTireLabels(newLabels);
+  };
+
+  const updateTireQty = (index: number, value: number) => {
+    const newLabels = [...tireLabels];
+    newLabels[index] = { ...newLabels[index], qty: Math.max(1, Math.min(99, value || 1)) };
     setTireLabels(newLabels);
   };
 
@@ -188,7 +195,7 @@ export default function BinLabelsPage() {
     if (mode === "bin") {
       setLabels([{ locationId: "", locationName: "" }]);
     } else {
-      setTireLabels([{ itemId: "", brand: "", model: "", sizeDesc: "" }]);
+      setTireLabels([{ itemId: "", brand: "", model: "", sizeDesc: "", qty: 1 }]);
       setLookupNotFound({});
     }
     setCopies(1);
@@ -220,8 +227,9 @@ export default function BinLabelsPage() {
     }
   };
 
-  const loadWorkOrder = (wo: { _id: string; labels: TireLabelData[]; copies: number }) => {
-    setTireLabels(wo.labels.map((l) => ({ ...l })));
+  const loadWorkOrder = (wo: { _id: string; labels: (Omit<TireLabelData, "qty"> & { qty?: number })[]; copies: number }) => {
+    // Older work orders predate per-label qty: fall back to the order's global "copies".
+    setTireLabels(wo.labels.map((l) => ({ ...l, qty: l.qty ?? wo.copies ?? 1 })));
     setCopies(wo.copies);
     setLoadedWorkOrderId(wo._id);
     setLookupNotFound({});
@@ -262,9 +270,12 @@ export default function BinLabelsPage() {
     return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   };
 
-  // Generate labels with copies
+  // Generate labels with copies. Bin labels use the global "copies" count;
+  // tire labels use a PER-LABEL qty (4 of one tire, 1 of another).
   const labelsWithCopies = labels.flatMap((label) => Array(copies).fill(label));
-  const tireLabelsWithCopies = tireLabels.flatMap((label) => Array(copies).fill(label));
+  const tireLabelsWithCopies = tireLabels.flatMap((label) =>
+    Array(Math.max(1, label.qty || 1)).fill(label),
+  );
 
   const tireIsPrintable = (l: TireLabelData) => Boolean(l.itemId || l.brand);
   const canPrint =
@@ -539,19 +550,9 @@ export default function BinLabelsPage() {
                       Tire Details
                     </h2>
                     <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <label className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                          Copies per label:
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="50"
-                          value={copies}
-                          onChange={(e) => setCopies(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
-                          className={`w-20 px-3 py-1.5 rounded-lg text-center ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                        />
-                      </div>
+                      <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        Set <strong>Qty</strong> on each tire for the number of copies
+                      </span>
                       <button
                         onClick={addTireLabel}
                         className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
@@ -633,6 +634,20 @@ export default function BinLabelsPage() {
                             >
                               {lookupLoading === index ? "Looking up…" : "Look up"}
                             </button>
+                            <div>
+                              <label className={`block text-xs font-medium mb-1 text-center ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                                Qty
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                max="99"
+                                value={label.qty}
+                                onChange={(e) => updateTireQty(index, parseInt(e.target.value, 10))}
+                                title="Number of copies of this label to print"
+                                className={`w-16 px-3 py-2 rounded-lg text-center font-medium ${isDark ? "bg-slate-800 border-slate-600 text-white" : "bg-white border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                              />
+                            </div>
                           </div>
                           {lookupNotFound[index] && (
                             <p className={`text-xs ${isDark ? "text-amber-400" : "text-amber-600"}`}>
@@ -717,7 +732,7 @@ export default function BinLabelsPage() {
                           tireIsPrintable(label) && (
                             <div key={index} className="flex flex-col items-center">
                               <span className={`text-xs font-medium mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                                Label #{index + 1} {copies > 1 && `(×${copies})`}
+                                Label #{index + 1} {(label.qty || 1) > 1 && `(×${label.qty} copies)`}
                               </span>
 
                               {/* Shipping label mockup - PORTRAIT 4" x 6" */}
@@ -829,7 +844,7 @@ export default function BinLabelsPage() {
                                 )}
                               </div>
                               <p className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                                {wo.labels.length} label{wo.labels.length !== 1 ? "s" : ""} · ×{wo.copies} copies · {wo.createdByName} · {formatWoDate(wo.createdAt)}
+                                {wo.labels.length} tire{wo.labels.length !== 1 ? "s" : ""} · {wo.labels.reduce((s, l) => s + (l.qty ?? wo.copies ?? 1), 0)} labels · {wo.createdByName} · {formatWoDate(wo.createdAt)}
                               </p>
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0">
