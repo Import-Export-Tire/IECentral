@@ -471,6 +471,7 @@ export default defineSchema({
     hireDate: v.string(), // YYYY-MM-DD
     hourlyRate: v.optional(v.number()),
     status: v.string(), // "active" | "on_leave" | "terminated"
+    excludeFromReviews: v.optional(v.boolean()), // corporate/management — skip 90-day & annual review cycle
     terminationDate: v.optional(v.string()),
     terminationReason: v.optional(v.string()),
     emergencyContact: v.optional(v.object({

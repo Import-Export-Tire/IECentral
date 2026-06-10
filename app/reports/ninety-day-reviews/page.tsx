@@ -111,10 +111,12 @@ function NinetyDayReviewsContent() {
   const markAnnual = useMutation(api.personnel.markAnnualReview);
   const clearNinety = useMutation(api.personnel.clearNinetyDayReview);
   const clearAnnual = useMutation(api.personnel.clearAnnualReview);
+  const setExclusion = useMutation(api.personnel.setReviewExclusion);
 
   const [tab, setTab] = useState<Tab>("ninety");
   const [locationFilter, setLocationFilter] = useState<Id<"locations"> | "">("");
   const [showCompleted, setShowCompleted] = useState(false);
+  const [showExcluded, setShowExcluded] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [printPeople, setPrintPeople] = useState<ReviewFormPerson[]>([]);
@@ -178,6 +180,7 @@ function NinetyDayReviewsContent() {
           reviewDueDate,
           review,
           bucket,
+          excluded: !!(p as { excludeFromReviews?: boolean }).excludeFromReviews,
         };
       })
       // A 90-day review is for recent hires. Drop anyone well past the mark (>180d)
@@ -219,6 +222,7 @@ function NinetyDayReviewsContent() {
           daysToReview: state.daysToReview,
           lastCompleted: state.lastCompleted,
           bucket,
+          excluded: !!(p as { excludeFromReviews?: boolean }).excludeFromReviews,
         };
       })
       .filter(<T,>(r: T | null): r is T => r !== null);
@@ -229,11 +233,14 @@ function NinetyDayReviewsContent() {
   const rows = [...rowsRaw].sort((a, b) =>
     (a.locationName || "").localeCompare(b.locationName || "") || a.name.localeCompare(b.name),
   );
-  const overdue = rows.filter((r) => r.bucket === "overdue");
-  const dueSoon = rows.filter((r) => r.bucket === "due-soon");
-  const upcoming = rows.filter((r) => r.bucket === "upcoming");
+  // Excluded employees (corporate/management) are hidden from the actionable buckets
+  // and collected separately so they can be re-included.
+  const overdue = rows.filter((r) => r.bucket === "overdue" && !r.excluded);
+  const dueSoon = rows.filter((r) => r.bucket === "due-soon" && !r.excluded);
+  const upcoming = rows.filter((r) => r.bucket === "upcoming" && !r.excluded);
+  const excludedRows = rows.filter((r) => r.excluded);
   const completed = tab === "ninety"
-    ? ninetyRows.filter((r) => r.bucket === "completed").sort(
+    ? ninetyRows.filter((r) => r.bucket === "completed" && !r.excluded).sort(
       (a, b) => ((b as typeof ninetyRows[number]).review?.completedAt ?? 0) - ((a as typeof ninetyRows[number]).review?.completedAt ?? 0)
     )
     : [];
@@ -301,6 +308,16 @@ function NinetyDayReviewsContent() {
     setSavingId(personnelId);
     try {
       await clearAnnual({ personnelId, cycleYear, requestingUserId: user._id });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleExclude = async (personnelId: Id<"personnel">, exclude: boolean) => {
+    if (!user?._id) return;
+    setSavingId(personnelId);
+    try {
+      await setExclusion({ personnelId, exclude, requestingUserId: user._id });
     } finally {
       setSavingId(null);
     }
@@ -521,6 +538,16 @@ function NinetyDayReviewsContent() {
                         Remove
                       </button>
                     )}
+                    {canManagePersonnel && (
+                      <button
+                        onClick={() => handleExclude(r.id, true)}
+                        disabled={savingId === r.id}
+                        className={`text-xs font-medium px-2.5 py-1 rounded-lg disabled:opacity-50 ${isDark ? "text-slate-400 hover:text-amber-300 hover:bg-amber-500/10" : "text-gray-500 hover:text-amber-700 hover:bg-amber-50"}`}
+                        title="Exclude from reviews (corporate/management)"
+                      >
+                        Exclude
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -627,6 +654,16 @@ function NinetyDayReviewsContent() {
                         {savingId === r.id ? "Saving…" : "Mark Done"}
                       </button>
                     )}
+                    {canManagePersonnel && (
+                      <button
+                        onClick={() => handleExclude(r.id, true)}
+                        disabled={savingId === r.id}
+                        className={`text-xs font-medium px-2.5 py-1 rounded-lg disabled:opacity-50 ${isDark ? "text-slate-400 hover:text-amber-300 hover:bg-amber-500/10" : "text-gray-500 hover:text-amber-700 hover:bg-amber-50"}`}
+                        title="Exclude from reviews (corporate/management)"
+                      >
+                        Exclude
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -705,7 +742,7 @@ function NinetyDayReviewsContent() {
                   ))}
                 </select>
               </div>
-              <div className="flex items-end">
+              <div className="flex items-end gap-4">
                 {tab === "ninety" ? (
                   <label className={`flex items-center gap-2 text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
                     <input
@@ -717,6 +754,15 @@ function NinetyDayReviewsContent() {
                     Show completed reviews
                   </label>
                 ) : null}
+                <label className={`flex items-center gap-2 text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <input
+                    type="checkbox"
+                    checked={showExcluded}
+                    onChange={(e) => setShowExcluded(e.target.checked)}
+                    className="rounded"
+                  />
+                  Show excluded ({excludedRows.length})
+                </label>
               </div>
               <div className="flex items-end justify-end gap-2">
                 <button
@@ -774,6 +820,38 @@ function NinetyDayReviewsContent() {
               {annualSection(`Due Within ${ANNUAL_DUE_SOON_DAYS} Days`, dueSoon as typeof annualRows, isDark ? "text-amber-400" : "text-amber-600", "None in this window.")}
               {annualSection("Upcoming", upcoming as typeof annualRows, isDark ? "text-slate-400" : "text-gray-500", "No upcoming anniversaries (or no one with 1+ year tenure).")}
             </>
+          )}
+
+          {/* Excluded (corporate/management) — hidden from the cycle, shown here to re-include */}
+          {showExcluded && (
+            <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
+              <div className={`px-5 py-3 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                <h2 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <span className={isDark ? "text-slate-400" : "text-gray-500"}>Excluded from reviews</span>
+                  <span className={`ml-2 font-normal ${isDark ? "text-slate-500" : "text-gray-500"}`}>{excludedRows.length}</span>
+                </h2>
+              </div>
+              {excludedRows.length === 0 ? (
+                <div className={`p-5 text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>No one excluded.</div>
+              ) : (
+                <div className="divide-y divide-slate-700/30">
+                  {excludedRows.map((r) => (
+                    <div key={r.id} className="flex items-center justify-between px-5 py-2 text-sm">
+                      <span className={isDark ? "text-slate-300" : "text-gray-700"}>{r.name} <span className={isDark ? "text-slate-500" : "text-gray-400"}>· {r.position} · {r.locationName}</span></span>
+                      {canManagePersonnel && (
+                        <button
+                          onClick={() => handleExclude(r.id, false)}
+                          disabled={savingId === r.id}
+                          className={`text-xs font-medium px-2.5 py-1 rounded-lg disabled:opacity-50 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                        >
+                          Include
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </main>

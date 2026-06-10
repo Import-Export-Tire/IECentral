@@ -1067,6 +1067,20 @@ export const clearAnnualReview = mutation({
   },
 });
 
+// Exclude/include an employee from the 90-day + annual review cycle (corporate/management).
+export const setReviewExclusion = mutation({
+  args: {
+    personnelId: v.id("personnel"),
+    exclude: v.boolean(),
+    requestingUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    await ctx.db.patch(args.personnelId, { excludeFromReviews: args.exclude, updatedAt: Date.now() });
+    return args.personnelId;
+  },
+});
+
 // Bulk mark all tenure check-ins complete for personnel hired before a date
 export const bulkCompleteTenureCheckIns = mutation({
   args: {
