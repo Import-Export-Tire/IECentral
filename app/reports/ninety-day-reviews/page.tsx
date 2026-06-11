@@ -183,10 +183,11 @@ function NinetyDayReviewsContent() {
           excluded: !!(p as { excludeFromReviews?: boolean }).excludeFromReviews,
         };
       })
-      // A 90-day review is for recent hires. Drop anyone well past the mark (>180d)
-      // who never had one logged — they're established, not 90-day candidates. Keep
-      // recently-completed ones so the Completed view still shows them.
-      .filter((r) => r.totalDays <= 180 || !!r.review);
+      // A 90-day review is for newer hires. Drop multi-year veterans (>365d) who
+      // never had one logged — they're established, belong on annual, not 90-day.
+      // Anyone within their first year who's overdue still shows; recently-completed
+      // ones are kept so the Completed view shows them.
+      .filter((r) => r.totalDays <= 365 || !!r.review);
   }, [personnel, locations, locationFilter]);
 
   // ===== Annual rows =====
