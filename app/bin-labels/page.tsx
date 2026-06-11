@@ -10,6 +10,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import JsBarcode from "jsbarcode";
 import { brandLogoSrc } from "@/lib/brandLogo";
+import TireSearchBox, { type TireSearchResult } from "@/components/TireSearchBox";
 
 interface LabelData {
   locationId: string;
@@ -157,6 +158,14 @@ export default function BinLabelsPage() {
     const newLabels = [...tireLabels];
     newLabels[index] = { ...newLabels[index], qty: Math.max(1, Math.min(99, value || 1)) };
     setTireLabels(newLabels);
+  };
+
+  // Fill a row from a catalog search pick (untagged tire — no manual entry).
+  const fillTireFromSearch = (index: number, r: TireSearchResult) => {
+    const newLabels = [...tireLabels];
+    newLabels[index] = { ...newLabels[index], itemId: r.itemId, brand: r.brand, model: r.model, sizeDesc: r.sizeDesc };
+    setTireLabels(newLabels);
+    setLookupNotFound((prev) => ({ ...prev, [index]: false }));
   };
 
   const lookupTire = async (index: number) => {
@@ -607,6 +616,13 @@ export default function BinLabelsPage() {
                           #{index + 1}
                         </span>
                         <div className="flex-1 space-y-4">
+                          {/* Find tire by sidewall (brand/size/model) — for untagged tires */}
+                          <TireSearchBox isDark={isDark} onSelect={(r) => fillTireFromSearch(index, r)} />
+                          <div className={`flex items-center gap-2 text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                            <span className={`flex-1 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`} />
+                            or enter Item ID
+                            <span className={`flex-1 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`} />
+                          </div>
                           {/* Item ID + Look up */}
                           <div className="flex items-end gap-3">
                             <div className="flex-1">

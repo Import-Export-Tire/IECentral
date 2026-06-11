@@ -134,3 +134,35 @@ export async function resolveBrand(itemId: string): Promise<BrandEntry | null> {
   const map = await getBrandIndex();
   return map.get(key) ?? null;
 }
+
+export interface TireSearchResult {
+  itemId: string;
+  brand: string;
+  model: string;
+  sizeDesc: string;
+}
+
+/**
+ * Search the catalog by free text across brand + model + description(size) + itemId.
+ * For finding an untagged tire: the user types what's on the sidewall (size/brand/
+ * model) and picks a match. All terms must match (AND). Results deduped by
+ * brand|model|size so the same tire doesn't repeat across SKUs.
+ */
+export async function searchTires(query: string, limit = 40): Promise<TireSearchResult[]> {
+  const q = (query ?? "").trim().toLowerCase();
+  if (q.length < 2) return [];
+  const terms = q.split(/\s+/).filter(Boolean);
+  const map = await getBrandIndex();
+  const seen = new Set<string>();
+  const out: TireSearchResult[] = [];
+  for (const [itemId, e] of map) {
+    const hay = `${e.manufacturerName} ${e.model} ${e.description} ${itemId}`.toLowerCase();
+    if (!terms.every((t) => hay.includes(t))) continue;
+    const dedupKey = `${e.manufacturerName}|${e.model}|${e.description}`;
+    if (seen.has(dedupKey)) continue;
+    seen.add(dedupKey);
+    out.push({ itemId, brand: e.manufacturerName, model: e.model, sizeDesc: e.description });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
