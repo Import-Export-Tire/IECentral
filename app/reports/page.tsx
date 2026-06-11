@@ -325,11 +325,11 @@ function ReportsContent() {
                   );
                 }
 
-                let groupReports = REPORT_TYPES.filter((r) => r.group === group.id);
-                // Per-card super-admin gating (e.g. exit interview report)
-                if (permissions.tier < 5) {
-                  groupReports = groupReports.filter((r) => !r.superAdminOnly);
-                }
+                // Per-report permission gating — each report has its own `report.<id>`
+                // permission (defaults preserve prior tier visibility; overridable per user).
+                let groupReports = REPORT_TYPES.filter(
+                  (r) => r.group === group.id && permissions.hasPermission(`report.${r.id}`),
+                );
                 // Filter by search
                 if (searchQuery) {
                   const q = searchQuery.toLowerCase();
@@ -337,8 +337,6 @@ function ReportsContent() {
                     r.title.toLowerCase().includes(q) || r.description.toLowerCase().includes(q)
                   );
                 }
-                // Hide admin group for non-T5 users
-                if (group.id === "admin" && permissions.tier < 5) return null;
                 if (groupReports.length === 0) return null;
 
                 return (

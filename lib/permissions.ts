@@ -11,6 +11,7 @@
  */
 
 import { Id } from "@/convex/_generated/dataModel";
+import { REPORT_TYPES } from "@/lib/reportTypes";
 
 // Permission override map: key is permission name, value is true (grant) or false (deny)
 export type PermissionOverrides = Record<string, boolean>;
@@ -626,6 +627,13 @@ export const ALL_PERMISSIONS: PermissionDefinition[] = [
   { key: "dashboard.activityFeed", label: "Activity Feed Widget", description: "Show activity feed on dashboard", category: "reports" },
   { key: "dashboard.tenureCheckins", label: "Tenure Check-ins Widget", description: "Show tenure check-ins on dashboard", category: "reports" },
   { key: "dashboard.financialSnapshot", label: "Financial Snapshot Widget", description: "Show financial KPIs on dashboard (super admin only)", category: "reports" },
+  // Per-report access — one toggle per report (defaults preserve current visibility).
+  ...REPORT_TYPES.map((r) => ({
+    key: `report.${r.id}`,
+    label: `Report: ${r.title}`,
+    description: `Access the "${r.title}" report`,
+    category: "reports",
+  })),
 ];
 
 /**
@@ -694,6 +702,15 @@ export function getRoleDefaults(user: PermissionUser): Record<string, boolean> {
   defaults["dunlopReporting.envToggle"] = tier >= 4; // admin+
   defaults["dunlopReporting.rerun"] = tier >= 4; // admin+
   defaults["dunlopReporting.deleteHistory"] = tier >= 5; // super admin only
+
+  // Per-report permissions. Preserve current visibility as the default: reports are
+  // admin-only (T4+), with sensitive/admin reports super-admin only (T5). Per-user
+  // overrides let specific people be granted (or denied) individual reports.
+  const reportTier = getTier(user.role);
+  for (const r of REPORT_TYPES) {
+    const sensitive = r.superAdminOnly || r.group === "admin";
+    defaults[`report.${r.id}`] = sensitive ? reportTier >= 5 : reportTier >= 4;
+  }
 
   return defaults;
 }
