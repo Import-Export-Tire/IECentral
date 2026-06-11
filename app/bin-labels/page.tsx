@@ -789,7 +789,7 @@ export default function BinLabelsPage() {
                                     <svg
                                       ref={(el) => { tireBarcodeRefs.current[index] = el; }}
                                       className="mt-4"
-                                      style={{ width: "100%", maxWidth: "100%" }}
+                                      style={{ maxWidth: "100%", height: "auto" }}
                                     />
                                   )}
                                 </div>
@@ -986,19 +986,17 @@ function PrintBarcode({ locationId, locationName }: { locationId: string; locati
 }
 
 // Separate component for print tire labels (4" x 6" portrait)
-// Make a JsBarcode-rendered SVG scale to its container (never overflow the label),
-// regardless of item-ID length: swap the fixed width/height for a viewBox + 100% width
-// capped at the barcode's natural width so short codes don't blow up.
+// Make a JsBarcode-rendered SVG scale down to fit its container (never overflow the
+// label) for long item-IDs, while keeping its natural size for short ones. We add a
+// viewBox (so it scales proportionally) but KEEP the width/height attributes so the
+// SVG still has an intrinsic size — then cap it with CSS max-width:100% + height:auto.
 function fitBarcode(svg: SVGSVGElement | null) {
   if (!svg) return;
   const w = svg.getAttribute("width");
   const h = svg.getAttribute("height");
   if (!w || !h) return;
-  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
-  svg.removeAttribute("width");
-  svg.removeAttribute("height");
-  svg.style.width = "100%";
-  svg.style.maxWidth = `${w}px`;
+  if (!svg.getAttribute("viewBox")) svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  svg.style.maxWidth = "100%";
   svg.style.height = "auto";
 }
 
@@ -1055,7 +1053,7 @@ function PrintTireLabel({
       )}
       {model && <p style={{ fontSize: "26px", fontWeight: 500, lineHeight: 1.2, maxWidth: "100%", wordBreak: "break-word" }}>{model}</p>}
       {sizeDesc && <p style={{ fontSize: "22px", fontWeight: 500, lineHeight: 1.3, maxWidth: "100%", wordBreak: "break-word" }}>{sizeDesc}</p>}
-      {itemId && <svg ref={svgRef} className="flex-shrink-0 mt-1" style={{ width: "100%", maxWidth: "100%" }} />}
+      {itemId && <svg ref={svgRef} className="flex-shrink-0 mt-1" style={{ maxWidth: "100%", height: "auto" }} />}
       {footer && (
         <div style={{ position: "absolute", bottom: "0.18in", left: 0, right: 0, fontSize: "11px", color: "#444" }}>{footer}</div>
       )}
