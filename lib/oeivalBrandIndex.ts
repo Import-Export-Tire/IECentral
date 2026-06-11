@@ -151,13 +151,17 @@ export interface TireSearchResult {
 export async function searchTires(query: string, limit = 40): Promise<TireSearchResult[]> {
   const q = (query ?? "").trim().toLowerCase();
   if (q.length < 2) return [];
-  const terms = q.split(/\s+/).filter(Boolean);
+  // Match each term either as a plain substring OR with separators stripped, so a size
+  // typed "245/40/R18", "245/40 R18", or "245-40R18" all match the catalog's "245/40R18".
+  const compact = (s: string) => s.replace(/[^a-z0-9]/g, "");
+  const terms = q.split(/\s+/).filter(Boolean).map((t) => ({ raw: t, comp: compact(t) }));
   const map = await getBrandIndex();
   const seen = new Set<string>();
   const out: TireSearchResult[] = [];
   for (const [itemId, e] of map) {
     const hay = `${e.manufacturerName} ${e.model} ${e.description} ${itemId}`.toLowerCase();
-    if (!terms.every((t) => hay.includes(t))) continue;
+    const hayComp = compact(hay);
+    if (!terms.every((t) => hay.includes(t.raw) || (t.comp.length >= 2 && hayComp.includes(t.comp)))) continue;
     const dedupKey = `${e.manufacturerName}|${e.model}|${e.description}`;
     if (seen.has(dedupKey)) continue;
     seen.add(dedupKey);
