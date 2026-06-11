@@ -102,7 +102,7 @@ export default function BinLabelsPage() {
         try {
           JsBarcode(tireBarcodeRefs.current[index], label.itemId, {
             format: "CODE128",
-            width: 2.5,
+            width: 2,
             height: 70,
             displayValue: true,
             fontSize: 18,
@@ -110,6 +110,7 @@ export default function BinLabelsPage() {
             textMargin: 5,
             margin: 5,
           });
+          fitBarcode(tireBarcodeRefs.current[index]);
         } catch (e) {
           console.error("Tire barcode generation error:", e);
         }
@@ -211,6 +212,8 @@ export default function BinLabelsPage() {
   };
 
   const userName = user?.name ?? user?.email ?? "Unknown";
+  // Accountability footer printed on each tire label: who made it + when.
+  const labelFooter = `Created ${new Date().toLocaleDateString()} · ${userName}`;
 
   const saveWorkOrder = async () => {
     const labelsToSave = tireLabels.filter((l) => l.itemId || l.brand);
@@ -786,9 +789,11 @@ export default function BinLabelsPage() {
                                     <svg
                                       ref={(el) => { tireBarcodeRefs.current[index] = el; }}
                                       className="mt-4"
+                                      style={{ width: "100%", maxWidth: "100%" }}
                                     />
                                   )}
                                 </div>
+                                <div style={{ position: "absolute", bottom: "8px", left: 0, right: 0, fontSize: "10px", color: "#666" }}>{labelFooter}</div>
                               </div>
                             </div>
                           )
@@ -915,7 +920,7 @@ export default function BinLabelsPage() {
               tireLabelsWithCopies.map((label, index) =>
                 tireIsPrintable(label) ? (
                   <div key={index} className="print-tire-label">
-                    <PrintTireLabel itemId={label.itemId} brand={label.brand} model={label.model} sizeDesc={label.sizeDesc} />
+                    <PrintTireLabel itemId={label.itemId} brand={label.brand} model={label.model} sizeDesc={label.sizeDesc} footer={labelFooter} />
                   </div>
                 ) : null,
               )}
@@ -981,16 +986,34 @@ function PrintBarcode({ locationId, locationName }: { locationId: string; locati
 }
 
 // Separate component for print tire labels (4" x 6" portrait)
+// Make a JsBarcode-rendered SVG scale to its container (never overflow the label),
+// regardless of item-ID length: swap the fixed width/height for a viewBox + 100% width
+// capped at the barcode's natural width so short codes don't blow up.
+function fitBarcode(svg: SVGSVGElement | null) {
+  if (!svg) return;
+  const w = svg.getAttribute("width");
+  const h = svg.getAttribute("height");
+  if (!w || !h) return;
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  svg.removeAttribute("width");
+  svg.removeAttribute("height");
+  svg.style.width = "100%";
+  svg.style.maxWidth = `${w}px`;
+  svg.style.height = "auto";
+}
+
 function PrintTireLabel({
   itemId,
   brand,
   model,
   sizeDesc,
+  footer,
 }: {
   itemId: string;
   brand: string;
   model: string;
   sizeDesc: string;
+  footer?: string;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -1006,13 +1029,14 @@ function PrintTireLabel({
         textMargin: 4,
         margin: 4,
       });
+      fitBarcode(svgRef.current); // scale to label width so long item-IDs never overhang
     }
   }, [itemId]);
 
   return (
     <div
       className="flex flex-col items-center justify-center gap-3 text-center text-black px-4"
-      style={{ width: "4in", height: "6in", overflow: "hidden", boxSizing: "border-box" }}
+      style={{ width: "4in", height: "6in", overflow: "hidden", boxSizing: "border-box", position: "relative" }}
     >
       {brand && (
         <div className="flex flex-col items-center" style={{ gap: "8px", maxWidth: "100%" }}>
@@ -1031,7 +1055,10 @@ function PrintTireLabel({
       )}
       {model && <p style={{ fontSize: "26px", fontWeight: 500, lineHeight: 1.2, maxWidth: "100%", wordBreak: "break-word" }}>{model}</p>}
       {sizeDesc && <p style={{ fontSize: "22px", fontWeight: 500, lineHeight: 1.3, maxWidth: "100%", wordBreak: "break-word" }}>{sizeDesc}</p>}
-      {itemId && <svg ref={svgRef} className="flex-shrink-0 mt-1" style={{ maxWidth: "100%" }} />}
+      {itemId && <svg ref={svgRef} className="flex-shrink-0 mt-1" style={{ width: "100%", maxWidth: "100%" }} />}
+      {footer && (
+        <div style={{ position: "absolute", bottom: "0.18in", left: 0, right: 0, fontSize: "11px", color: "#444" }}>{footer}</div>
+      )}
     </div>
   );
 }
