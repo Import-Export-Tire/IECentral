@@ -20,6 +20,7 @@
 const fs = require("fs");
 const path = require("path");
 const zlib = require("zlib");
+const tar = require("tar");
 const { execFileSync } = require("child_process");
 const { pipeline } = require("stream/promises");
 
@@ -32,13 +33,29 @@ async function ensureLibreOffice() {
   if (fs.existsSync(SOFFICE)) return;
   if (!unpackPromise) {
     unpackPromise = (async () => {
+      // /opt/lo.tar.br is brotli(tar). Decompress with Node's native brotli, then
+      // extract with the bundled `tar` package — the Node 20 runtime (AL2023) has
+      // no system `tar` binary.
       await pipeline(
         fs.createReadStream(LO_ARCHIVE),
         zlib.createBrotliDecompress(),
         fs.createWriteStream("/tmp/lo.tar")
       );
-      execFileSync("tar", ["xf", "/tmp/lo.tar", "-C", "/tmp"]);
+      await tar.x({ file: "/tmp/lo.tar", cwd: "/tmp" });
       fs.rmSync("/tmp/lo.tar", { force: true });
+      // The runtime has no system fontconfig; give LibreOffice a minimal one
+      // pointing at its own bundled fonts plus a writable cache dir.
+      fs.mkdirSync("/tmp/fontcache", { recursive: true });
+      fs.writeFileSync(
+        "/tmp/fonts.conf",
+        `<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <dir>/tmp/instdir/share/fonts</dir>
+  <cachedir>/tmp/fontcache</cachedir>
+  <include ignore_missing="yes">/etc/fonts/fonts.conf</include>
+</fontconfig>`
+      );
     })();
   }
   return unpackPromise;
@@ -49,18 +66,23 @@ function json(statusCode, obj) {
 }
 
 exports.handler = async (event) => {
+  // Two invocation shapes: a direct SDK invoke (event IS the payload object) or a
+  // Function URL request (event.body is a JSON string, secret in a header).
+  let payload = event;
+  if (typeof event.body === "string") {
+    let raw = event.body;
+    if (event.isBase64Encoded) raw = Buffer.from(raw, "base64").toString("utf8");
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      return json(400, { error: "invalid json body" });
+    }
+  }
+
   const headers = event.headers || {};
-  const provided = headers["x-convert-secret"] || headers["X-Convert-Secret"];
+  const provided = headers["x-convert-secret"] || headers["X-Convert-Secret"] || payload.secret;
   if (!SECRET || provided !== SECRET) return json(401, { error: "unauthorized" });
 
-  let raw = event.body || "";
-  if (event.isBase64Encoded) raw = Buffer.from(raw, "base64").toString("utf8");
-  let payload;
-  try {
-    payload = JSON.parse(raw);
-  } catch {
-    return json(400, { error: "invalid json body" });
-  }
   const { filename, contentBase64 } = payload;
   if (!contentBase64) return json(400, { error: "missing contentBase64" });
 
@@ -69,37 +91,33 @@ exports.handler = async (event) => {
   const base = "doc_" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
   const inPath = `/tmp/${base}${ext}`;
   const outPath = `/tmp/${base}.pdf`;
-  // Per-invocation profile dir so concurrent conversions don't fight over a lock.
-  const profile = `file:///tmp/profile_${base}`;
 
   fs.writeFileSync(inPath, Buffer.from(contentBase64, "base64"));
 
   try {
     await ensureLibreOffice();
-    execFileSync(
-      SOFFICE,
-      [
-        "--headless",
-        "--norestore",
-        "--invisible",
-        "--nodefault",
-        "--nofirststartwizard",
-        "--nologo",
-        `-env:UserInstallation=${profile}`,
-        "--convert-to",
-        "pdf",
-        "--outdir",
-        "/tmp",
-        inPath,
-      ],
-      { env: { ...process.env, HOME: "/tmp" }, timeout: 55000, stdio: "pipe" }
-    );
+    // NOTE: do NOT pass -env:UserInstallation here — on this LibreOffice/runtime it
+    // makes soffice.bin exit 81 with no output. The default profile under HOME=/tmp
+    // is fine because standard Lambda runs one invocation per container at a time.
+    execFileSync(SOFFICE, ["--headless", "--convert-to", "pdf", "--outdir", "/tmp", inPath], {
+      env: {
+        ...process.env,
+        HOME: "/tmp",
+        // Runtime ships no system fontconfig; point at the one we wrote.
+        FONTCONFIG_FILE: "/tmp/fonts.conf",
+        FONTCONFIG_PATH: "/tmp",
+        // soffice.bin needs its own libs on the loader path (the soffice wrapper,
+        // absent from this layer, normally sets this).
+        LD_LIBRARY_PATH: `/tmp/instdir/program:${process.env.LD_LIBRARY_PATH || ""}`,
+      },
+      timeout: 55000,
+      stdio: "pipe",
+    });
   } catch (e) {
-    const detail = e.stderr ? e.stderr.toString() : e.message;
+    const detail = `status=${e.status} ${e.stderr ? e.stderr.toString() : e.message}`;
     return json(500, { error: "conversion failed", detail: String(detail).slice(0, 800) });
   } finally {
     try { fs.rmSync(inPath, { force: true }); } catch {}
-    try { fs.rmSync(`/tmp/profile_${base}`, { recursive: true, force: true }); } catch {}
   }
 
   if (!fs.existsSync(outPath)) return json(500, { error: "no PDF produced" });

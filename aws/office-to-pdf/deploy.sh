@@ -36,9 +36,10 @@ if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
   echo "   created $ROLE_NAME; waiting for propagation..."; sleep 12
 fi
 
-echo "== Package handler =="
+echo "== Install deps + package handler =="
+npm install --omit=dev --no-audit --no-fund >/dev/null
 rm -f function.zip
-zip -q function.zip index.js
+zip -qr function.zip index.js node_modules
 
 echo "== Create or update function =="
 if aws lambda get-function --function-name "$FN" --region "$REGION" >/dev/null 2>&1; then
@@ -58,19 +59,11 @@ else
   aws lambda wait function-active --function-name "$FN" --region "$REGION"
 fi
 
-echo "== Ensure Function URL (no-auth; protected by the shared secret) =="
-if ! aws lambda get-function-url-config --function-name "$FN" --region "$REGION" >/dev/null 2>&1; then
-  aws lambda create-function-url-config --function-name "$FN" --auth-type NONE --region "$REGION" >/dev/null
-  aws lambda add-permission --function-name "$FN" --region "$REGION" \
-    --statement-id FunctionURLAllowPublicAccess --action lambda:InvokeFunctionUrl \
-    --principal '*' --function-url-auth-type NONE >/dev/null 2>&1 || true
-fi
-URL=$(aws lambda get-function-url-config --function-name "$FN" --region "$REGION" --query FunctionUrl --output text)
 rm -f function.zip
 
 echo
-echo "DONE. Function URL:"
-echo "  $URL"
-echo
-echo "Set this in Vercel (all envs) as OFFICE_PDF_LAMBDA_URL, then redeploy:"
-echo "  printf '%s' \"$URL\" | npx vercel env add OFFICE_PDF_LAMBDA_URL production"
+echo "DONE. '$FN' deployed (private — no Function URL)."
+echo "IECentral invokes it directly via the AWS SDK using the dedicated"
+echo "office-to-pdf-invoker user. Required Vercel env (all envs):"
+echo "  OFFICE_PDF_AWS_ACCESS_KEY_ID, OFFICE_PDF_AWS_SECRET_ACCESS_KEY"
+echo "  (OFFICE_PDF_LAMBDA_FUNCTION defaults to '$FN'; region falls back to S3_REGION)"

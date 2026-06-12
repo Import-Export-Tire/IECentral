@@ -1,11 +1,17 @@
 import { NextRequest } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
+import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "https://outstanding-dalmatian-787.convex.cloud";
-const LAMBDA_URL = process.env.OFFICE_PDF_LAMBDA_URL;
 const SECRET = process.env.PREVIEW_PDF_SECRET;
+// The converter Lambda is private — invoked directly via the SDK with a dedicated
+// invoke-only IAM user (no public endpoint, since Doc Hub holds HR PII).
+const LAMBDA_FN = process.env.OFFICE_PDF_LAMBDA_FUNCTION || "office-to-pdf";
+const LAMBDA_REGION = process.env.OFFICE_PDF_AWS_REGION || process.env.S3_REGION || "us-east-1";
+const LAMBDA_KEY = process.env.OFFICE_PDF_AWS_ACCESS_KEY_ID;
+const LAMBDA_SECRET = process.env.OFFICE_PDF_AWS_SECRET_ACCESS_KEY;
 
 // LibreOffice cold-converts can take a while; give the whole round-trip room.
 export const maxDuration = 60;
@@ -49,8 +55,8 @@ export async function GET(request: NextRequest) {
       // fall through to re-convert if the cached object vanished
     }
 
-    // 2) Need to convert — requires the Lambda to be configured.
-    if (!LAMBDA_URL || !SECRET) {
+    // 2) Need to convert — requires the Lambda + invoke creds to be configured.
+    if (!SECRET || !LAMBDA_KEY || !LAMBDA_SECRET) {
       return new Response("conversion not configured", { status: 503 });
     }
 
@@ -61,17 +67,33 @@ export async function GET(request: NextRequest) {
     if (!srcResp.ok) return new Response("source fetch failed", { status: 502 });
     const srcBuf = Buffer.from(await srcResp.arrayBuffer());
 
-    // 3) Convert via the LibreOffice Lambda.
-    const lambdaResp = await fetch(LAMBDA_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-convert-secret": SECRET },
-      body: JSON.stringify({ filename: doc.fileName || `${fileName}.docx`, contentBase64: srcBuf.toString("base64") }),
+    // 3) Convert via the private LibreOffice Lambda (direct SDK invoke; IAM is the
+    // boundary, the secret is passed in-payload as defense in depth).
+    const lambda = new LambdaClient({
+      region: LAMBDA_REGION,
+      credentials: { accessKeyId: LAMBDA_KEY, secretAccessKey: LAMBDA_SECRET },
     });
-    if (!lambdaResp.ok) {
-      const detail = await lambdaResp.text().catch(() => "");
-      return new Response(`conversion failed: ${detail.slice(0, 300)}`, { status: 502 });
+    const invoked = await lambda.send(
+      new InvokeCommand({
+        FunctionName: LAMBDA_FN,
+        Payload: Buffer.from(
+          JSON.stringify({
+            secret: SECRET,
+            filename: doc.fileName || `${fileName}.docx`,
+            contentBase64: srcBuf.toString("base64"),
+          })
+        ),
+      })
+    );
+    if (invoked.FunctionError || !invoked.Payload) {
+      return new Response(`conversion failed: ${invoked.FunctionError || "no payload"}`, { status: 502 });
     }
-    const { pdfBase64 } = (await lambdaResp.json()) as { pdfBase64?: string };
+    // The handler returns proxy-style { statusCode, body: JSON.stringify({pdfBase64}) }.
+    const outer = JSON.parse(Buffer.from(invoked.Payload).toString("utf8")) as { statusCode?: number; body?: string };
+    if (outer.statusCode && outer.statusCode >= 400) {
+      return new Response(`conversion failed: ${(outer.body || "").slice(0, 300)}`, { status: 502 });
+    }
+    const { pdfBase64 } = JSON.parse(outer.body || "{}") as { pdfBase64?: string };
     if (!pdfBase64) return new Response("conversion returned no pdf", { status: 502 });
     const pdfBuf = Buffer.from(pdfBase64, "base64");
 
