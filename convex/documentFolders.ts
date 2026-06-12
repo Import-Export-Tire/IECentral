@@ -493,6 +493,11 @@ export const moveDocument = mutation({
     folderId: v.union(v.id("documentFolders"), v.null()),
   },
   handler: async (ctx, args) => {
+    // Guard: if the document was already deleted (e.g. a stale client card),
+    // patching a missing id throws a generic server error. Return quietly so
+    // the UI doesn't surface a scary "Server Error" for a no-op.
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc) return;
     await ctx.db.patch(args.documentId, {
       folderId: args.folderId ?? undefined,
       updatedAt: Date.now(),
