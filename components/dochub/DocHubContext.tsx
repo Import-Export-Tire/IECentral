@@ -77,6 +77,7 @@ interface DocHubContextType {
   previewStorageUrl: string | null;
   loadingPreview: boolean;
   closePreview: () => void;
+  storageUsage: { totalBytes: number; count: number } | undefined;
   // Share
   shareDocumentId: Id<"documents"> | null;
   setShareDocumentId: (id: Id<"documents"> | null) => void;
@@ -208,6 +209,7 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
   const documents = useQuery(api.documents.getAll, user ? { rootOnly: true, userId: user._id } : "skip") as DocumentType[] | undefined;
   const archivedDocuments = useQuery(api.documents.getArchived) as DocumentType[] | undefined;
   const expiringDocuments = useQuery(api.documents.getExpiring, { days: 90 });
+  const storageUsage = useQuery(api.documents.getStorageUsage, {});
   const templatesList = useQuery(api.documentTemplates.list, {});
 
   const myFolders = useQuery(
@@ -676,6 +678,7 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
       handleCreateFolder, handleUpdateFolder, handleArchiveFolder, handleMoveDocument, handleMoveFolder,
       handleVerifyPassword,
       previewDocument, previewUrl, previewStorageUrl, loadingPreview, closePreview,
+      storageUsage,
       shareDocumentId, setShareDocumentId, getPublicUrl,
       contextMenu, setContextMenu,
       error, setError,

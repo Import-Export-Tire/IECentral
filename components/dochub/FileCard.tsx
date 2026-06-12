@@ -1,8 +1,89 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useDocHub } from "./DocHubContext";
 import { getFileIcon, getFileColor, formatFileSize, type DocumentType, type FolderType } from "./types";
+
+// Google-Drive-style thumbnail: images render directly, PDFs render their first
+// page via pdf.js (lazy when the card scrolls into view; skipped for very large
+// files), everything else falls back to the file-type icon.
+function FileThumb({ doc, isDark }: { doc: DocumentType; isDark: boolean }) {
+  const ft = (doc.fileType || "").toLowerCase();
+  const fn = (doc.fileName || "").toLowerCase();
+  const isImage = ft.includes("image");
+  const isPdf = ft.includes("pdf") || fn.endsWith(".pdf");
+  const proxyUrl = `/api/documents/file?id=${doc._id}`;
+
+  const [pdfThumb, setPdfThumb] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => { if (entries.some((e) => e.isIntersecting)) { setVisible(true); io.disconnect(); } },
+      { rootMargin: "300px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!visible || !isPdf || pdfThumb || failed) return;
+    if ((doc.fileSize || 0) > 12 * 1024 * 1024) { setFailed(true); return; } // skip huge PDFs
+    let cancelled = false;
+    (async () => {
+      try {
+        const pdfjs = await import("pdfjs-dist");
+        pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+        const pdf = await pdfjs.getDocument(proxyUrl).promise;
+        const page = await pdf.getPage(1);
+        const base = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: 320 / base.width });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("no canvas ctx");
+        await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+        if (!cancelled) setPdfThumb(canvas.toDataURL("image/png"));
+        pdf.destroy();
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [visible, isPdf, proxyUrl, pdfThumb, failed, doc.fileSize]);
+
+  const areaCls = `relative flex items-center justify-center h-36 overflow-hidden rounded-t-xl ${isDark ? "bg-slate-800/60" : "bg-gray-50"}`;
+
+  if (isImage && !failed) {
+    return (
+      <div ref={ref} className={areaCls}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={proxyUrl} alt={doc.name} loading="lazy" className="max-h-full max-w-full object-contain" onError={() => setFailed(true)} />
+      </div>
+    );
+  }
+  if (isPdf && pdfThumb && !failed) {
+    return (
+      <div ref={ref} className={`${areaCls} bg-white items-start`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={pdfThumb} alt={doc.name} className="w-full object-contain object-top" />
+      </div>
+    );
+  }
+  // Fallback icon (also shown while a PDF thumbnail is still rendering).
+  return (
+    <div ref={ref} className={areaCls}>
+      <svg className={`w-12 h-12 ${getFileColor(doc.fileType, isDark)}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d={getFileIcon(doc.fileType)} />
+      </svg>
+    </div>
+  );
+}
 
 function ExpirationBadge({ doc }: { doc: DocumentType }) {
   const { isDark } = useDocHub();
@@ -54,14 +135,8 @@ export function FileGridCard({ doc }: { doc: DocumentType }) {
           : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-lg hover:shadow-gray-200/60"
       }`}
     >
-      {/* File icon area */}
-      <div className={`flex items-center justify-center py-8 px-4 rounded-t-xl ${
-        isDark ? "bg-slate-800/60" : "bg-gray-50"
-      }`}>
-        <svg className={`w-12 h-12 ${getFileColor(doc.fileType, isDark)}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d={getFileIcon(doc.fileType)} />
-        </svg>
-      </div>
+      {/* Thumbnail (image / PDF first page) or file-type icon */}
+      <FileThumb doc={doc} isDark={isDark} />
 
       {/* Info */}
       <div className="p-4 flex-1 flex flex-col">

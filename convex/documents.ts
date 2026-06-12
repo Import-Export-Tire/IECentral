@@ -423,6 +423,20 @@ export const getFileDownloadUrl = action({
   },
 });
 
+// Total storage used by active documents (bytes + file count) for the Doc Hub meter.
+export const getStorageUsage = query({
+  args: {},
+  handler: async (ctx) => {
+    const docs = await ctx.db
+      .query("documents")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+    let totalBytes = 0;
+    for (const d of docs) totalBytes += d.fileSize || 0;
+    return { totalBytes, count: docs.length };
+  },
+});
+
 // ============ EXPIRATION FEATURES ============
 
 // Get documents expiring within the next N days

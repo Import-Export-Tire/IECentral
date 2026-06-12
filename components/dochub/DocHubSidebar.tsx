@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useDocHub } from "./DocHubContext";
-import { PRIVACY_TIERS, visibilityToTier, type PrivacyTier, type FolderType } from "./types";
+import { PRIVACY_TIERS, visibilityToTier, formatFileSize, type PrivacyTier, type FolderType } from "./types";
 import { Id } from "@/convex/_generated/dataModel";
 
 function FolderTreeItem({ folder, depth = 0, tier }: { folder: FolderType; depth?: number; tier: PrivacyTier }) {
@@ -100,7 +100,7 @@ export default function DocHubSidebar() {
     isDark, myFolders, communityFolders, sharedFoldersWithMe,
     navigateToRoot, currentFolderId, setShowFolderModal,
     searchQuery, setSearchQuery, docSidebarCollapsed, setDocSidebarCollapsed,
-    expiringDocuments, unsignedDocuments,
+    expiringDocuments, unsignedDocuments, storageUsage,
   } = useDocHub();
 
   // Categorize folders by privacy tier
@@ -279,15 +279,19 @@ export default function DocHubSidebar() {
         )}
       </div>
 
-      {/* Storage Meter */}
+      {/* Storage usage */}
       <div className={`p-3 border-t ${isDark ? "border-slate-700/50" : "border-gray-200"}`}>
-        <div className="flex items-center justify-between mb-1.5">
-          <span className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Storage</span>
-          <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>--</span>
+        <div className="flex items-center justify-between">
+          <span className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Storage used</span>
+          <span className={`text-xs font-semibold ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+            {storageUsage ? formatFileSize(storageUsage.totalBytes) : "…"}
+          </span>
         </div>
-        <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? "bg-slate-800" : "bg-gray-200"}`}>
-          <div className={`h-full rounded-full transition-all ${isDark ? "bg-cyan-500" : "bg-blue-500"}`} style={{ width: "0%" }} />
-        </div>
+        {storageUsage && (
+          <div className={`text-[11px] mt-0.5 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+            {storageUsage.count} {storageUsage.count === 1 ? "file" : "files"}
+          </div>
+        )}
       </div>
     </div>
   );
