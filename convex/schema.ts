@@ -1293,6 +1293,7 @@ export default defineSchema({
     category: v.string(), // "forms" | "policies" | "sops" | "templates" | "training" | "other"
     folderId: v.optional(v.id("documentFolders")), // Optional folder for organization
     fileId: v.id("_storage"), // Convex storage ID for the file
+    previewPdfFileId: v.optional(v.id("_storage")), // Cached PDF rendition of an Office doc (lazy, for preview/print)
     fileName: v.string(), // Original filename
     fileType: v.string(), // MIME type (application/pdf, etc.)
     fileSize: v.number(), // File size in bytes

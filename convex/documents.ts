@@ -423,6 +423,51 @@ export const getFileDownloadUrl = action({
   },
 });
 
+// ============ OFFICE → PDF PREVIEW CACHE ============
+// Office docs (Word/Excel/PowerPoint) can't preview or print inline in a browser.
+// The /api/documents/office-pdf route converts them to PDF via a LibreOffice Lambda
+// and caches the result here. These three functions are the server-side (no logged-in
+// user) entry points, so they're gated by a shared secret (Convex env PREVIEW_PDF_SECRET).
+
+export const generatePreviewUploadUrl = mutation({
+  args: { secret: v.string() },
+  handler: async (ctx, args) => {
+    if (!process.env.PREVIEW_PDF_SECRET || args.secret !== process.env.PREVIEW_PDF_SECRET) {
+      throw new Error("unauthorized");
+    }
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const setPreviewPdf = mutation({
+  args: { documentId: v.id("documents"), fileId: v.id("_storage"), secret: v.string() },
+  handler: async (ctx, args) => {
+    if (!process.env.PREVIEW_PDF_SECRET || args.secret !== process.env.PREVIEW_PDF_SECRET) {
+      throw new Error("unauthorized");
+    }
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc) return;
+    // Drop a stale rendition if we're replacing one.
+    if (doc.previewPdfFileId && doc.previewPdfFileId !== args.fileId) {
+      try { await ctx.storage.delete(doc.previewPdfFileId); } catch { /* already gone */ }
+    }
+    await ctx.db.patch(args.documentId, { previewPdfFileId: args.fileId, updatedAt: Date.now() });
+  },
+});
+
+export const getPreviewPdfUrl = action({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, args): Promise<string | null> => {
+    const doc = await ctx.runQuery(api.documents.getById, { documentId: args.documentId });
+    if (!doc || !doc.previewPdfFileId) return null;
+    try {
+      return await ctx.storage.getUrl(doc.previewPdfFileId);
+    } catch {
+      return null;
+    }
+  },
+});
+
 // Total storage used by active documents (bytes + file count) for the Doc Hub meter.
 export const getStorageUsage = query({
   args: {},

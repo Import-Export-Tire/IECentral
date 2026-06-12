@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDocHub } from "./DocHubContext";
 import { formatFileSize, isOfficeDocument } from "./types";
 
@@ -18,6 +18,18 @@ export default function PreviewModal() {
   // Track whether the embedded preview failed to render so we can show a
   // clear fallback (Download + Open in new tab) instead of a silent blank.
   const [embedFailed, setEmbedFailed] = useState(false);
+  // Office docs are converted to PDF on first open; show a "converting" state
+  // until the rendition loads.
+  const [converting, setConverting] = useState(false);
+
+  const docId = previewDocument?._id;
+  const ft0 = previewDocument?.fileType.toLowerCase() ?? "";
+  const isOffice0 = isOfficeDocument(ft0);
+  // Reset transient state whenever a different document is opened.
+  useEffect(() => {
+    setEmbedFailed(false);
+    setConverting(isOffice0);
+  }, [docId, isOffice0]);
 
   if (!previewDocument) return null;
 
@@ -34,23 +46,25 @@ export default function PreviewModal() {
     ft.includes("csv") ||
     /\.(txt|csv|md|json|log|xml|html?)$/.test(fn);
   const isOffice = isOfficeDocument(ft);
-  const officeViewerUrl = isOffice && previewStorageUrl
-    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewStorageUrl)}`
-    : null;
+  // Office docs (Word/Excel/PowerPoint) are converted to PDF in-house and served
+  // by /api/documents/office-pdf, then treated exactly like a native PDF — no
+  // third-party viewer, and printable inline.
+  const officePdfUrl = isOffice ? `/api/documents/office-pdf?id=${doc._id}` : null;
 
   // For "Open in new tab" use the raw storage URL — blob URLs only work in
   // the originating window.
   const externalOpenUrl = previewStorageUrl || previewUrl;
 
-  // Printable inline in an iframe (no download). Office docs print from their
-  // own viewer; video/audio aren't printable.
-  const canPrint = !!previewUrl && (isPdf || isImage || isText);
+  // What we hand to the print iframe: the PDF rendition for Office docs,
+  // otherwise the file itself. Video/audio aren't printable.
+  const printUrl = officePdfUrl || previewUrl;
+  const canPrint = !!printUrl && (isPdf || isImage || isText || isOffice);
 
   const handlePrint = () => {
-    if (!previewUrl) return;
+    if (!printUrl) return;
     const iframe = document.createElement("iframe");
     Object.assign(iframe.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0" });
-    iframe.src = previewUrl;
+    iframe.src = printUrl;
     iframe.onload = () => {
       // small delay lets the PDF/image viewer initialize before printing
       setTimeout(() => { try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch { /* ignore */ } }, 350);
@@ -146,8 +160,25 @@ export default function PreviewModal() {
             <video src={previewUrl} controls className="max-w-full max-h-full rounded-lg" onError={() => setEmbedFailed(true)} />
           ) : isAudio ? (
             <audio src={previewUrl} controls className="w-full" onError={() => setEmbedFailed(true)} />
-          ) : officeViewerUrl ? (
-            <iframe src={officeViewerUrl} className="w-full h-full rounded-lg bg-white" title={doc.name} />
+          ) : officePdfUrl ? (
+            // Office doc converted to PDF in-house (nothing leaves our infra).
+            // An iframe gives us onLoad to clear the "converting" overlay.
+            <>
+              <iframe
+                src={officePdfUrl}
+                className="w-full h-full rounded-lg bg-white"
+                title={doc.name}
+                onLoad={() => setConverting(false)}
+                onError={() => { setConverting(false); setEmbedFailed(true); }}
+              />
+              {converting && (
+                <div className={`absolute inset-0 flex flex-col items-center justify-center gap-3 ${isDark ? "bg-slate-950/80" : "bg-gray-50/90"}`}>
+                  <div className={`w-8 h-8 border-2 border-t-transparent rounded-full animate-spin ${isDark ? "border-cyan-500" : "border-blue-500"}`} />
+                  <p className={`text-sm font-medium ${isDark ? "text-slate-300" : "text-gray-600"}`}>Converting to PDF…</p>
+                  <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>First open of an Office file can take a few seconds.</p>
+                </div>
+              )}
+            </>
           ) : isPdf ? (
             // <embed> renders PDFs more reliably than <iframe> across
             // browsers (it asks the browser's native PDF plugin directly).
