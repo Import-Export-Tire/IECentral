@@ -404,8 +404,8 @@ export default function BinLabelsPage() {
         <main className="flex-1 overflow-auto print:overflow-visible">
           <MobileHeader />
           {/* Header - Hidden when printing */}
-          <header className={`sticky top-0 z-10 p-6 border-b print:hidden no-print ${isDark ? "bg-slate-900/95 backdrop-blur border-slate-700" : "bg-[#f2f2f7]/95 backdrop-blur border-gray-200"}`}>
-            <div className="flex items-center justify-between">
+          <header className={`sticky top-0 z-10 p-4 sm:p-6 border-b print:hidden no-print ${isDark ? "bg-slate-900/95 backdrop-blur border-slate-700" : "bg-[#f2f2f7]/95 backdrop-blur border-gray-200"}`}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
                   {isTire ? "Tire Label Printer" : "Bin Label Printer"}
@@ -416,7 +416,7 @@ export default function BinLabelsPage() {
                     : 'Generate Code 128 barcode labels for warehouse bins (6" × 2" thermal labels)'}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 {/* Mode toggle - segmented control */}
                 <div className={`flex items-center p-1 rounded-lg ${isDark ? "bg-slate-700" : "bg-gray-100"}`}>
                   {(["bin", "tire"] as Mode[]).map((m) => (
@@ -482,16 +482,16 @@ export default function BinLabelsPage() {
             </div>
           </header>
 
-          <div className="p-6 print:p-0">
+          <div className="p-4 sm:p-6 print:p-0">
             {mode === "bin" && (
               <>
                 {/* Input Form - Hidden when printing */}
-                <div className={`rounded-xl p-6 mb-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <div className="flex items-center justify-between mb-4">
+                <div className={`rounded-xl p-4 sm:p-6 mb-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                     <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
                       Label Details
                     </h2>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                       <div className="flex items-center gap-2">
                         <label className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
                           Copies per label:
@@ -521,12 +521,12 @@ export default function BinLabelsPage() {
                     {labels.map((label, index) => (
                       <div
                         key={index}
-                        className={`flex items-center gap-4 p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}
+                        className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}
                       >
                         <span className={`text-sm font-medium w-8 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
                           #{index + 1}
                         </span>
-                        <div className="flex-1 grid grid-cols-2 gap-4">
+                        <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                           <div>
                             <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
                               Location ID (Barcode Value)
@@ -573,8 +573,8 @@ export default function BinLabelsPage() {
                 </div>
 
                 {/* Preview Section - Hidden when printing */}
-                <div className={`rounded-xl p-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <div className="flex items-center justify-between mb-4">
+                <div className={`rounded-xl p-4 sm:p-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
                     <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
                       Print Preview ({labelsWithCopies.filter(l => l.locationId).length} label{labelsWithCopies.filter(l => l.locationId).length !== 1 ? "s" : ""})
                     </h2>
@@ -584,8 +584,8 @@ export default function BinLabelsPage() {
                   </div>
 
                   {labels.some(l => l.locationId) ? (
-                    <div className={`p-8 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
-                      <div className="flex flex-col gap-6 items-center">
+                    <div className={`p-4 sm:p-8 rounded-lg overflow-x-auto ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
+                      <div className="flex flex-col gap-6 items-center min-w-min">
                         {labels.map((label, index) => (
                           label.locationId && (
                             <div key={index} className="flex flex-col items-center">
@@ -656,12 +656,12 @@ export default function BinLabelsPage() {
             {mode === "tire" && (
               <>
                 {/* Tire Input Form - Hidden when printing */}
-                <div ref={tireFormRef} className={`rounded-xl p-6 mb-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <div className="flex items-center justify-between mb-4">
+                <div ref={tireFormRef} className={`rounded-xl p-4 sm:p-6 mb-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                     <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
                       Tire Details
                     </h2>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                       <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
                         Set <strong>Qty</strong> on each tire for the number of copies
                       </span>
@@ -678,7 +678,7 @@ export default function BinLabelsPage() {
                   </div>
 
                   {/* Save as Work Order */}
-                  <div className={`flex items-center gap-3 mb-4 pb-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                  <div className={`flex flex-col sm:flex-row sm:items-center gap-3 mb-4 pb-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
                     <input
                       type="text"
                       value={woTitle}
@@ -713,7 +713,7 @@ export default function BinLabelsPage() {
                     {tireLabels.map((label, index) => (
                       <div
                         key={index}
-                        className={`flex items-start gap-4 p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}
+                        className={`flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}
                       >
                         <span className={`text-sm font-medium w-8 pt-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
                           #{index + 1}
@@ -727,8 +727,8 @@ export default function BinLabelsPage() {
                             <span className={`flex-1 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`} />
                           </div>
                           {/* Item ID + Look up */}
-                          <div className="flex items-end gap-3">
-                            <div className="flex-1">
+                          <div className="flex flex-wrap items-end gap-3">
+                            <div className="flex-1 min-w-[180px]">
                               <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
                                 Item ID (Barcode Value)
                               </label>
@@ -774,7 +774,7 @@ export default function BinLabelsPage() {
                             </p>
                           )}
                           {/* Brand / Model / Size */}
-                          <div className="grid grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                             <div>
                               <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
                                 Brand
@@ -834,8 +834,8 @@ export default function BinLabelsPage() {
                 </div>
 
                 {/* Tire Preview Section - Hidden when printing */}
-                <div ref={tirePreviewRef} className={`rounded-xl p-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <div className="flex items-center justify-between mb-4">
+                <div ref={tirePreviewRef} className={`rounded-xl p-4 sm:p-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
                     <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
                       Print Preview ({tireLabelsWithCopies.filter(tireIsPrintable).length} label{tireLabelsWithCopies.filter(tireIsPrintable).length !== 1 ? "s" : ""})
                     </h2>
@@ -845,8 +845,8 @@ export default function BinLabelsPage() {
                   </div>
 
                   {tireLabels.some(tireIsPrintable) ? (
-                    <div className={`p-8 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
-                      <div className="flex flex-wrap gap-6 items-start justify-center">
+                    <div className={`p-4 sm:p-8 rounded-lg overflow-x-auto ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
+                      <div className="flex flex-wrap gap-6 items-start justify-center min-w-min">
                         {tireLabels.map((label, index) => (
                           tireIsPrintable(label) && (
                             <div key={index} className="flex flex-col items-center">
@@ -917,7 +917,7 @@ export default function BinLabelsPage() {
 
                 {/* Work Orders Panel - Hidden when printing */}
                 <div className={`rounded-xl p-6 mt-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
                     <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
                       Work Orders
                     </h2>
@@ -947,7 +947,7 @@ export default function BinLabelsPage() {
                         return (
                           <div
                             key={wo._id}
-                            className={`flex items-center gap-4 p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"} ${isLoaded ? (isDark ? "ring-2 ring-cyan-500" : "ring-2 ring-blue-500") : ""}`}
+                            className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"} ${isLoaded ? (isDark ? "ring-2 ring-cyan-500" : "ring-2 ring-blue-500") : ""}`}
                           >
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
@@ -968,7 +968,7 @@ export default function BinLabelsPage() {
                                 {wo.labels.length} tire{wo.labels.length !== 1 ? "s" : ""} · {wo.labels.reduce((s, l) => s + (l.qty ?? wo.copies ?? 1), 0)} labels · {wo.createdByName} · {formatWoDate(wo.createdAt)}
                               </p>
                             </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
                               <button
                                 onClick={() => loadWorkOrder(wo)}
                                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-cyan-500 hover:bg-cyan-400 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
