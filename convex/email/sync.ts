@@ -762,16 +762,20 @@ export const performIncrementalSync = internalAction({
 
             totalEmails++;
           }
-        } catch (err) {
-          console.error("Error fetching new messages:", err);
-        }
 
-        // Update last sync UID
-        if (mailbox.uidNext) {
-          await ctx.runMutation(internal.email.folders.updateLastSyncUid, {
-            folderId: inboxFolder._id,
-            lastSyncUid: mailbox.uidNext - 1,
-          });
+          // Advance the cursor ONLY after a complete, successful fetch. This is
+          // inside the try on purpose: if the fetch throws mid-stream (e.g. the
+          // IMAP connection drops), we must NOT advance past messages we never
+          // stored — otherwise they're permanently skipped (incremental only
+          // looks above lastSyncUid). Leaving the cursor lets the next sync retry.
+          if (mailbox.uidNext) {
+            await ctx.runMutation(internal.email.folders.updateLastSyncUid, {
+              folderId: inboxFolder._id,
+              lastSyncUid: mailbox.uidNext - 1,
+            });
+          }
+        } catch (err) {
+          console.error("Error fetching new messages (cursor left in place for retry):", err);
         }
       } else {
         console.log(`[SYNC] No new emails by UID. Checking for missed emails by date...`);
