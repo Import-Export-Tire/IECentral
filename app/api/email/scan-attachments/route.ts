@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
       host: imapHost,
       port: imapPort,
       secure: true,
+      proxy: process.env.EMAIL_PROXY_URL, // static-IP proxy for IMAP egress when set
       auth: { user: account.emailAddress, pass: imapPassword },
       logger: false,
     });

@@ -196,6 +196,7 @@ async function copyToSentFolder(
     host: credentials.host,
     port: credentials.port,
     secure: credentials.secure,
+    proxy: process.env.EMAIL_PROXY_URL, // static-IP proxy for IMAP egress when set
     auth: {
       user: credentials.user,
       pass: credentials.pass,

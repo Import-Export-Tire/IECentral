@@ -301,6 +301,10 @@ export const performFullSync = internalAction({
         host: credentials.host,
         port: credentials.port,
         secure: credentials.secure,
+        // Route IMAP egress through the static-IP proxy (EC2 + Elastic IP) when
+        // configured, so self-hosted servers can allowlist one fixed IP. Unset =
+        // direct connection (imapflow ignores an undefined proxy).
+        proxy: process.env.EMAIL_PROXY_URL,
         auth: account.oauthProvider
           ? {
               user: credentials.user,
@@ -636,6 +640,10 @@ export const performIncrementalSync = internalAction({
         host: credentials.host,
         port: credentials.port,
         secure: credentials.secure,
+        // Route IMAP egress through the static-IP proxy (EC2 + Elastic IP) when
+        // configured, so self-hosted servers can allowlist one fixed IP. Unset =
+        // direct connection (imapflow ignores an undefined proxy).
+        proxy: process.env.EMAIL_PROXY_URL,
         auth: account.oauthProvider
           ? {
               user: credentials.user,
@@ -1181,6 +1189,10 @@ export const backfillAttachments = action({
         host: credentials.host,
         port: credentials.port,
         secure: credentials.secure,
+        // Route IMAP egress through the static-IP proxy (EC2 + Elastic IP) when
+        // configured, so self-hosted servers can allowlist one fixed IP. Unset =
+        // direct connection (imapflow ignores an undefined proxy).
+        proxy: process.env.EMAIL_PROXY_URL,
         auth: { user: credentials.user, pass: credentials.pass },
         logger: false,
       });
@@ -1277,6 +1289,10 @@ export const fetchAttachment = action({
         host: credentials.host,
         port: credentials.port,
         secure: credentials.secure,
+        // Route IMAP egress through the static-IP proxy (EC2 + Elastic IP) when
+        // configured, so self-hosted servers can allowlist one fixed IP. Unset =
+        // direct connection (imapflow ignores an undefined proxy).
+        proxy: process.env.EMAIL_PROXY_URL,
         auth: { user: credentials.user, pass: credentials.pass },
         logger: false,
       });
