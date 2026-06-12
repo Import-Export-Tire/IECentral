@@ -185,14 +185,17 @@ export default function EmailPage() {
     }
   }, [selectedAccountId, triggerSync]);
 
-  // Auto-fetch: Initial sync when account is selected
+  // Initial sync when the email page opens / an account is selected.
+  // Run it as a VISIBLE sync (isAutoFetch=false) so the "Syncing emails..."
+  // spinner shows — server-side cron polling is intentionally infrequent, so
+  // opening the page is the fast path to fresh mail.
   useEffect(() => {
     if (selectedAccountId && !initialSyncDone.current.has(selectedAccountId)) {
       initialSyncDone.current.add(selectedAccountId);
       // Small delay to let UI settle
       const timeout = setTimeout(() => {
-        handleSync(false, true);
-      }, 500);
+        handleSync(false, false);
+      }, 300);
       return () => clearTimeout(timeout);
     }
   }, [selectedAccountId, handleSync]);
@@ -290,7 +293,7 @@ export default function EmailPage() {
 
           <div className="flex-1 flex overflow-hidden">
           {/* Sync Error Banner */}
-          {(selectedAccount?.syncError || syncError) && (
+          {!isSyncing && (selectedAccount?.syncError || syncError) && (
             <div className="absolute top-0 left-0 right-0 z-40 bg-red-500/10 border-b border-red-500/20 p-3 flex items-center justify-center gap-2 text-red-400 text-sm">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />

@@ -34,10 +34,13 @@ crons.monthly(
 
 // ============ EMAIL CLIENT CRONS ============
 
-// Sync all email accounts every minute
+// Sync all email accounts. Kept infrequent (every 5 min) on purpose: opening the
+// email page triggers a visible sync for that account, so this background poll is
+// just a safety net. Polling every minute was hammering self-hosted mail servers
+// (e.g. svm.ietires.com) into rate-limiting / fail2ban and refusing connections.
 crons.interval(
   "email-sync-all-accounts",
-  { minutes: 1 },
+  { minutes: 5 },
   internal.email.sync.syncAllAccounts
 );
 

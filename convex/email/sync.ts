@@ -574,6 +574,20 @@ export const performIncrementalSync = internalAction({
       return { success: false, error: "Account not found or inactive" };
     }
 
+    // Overlap guard: if a sync is already in flight for this account (marked
+    // "syncing" within the last few minutes), skip. Multiple triggers now exist
+    // (the 5-min cron + the email page's on-open / periodic / focus syncs), and
+    // concurrent IMAP connections to the same server trip its connection limit
+    // → ECONNREFUSED. A "syncing" status older than the window is treated as a
+    // stale lock from a crashed run and allowed to proceed.
+    if (
+      account.syncStatus === "syncing" &&
+      account.updatedAt &&
+      Date.now() - account.updatedAt < 3 * 60 * 1000
+    ) {
+      return { success: true };
+    }
+
     // If never synced, do full sync
     if (!account.lastSyncAt) {
       return ctx.runAction(internal.email.sync.performFullSync, {
