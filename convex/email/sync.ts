@@ -197,6 +197,28 @@ async function parseEmailBody(source: Buffer): Promise<{ text?: string; html?: s
   }
 }
 
+/**
+ * Connect an IMAP client, retrying brief transient refusals/timeouts. Self-hosted
+ * mail servers (e.g. svm.ietires.com) intermittently REJECT connections during a
+ * rate-limit/fail2ban window; a short backoff usually rides it out so we don't
+ * surface a scary error for a blip. Auth errors fail fast (no retry).
+ */
+async function connectWithRetry(client: ImapFlow, attempts = 3): Promise<void> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await client.connect();
+      return;
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!/ECONNREFUSED|ETIMEDOUT|timeout|ECONNRESET|EHOSTUNREACH/i.test(msg)) throw err;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 2000 * (i + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 // ============ SYNC ACTIONS ============
 
 /**
@@ -300,13 +322,8 @@ export const performFullSync = internalAction({
       });
 
       console.log("Connecting to IMAP:", credentials.host, "port:", credentials.port, "user:", credentials.user);
-      try {
-        await client.connect();
-        console.log("IMAP connected successfully");
-      } catch (connectError) {
-        console.error("IMAP connection error details:", connectError);
-        throw connectError;
-      }
+      await connectWithRetry(client);
+      console.log("IMAP connected successfully");
 
       // List and sync folders
       const folders = await client.list();
@@ -639,13 +656,8 @@ export const performIncrementalSync = internalAction({
         },
       });
 
-      try {
-        await client.connect();
-        console.log("IMAP connected successfully (incremental)");
-      } catch (connectError) {
-        console.error("IMAP connection error:", connectError);
-        throw connectError;
-      }
+      await connectWithRetry(client);
+      console.log("IMAP connected successfully (incremental)");
 
       // Get inbox folder
       const inboxFolder = await ctx.runQuery(api.email.folders.getByType, {

@@ -283,6 +283,13 @@ export default function EmailPage() {
 
   const selectedAccount = accounts?.find(a => a._id === selectedAccountId);
 
+  // Only surface a sync-error banner when mail is genuinely stale (no successful
+  // sync in the last 15 min). The self-hosted server flaps connection refusals,
+  // but as long as a recent sync succeeded, mail is current and a transient blip
+  // shouldn't alarm the user.
+  const syncIsStale =
+    !selectedAccount?.lastSyncAt || Date.now() - selectedAccount.lastSyncAt > 15 * 60 * 1000;
+
   return (
     <Protected requireFlag="hasEmailAccess">
       <div className="h-screen theme-bg-primary flex overflow-hidden">
@@ -293,7 +300,7 @@ export default function EmailPage() {
 
           <div className="flex-1 flex overflow-hidden">
           {/* Sync Error Banner */}
-          {!isSyncing && (selectedAccount?.syncError || syncError) && (
+          {!isSyncing && syncIsStale && (selectedAccount?.syncError || syncError) && (
             <div className="absolute top-0 left-0 right-0 z-40 bg-red-500/10 border-b border-red-500/20 p-3 flex items-center justify-center gap-2 text-red-400 text-sm">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
