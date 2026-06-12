@@ -42,6 +42,23 @@ export default function PreviewModal() {
   // the originating window.
   const externalOpenUrl = previewStorageUrl || previewUrl;
 
+  // Printable inline in an iframe (no download). Office docs print from their
+  // own viewer; video/audio aren't printable.
+  const canPrint = !!previewUrl && (isPdf || isImage || isText);
+
+  const handlePrint = () => {
+    if (!previewUrl) return;
+    const iframe = document.createElement("iframe");
+    Object.assign(iframe.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0" });
+    iframe.src = previewUrl;
+    iframe.onload = () => {
+      // small delay lets the PDF/image viewer initialize before printing
+      setTimeout(() => { try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch { /* ignore */ } }, 350);
+    };
+    document.body.appendChild(iframe);
+    setTimeout(() => { try { document.body.removeChild(iframe); } catch { /* ignore */ } }, 60000);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={closePreview}>
       {/* Backdrop */}
@@ -76,6 +93,16 @@ export default function PreviewModal() {
               >
                 Open in new tab
               </a>
+            )}
+            {canPrint && (
+              <button
+                onClick={handlePrint}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg text-white transition-colors"
+                style={{ backgroundColor: "#007AFF" }}
+                title="Print this file (no download needed)"
+              >
+                Print
+              </button>
             )}
             <button
               onClick={() => handleDownload(doc)}

@@ -456,49 +456,22 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
     setPreviewStorageUrl(null);
     revokeBlobUrl();
     try {
-      const storageUrl = await getFileDownloadUrl({ documentId: doc._id });
-      if (!storageUrl) {
-        setError("Could not load preview");
-        setPreviewDocument(null);
-        return;
-      }
-      setPreviewStorageUrl(storageUrl);
-
-      // For Office docs we must hand the public storage URL straight to the
-      // Microsoft viewer, so don't blob-ify those. Everything else loads as
-      // a same-origin blob URL — that avoids X-Frame-Options / CORS issues
-      // a few users hit when the Convex CDN response varies.
-      const ft = (doc.fileType || "").toLowerCase();
-      const isOfficeDoc =
-        ft.includes("officedocument") ||
-        ft.includes("msword") ||
-        ft.includes("ms-excel") ||
-        ft.includes("ms-powerpoint");
-
-      if (isOfficeDoc) {
-        setPreviewUrl(storageUrl);
-        return;
-      }
-
-      try {
-        const res = await fetch(storageUrl);
-        if (!res.ok) throw new Error(`Fetch ${res.status}`);
-        const blob = await res.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        previewBlobUrlRef.current = blobUrl;
-        setPreviewUrl(blobUrl);
-      } catch {
-        // Blob fetch failed — fall back to the raw storage URL and let
-        // the browser try to render it directly.
-        setPreviewUrl(storageUrl);
-      }
+      // Serve through the same-origin proxy, which streams the file INLINE with the
+      // right Content-Type. Same-origin + inline avoids the CORS / X-Frame-Options /
+      // attachment-disposition problems that broke the old direct-to-storage embeds,
+      // and lets us print straight from an iframe (no download). Absolute URL so the
+      // Microsoft Office Online viewer can fetch it server-side too.
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const proxyUrl = `${origin}/api/documents/file?id=${doc._id}`;
+      setPreviewStorageUrl(proxyUrl);
+      setPreviewUrl(proxyUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Preview failed");
       setPreviewDocument(null);
     } finally {
       setLoadingPreview(false);
     }
-  }, [getFileDownloadUrl, revokeBlobUrl]);
+  }, [revokeBlobUrl]);
 
   const closePreview = useCallback(() => {
     setPreviewDocument(null);
