@@ -10,6 +10,42 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import JsBarcode from "jsbarcode";
 import { brandLogoSrc } from "@/lib/brandLogo";
+
+// ── jsPDF helpers (tire labels print as an exact 4x6 PDF so they print
+//    identically on any label printer — Zebra, LabelRange BT320, etc. —
+//    regardless of browser/driver paper-size & scaling settings). ──
+async function loadImageForPdf(url: string): Promise<{ dataUrl: string; w: number; h: number } | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result as string);
+      fr.onerror = reject;
+      fr.readAsDataURL(blob);
+    });
+    const dims = await new Promise<{ w: number; h: number }>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+    return { dataUrl, ...dims };
+  } catch {
+    return null;
+  }
+}
+
+function barcodePngForPdf(value: string): { dataUrl: string; w: number; h: number } | null {
+  try {
+    const canvas = document.createElement("canvas");
+    JsBarcode(canvas, value, { format: "CODE128", width: 2, height: 60, displayValue: true, fontSize: 16, font: "monospace", margin: 6 });
+    return { dataUrl: canvas.toDataURL("image/png"), w: canvas.width, h: canvas.height };
+  } catch {
+    return null;
+  }
+}
 import TireSearchBox, { type TireSearchResult } from "@/components/TireSearchBox";
 
 interface LabelData {
@@ -198,6 +234,8 @@ export default function BinLabelsPage() {
   };
 
   const handlePrint = () => {
+    // Tire labels → exact 4x6 PDF (printer-agnostic). Bin labels keep the CSS print path.
+    if (mode === "tire") { void printTireLabelsPdf(); return; }
     window.print();
   };
 
@@ -296,6 +334,68 @@ export default function BinLabelsPage() {
       : tireLabels.some(tireIsPrintable);
 
   const isTire = mode === "tire";
+
+  // Build an exact 4"x6" PDF (one page per label copy) and open it for printing.
+  // The PDF carries its own 4x6 page size, so it prints correctly on any label
+  // printer without depending on browser/driver paper-size or scale settings.
+  const printTireLabelsPdf = async () => {
+    const items = tireLabelsWithCopies.filter(tireIsPrintable);
+    if (items.length === 0) return;
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "in", format: [4, 6], orientation: "portrait" });
+    const cx = 2; // horizontal center of a 4in-wide page
+    const logoCache = new Map<string, { dataUrl: string; w: number; h: number } | null>();
+
+    for (let i = 0; i < items.length; i++) {
+      const l = items[i];
+      if (i > 0) doc.addPage([4, 6], "portrait");
+      doc.setTextColor(0, 0, 0);
+
+      // Logo (centered, top). Cached per brand so we fetch each once.
+      if (l.brand) {
+        const src = brandLogoSrc(l.brand);
+        let logo = src ? logoCache.get(src) : null;
+        if (src && !logoCache.has(src)) { logo = await loadImageForPdf(src); logoCache.set(src, logo); }
+        if (logo) {
+          const maxW = 3.4, maxH = 1.1;
+          let w = maxW, h = (w * logo.h) / logo.w;
+          if (h > maxH) { h = maxH; w = (h * logo.w) / logo.h; }
+          doc.addImage(logo.dataUrl, "PNG", cx - w / 2, 0.45, w, h);
+        }
+      }
+
+      // Brand / model / size (flowing down the upper-middle).
+      let y = 2.05;
+      if (l.brand) { doc.setFont("helvetica", "bold"); doc.setFontSize(30); doc.text(l.brand, cx, y, { align: "center", maxWidth: 3.7 }); y += 0.5; }
+      if (l.model) { doc.setFont("helvetica", "normal"); doc.setFontSize(18); doc.text(l.model, cx, y, { align: "center", maxWidth: 3.7 }); y += 0.4; }
+      if (l.sizeDesc) { doc.setFont("helvetica", "normal"); doc.setFontSize(15); doc.text(l.sizeDesc, cx, y, { align: "center", maxWidth: 3.7 }); }
+
+      // Barcode (fixed lower position so layout stays consistent).
+      if (l.itemId) {
+        const bc = barcodePngForPdf(l.itemId);
+        if (bc) {
+          let bw = 3.4, bh = (bw * bc.h) / bc.w;
+          if (bh > 1.2) { bh = 1.2; bw = (bh * bc.w) / bc.h; }
+          doc.addImage(bc.dataUrl, "PNG", cx - bw / 2, 4.25, bw, bh);
+        }
+      }
+
+      // Accountability footer.
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(110, 110, 110);
+      doc.text(labelFooter, cx, 5.8, { align: "center" });
+    }
+
+    // Print via a hidden iframe (no popup-blocker issues after the async build).
+    const url = doc.output("bloburl") as unknown as string;
+    const iframe = document.createElement("iframe");
+    Object.assign(iframe.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0" });
+    iframe.src = url;
+    iframe.onload = () => {
+      setTimeout(() => { try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch { /* ignore */ } }, 400);
+    };
+    document.body.appendChild(iframe);
+    setTimeout(() => { try { document.body.removeChild(iframe); } catch { /* ignore */ } }, 120000);
+  };
 
   return (
     <Protected>
