@@ -266,7 +266,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         userId: record.realUserId as Id<"users">,
         userEmail: record.realUserEmail,
         details: `${record.realUserName} began acting as ${target.name} (${target.role})`,
-      }).catch(() => {});
+      }).catch((err) =>
+        console.error("Failed to write impersonation audit log:", err)
+      );
       router.push("/");
     },
     [user, impersonation, logAudit, router]
@@ -285,7 +287,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       userId: record.realUserId as Id<"users">,
       userEmail: record.realUserEmail,
       details: `${record.realUserName} stopped acting as ${record.targetUserName} (${record.targetRole})`,
-    }).catch(() => {});
+    }).catch((err) =>
+      console.error("Failed to write impersonation audit log:", err)
+    );
     router.push("/users");
   }, [impersonation, logAudit, router]);
 
