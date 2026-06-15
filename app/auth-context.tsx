@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -28,6 +29,24 @@ export interface User {
   hasEmailAccess?: boolean;
 }
 
+const IMPERSONATION_KEY = "ie_central_impersonation";
+
+export interface ImpersonationRecord {
+  realUserId: string;
+  realUserName: string;
+  realUserEmail: string;
+  targetUserId: string;
+  targetUserName: string;
+  targetRole: string;
+  startedAt: number;
+}
+
+export interface ImpersonationTarget {
+  _id: Id<"users">;
+  name: string;
+  role: string;
+}
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -36,6 +55,11 @@ interface AuthContextType {
     password: string
   ) => Promise<{ success: boolean; error?: string; forcePasswordChange?: boolean }>;
   logout: () => void;
+  // Super-admin impersonation ("Act as user")
+  isImpersonating: boolean;
+  impersonation: ImpersonationRecord | null;
+  startImpersonation: (target: ImpersonationTarget) => void;
+  stopImpersonation: () => void;
   canEdit: boolean;
   canManageUsers: boolean;
   canManageAdmins: boolean;
@@ -76,15 +100,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // This prevents clearing the session during transient null states (navigation, resubscription)
   const hasLoadedUserData = useRef(false);
 
+  const [impersonation, setImpersonation] = useState<ImpersonationRecord | null>(null);
+  const router = useRouter();
+  const logAudit = useMutation(api.auditLogs.log);
+
   const loginMutation = useMutation(api.auth.login);
+  // While impersonating, the whole app loads the target user instead of the real one.
+  const effectiveUserId = impersonation?.targetUserId ?? userId;
   const userData = useQuery(
     api.auth.getUser,
-    userId ? { userId: userId as Id<"users"> } : "skip"
+    effectiveUserId ? { userId: effectiveUserId as Id<"users"> } : "skip"
   );
 
   const performLogout = useCallback(() => {
     setUserId(null);
     localStorage.removeItem("ie_central_user_id");
+    localStorage.removeItem(IMPERSONATION_KEY);
+    setImpersonation(null);
     hasLoadedUserData.current = false;
     setInitialLoadComplete(true);
   }, []);
@@ -110,9 +142,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Restore an in-progress impersonation across reloads
+  useEffect(() => {
+    const stored = localStorage.getItem(IMPERSONATION_KEY);
+    if (stored) {
+      try {
+        setImpersonation(JSON.parse(stored) as ImpersonationRecord);
+      } catch {
+        localStorage.removeItem(IMPERSONATION_KEY);
+      }
+    }
+  }, []);
+
   // Timeout to clear stuck sessions - if userData is undefined for too long, clear the session
   useEffect(() => {
-    if (userId && userData === undefined) {
+    if (userId && !impersonation && userData === undefined) {
       const timeout = setTimeout(() => {
         // If still loading after 5 seconds, the session is likely invalid
         if (userData === undefined && !hasLoadedUserData.current) {
@@ -124,7 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }, 5000);
       return () => clearTimeout(timeout);
     }
-  }, [userId, userData]);
+  }, [userId, userData, impersonation]);
 
   // Update loading state based on user data
   // Track successful user loads to avoid clearing session during transient null states
@@ -138,7 +182,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else if (userId && userData === null) {
       // Query returned null - only clear if we've never successfully loaded
       // This prevents logout during navigation/resubscription when queries temporarily return null
-      if (!hasLoadedUserData.current) {
+      if (!hasLoadedUserData.current && !impersonation) {
+        // Never clear the real session because of a target's load state.
         // User ID doesn't match any user in database
         // This can happen if the ID is from a different table/project
         console.warn("Invalid user session detected, clearing...");
@@ -147,10 +192,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setInitialLoadComplete(true);
     }
-  }, [userId, userData]);
+  }, [userId, userData, impersonation]);
 
   // Compute isLoading: true if we haven't completed initial load, OR if we have a userId but query is still loading
-  const isLoading = !initialLoadComplete || (userId !== null && userData === undefined);
+  const isLoading = !initialLoadComplete || (effectiveUserId !== null && userData === undefined);
 
   const login = async (email: string, password: string) => {
     try {
@@ -188,6 +233,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         permissionOverrides: userData.permissionOverrides as Record<string, boolean> | undefined,
       }
     : null;
+
+  const startImpersonation = useCallback(
+    (target: ImpersonationTarget) => {
+      // Only a real super admin may impersonate; never nest; never target a super admin or self.
+      if (!user || user.role !== "super_admin") return;
+      if (impersonation) return;
+      if (target.role === "super_admin") return;
+      if (target._id === user._id) return;
+
+      const record: ImpersonationRecord = {
+        realUserId: user._id,
+        realUserName: user.name,
+        realUserEmail: user.email || "",
+        targetUserId: target._id,
+        targetUserName: target.name,
+        targetRole: target.role,
+        startedAt: Date.now(),
+      };
+      localStorage.setItem(IMPERSONATION_KEY, JSON.stringify(record));
+      setImpersonation(record);
+      void logAudit({
+        action: `Started acting as ${target.name}`,
+        actionType: "impersonate_start",
+        resourceType: "user",
+        resourceId: target._id,
+        userId: record.realUserId as Id<"users">,
+        userEmail: record.realUserEmail,
+        details: `${record.realUserName} began acting as ${target.name} (${target.role})`,
+      }).catch(() => {});
+      router.push("/");
+    },
+    [user, impersonation, logAudit, router]
+  );
+
+  const stopImpersonation = useCallback(() => {
+    if (!impersonation) return;
+    const record = impersonation;
+    localStorage.removeItem(IMPERSONATION_KEY);
+    setImpersonation(null);
+    void logAudit({
+      action: `Stopped acting as ${record.targetUserName}`,
+      actionType: "impersonate_end",
+      resourceType: "user",
+      resourceId: record.targetUserId,
+      userId: record.realUserId as Id<"users">,
+      userEmail: record.realUserEmail,
+      details: `${record.realUserName} stopped acting as ${record.targetUserName} (${record.targetRole})`,
+    }).catch(() => {});
+    router.push("/users");
+  }, [impersonation, logAudit, router]);
 
   // Super Admin, Admin & Warehouse Director have full edit access
   const canEdit =
@@ -327,6 +422,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         login,
         logout,
+        isImpersonating: impersonation !== null,
+        impersonation,
+        startImpersonation,
+        stopImpersonation,
         canEdit,
         canManageUsers,
         canManageAdmins,
