@@ -36,7 +36,11 @@ interface User {
 }
 
 function UsersContent() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, startImpersonation } = useAuth();
+  const canActAs = (target: { _id: Id<"users">; role: string }) =>
+    currentUser?.role === "super_admin" &&
+    target.role !== "super_admin" &&
+    target._id !== currentUser?._id;
   const users = useQuery(api.auth.getAllUsers);
   const locations = useQuery(api.locations.list);
   const createUser = useMutation(api.auth.createUser);
@@ -624,6 +628,17 @@ function UsersContent() {
                       </td>
                       <td className="px-6 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {canActAs(user as { _id: Id<"users">; role: string }) && (
+                            <button
+                              onClick={() =>
+                                startImpersonation({ _id: user._id, name: user.name, role: user.role })
+                              }
+                              className="px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-full transition-colors"
+                              title={`Act as ${user.name}`}
+                            >
+                              Act as
+                            </button>
+                          )}
                           <button
                             onClick={() => openEditModal(user as User)}
                             className="px-3 py-1.5 text-xs font-medium text-[#007AFF] hover:bg-[#007AFF]/10 rounded-full transition-colors"
@@ -721,6 +736,16 @@ function UsersContent() {
                       : "Never"}
                   </div>
                   <div className="mt-3 pt-3 border-t theme-border-secondary flex gap-2">
+                    {canActAs(user as { _id: Id<"users">; role: string }) && (
+                      <button
+                        onClick={() =>
+                          startImpersonation({ _id: user._id, name: user.name, role: user.role })
+                        }
+                        className="flex-1 px-3 py-2 text-xs font-medium text-amber-700 bg-amber-50 rounded-full transition-colors"
+                      >
+                        Act as
+                      </button>
+                    )}
                     <button
                       onClick={() => openEditModal(user as User)}
                       className="flex-1 px-3 py-2 text-xs font-medium text-[#007AFF] bg-[#007AFF]/10 rounded-full transition-colors"
