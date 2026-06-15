@@ -469,6 +469,7 @@ async function fetchXlsxData(reportType: string, selectedColumns: string[], mont
 }
 
 export async function POST(request: NextRequest) {
+  let stage = "parse-request";
   try {
     const { reportType, months, selectedColumns, secondSource, fusionJoinKey, fusionColumns } = await request.json();
 
@@ -483,6 +484,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch primary source
+    stage = `fetch-primary:${reportType}`;
     let primaryData;
     if (["oeival", "tires"].includes(reportType)) {
       primaryData = await fetchXlsxData(reportType, primaryColumns, months);
@@ -495,6 +497,7 @@ export async function POST(request: NextRequest) {
 
     // Enrich OEA07V rows with tire catalog descriptions
     if (reportType === "OEA07V" && finalRows.length > 0) {
+      stage = "tire-enrich";
       try {
         const tireLookup = await loadTireCatalogLookup();
         if (tireLookup.size > 0) {
@@ -517,6 +520,7 @@ export async function POST(request: NextRequest) {
 
     // Fusion — fetch second source and join
     if (secondSource && fusionJoinKey) {
+      stage = `fetch-second:${secondSource}`;
       let secondData;
       // Only fetch needed columns: join key + selected fusion columns + mfgItemId for auto-join
       const neededKeys = new Set(["mfgItemId", "itemId", fusionJoinKey, ...(fusionColumns as string[] || [])]);
@@ -528,6 +532,7 @@ export async function POST(request: NextRequest) {
         secondData = await fetchSourceData(secondSource, months, secondCols.map((c) => c.key));
       }
 
+      stage = "join";
       // Strip D-class suffix from item IDs for matching
       const stripDclass = (id: string) => id.replace(/[.\^\[:\-]$/, "");
 
@@ -594,15 +599,43 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({
+    stage = "serialize";
+    const payload = {
       columns: finalColumns,
       rows: finalRows.slice(0, 50000),
       totalRows: finalRows.length,
       truncated: finalRows.length > 50000,
+    };
+    // Buffered JSON responses are capped (~4.5MB on Vercel). Measure the payload and
+    // refuse oversized ones with a clear error instead of letting the platform return
+    // an unparseable error page (which surfaces client-side as a cryptic parse error).
+    const json = JSON.stringify(payload);
+    const sizeMB = json.length / (1024 * 1024);
+    console.log(
+      `Custom data ok: type=${reportType} second=${secondSource || "none"} rows=${payload.totalRows} returned=${payload.rows.length} size=${sizeMB.toFixed(2)}MB`
+    );
+    if (json.length > 4_000_000) {
+      return NextResponse.json(
+        {
+          error: `Result too large to return (${sizeMB.toFixed(1)} MB, ${payload.totalRows} rows). Narrow the date range or select fewer columns.`,
+          diag: { stage: "serialize", rows: payload.totalRows, sizeMB: Number(sizeMB.toFixed(2)) },
+        },
+        { status: 413 }
+      );
+    }
+    return new NextResponse(json, {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("Custom data error:", err);
+    console.error(`Custom data error [stage=${stage}]:`, err);
     const msg = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: `[${stage}] ${msg}`,
+        diag: { stage, message: msg, stack: err instanceof Error ? err.stack : undefined },
+      },
+      { status: 500 }
+    );
   }
 }
