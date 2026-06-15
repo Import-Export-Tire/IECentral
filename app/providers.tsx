@@ -9,6 +9,7 @@ import AppShell from "@/components/shell/AppShell";
 import GlobalSearch from "@/components/GlobalSearch";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 import SystemBanner from "@/components/SystemBanner";
+import ImpersonationBanner from "@/components/ImpersonationBanner";
 import PushNotificationPrompt from "@/components/PushNotificationPrompt";
 
 // Production deployment
@@ -24,6 +25,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <SidebarProvider>
             <AuthProvider>
               <AppShell>
+                <ImpersonationBanner />
                 <SystemBanner />
                 {children}
                 <GlobalSearch />
