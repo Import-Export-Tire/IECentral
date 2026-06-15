@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -96,8 +96,9 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  // Track if we've ever successfully loaded user data for this session
-  // This prevents clearing the session during transient null states (navigation, resubscription)
+  // True once ANY successful userData load has completed in this provider lifetime.
+  // Intentionally not reset when impersonation switches — the session-clear guards
+  // rely on this staying true to avoid false-positive clearing on stop.
   const hasLoadedUserData = useRef(false);
 
   const [impersonation, setImpersonation] = useState<ImpersonationRecord | null>(null);
@@ -218,21 +219,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     performLogout();
   };
 
-  const user: User | null = userData
-    ? {
-        _id: userData._id,
-        email: userData.email,
-        name: userData.name,
-        role: userData.role as UserRole,
-        isActive: userData.isActive,
-        forcePasswordChange: userData.forcePasswordChange,
-        managedDepartments: userData.managedDepartments,
-        managedLocationIds: userData.managedLocationIds,
-        personnelId: userData.personnelId,
-        requiresDailyLog: userData.requiresDailyLog,
-        permissionOverrides: userData.permissionOverrides as Record<string, boolean> | undefined,
-      }
-    : null;
+  const user: User | null = useMemo(
+    () =>
+      userData
+        ? {
+            _id: userData._id,
+            email: userData.email,
+            name: userData.name,
+            role: userData.role as UserRole,
+            isActive: userData.isActive,
+            forcePasswordChange: userData.forcePasswordChange,
+            managedDepartments: userData.managedDepartments,
+            managedLocationIds: userData.managedLocationIds,
+            personnelId: userData.personnelId,
+            requiresDailyLog: userData.requiresDailyLog,
+            permissionOverrides: userData.permissionOverrides as Record<string, boolean> | undefined,
+          }
+        : null,
+    [userData]
+  );
 
   const startImpersonation = useCallback(
     (target: ImpersonationTarget) => {
