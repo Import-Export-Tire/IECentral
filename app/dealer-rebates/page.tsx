@@ -9,7 +9,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { usePermissions } from "@/lib/usePermissions";
-import { aggregate, COL, type RebateDealer, type OutputRow } from "@/lib/dealerRebates/aggregate";
+import { aggregate, rebateBrand, type RebateDealer, type OutputRow } from "@/lib/dealerRebates/aggregate";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
@@ -267,13 +267,9 @@ function UploadTab({ isDark, userId }: { isDark: boolean; userId?: Id<"users"> }
       });
       if (allRows.length === 0) { setFileError("File is empty or could not be parsed."); return; }
 
-      // Filter to tire types (starts with T, not T alone) + FAL/MIL brands for preview count
-      const brandRows = allRows.filter((cols: string[]) => {
-        const pt = (cols[COL.PRODUCT_TYPE] ?? "").trim();
-        if (!pt.startsWith("T") || pt === "T") return false;
-        const brand = (cols[COL.MFG_ID] ?? "").trim().toUpperCase();
-        return brand === "FAL" || brand === "MIL";
-      });
+      // Filter to rebate-eligible rows for preview count (FAL/MIL + Dunlop BLUE RESPONSE A/S).
+      // Uses rebateBrand() so this stays in sync with the live aggregate().
+      const brandRows = allRows.filter((cols: string[]) => rebateBrand(cols) !== null);
 
       setRawRows(allRows);
       setFilteredRows(brandRows);

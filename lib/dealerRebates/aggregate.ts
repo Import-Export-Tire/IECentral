@@ -88,15 +88,42 @@ export function activityMonth(dateRaw: string): string {
   return `${yr}-${mm}`;
 }
 
+// Dunlop BLUE RESPONSE A/S is reported under the Falken Fanatic program even though
+// JMK codes it brand "DUN". Match the specific MFG part numbers (OEA07V COL.MFG_ITEM_ID)
+// for this line — 80 SKUs as of 2026-06-16. Other DUN tires are unaffected (they continue
+// to the Dunlop sellout report only). New BLUE RESPONSE A/S sizes must be added here.
+export const BLUE_RESPONSE_AS_FALKEN_PARTS = new Set<string>([
+  "10021117", "10021123", "10021144", "10021159", "10021169", "10021207", "10021219",
+  "10021237", "10021247", "10021274", "10021282", "10021301", "10021329", "10021373",
+  "10021484", "10021552", "10021567", "10021569", "10021596", "10021606", "10021622",
+  "10021639", "10021676", "10021721", "10021726", "10021735", "10021764", "10021875",
+  "10021879", "10021909", "10021923", "10021954", "10021965", "10021969", "10022130",
+  "10022147", "10022158", "10022207", "10022209", "10022254", "10022265", "10022267",
+  "10022270", "10022278", "10022280", "10022288", "10022327", "10022379", "10022420",
+  "10022453", "10022461", "10022502", "10022507", "10022513", "10022565", "10022577",
+  "10022597", "10022637", "10022659", "10022750", "10022754", "10022756", "10022818",
+  "10022847", "10022853", "10022856", "10022870", "10022889", "10022894", "10022899",
+  "10022917", "10022931", "10022945", "10022974", "10022979", "10022997", "10024576",
+  "10024617", "10024848", "10024980",
+]);
+
+// Which rebate program a row counts toward ("FAL" | "MIL"), or null if it is not a
+// rebate-eligible tire row. Single source of truth for the brand rule so the live
+// aggregate() and the client-side preview filter stay in sync.
+export function rebateBrand(cols: string[]): "FAL" | "MIL" | null {
+  const pt = (cols[COL.PRODUCT_TYPE] ?? "").trim();
+  if (!pt.startsWith("T") || pt === "T") return null;
+  const brand = (cols[COL.MFG_ID] ?? "").trim().toUpperCase();
+  if (brand === "FAL") return "FAL";
+  if (brand === "MIL") return "MIL";
+  if (brand === "DUN" && BLUE_RESPONSE_AS_FALKEN_PARTS.has((cols[COL.MFG_ITEM_ID] ?? "").trim())) return "FAL";
+  return null;
+}
+
 export function aggregate(csvText: string, dealers: RebateDealer[]): AggregateResult {
   const allRows = parsePositionalCSV(csvText);
 
-  const filtered = allRows.filter(cols => {
-    const pt = (cols[COL.PRODUCT_TYPE] ?? "").trim();
-    if (!pt.startsWith("T") || pt === "T") return false;
-    const brand = (cols[COL.MFG_ID] ?? "").trim().toUpperCase();
-    return brand === "FAL" || brand === "MIL";
-  });
+  const filtered = allRows.filter(cols => rebateBrand(cols) !== null);
 
   const falkenByJmk: Record<string, RebateDealer[]> = {};
   const milestarByJmk: Record<string, RebateDealer> = {};
@@ -126,7 +153,7 @@ export function aggregate(csvText: string, dealers: RebateDealer[]): AggregateRe
     const invoice = (cols[COL.INV_ID] ?? "").trim();
     const dateRaw = (cols[COL.ACTIVITY_DATE] ?? "").trim();
     const month = activityMonth(dateRaw);
-    const brand = (cols[COL.MFG_ID] ?? "").trim().toUpperCase();
+    const prog = rebateBrand(cols);
     const mfrPartNumber = (cols[COL.MFG_ITEM_ID] ?? "").trim();
     const rawAcct = (cols[COL.ACCOUNT_ID] ?? "").trim().toLowerCase();
     const isReturn = /^r\d{2}w\d{2}$/.test(rawAcct);
@@ -135,7 +162,7 @@ export function aggregate(csvText: string, dealers: RebateDealer[]): AggregateRe
     const qty = String(signedQty);
     const price = (cols[COL.SELL_PRICE] ?? "").trim();
 
-    if (brand === "FAL" && falkenByJmk[jmk]) {
+    if (prog === "FAL" && falkenByJmk[jmk]) {
       for (const dealer of falkenByJmk[jmk]) {
         if (!dealer.fanaticId) continue;
         falkenOut.push({
@@ -148,7 +175,7 @@ export function aggregate(csvText: string, dealers: RebateDealer[]): AggregateRe
         bump(falkenAgg, { jmk: dealer.jmk, name: dealer.name, fanaticId: dealer.fanaticId, month }, signedQty);
       }
     }
-    if (brand === "MIL" && milestarByJmk[jmk]) {
+    if (prog === "MIL" && milestarByJmk[jmk]) {
       const dealer = milestarByJmk[jmk];
       if (dealer.dealerNumber) {
         milestarOut.push({
