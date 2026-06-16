@@ -113,6 +113,7 @@ import type * as techWizardChats from "../techWizardChats.js";
 import type * as timeClock from "../timeClock.js";
 import type * as timeOffRequests from "../timeOffRequests.js";
 import type * as timesheetApprovals from "../timesheetApprovals.js";
+import type * as training from "../training.js";
 import type * as webPush from "../webPush.js";
 import type * as writeUps from "../writeUps.js";
 import type * as wtdCommission from "../wtdCommission.js";
@@ -231,6 +232,7 @@ declare const fullApi: ApiFromModules<{
   timeClock: typeof timeClock;
   timeOffRequests: typeof timeOffRequests;
   timesheetApprovals: typeof timesheetApprovals;
+  training: typeof training;
   webPush: typeof webPush;
   writeUps: typeof writeUps;
   wtdCommission: typeof wtdCommission;
