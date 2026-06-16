@@ -6,6 +6,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useAuth } from "@/app/auth-context";
 import Link from "next/link";
 import VideoPlayerModal from "./VideoPlayerModal";
+import LogSessionModal from "./LogSessionModal";
 
 export default function TrainingLibrary() {
   const { user } = useAuth();
@@ -14,8 +15,10 @@ export default function TrainingLibrary() {
   const videos = useQuery(api.training.listVideos, activeSegment ? { segmentId: activeSegment } : "skip") || [];
   const createSegment = useMutation(api.training.createSegment);
   const addVideo = useMutation(api.training.addVideo);
+  const sessions = useQuery(api.training.listSessions) || [];
   const [playing, setPlaying] = useState<{ s3Key: string; title: string } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [logging, setLogging] = useState(false);
 
   const handleUpload = async (file: File) => {
     if (!user || !activeSegment) return;
@@ -57,6 +60,7 @@ export default function TrainingLibrary() {
                 <input type="file" accept="video/*" className="hidden" disabled={uploading}
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.currentTarget.value = ""; }} />
               </label>
+              <button onClick={() => setLogging(true)} className="px-3 py-1.5 rounded-full text-xs font-semibold text-amber-700 bg-amber-100">Log session</button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {videos.map((vid) => (
@@ -68,10 +72,25 @@ export default function TrainingLibrary() {
               ))}
               {videos.length === 0 && <p className="theme-text-muted text-sm col-span-full">No videos yet — upload one.</p>}
             </div>
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold theme-text-secondary mb-2">Session history</h3>
+              {sessions.filter((s) => s.segmentId === activeSegment).length === 0 ? (
+                <p className="theme-text-muted text-xs">No sessions logged yet.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {sessions.filter((s) => s.segmentId === activeSegment).map((s) => (
+                    <li key={s._id} className="text-xs theme-text-secondary">
+                      {s.date} · {s.presenterName} · {s.personnelAttendees.length + s.guestAttendees.length} attendees
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </>
         )}
       </div>
       {playing && <VideoPlayerModal s3Key={playing.s3Key} title={playing.title} onClose={() => setPlaying(null)} />}
+      {logging && activeSegment && <LogSessionModal segmentId={activeSegment} onClose={() => setLogging(false)} />}
     </div>
   );
 }
