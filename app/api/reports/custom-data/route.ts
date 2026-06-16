@@ -724,14 +724,10 @@ export async function POST(request: NextRequest) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
+    // Full error + stack stays in the server logs; the client gets the stage
+    // label + message only (no stack trace exposed).
     console.error(`Custom data error [stage=${stage}]:`, err);
     const msg = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json(
-      {
-        error: `[${stage}] ${msg}`,
-        diag: { stage, message: msg, stack: err instanceof Error ? err.stack : undefined },
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: `[${stage}] ${msg}` }, { status: 500 });
   }
 }
