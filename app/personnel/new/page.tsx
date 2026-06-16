@@ -15,6 +15,7 @@ const EMPLOYEE_TYPES = [
   { value: "part_time", label: "Part Time" },
   { value: "seasonal", label: "Seasonal" },
   { value: "contractor", label: "Contractor" },
+  { value: "temp", label: "Temp (staffing agency)" },
 ];
 
 const DEPARTMENTS = [
@@ -56,6 +57,10 @@ function NewEmployeeContent() {
     emergencyContactName: "",
     emergencyContactPhone: "",
     emergencyContactRelationship: "",
+    staffingAgency: "",
+    tempEligibilityMode: "days",
+    tempEligibilityValue: "",
+    tempEligibleDateOverride: "",
   });
 
   // Redirect if user doesn't have permission
@@ -136,6 +141,14 @@ function NewEmployeeContent() {
         notes: formData.notes.trim() || undefined,
         userId: user._id,
         requestingUserId: user._id,
+        ...(formData.employeeType === "temp"
+          ? {
+              staffingAgency: formData.staffingAgency || undefined,
+              tempEligibilityMode: formData.tempEligibilityMode,
+              tempEligibilityValue: formData.tempEligibilityValue ? Number(formData.tempEligibilityValue) : undefined,
+              tempEligibleDateOverride: formData.tempEligibleDateOverride || undefined,
+            }
+          : {}),
       });
 
       router.push("/personnel");
@@ -304,7 +317,7 @@ function NewEmployeeContent() {
                 </div>
                 <div>
                   <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Hire Date *
+                    {formData.employeeType === "temp" ? "Temp start date *" : "Hire Date *"}
                   </label>
                   <input
                     type="date"
@@ -352,6 +365,58 @@ function NewEmployeeContent() {
                   </select>
                 </div>
               </div>
+
+              {formData.employeeType === "temp" && (
+                <div className={`space-y-4 rounded-lg border p-4 mt-4 ${isDark ? "border-amber-700 bg-amber-900/20" : "border-amber-200 bg-amber-50/50"}`}>
+                  <div>
+                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Staffing Agency</label>
+                    <input
+                      type="text"
+                      name="staffingAgency"
+                      value={formData.staffingAgency}
+                      onChange={handleChange}
+                      placeholder="e.g. Express Employment"
+                      className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white placeholder-slate-500 focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-600"}`}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Eligible after</label>
+                      <input
+                        type="number"
+                        name="tempEligibilityValue"
+                        min={1}
+                        value={formData.tempEligibilityValue}
+                        onChange={handleChange}
+                        placeholder="e.g. 90"
+                        className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white placeholder-slate-500 focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-600"}`}
+                      />
+                    </div>
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Basis</label>
+                      <select
+                        name="tempEligibilityMode"
+                        value={formData.tempEligibilityMode}
+                        onChange={handleChange}
+                        className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 focus:border-blue-600"}`}
+                      >
+                        <option value="days">Days</option>
+                        <option value="hours">Hours (at 40/wk)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Override eligible date (optional)</label>
+                    <input
+                      type="date"
+                      name="tempEligibleDateOverride"
+                      value={formData.tempEligibleDateOverride}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 focus:border-blue-600"}`}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Emergency Contact */}
