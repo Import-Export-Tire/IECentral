@@ -79,6 +79,15 @@ export const REPORT_TYPES: ReportType[] = [
     superAdminOnly: true,
   },
   {
+    id: "temp-conversion",
+    title: "Temp Conversion",
+    description: "Temps becoming eligible for direct hire",
+    icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7zM20 8v6M23 11h-6",
+    href: "/reports/temp-conversion",
+    group: "hr",
+    external: true,
+  },
+  {
     id: "manager-rollup",
     title: "Termination Rollup by Manager",
     description: "Per-location-manager term rates, leaver tenure, and reason breakdown — isolates the 'is it this manager?' question",
