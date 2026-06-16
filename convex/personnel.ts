@@ -212,6 +212,10 @@ export const createFromApplication = mutation({
     hireDate: v.string(),
     hourlyRate: v.optional(v.number()),
     notes: v.optional(v.string()),
+    staffingAgency: v.optional(v.string()),
+    tempEligibilityMode: v.optional(v.string()),
+    tempEligibilityValue: v.optional(v.number()),
+    tempEligibleDateOverride: v.optional(v.string()),
     userId: v.optional(v.id("users")),
     defaultScheduleTemplateId: v.optional(v.id("shiftTemplates")),
     requestingUserId: v.id("users"),
@@ -251,6 +255,10 @@ export const createFromApplication = mutation({
       hourlyRate: args.hourlyRate,
       status: "active",
       notes: args.notes,
+      staffingAgency: args.staffingAgency,
+      tempEligibilityMode: args.tempEligibilityMode,
+      tempEligibilityValue: args.tempEligibilityValue,
+      tempEligibleDateOverride: args.tempEligibleDateOverride,
       defaultScheduleTemplateId: args.defaultScheduleTemplateId,
       createdAt: now,
       updatedAt: now,
@@ -304,6 +312,10 @@ export const create = mutation({
       })
     ),
     notes: v.optional(v.string()),
+    staffingAgency: v.optional(v.string()),
+    tempEligibilityMode: v.optional(v.string()),
+    tempEligibilityValue: v.optional(v.number()),
+    tempEligibleDateOverride: v.optional(v.string()),
     userId: v.optional(v.id("users")),
     requestingUserId: v.id("users"),
   },
@@ -325,6 +337,10 @@ export const create = mutation({
       status: "active",
       emergencyContact: args.emergencyContact,
       notes: args.notes,
+      staffingAgency: args.staffingAgency,
+      tempEligibilityMode: args.tempEligibilityMode,
+      tempEligibilityValue: args.tempEligibilityValue,
+      tempEligibleDateOverride: args.tempEligibleDateOverride,
       createdAt: now,
       updatedAt: now,
     });
@@ -372,6 +388,10 @@ export const update = mutation({
       })
     ),
     notes: v.optional(v.string()),
+    staffingAgency: v.optional(v.string()),
+    tempEligibilityMode: v.optional(v.string()),
+    tempEligibilityValue: v.optional(v.number()),
+    tempEligibleDateOverride: v.optional(v.string()),
     locationId: v.optional(v.id("locations")),
     defaultScheduleTemplateId: v.optional(v.id("shiftTemplates")),
     // Allow patching termination metadata (separate from terminate flow)
@@ -2030,5 +2050,51 @@ export const deleteScheduleOverride = mutation({
     });
 
     return { success: true };
+  },
+});
+
+// Convert a temp (employeeType === "temp") into a real employee in place.
+// Flips the type, sets the real hire date, clears temp-only eligibility fields
+// (keeps staffingAgency for history), and writes an audit log entry.
+export const convertTempToHire = mutation({
+  args: {
+    personnelId: v.id("personnel"),
+    hireDate: v.string(),        // actual W-2 hire date (YYYY-MM-DD)
+    employeeType: v.string(),    // "full_time" | "part_time"
+    userId: v.optional(v.id("users")),
+    requestingUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    const existing = await ctx.db.get(args.personnelId);
+    if (!existing) throw new Error("Personnel not found");
+    if (existing.employeeType !== "temp") {
+      throw new Error("This person is not a temp");
+    }
+    const now = Date.now();
+    await ctx.db.patch(args.personnelId, {
+      employeeType: args.employeeType,
+      hireDate: args.hireDate,
+      tempEligibilityMode: undefined,
+      tempEligibilityValue: undefined,
+      tempEligibleDateOverride: undefined,
+      updatedAt: now,
+    });
+    if (args.userId) {
+      const user = await ctx.db.get(args.userId);
+      if (user) {
+        await ctx.db.insert("auditLogs", {
+          action: "Converted temp to employee",
+          actionType: "update",
+          resourceType: "personnel",
+          resourceId: args.personnelId,
+          userId: args.userId,
+          userEmail: user.email || "unknown",
+          details: `Converted ${existing.firstName} ${existing.lastName} from temp to ${args.employeeType} (hire date ${args.hireDate})`,
+          timestamp: now,
+        });
+      }
+    }
+    return args.personnelId;
   },
 });
