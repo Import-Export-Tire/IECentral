@@ -714,11 +714,11 @@ function PersonnelDetailContent() {
       // Temp fields — only sent when person is a temp
       const tempFields: Record<string, unknown> = {};
       if (isTemp((personnel as any)?.employeeType)) {
-        if (editPersonnelForm.staffingAgency) tempFields.staffingAgency = editPersonnelForm.staffingAgency;
-        if (editPersonnelForm.tempEligibilityMode) tempFields.tempEligibilityMode = editPersonnelForm.tempEligibilityMode;
+        tempFields.staffingAgency = editPersonnelForm.staffingAgency || "";
+        tempFields.tempEligibilityMode = editPersonnelForm.tempEligibilityMode;
         const parsedVal = Number(editPersonnelForm.tempEligibilityValue);
         if (!isNaN(parsedVal) && editPersonnelForm.tempEligibilityValue !== "") tempFields.tempEligibilityValue = parsedVal;
-        if (editPersonnelForm.tempEligibleDateOverride) tempFields.tempEligibleDateOverride = editPersonnelForm.tempEligibleDateOverride;
+        tempFields.tempEligibleDateOverride = editPersonnelForm.tempEligibleDateOverride || "";
       }
 
       await updatePersonnel({ ...updateData, ...tempFields, userId: user._id, requestingUserId: user._id });

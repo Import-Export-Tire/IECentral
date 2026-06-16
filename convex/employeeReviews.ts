@@ -33,7 +33,7 @@ export const listEligible = query({
   args: { requestingUserId: v.id("users"), reviewType: v.string() },
   handler: async (ctx, args) => {
     await requireManagePersonnel(ctx, args.requestingUserId);
-    const people = (await ctx.db.query("personnel").collect()).filter((p) => p.status === "active");
+    const people = (await ctx.db.query("personnel").collect()).filter((p) => p.status === "active" && p.employeeType !== "temp");
     const reviews = await ctx.db
       .query("employeeReviews")
       .withIndex("by_type_status", (q) => q.eq("reviewType", args.reviewType))

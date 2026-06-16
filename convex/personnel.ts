@@ -1124,6 +1124,7 @@ export const bulkCompleteTenureCheckIns = mutation({
     const results: { name: string; milestonesAdded: number }[] = [];
 
     for (const person of allPersonnel) {
+      if (person.employeeType === "temp") continue;
       const hireDate = new Date(person.hireDate);
       hireDate.setHours(0, 0, 0, 0);
 
