@@ -10,12 +10,12 @@ import LogSessionModal from "./LogSessionModal";
 
 export default function TrainingLibrary() {
   const { user } = useAuth();
-  const segments = useQuery(api.training.listSegments) || [];
+  const segments = useQuery(api.training.listSegments, user ? { requestingUserId: user._id } : "skip") || [];
   const [activeSegment, setActiveSegment] = useState<Id<"trainingSegments"> | null>(null);
-  const videos = useQuery(api.training.listVideos, activeSegment ? { segmentId: activeSegment } : "skip") || [];
+  const videos = useQuery(api.training.listVideos, activeSegment && user ? { segmentId: activeSegment, requestingUserId: user._id } : "skip") || [];
   const createSegment = useMutation(api.training.createSegment);
   const addVideo = useMutation(api.training.addVideo);
-  const sessions = useQuery(api.training.listSessions) || [];
+  const sessions = useQuery(api.training.listSessions, user ? { requestingUserId: user._id } : "skip") || [];
   const [playing, setPlaying] = useState<{ s3Key: string; title: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [logging, setLogging] = useState(false);

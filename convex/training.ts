@@ -1,21 +1,27 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { requireTrainingAccess } from "./authGuards";
+
+async function userHasTrainingAccess(ctx: any, userId: Id<"users">): Promise<boolean> {
+  const user = await ctx.db.get(userId);
+  if (!user || user.isActive === false) return false;
+  const overrides = (user.permissionOverrides ?? {}) as Record<string, boolean>;
+  return overrides["menu.training"] === true;
+}
 
 // Lightweight check used by the API routes (does the user have training access?).
 export const hasTrainingAccess = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    const user = await ctx.db.get(args.userId);
-    if (!user || user.isActive === false) return false;
-    const overrides = (user.permissionOverrides ?? {}) as Record<string, boolean>;
-    return overrides["menu.training"] === true;
+    return await userHasTrainingAccess(ctx, args.userId);
   },
 });
 
 export const listSegments = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    if (!(await userHasTrainingAccess(ctx, args.requestingUserId))) return [];
     const segments = await ctx.db.query("trainingSegments").withIndex("by_order").collect();
     return segments.sort((a, b) => a.order - b.order);
   },
@@ -59,8 +65,9 @@ export const deleteSegment = mutation({
 });
 
 export const listVideos = query({
-  args: { segmentId: v.id("trainingSegments") },
+  args: { segmentId: v.id("trainingSegments"), requestingUserId: v.id("users") },
   handler: async (ctx, args) => {
+    if (!(await userHasTrainingAccess(ctx, args.requestingUserId))) return [];
     const vids = await ctx.db.query("trainingVideos").withIndex("by_segment", (q) => q.eq("segmentId", args.segmentId)).collect();
     return vids.sort((a, b) => a.order - b.order);
   },
@@ -102,8 +109,9 @@ export const deleteVideo = mutation({
 });
 
 export const listSessions = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    if (!(await userHasTrainingAccess(ctx, args.requestingUserId))) return [];
     const sessions = await ctx.db.query("trainingSessions").withIndex("by_date").collect();
     return sessions.sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
   },

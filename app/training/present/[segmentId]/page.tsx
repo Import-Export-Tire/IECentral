@@ -5,13 +5,14 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { usePermissions } from "@/lib/usePermissions";
 import { useAuth } from "@/app/auth-context";
+import Protected from "@/app/protected";
 import Link from "next/link";
 
-export default function PresentPage({ params }: { params: Promise<{ segmentId: string }> }) {
+function PresentContent({ params }: { params: Promise<{ segmentId: string }> }) {
   const { segmentId } = use(params);
   const { user } = useAuth();
   const permissions = usePermissions();
-  const videos = useQuery(api.training.listVideos, { segmentId: segmentId as Id<"trainingSegments"> }) || [];
+  const videos = useQuery(api.training.listVideos, user ? { segmentId: segmentId as Id<"trainingSegments">, requestingUserId: user._id } : "skip") || [];
   const [idx, setIdx] = useState(0);
   const [url, setUrl] = useState<string | null>(null);
 
@@ -43,4 +44,8 @@ export default function PresentPage({ params }: { params: Promise<{ segmentId: s
       </div>
     </div>
   );
+}
+
+export default function PresentPage({ params }: { params: Promise<{ segmentId: string }> }) {
+  return <Protected><PresentContent params={params} /></Protected>;
 }
