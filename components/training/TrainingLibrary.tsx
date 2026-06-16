@@ -54,7 +54,10 @@ export default function TrainingLibrary() {
         {!activeSegment ? <p className="theme-text-muted">Select a segment.</p> : (
           <>
             <div className="flex items-center gap-3 mb-4">
-              <Link href={`/training/present/${activeSegment}`} className="px-3 py-1.5 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: "#111" }}>▶ Projector mode</Link>
+              <Link href={`/training/present/${activeSegment}`} className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: "#111827", color: "#ffffff" }}>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+                Projector Mode
+              </Link>
               <label className="px-3 py-1.5 rounded-full text-xs font-semibold text-[#007AFF] bg-[#007AFF]/10 cursor-pointer">
                 {uploading ? "Uploading…" : "+ Upload video"}
                 <input type="file" accept="video/*" className="hidden" disabled={uploading}
