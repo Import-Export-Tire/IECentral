@@ -245,6 +245,10 @@ function ApplicationDetailContent({ id }: { id: string }) {
     scheduleTemplateId: "" as string,
     sendOfferEmail: true, // Send offer email by default
     startTime: "08:00",
+    staffingAgency: "",
+    tempEligibilityMode: "days" as "days" | "hours",
+    tempEligibilityValue: "",
+    tempEligibleDateOverride: "",
   });
 
   // Send Offer state
@@ -306,6 +310,14 @@ function ApplicationDetailContent({ id }: { id: string }) {
         userId: user._id,
         defaultScheduleTemplateId: hireForm.scheduleTemplateId ? hireForm.scheduleTemplateId as Id<"shiftTemplates"> : undefined,
         requestingUserId: user._id,
+        ...(hireForm.employeeType === "temp"
+          ? {
+              staffingAgency: hireForm.staffingAgency || undefined,
+              tempEligibilityMode: hireForm.tempEligibilityMode,
+              tempEligibilityValue: hireForm.tempEligibilityValue ? Number(hireForm.tempEligibilityValue) : undefined,
+              tempEligibleDateOverride: hireForm.tempEligibleDateOverride || undefined,
+            }
+          : {}),
       });
       setShowHireModal(false);
       // Navigate to the new personnel record
@@ -1819,8 +1831,57 @@ function ApplicationDetailContent({ id }: { id: string }) {
                       <option value="part_time">Part Time</option>
                       <option value="contract">Contract</option>
                       <option value="seasonal">Seasonal</option>
+                      <option value="temp">Temp (staffing agency)</option>
                     </select>
                   </div>
+
+                  {hireForm.employeeType === "temp" && (
+                    <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1 text-slate-700">Staffing Agency</label>
+                        <input
+                          type="text"
+                          value={hireForm.staffingAgency}
+                          onChange={(e) => setHireForm({ ...hireForm, staffingAgency: e.target.value })}
+                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                          placeholder="e.g. Express Employment"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium mb-1 text-slate-700">Eligible after</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={hireForm.tempEligibilityValue}
+                            onChange={(e) => setHireForm({ ...hireForm, tempEligibilityValue: e.target.value })}
+                            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                            placeholder="e.g. 90"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1 text-slate-700">Basis</label>
+                          <select
+                            value={hireForm.tempEligibilityMode}
+                            onChange={(e) => setHireForm({ ...hireForm, tempEligibilityMode: e.target.value as "days" | "hours" })}
+                            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                          >
+                            <option value="days">Days</option>
+                            <option value="hours">Hours (at 40/wk)</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1 text-slate-700">Override eligible date (optional)</label>
+                        <input
+                          type="date"
+                          value={hireForm.tempEligibleDateOverride}
+                          onChange={(e) => setHireForm({ ...hireForm, tempEligibleDateOverride: e.target.value })}
+                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-3 gap-4">
                     <div>
@@ -1906,6 +1967,10 @@ function ApplicationDetailContent({ id }: { id: string }) {
                         scheduleTemplateId: "",
                         sendOfferEmail: true,
                         startTime: "08:00",
+                        staffingAgency: "",
+                        tempEligibilityMode: "days",
+                        tempEligibilityValue: "",
+                        tempEligibleDateOverride: "",
                       });
                     }}
                     disabled={isHiring}
