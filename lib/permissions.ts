@@ -183,6 +183,8 @@ export interface MenuPermissions {
   wtdCommission: boolean;
   tireTrackAdmin: boolean;
   iePriceSystem: boolean;
+  // Training (override-only — no tier grants it by default)
+  training: boolean;
 }
 
 export function getMenuPermissions(user: PermissionUser): MenuPermissions {
@@ -274,6 +276,7 @@ export function getMenuPermissions(user: PermissionUser): MenuPermissions {
     wtdCommission: tier >= 5, // T5 only (lower tiers via access override list)
     tireTrackAdmin: tier >= 2,
     iePriceSystem: tier >= 2,
+    training: false, // override-only; granted per-user via permissionOverrides["menu.training"]
   };
 }
 
@@ -540,6 +543,7 @@ export const ALL_PERMISSIONS: PermissionDefinition[] = [
   // Personnel
   { key: "menu.personnel", label: "View Personnel", description: "Access personnel records", category: "personnel" },
   { key: "menu.onboardingDocs", label: "Onboarding Documents", description: "Manage onboarding document templates", category: "personnel" },
+  { key: "menu.training", label: "Training Library", description: "Access the Training video library and projector mode", category: "personnel" },
   { key: "personnel.create", label: "Create Personnel", description: "Add new personnel records", category: "personnel" },
   { key: "personnel.edit", label: "Edit Personnel", description: "Modify personnel records", category: "personnel" },
   { key: "personnel.createWriteUps", label: "Create Write-Ups", description: "Create employee write-ups", category: "personnel" },

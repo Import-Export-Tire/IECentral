@@ -59,6 +59,24 @@ export async function requireAdmin(
 }
 
 /**
+ * Throws unless the requesting user exists, is active, and has the override-only
+ * `menu.training` permission. Training is not granted by any role tier — only by an
+ * explicit per-user permissionOverrides["menu.training"] === true.
+ */
+export async function requireTrainingAccess(
+  ctx: AnyCtx,
+  requestingUserId: Id<"users">,
+): Promise<void> {
+  const user = await ctx.db.get(requestingUserId);
+  if (!user) throw new Error("Unauthorized: requesting user not found");
+  if (user.isActive === false) throw new Error("Unauthorized: account is inactive");
+  const overrides = (user.permissionOverrides ?? {}) as Record<string, boolean>;
+  if (overrides["menu.training"] !== true) {
+    throw new Error("Unauthorized: training access is not granted for this account");
+  }
+}
+
+/**
  * Throws unless the requesting user has a role that can manage
  * personnel records (super_admin, admin, warehouse_director,
  * department_manager, warehouse_manager). Mirrors the
