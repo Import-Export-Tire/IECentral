@@ -12,7 +12,7 @@ const s3 = new S3Client({
     ? { credentials: { accessKeyId: process.env.S3_ACCESS_KEY_ID, secretAccessKey: process.env.S3_SECRET_ACCESS_KEY } }
     : {}),
 });
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "https://outstanding-dalmatian-787.convex.cloud";
 
 // GET /api/training/video-url?key=training/videos/...&userId=...
 export async function GET(request: NextRequest) {
@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     const userId = request.nextUrl.searchParams.get("userId");
     if (!key || !key.startsWith("training/videos/")) return NextResponse.json({ error: "valid key required" }, { status: 400 });
     if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 });
+    const convex = new ConvexHttpClient(CONVEX_URL);
     const ok = await convex.query(api.training.hasTrainingAccess, { userId: userId as Id<"users"> });
     if (!ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
