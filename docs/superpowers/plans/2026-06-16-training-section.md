@@ -362,7 +362,9 @@ import { Id } from "@/convex/_generated/dataModel";
 
 export const maxDuration = 30;
 
-const BUCKET = "ietires-dunlop-jmk-uploads";
+// Dedicated training bucket when TRAINING_S3_BUCKET is set; otherwise a segmented
+// prefix in the shared bucket. Switching to a dedicated bucket later = set the env var only.
+const BUCKET = process.env.TRAINING_S3_BUCKET || "ietires-dunlop-jmk-uploads";
 const s3 = new S3Client({
   region: process.env.S3_REGION || "us-east-1",
   ...(process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY
@@ -400,7 +402,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
-const BUCKET = "ietires-dunlop-jmk-uploads";
+const BUCKET = process.env.TRAINING_S3_BUCKET || "ietires-dunlop-jmk-uploads";
 const s3 = new S3Client({
   region: process.env.S3_REGION || "us-east-1",
   ...(process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY
