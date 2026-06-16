@@ -480,6 +480,11 @@ export default defineSchema({
       relationship: v.string(),
     })),
     notes: v.optional(v.string()),
+    // Temp / staffing-agency fields (employeeType === "temp"). hireDate is the temp start date.
+    staffingAgency: v.optional(v.string()),
+    tempEligibilityMode: v.optional(v.string()),      // "days" | "hours"
+    tempEligibilityValue: v.optional(v.number()),     // e.g. 90 days or 520 hours
+    tempEligibleDateOverride: v.optional(v.string()), // YYYY-MM-DD manual override
     // 90-day employee review — required for benefits & continued employment
     ninetyDayReview: v.optional(v.object({
       completedAt: v.number(),
