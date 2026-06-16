@@ -100,3 +100,48 @@ export const deleteVideo = mutation({
     return { s3Key: vid?.s3Key };
   },
 });
+
+export const listSessions = query({
+  args: {},
+  handler: async (ctx) => {
+    const sessions = await ctx.db.query("trainingSessions").withIndex("by_date").collect();
+    return sessions.sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+  },
+});
+
+// Log a training session and record completion on each selected personnel record.
+export const logSession = mutation({
+  args: {
+    segmentId: v.id("trainingSegments"),
+    date: v.string(),
+    personnelAttendees: v.array(v.id("personnel")),
+    guestAttendees: v.array(v.string()),
+    notes: v.optional(v.string()),
+    requestingUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    await requireTrainingAccess(ctx, args.requestingUserId);
+    const segment = await ctx.db.get(args.segmentId);
+    if (!segment) throw new Error("Segment not found");
+    const presenter = await ctx.db.get(args.requestingUserId);
+    const now = Date.now();
+
+    // Write a training record on each personnel attendee (sets certifiedBy = presenter).
+    for (const personnelId of args.personnelAttendees) {
+      const p = await ctx.db.get(personnelId);
+      if (!p) continue;
+      const area = segment.title;
+      const records = (p.trainingRecords ?? []).filter((r) => r.area !== area);
+      records.push({ area, completedAt: now, certifiedBy: args.requestingUserId });
+      const legacy = Array.from(new Set([...(p.completedTraining ?? []), area]));
+      await ctx.db.patch(personnelId, { trainingRecords: records, completedTraining: legacy, updatedAt: now });
+    }
+
+    return await ctx.db.insert("trainingSessions", {
+      segmentId: args.segmentId, segmentTitle: segment.title, date: args.date,
+      presenterId: args.requestingUserId, presenterName: presenter?.name ?? "Unknown",
+      personnelAttendees: args.personnelAttendees, guestAttendees: args.guestAttendees,
+      notes: args.notes, createdAt: now,
+    });
+  },
+});
