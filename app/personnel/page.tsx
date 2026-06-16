@@ -132,7 +132,7 @@ function PersonnelContent() {
   // Calculate stats
   const stats = {
     total: personnel.length,
-    active: personnel.filter((p) => p.status === "active").length,
+    active: personnel.filter((p) => p.status === "active" && p.employeeType !== "temp").length,
     onLeave: personnel.filter((p) => p.status === "on_leave").length,
     terminated: personnel.filter((p) => p.status === "terminated").length,
   };

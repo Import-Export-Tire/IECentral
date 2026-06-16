@@ -52,6 +52,7 @@ function InsuranceEligibilityContent() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return personnel
+      .filter((p) => p.employeeType !== "temp")
       .filter((p) => !locationFilter || p.locationId === locationFilter)
       .map((p) => {
         const totalDays = daysSince(p.hireDate);

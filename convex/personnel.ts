@@ -169,6 +169,7 @@ export const getPendingTenureCheckIns = query({
     }[] = [];
 
     for (const person of personnel) {
+      if (person.employeeType === "temp") continue;
       const hireDate = new Date(person.hireDate);
       hireDate.setHours(0, 0, 0, 0);
       const daysSinceHire = Math.floor((today.getTime() - hireDate.getTime()) / (1000 * 60 * 60 * 24));

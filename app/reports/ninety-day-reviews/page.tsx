@@ -156,6 +156,7 @@ function NinetyDayReviewsContent() {
   const ninetyRows = useMemo(() => {
     if (!personnel) return [];
     return personnel
+      .filter((p) => p.employeeType !== "temp")
       .filter((p) => !locationFilter || p.locationId === locationFilter)
       .map((p) => {
         const totalDays = daysSince(p.hireDate);

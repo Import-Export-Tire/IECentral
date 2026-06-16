@@ -201,7 +201,7 @@ export const getUnmappedPersonnel = query({
     const mappings = await ctx.db.query("qbEmployeeMapping").collect();
     const mappedIds = new Set(mappings.map((m) => m.personnelId));
 
-    return allPersonnel.filter((p) => !mappedIds.has(p._id));
+    return allPersonnel.filter((p) => !mappedIds.has(p._id) && p.employeeType !== "temp");
   },
 });
 
@@ -728,10 +728,10 @@ export const getSyncStats = query({
       .collect();
 
     const mappings = await ctx.db.query("qbEmployeeMapping").collect();
-    const activePersonnel = await ctx.db
+    const activePersonnel = (await ctx.db
       .query("personnel")
       .withIndex("by_status", (q) => q.eq("status", "active"))
-      .collect();
+      .collect()).filter((p) => p.employeeType !== "temp");
 
     const recentLogs = await ctx.db
       .query("qbSyncLog")
