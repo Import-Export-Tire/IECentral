@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
+import { createGunzip } from "zlib";
+import { createInterface } from "readline";
 import { brandCodeToName } from "@/lib/brandMapping";
 import { buildTireDescription } from "@/lib/tireDescriptions";
+
+// Trailing D-class suffix characters on JMK item IDs (e.g. "AV1951340404[").
+const stripIdSuffix = (id: string) => id.replace(/[.\^\[:\-]$/, "");
+
+// Pre-processed OEIVAL inventory cache (gzipped NDJSON, one item per line) built
+// by the dunlop-oeival-processor Lambda on every new OEIVAL upload. Same source
+// the /api/reports/inventory-data route uses.
+const OEIVAL_META_KEY = "jmk-uploads/oeival/_cache/latest.meta.json";
+const OEIVAL_ITEMS_KEY = "jmk-uploads/oeival/_cache/latest.items.ndjson.gz";
 
 /** Load tires catalog from S3 and build a lookup map by itemId */
 async function loadTireCatalogLookup(): Promise<Map<string, Record<string, string>>> {
@@ -468,6 +479,84 @@ async function fetchXlsxData(reportType: string, selectedColumns: string[], mont
   return { columns: [], rows: [] };
 }
 
+/**
+ * Stream the pre-processed OEIVAL cache line-by-line and invoke `onRow` for each
+ * item with only the requested keys. Avoids XLSX.read of the full workbook, which
+ * materializes the whole sheet in memory and OOM-kills the 2048MB (Hobby-cap)
+ * function. Returns false if the cache is unavailable.
+ */
+async function streamOeivalCache(
+  neededKeys: string[],
+  onRow: (rec: Record<string, string>) => void
+): Promise<boolean> {
+  let itemsKey = OEIVAL_ITEMS_KEY;
+  try {
+    const metaRes = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: OEIVAL_META_KEY }));
+    const metaText = await metaRes.Body?.transformToString("utf-8");
+    if (metaText) {
+      const meta = JSON.parse(metaText) as { itemsKey?: string };
+      if (meta.itemsKey) itemsKey = meta.itemsKey;
+    }
+  } catch { /* fall back to the default items key */ }
+
+  let itemsRes;
+  try {
+    itemsRes = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: itemsKey }));
+  } catch {
+    return false;
+  }
+  const bodyStream = itemsRes.Body as unknown as NodeJS.ReadableStream | null;
+  if (!bodyStream) return false;
+
+  const gunzip = createGunzip();
+  bodyStream.pipe(gunzip as unknown as NodeJS.WritableStream);
+  const rl = createInterface({ input: gunzip as unknown as NodeJS.ReadableStream, crlfDelay: Infinity });
+
+  for await (const line of rl) {
+    if (!line) continue;
+    let it: Record<string, unknown>;
+    try { it = JSON.parse(line) as Record<string, unknown>; } catch { continue; }
+    const rec: Record<string, string> = {};
+    for (const k of neededKeys) {
+      const v = it[k];
+      if (v !== undefined && v !== null) rec[k] = String(v);
+    }
+    onRow(rec);
+  }
+  return true;
+}
+
+/**
+ * Build an OEIVAL data set ({columns, rows}) from the streamed cache for the
+ * given selected columns. When `joinFilter` is supplied (fusion), only inventory
+ * rows whose join key matches the primary side are retained — this keeps memory
+ * bounded to the items that can actually join, well under the 2048MB cap.
+ */
+async function fetchOeivalFromCache(
+  selectedColumns: string[],
+  joinFilter?: { keys: string[]; values: Set<string> }
+) {
+  const colDefs = (COLUMN_DEFS.oeival || []).filter((c) => selectedColumns.includes(c.key));
+  const fetchKeys = new Set(colDefs.map((c) => c.key));
+  if (joinFilter) joinFilter.keys.forEach((k) => fetchKeys.add(k));
+
+  const rows: Record<string, string>[] = [];
+  const ok = await streamOeivalCache([...fetchKeys], (rec) => {
+    if (joinFilter) {
+      const match = joinFilter.keys.some((k) => {
+        const v = rec[k];
+        return !!v && (joinFilter.values.has(v) || joinFilter.values.has(stripIdSuffix(v)));
+      });
+      if (!match) return;
+    }
+    rows.push(rec);
+  });
+  if (!ok) {
+    throw new Error("OEIVAL inventory cache is unavailable — upload a new OEIVAL or run the dunlop-oeival-processor Lambda");
+  }
+  return { columns: colDefs.map((c) => ({ key: c.key, name: c.name })), rows };
+}
+
 export async function POST(request: NextRequest) {
   let stage = "parse-request";
   try {
@@ -486,7 +575,10 @@ export async function POST(request: NextRequest) {
     // Fetch primary source
     stage = `fetch-primary:${reportType}`;
     let primaryData;
-    if (["oeival", "tires"].includes(reportType)) {
+    if (reportType === "oeival") {
+      // Stream the cache instead of parsing the raw workbook (avoids OOM).
+      primaryData = await fetchOeivalFromCache(primaryColumns);
+    } else if (reportType === "tires") {
       primaryData = await fetchXlsxData(reportType, primaryColumns, months);
     } else {
       primaryData = await fetchSourceData(reportType, months, primaryColumns);
@@ -524,7 +616,23 @@ export async function POST(request: NextRequest) {
       let secondData;
       // Only fetch needed columns: join key + selected fusion columns + mfgItemId for auto-join
       const neededKeys = new Set(["mfgItemId", "itemId", fusionJoinKey, ...(fusionColumns as string[] || [])]);
-      if (["oeival", "tires"].includes(secondSource)) {
+      if (secondSource === "oeival") {
+        // Build the set of join values present on the primary side, so the cache
+        // stream only retains inventory items that can actually join — keeping
+        // the function's memory well under the 2048MB Hobby cap.
+        const joinValues = new Set<string>();
+        for (const row of finalRows) {
+          for (const k of ["mfgItemId", "itemId", fusionJoinKey]) {
+            const v = row[k];
+            if (v) { joinValues.add(v); joinValues.add(stripIdSuffix(v)); }
+          }
+        }
+        const secondCols = (COLUMN_DEFS.oeival || []).filter((c) => neededKeys.has(c.key) || !fusionColumns);
+        secondData = await fetchOeivalFromCache(
+          secondCols.map((c) => c.key),
+          { keys: ["mfgItemId", "itemId"], values: joinValues }
+        );
+      } else if (secondSource === "tires") {
         const secondCols = (COLUMN_DEFS[secondSource] || []).filter((c) => neededKeys.has(c.key) || !fusionColumns);
         secondData = await fetchXlsxData(secondSource, secondCols.map((c) => c.key), months);
       } else {
@@ -606,23 +714,11 @@ export async function POST(request: NextRequest) {
       totalRows: finalRows.length,
       truncated: finalRows.length > 50000,
     };
-    // Buffered JSON responses are capped (~4.5MB on Vercel). Measure the payload and
-    // refuse oversized ones with a clear error instead of letting the platform return
-    // an unparseable error page (which surfaces client-side as a cryptic parse error).
     const json = JSON.stringify(payload);
     const sizeMB = json.length / (1024 * 1024);
     console.log(
       `Custom data ok: type=${reportType} second=${secondSource || "none"} rows=${payload.totalRows} returned=${payload.rows.length} size=${sizeMB.toFixed(2)}MB`
     );
-    if (json.length > 4_000_000) {
-      return NextResponse.json(
-        {
-          error: `Result too large to return (${sizeMB.toFixed(1)} MB, ${payload.totalRows} rows). Narrow the date range or select fewer columns.`,
-          diag: { stage: "serialize", rows: payload.totalRows, sizeMB: Number(sizeMB.toFixed(2)) },
-        },
-        { status: 413 }
-      );
-    }
     return new NextResponse(json, {
       status: 200,
       headers: { "Content-Type": "application/json" },
