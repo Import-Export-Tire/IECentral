@@ -3572,4 +3572,37 @@ export default defineSchema({
   })
     .index("by_status_created", ["status", "createdAt"])
     .index("by_created", ["createdAt"]),
+
+  // ============ TRAINING ============
+  trainingSegments: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    order: v.number(),
+    isActive: v.boolean(),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_order", ["order"]),
+
+  trainingVideos: defineTable({
+    segmentId: v.id("trainingSegments"),
+    title: v.string(),
+    s3Key: v.string(),
+    order: v.number(),
+    durationSec: v.optional(v.number()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_segment", ["segmentId"]),
+
+  trainingSessions: defineTable({
+    segmentId: v.id("trainingSegments"),
+    segmentTitle: v.string(),
+    date: v.string(),
+    presenterId: v.id("users"),
+    presenterName: v.string(),
+    personnelAttendees: v.array(v.id("personnel")),
+    guestAttendees: v.array(v.string()),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_date", ["date"]),
 });
