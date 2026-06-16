@@ -276,7 +276,7 @@ export function getMenuPermissions(user: PermissionUser): MenuPermissions {
     wtdCommission: tier >= 5, // T5 only (lower tiers via access override list)
     tireTrackAdmin: tier >= 2,
     iePriceSystem: tier >= 2,
-    training: false, // override-only; granted per-user via permissionOverrides["menu.training"]
+    training: tier >= 5, // super admins by default; others granted per-user via permissionOverrides["menu.training"]
   };
 }
 

@@ -7,7 +7,7 @@ async function userHasTrainingAccess(ctx: any, userId: Id<"users">): Promise<boo
   const user = await ctx.db.get(userId);
   if (!user || user.isActive === false) return false;
   const overrides = (user.permissionOverrides ?? {}) as Record<string, boolean>;
-  return overrides["menu.training"] === true;
+  return user.role === "super_admin" || overrides["menu.training"] === true;
 }
 
 // Lightweight check used by the API routes (does the user have training access?).

@@ -71,7 +71,7 @@ export async function requireTrainingAccess(
   if (!user) throw new Error("Unauthorized: requesting user not found");
   if (user.isActive === false) throw new Error("Unauthorized: account is inactive");
   const overrides = (user.permissionOverrides ?? {}) as Record<string, boolean>;
-  if (overrides["menu.training"] !== true) {
+  if (user.role !== "super_admin" && overrides["menu.training"] !== true) {
     throw new Error("Unauthorized: training access is not granted for this account");
   }
 }
