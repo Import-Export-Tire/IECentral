@@ -9,6 +9,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useTheme } from "../theme-context";
 import { useAuth } from "../auth-context";
+import { isTemp } from "@/lib/tempEligibility";
 
 const STATUS_OPTIONS = [
   { value: "active", label: "Active", color: "green" },
@@ -78,6 +79,7 @@ function PersonnelContent() {
   const [filterStatus, setFilterStatus] = useState<string>("active"); // Default to active only
   const [searchTerm, setSearchTerm] = useState("");
   const [showTerminated, setShowTerminated] = useState(false);
+  const [showTempsOnly, setShowTempsOnly] = useState(false);
 
   // Redirect if user doesn't have permission
   if (!canViewPersonnel) {
@@ -114,7 +116,8 @@ function PersonnelContent() {
         .includes(searchTerm.toLowerCase()) ||
       person.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       person.position.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesDepartment && matchesStatus && matchesSearch;
+    const matchesTempsOnly = !showTempsOnly || isTemp(person.employeeType);
+    return matchesDepartment && matchesStatus && matchesSearch && matchesTempsOnly;
   });
 
   // Filter terminated personnel by search term
@@ -249,6 +252,12 @@ function PersonnelContent() {
                 <option value="active">Active</option>
                 <option value="on_leave">On Leave</option>
               </select>
+              <button
+                onClick={() => setShowTempsOnly((v) => !v)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${showTempsOnly ? "bg-amber-500 text-white" : isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+              >
+                Temps only
+              </button>
             </div>
           </div>
 
@@ -343,11 +352,16 @@ function PersonnelContent() {
                         </select>
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={`px-3 py-1 text-xs font-medium rounded border ${statusColors[person.status] || statusColors.active}`}
-                        >
-                          {STATUS_OPTIONS.find((s) => s.value === person.status)?.label || person.status}
-                        </span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`px-3 py-1 text-xs font-medium rounded border ${statusColors[person.status] || statusColors.active}`}
+                          >
+                            {STATUS_OPTIONS.find((s) => s.value === person.status)?.label || person.status}
+                          </span>
+                          {isTemp(person.employeeType) && (
+                            <span className={`px-2 py-0.5 text-[11px] font-medium rounded-full ${isDark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-700"}`}>Temp</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-center">
                         {person.status === "active" && (
