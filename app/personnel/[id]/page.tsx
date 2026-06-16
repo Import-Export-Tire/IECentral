@@ -9,6 +9,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useTheme } from "../../theme-context";
 import { useAuth } from "../../auth-context";
+import { isTemp, computeTempEligibleDate, tempEligibilityLabel } from "@/lib/tempEligibility";
 
 const STATUS_OPTIONS = [
   { value: "active", label: "Active", color: "green" },
@@ -334,6 +335,8 @@ function PersonnelDetailContent() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deletingPersonnel, setDeletingPersonnel] = useState(false);
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [convertForm, setConvertForm] = useState({ hireDate: new Date().toISOString().split("T")[0], employeeType: "full_time" });
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [selectedMilestone, setSelectedMilestone] = useState<string | null>(null);
   const [checkInNotes, setCheckInNotes] = useState("");
@@ -395,6 +398,7 @@ function PersonnelDetailContent() {
   const clearScheduleAssignment = useMutation(api.personnel.clearScheduleAssignment);
   const createScheduleOverride = useMutation(api.personnel.createScheduleOverride);
   const deleteScheduleOverride = useMutation(api.personnel.deleteScheduleOverride);
+  const convertTempToHire = useMutation(api.personnel.convertTempToHire);
 
   // Schedule overrides query - get upcoming 30 days
   const scheduleOverrides = useQuery(api.personnel.getScheduleOverrides, {
@@ -474,6 +478,10 @@ function PersonnelDetailContent() {
     emergencyContactName: "",
     emergencyContactPhone: "",
     emergencyContactRelationship: "",
+    staffingAgency: "",
+    tempEligibilityMode: "days" as string,
+    tempEligibilityValue: "" as string,
+    tempEligibleDateOverride: "",
   });
 
   const [terminateForm, setTerminateForm] = useState({
@@ -506,6 +514,10 @@ function PersonnelDetailContent() {
         emergencyContactName: personnel.emergencyContact?.name || "",
         emergencyContactPhone: personnel.emergencyContact?.phone || "",
         emergencyContactRelationship: personnel.emergencyContact?.relationship || "",
+        staffingAgency: (personnel as any).staffingAgency || "",
+        tempEligibilityMode: (personnel as any).tempEligibilityMode || "days",
+        tempEligibilityValue: (personnel as any).tempEligibilityValue != null ? String((personnel as any).tempEligibilityValue) : "",
+        tempEligibleDateOverride: (personnel as any).tempEligibleDateOverride || "",
       });
     }
   };
@@ -698,7 +710,18 @@ function PersonnelDetailContent() {
       }
 
       if (!user) throw new Error("Not signed in");
-      await updatePersonnel({ ...updateData, userId: user._id, requestingUserId: user._id });
+
+      // Temp fields — only sent when person is a temp
+      const tempFields: Record<string, unknown> = {};
+      if (isTemp((personnel as any)?.employeeType)) {
+        if (editPersonnelForm.staffingAgency) tempFields.staffingAgency = editPersonnelForm.staffingAgency;
+        if (editPersonnelForm.tempEligibilityMode) tempFields.tempEligibilityMode = editPersonnelForm.tempEligibilityMode;
+        const parsedVal = Number(editPersonnelForm.tempEligibilityValue);
+        if (!isNaN(parsedVal) && editPersonnelForm.tempEligibilityValue !== "") tempFields.tempEligibilityValue = parsedVal;
+        if (editPersonnelForm.tempEligibleDateOverride) tempFields.tempEligibleDateOverride = editPersonnelForm.tempEligibleDateOverride;
+      }
+
+      await updatePersonnel({ ...updateData, ...tempFields, userId: user._id, requestingUserId: user._id });
       setShowEditPersonnelModal(false);
     } catch (error) {
       console.error("Error updating personnel:", error);
@@ -1062,6 +1085,22 @@ function PersonnelDetailContent() {
           {/* Overview Tab */}
           {activeTab === "overview" && (
             <div className="space-y-6">
+              {/* Temp employee banner */}
+              {isTemp((personnel as any).employeeType) && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="text-sm text-gray-800">
+                      <span className="font-semibold text-amber-700">TEMP</span>
+                      {(personnel as any).staffingAgency ? ` · ${(personnel as any).staffingAgency}` : ""}
+                      {" · eligible "}
+                      {(() => { const d = computeTempEligibleDate(personnel as any); return d ? d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—"; })()}
+                      {` (${tempEligibilityLabel(personnel as any)})`}
+                    </div>
+                    <button onClick={() => setShowConvertModal(true)} className="px-3 py-1.5 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: "#007AFF" }}>Convert to hire</button>
+                  </div>
+                </div>
+              )}
+
               {/* Stats Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className={`rounded-lg p-4 text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
@@ -3360,6 +3399,71 @@ function PersonnelDetailContent() {
                   </p>
                 </div>
 
+                {/* Temp fields — only shown for temp employees */}
+                {isTemp((personnel as any).employeeType) && (
+                  <div className={`pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                    <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-amber-400" : "text-amber-700"}`}>
+                      Temp / Staffing
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          Staffing Agency
+                        </label>
+                        <input
+                          type="text"
+                          value={editPersonnelForm.staffingAgency}
+                          onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, staffingAgency: e.target.value })}
+                          placeholder="e.g., Acme Staffing"
+                          className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            Eligible after
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editPersonnelForm.tempEligibilityValue}
+                            onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, tempEligibilityValue: e.target.value })}
+                            placeholder="90"
+                            className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                          />
+                        </div>
+                        <div>
+                          <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            Basis
+                          </label>
+                          <select
+                            value={editPersonnelForm.tempEligibilityMode}
+                            onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, tempEligibilityMode: e.target.value })}
+                            className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                          >
+                            <option value="days">Days</option>
+                            <option value="hours">Hours</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          Eligibility date override
+                        </label>
+                        <input
+                          type="date"
+                          value={editPersonnelForm.tempEligibleDateOverride}
+                          onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, tempEligibleDateOverride: e.target.value })}
+                          className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                        />
+                        <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                          If set, overrides the calculated eligibility date.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Emergency Contact Section */}
                 <div className={`pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
                   <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
@@ -3419,6 +3523,37 @@ function PersonnelDetailContent() {
                 >
                   {isSavingPersonnel ? "Saving..." : "Save Changes"}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Convert Temp to Hire Modal */}
+        {showConvertModal && personnel && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+              <h3 className="text-lg font-semibold mb-4">Convert {personnel.firstName} to employee</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Hire date</label>
+                  <input type="date" value={convertForm.hireDate} onChange={(e) => setConvertForm({ ...convertForm, hireDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee type</label>
+                  <select value={convertForm.employeeType} onChange={(e) => setConvertForm({ ...convertForm, employeeType: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    <option value="full_time">Full Time</option>
+                    <option value="part_time">Part Time</option>
+                  </select>
+                </div>
+                <p className="text-xs text-gray-500">Reviews and insurance eligibility will start from this hire date. The staffing agency is kept for history; their write-ups/notes are retained.</p>
+              </div>
+              <div className="flex justify-end gap-2 mt-5">
+                <button onClick={() => setShowConvertModal(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-100">Cancel</button>
+                <button onClick={async () => {
+                  if (!user) return;
+                  await convertTempToHire({ personnelId: personnel._id, hireDate: convertForm.hireDate, employeeType: convertForm.employeeType, userId: user._id, requestingUserId: user._id });
+                  setShowConvertModal(false);
+                }} className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ backgroundColor: "#007AFF" }}>Convert</button>
               </div>
             </div>
           </div>
