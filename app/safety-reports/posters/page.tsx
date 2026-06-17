@@ -79,7 +79,10 @@ function PostersInner() {
   .footer{ background:var(--ink); color:#C7CAD0; padding:12px 0.55in 16px; }
   .footer .notice{ font-family:'Barlow Condensed',sans-serif; font-weight:700; letter-spacing:.14em; font-size:13px; color:#fff; text-transform:uppercase; }
   .footer .fine{ font-size:11px; color:#9aa0a9; margin-top:4px; letter-spacing:.02em; }
-  @media print{ html,body{ background:#fff; } body{ padding:0; } .poster{ box-shadow:none; } }
+  @media print{
+    html,body{ background:#fff; width:8.5in; height:11in; margin:0; padding:0; overflow:hidden; }
+    .poster{ box-shadow:none; width:8.5in; height:11in; overflow:hidden; page-break-after:avoid; break-after:avoid; }
+  }
 </style></head>
 <body>
   <div class="poster">

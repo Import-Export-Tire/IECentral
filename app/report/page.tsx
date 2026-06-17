@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
@@ -18,11 +18,13 @@ function ReportForm() {
   const searchParams = useSearchParams();
   const locParam = searchParams.get("loc") || "";
 
-  const locations = useQuery(api.locations.listActive, {});
   const submit = useMutation(api.safetyReports.submit);
 
+  // Location comes from the QR's ?loc= — each poster has a location-specific code, so there's
+  // no picker on the form. The server resolves the location name from this id.
+  const locationId = locParam;
+
   const [category, setCategory] = useState("");
-  const [locationId, setLocationId] = useState<string>(locParam);
   const [description, setDescription] = useState("");
   const [occurredAt, setOccurredAt] = useState("");
   const [showContact, setShowContact] = useState(false);
@@ -67,11 +69,6 @@ function ReportForm() {
     setPhotoFileId(null);
     setPhotoPreview(null);
   };
-
-  const sortedLocations = useMemo(
-    () => (locations ? [...locations].sort((a, b) => a.name.localeCompare(b.name)) : []),
-    [locations],
-  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,21 +162,6 @@ function ReportForm() {
                 </label>
               ))}
             </div>
-          </div>
-
-          {/* Location */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-1">Location</label>
-            <select
-              value={locationId}
-              onChange={(e) => setLocationId(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500"
-            >
-              <option value="">Select a location (optional)</option>
-              {sortedLocations.map((l) => (
-                <option key={l._id} value={l._id}>{l.name}</option>
-              ))}
-            </select>
           </div>
 
           {/* Description */}
