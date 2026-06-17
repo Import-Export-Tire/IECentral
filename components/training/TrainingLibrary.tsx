@@ -19,6 +19,8 @@ export default function TrainingLibrary() {
   const [playing, setPlaying] = useState<{ s3Key: string; title: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [logging, setLogging] = useState(false);
+  const [showRoster, setShowRoster] = useState(false);
+  const roster = useQuery(api.training.segmentRoster, activeSegment && user ? { segmentId: activeSegment, requestingUserId: user._id } : "skip") || [];
 
   const handleUpload = async (file: File) => {
     if (!user || !activeSegment) return;
@@ -64,6 +66,7 @@ export default function TrainingLibrary() {
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.currentTarget.value = ""; }} />
               </label>
               <button onClick={() => setLogging(true)} className="px-3 py-1.5 rounded-full text-xs font-semibold text-amber-700 bg-amber-100">Log session</button>
+              <button onClick={() => setShowRoster((v) => !v)} className="px-3 py-1.5 rounded-full text-xs font-semibold theme-text-secondary theme-bg-hover">{showRoster ? "Hide roster" : "Roster"}</button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {videos.map((vid) => (
@@ -75,6 +78,24 @@ export default function TrainingLibrary() {
               ))}
               {videos.length === 0 && <p className="theme-text-muted text-sm col-span-full">No videos yet — upload one.</p>}
             </div>
+            {showRoster && (
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold theme-text-secondary mb-2">Completion roster</h3>
+                {roster.length === 0 ? <p className="theme-text-muted text-xs">No assignments or completions for this segment yet.</p> : (
+                  <table className="w-full text-sm">
+                    <thead><tr className="theme-text-muted text-left"><th className="py-1">Employee</th><th className="py-1">Completed</th></tr></thead>
+                    <tbody>
+                      {roster.map((r) => (
+                        <tr key={r.personnelId} className="border-t theme-border-secondary">
+                          <td className="py-1 theme-text-primary">{r.name}</td>
+                          <td className="py-1 theme-text-secondary">{r.completed} / {r.total}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
             <div className="mt-6">
               <h3 className="text-sm font-semibold theme-text-secondary mb-2">Session history</h3>
               {sessions.filter((s) => s.segmentId === activeSegment).length === 0 ? (
