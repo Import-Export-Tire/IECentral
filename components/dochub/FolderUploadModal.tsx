@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useDocHub } from "./DocHubContext";
 import { getFileMimeType, formatFileSize } from "./types";
+import { requestThumbnail } from "@/lib/docThumbnail";
 
 interface PendingFile {
   file: File;
@@ -215,7 +216,7 @@ export default function FolderUploadModal({
               });
               if (!res.ok) throw new Error(`HTTP ${res.status}`);
               const { storageId } = await res.json();
-              await createDocument({
+              const newDocId = await createDocument({
                 name: item.file.name.replace(/\.[^/.]+$/, ""),
                 description: undefined,
                 category: "other",
@@ -228,6 +229,7 @@ export default function FolderUploadModal({
                 uploadedByName: user.name,
                 visibility: "private",
               });
+              if (newDocId) requestThumbnail(newDocId);
               setPending(prev => prev.map(p => p === item ? { ...p, status: "done" } : p));
               uploaded++;
               setProgress({ uploaded, total: pending.length });

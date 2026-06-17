@@ -5,17 +5,17 @@ import { useDocHub } from "./DocHubContext";
 import { getFileIcon, getFileColor, formatFileSize, type DocumentType, type FolderType } from "./types";
 import { resolveFileType } from "@/lib/fileTypes";
 
-// Google-Drive-style thumbnail: images render directly, PDFs render their first
-// page via pdf.js (lazy when the card scrolls into view; skipped for very large
-// files), everything else falls back to the file-type icon.
+// Google-Drive-style thumbnail: images render directly; PDFs/Word/Excel/PowerPoint show a
+// server-generated page-1 PNG (cached, served by /api/documents/thumb); everything else —
+// and any doc whose thumbnail hasn't been generated yet — falls back to the file-type icon.
+// Lazy: the image only loads once the card scrolls into view.
 function FileThumb({ doc, isDark }: { doc: DocumentType; isDark: boolean }) {
   const ft = resolveFileType(doc.fileType, doc.fileName).toLowerCase();
-  const fn = (doc.fileName || "").toLowerCase();
   const isImage = ft.includes("image");
-  const isPdf = ft.includes("pdf") || fn.endsWith(".pdf");
-  const proxyUrl = `/api/documents/file?id=${doc._id}`;
+  // Images render straight from the file proxy (always works, no generation needed).
+  // Everything else uses the cached server-rendered thumbnail.
+  const imgUrl = isImage ? `/api/documents/file?id=${doc._id}` : `/api/documents/thumb?id=${doc._id}`;
 
-  const [pdfThumb, setPdfThumb] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [visible, setVisible] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -31,54 +31,23 @@ function FileThumb({ doc, isDark }: { doc: DocumentType; isDark: boolean }) {
     return () => io.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (!visible || !isPdf || pdfThumb || failed) return;
-    if ((doc.fileSize || 0) > 12 * 1024 * 1024) { setFailed(true); return; } // skip huge PDFs
-    let cancelled = false;
-    (async () => {
-      try {
-        const pdfjs = await import("pdfjs-dist");
-        // Serve the worker from our own origin (bundled in /public) instead of a public
-        // CDN, so PDF thumbnails don't depend on unpkg being reachable.
-        pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-        const pdf = await pdfjs.getDocument(proxyUrl).promise;
-        const page = await pdf.getPage(1);
-        const base = page.getViewport({ scale: 1 });
-        const viewport = page.getViewport({ scale: 320 / base.width });
-        const canvas = document.createElement("canvas");
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) throw new Error("no canvas ctx");
-        await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-        if (!cancelled) setPdfThumb(canvas.toDataURL("image/png"));
-        pdf.destroy();
-      } catch {
-        if (!cancelled) setFailed(true);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [visible, isPdf, proxyUrl, pdfThumb, failed, doc.fileSize]);
-
   const areaCls = `relative flex items-center justify-center h-36 overflow-hidden rounded-t-xl ${isDark ? "bg-slate-800/60" : "bg-gray-50"}`;
 
-  if (isImage && !failed) {
+  if (visible && !failed) {
     return (
-      <div ref={ref} className={areaCls}>
+      <div ref={ref} className={`${areaCls} ${isImage ? "" : "bg-white items-start"}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={proxyUrl} alt={doc.name} loading="lazy" className="max-h-full max-w-full object-contain" onError={() => setFailed(true)} />
+        <img
+          src={imgUrl}
+          alt={doc.name}
+          loading="lazy"
+          className={isImage ? "max-h-full max-w-full object-contain" : "w-full object-contain object-top"}
+          onError={() => setFailed(true)}
+        />
       </div>
     );
   }
-  if (isPdf && pdfThumb && !failed) {
-    return (
-      <div ref={ref} className={`${areaCls} bg-white items-start`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={pdfThumb} alt={doc.name} className="w-full object-contain object-top" />
-      </div>
-    );
-  }
-  // Fallback icon (also shown while a PDF thumbnail is still rendering).
+  // Fallback icon (also shown until the card scrolls into view).
   return (
     <div ref={ref} className={areaCls}>
       <svg className={`w-12 h-12 ${getFileColor(doc.fileType, isDark)}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">

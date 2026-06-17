@@ -1299,6 +1299,7 @@ export default defineSchema({
     folderId: v.optional(v.id("documentFolders")), // Optional folder for organization
     fileId: v.id("_storage"), // Convex storage ID for the file
     previewPdfFileId: v.optional(v.id("_storage")), // Cached PDF rendition of an Office doc (lazy, for preview/print)
+    thumbnailFileId: v.optional(v.id("_storage")), // Cached page-1 PNG preview for cards (generated server-side at upload)
     fileName: v.string(), // Original filename
     fileType: v.string(), // MIME type (application/pdf, etc.)
     fileSize: v.number(), // File size in bytes

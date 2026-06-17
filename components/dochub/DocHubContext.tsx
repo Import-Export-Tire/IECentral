@@ -7,6 +7,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useAuth } from "@/app/auth-context";
 import { useTheme } from "@/app/theme-context";
 import type { ViewMode, BreadcrumbItem, DocumentType, FolderType } from "./types";
+import { requestThumbnail } from "@/lib/docThumbnail";
 
 interface DocHubContextType {
   // Theme
@@ -401,6 +402,9 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
         });
       }
 
+      // Generate the card thumbnail (and, for Office docs, the cached PDF) server-side.
+      if (newDocId) requestThumbnail(newDocId);
+
       setShowUploadModal(false);
 
       if (currentFolderId) {
@@ -576,6 +580,8 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
         uploadedBy: user._id,
         uploadedByName: user.name,
       });
+      // The file changed — regenerate the (now stale) card thumbnail / cached PDF.
+      requestThumbnail(docId);
     } catch (err) { setError(err instanceof Error ? err.message : "Version upload failed"); }
   }, [user, generateUploadUrl, uploadNewVersionMutation]);
 

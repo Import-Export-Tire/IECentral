@@ -468,6 +468,50 @@ export const getPreviewPdfUrl = action({
   },
 });
 
+// ============ CARD THUMBNAIL CACHE ============
+// Every Doc Hub card shows a page-1 PNG preview (image/PDF/Word/Excel/PPT). The
+// /api/documents/thumbnail route renders it server-side at upload and caches it here;
+// /api/documents/thumb streams it. Same shared-secret gating as the Office→PDF cache.
+
+export const generateThumbnailUploadUrl = mutation({
+  args: { secret: v.string() },
+  handler: async (ctx, args) => {
+    if (!process.env.PREVIEW_PDF_SECRET || args.secret !== process.env.PREVIEW_PDF_SECRET) {
+      throw new Error("unauthorized");
+    }
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const setThumbnail = mutation({
+  args: { documentId: v.id("documents"), fileId: v.id("_storage"), secret: v.string() },
+  handler: async (ctx, args) => {
+    if (!process.env.PREVIEW_PDF_SECRET || args.secret !== process.env.PREVIEW_PDF_SECRET) {
+      throw new Error("unauthorized");
+    }
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc) return;
+    // Drop a stale thumbnail if we're replacing one.
+    if (doc.thumbnailFileId && doc.thumbnailFileId !== args.fileId) {
+      try { await ctx.storage.delete(doc.thumbnailFileId); } catch { /* already gone */ }
+    }
+    await ctx.db.patch(args.documentId, { thumbnailFileId: args.fileId, updatedAt: Date.now() });
+  },
+});
+
+export const getThumbnailUrl = action({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, args): Promise<string | null> => {
+    const doc = await ctx.runQuery(api.documents.getById, { documentId: args.documentId });
+    if (!doc || !doc.thumbnailFileId) return null;
+    try {
+      return await ctx.storage.getUrl(doc.thumbnailFileId);
+    } catch {
+      return null;
+    }
+  },
+});
+
 // Total storage used by active documents (bytes + file count) for the Doc Hub meter.
 export const getStorageUsage = query({
   args: {},

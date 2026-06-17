@@ -107,6 +107,9 @@ const withPWA = withPWAInit({
 });
 
 const nextConfig: NextConfig = {
+  // Native modules used by the Doc Hub thumbnail route — keep them out of the
+  // webpack bundle so their prebuilt .node binaries load at runtime.
+  serverExternalPackages: ["sharp", "@napi-rs/canvas", "pdf-to-img"],
   async headers() {
     return [
       {
