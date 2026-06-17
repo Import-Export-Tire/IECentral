@@ -403,6 +403,10 @@ function PersonnelDetailContent() {
   const createScheduleOverride = useMutation(api.personnel.createScheduleOverride);
   const deleteScheduleOverride = useMutation(api.personnel.deleteScheduleOverride);
   const convertTempToHire = useMutation(api.personnel.convertTempToHire);
+  const segments = useQuery(api.training.listSegments, user ? { requestingUserId: user._id } : "skip") || [];
+  const assignSegment = useMutation(api.training.assignSegment);
+  const unassignVideo = useMutation(api.training.unassign);
+  const [assignSeg, setAssignSeg] = useState("");
 
   // Schedule overrides query - get upcoming 30 days
   const scheduleOverrides = useQuery(api.personnel.getScheduleOverrides, {
@@ -1680,6 +1684,15 @@ function PersonnelDetailContent() {
             {/* Video Training (TIA) */}
             <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
               <h3 className={`text-lg font-semibold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>Video Training</h3>
+              {canManagePersonnel && (
+                <div className="flex items-center gap-2 mt-2 mb-3">
+                  <select value={assignSeg} onChange={(e) => setAssignSeg(e.target.value)} className={`px-2 py-1 text-xs rounded border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "border-gray-300"}`}>
+                    <option value="">Assign a program…</option>
+                    {segments.map((s) => <option key={s._id} value={s._id}>{s.title}</option>)}
+                  </select>
+                  <button disabled={!assignSeg} onClick={async () => { if (assignSeg && user) { await assignSegment({ personnelId, segmentId: assignSeg as Id<"trainingSegments">, requestingUserId: user._id }); setAssignSeg(""); } }} className="px-2 py-1 text-xs rounded-full text-white disabled:opacity-50" style={{ backgroundColor: "#007AFF" }}>Assign</button>
+                </div>
+              )}
               {trainingProgress.length === 0 ? (
                 <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>No video training assigned or completed yet.</p>
               ) : (
@@ -1693,6 +1706,9 @@ function PersonnelDetailContent() {
                         {seg.videos.map((v) => (
                           <li key={v.videoId} className={`text-xs flex items-center gap-1.5 ${v.completed ? (isDark ? "text-green-400" : "text-green-700") : (isDark ? "text-slate-500" : "text-gray-500")}`}>
                             <span>{v.completed ? "✓" : v.assigned ? "○" : "·"}</span> {v.title}
+                            {canManagePersonnel && v.assigned && !v.completed && (
+                              <button onClick={async () => { if (user) await unassignVideo({ personnelId, videoId: v.videoId, requestingUserId: user._id }); }} className="ml-1 text-[10px] text-red-500">remove</button>
+                            )}
                           </li>
                         ))}
                       </ul>
