@@ -35,6 +35,7 @@ function PostersInner() {
         * { box-sizing: border-box; }
         body { font-family: Arial, Helvetica, sans-serif; margin: 0; color: #111; }
         .poster { min-height: 10in; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; padding: 0.4in 0.6in; }
+        .logo { height: 64px; width: auto; margin-bottom: 22px; }
         .banner { background: #b91c1c; color: #fff; width: 100%; border-radius: 14px; padding: 22px 16px; }
         .banner h1 { margin: 0; font-size: 40px; line-height: 1.1; letter-spacing: 0.5px; }
         .banner .sub { margin: 10px 0 0; font-size: 18px; opacity: 0.95; }
@@ -46,6 +47,7 @@ function PostersInner() {
         .notice { font-size: 13px; color: #374151; max-width: 6in; margin: 6px auto 0; line-height: 1.5; border-top: 1px solid #e5e7eb; padding-top: 12px; }
       </style></head>
       <body><div class="poster">
+        <img class="logo" src="${APP_URL}/logo.gif" alt="Import Export Tire" />
         <div class="banner">
           <h1>If You See Something,<br>Say Something</h1>
           <div class="sub">Report a safety or security concern</div>
@@ -58,7 +60,19 @@ function PostersInner() {
         <div class="notice">Every report is taken seriously and investigated. We ask that you are truthful in your report, and avoid any untrue, derogatory, or misrepresented facts.</div>
       </div></body></html>`);
     w.document.close();
-    w.onload = () => w.print();
+    // Wait for the logo image to load before printing so it isn't dropped from the printout;
+    // fall back to printing anyway if it's slow or errors.
+    w.onload = () => {
+      const img = w.document.querySelector("img.logo") as HTMLImageElement | null;
+      const go = () => w.print();
+      if (img && !img.complete) {
+        img.onload = go;
+        img.onerror = go;
+        setTimeout(go, 2000);
+      } else {
+        go();
+      }
+    };
   };
 
   return (
