@@ -3603,6 +3603,32 @@ export default defineSchema({
     personnelAttendees: v.array(v.id("personnel")),
     guestAttendees: v.array(v.string()),
     notes: v.optional(v.string()),
+    videoIds: v.optional(v.array(v.id("trainingVideos"))),
     createdAt: v.number(),
   }).index("by_date", ["date"]),
+
+  trainingCompletions: defineTable({
+    personnelId: v.id("personnel"),
+    videoId: v.id("trainingVideos"),
+    segmentId: v.id("trainingSegments"),
+    segmentTitle: v.string(),
+    videoTitle: v.string(),
+    completedAt: v.number(),
+    source: v.string(), // "session" | "self"
+    certifiedBy: v.optional(v.id("users")),
+    sessionId: v.optional(v.id("trainingSessions")),
+  })
+    .index("by_personnel", ["personnelId"])
+    .index("by_video", ["videoId"])
+    .index("by_segment", ["segmentId"]),
+
+  trainingAssignments: defineTable({
+    personnelId: v.id("personnel"),
+    videoId: v.id("trainingVideos"),
+    segmentId: v.id("trainingSegments"),
+    assignedBy: v.id("users"),
+    assignedAt: v.number(),
+  })
+    .index("by_personnel", ["personnelId"])
+    .index("by_video", ["videoId"]),
 });
