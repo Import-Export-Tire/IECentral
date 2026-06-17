@@ -16,7 +16,7 @@ export default function TrainingLibrary() {
   const createSegment = useMutation(api.training.createSegment);
   const addVideo = useMutation(api.training.addVideo);
   const sessions = useQuery(api.training.listSessions, user ? { requestingUserId: user._id } : "skip") || [];
-  const [playing, setPlaying] = useState<{ s3Key: string; title: string } | null>(null);
+  const [playing, setPlaying] = useState<{ s3Key: string; title: string; videoId: Id<"trainingVideos"> } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [logging, setLogging] = useState(false);
   const [showRoster, setShowRoster] = useState(false);
@@ -70,7 +70,7 @@ export default function TrainingLibrary() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {videos.map((vid) => (
-                <button key={vid._id} onClick={() => setPlaying({ s3Key: vid.s3Key, title: vid.title })}
+                <button key={vid._id} onClick={() => setPlaying({ s3Key: vid.s3Key, title: vid.title, videoId: vid._id })}
                   className="theme-bg-card border theme-border-primary rounded-xl p-4 text-left hover:shadow-md transition">
                   <div className="text-3xl mb-2">🎬</div>
                   <div className="text-sm font-medium theme-text-primary truncate">{vid.title}</div>
@@ -113,7 +113,7 @@ export default function TrainingLibrary() {
           </>
         )}
       </div>
-      {playing && <VideoPlayerModal s3Key={playing.s3Key} title={playing.title} onClose={() => setPlaying(null)} />}
+      {playing && <VideoPlayerModal s3Key={playing.s3Key} title={playing.title} videoId={playing.videoId} onClose={() => setPlaying(null)} />}
       {logging && activeSegment && <LogSessionModal segmentId={activeSegment} onClose={() => setLogging(false)} />}
     </div>
   );

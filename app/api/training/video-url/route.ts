@@ -21,8 +21,10 @@ export async function GET(request: NextRequest) {
     const userId = request.nextUrl.searchParams.get("userId");
     if (!key || !key.startsWith("training/videos/")) return NextResponse.json({ error: "valid key required" }, { status: 400 });
     if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 });
+    const videoId = request.nextUrl.searchParams.get("videoId");
+    if (!videoId) return NextResponse.json({ error: "videoId required" }, { status: 400 });
     const convex = new ConvexHttpClient(CONVEX_URL);
-    const ok = await convex.query(api.training.hasTrainingAccess, { userId: userId as Id<"users"> });
+    const ok = await convex.query(api.training.canViewVideo, { userId: userId as Id<"users">, videoId: videoId as Id<"trainingVideos"> });
     if (!ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
     const url = await getSignedUrl(s3, command, { expiresIn: 60 * 60 * 4 });

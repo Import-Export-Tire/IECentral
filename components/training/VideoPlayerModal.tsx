@@ -1,18 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/app/auth-context";
+import { Id } from "@/convex/_generated/dataModel";
 
-export default function VideoPlayerModal({ s3Key, title, onClose }: { s3Key: string; title: string; onClose: () => void }) {
+export default function VideoPlayerModal({ s3Key, title, videoId, onClose, onEnded }: { s3Key: string; title: string; videoId: Id<"trainingVideos">; onClose: () => void; onEnded?: () => void }) {
   const { user } = useAuth();
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
     if (!user) return;
-    fetch(`/api/training/video-url?key=${encodeURIComponent(s3Key)}&userId=${user._id}`)
+    fetch(`/api/training/video-url?key=${encodeURIComponent(s3Key)}&userId=${user._id}&videoId=${videoId}`)
       .then((r) => r.json())
       .then((d) => (d.url ? setUrl(d.url) : setError(d.error || "Failed to load video")))
       .catch(() => setError("Failed to load video"));
-  }, [s3Key, user]);
+  }, [s3Key, user, videoId]);
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-black rounded-xl w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
@@ -21,7 +22,7 @@ export default function VideoPlayerModal({ s3Key, title, onClose }: { s3Key: str
           <button onClick={onClose} className="px-2 py-1 text-sm">✕</button>
         </div>
         {error ? <div className="p-8 text-center text-red-400">{error}</div>
-          : url ? <video src={url} controls autoPlay className="w-full max-h-[80vh] rounded-b-xl" />
+          : url ? <video src={url} controls autoPlay className="w-full max-h-[80vh] rounded-b-xl" onEnded={onEnded} />
           : <div className="p-8 text-center text-slate-400">Loading…</div>}
       </div>
     </div>

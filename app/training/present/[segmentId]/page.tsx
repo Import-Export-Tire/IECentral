@@ -19,7 +19,7 @@ function PresentContent({ params }: { params: Promise<{ segmentId: string }> }) 
   const current = videos[idx];
   useEffect(() => {
     if (!current || !user) { setUrl(null); return; }
-    fetch(`/api/training/video-url?key=${encodeURIComponent(current.s3Key)}&userId=${user._id}`)
+    fetch(`/api/training/video-url?key=${encodeURIComponent(current.s3Key)}&userId=${user._id}&videoId=${current._id}`)
       .then((r) => r.json()).then((d) => setUrl(d.url || null)).catch(() => setUrl(null));
   }, [current, user]);
 
