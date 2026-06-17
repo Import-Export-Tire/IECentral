@@ -3,7 +3,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { resolveFileType } from "@/lib/fileTypes";
+import { resolveFileType, isTextType } from "@/lib/fileTypes";
 import sharp from "sharp";
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "https://outstanding-dalmatian-787.convex.cloud";
@@ -125,7 +125,10 @@ export async function POST(request: NextRequest) {
     const isImage = mime.startsWith("image/");
     const isPdf = mime.includes("pdf");
     const isOffice = OFFICE_MIMES.some((m) => mime.includes(m));
-    if (!isImage && !isPdf && !isOffice) return new Response(null, { status: 204 }); // no body allowed on 204
+    // Text/markdown/csv/json/etc. are rendered to a readable page via the same Lambda
+    // (LibreOffice) by handing it a .txt, then page-1 → PNG like any other doc.
+    const isText = !isImage && !isPdf && !isOffice && isTextType(mime);
+    if (!isImage && !isPdf && !isOffice && !isText) return new Response(null, { status: 204 }); // no body allowed on 204
 
     // Fetch the original file bytes.
     const srcUrl = await convex.action(api.documents.getFileDownloadUrl, { documentId: docId });
@@ -145,7 +148,11 @@ export async function POST(request: NextRequest) {
     } else if (isPdf) {
       png = await pdfFirstPagePng(srcBuf);
     } else {
-      const pdfBuf = await officeToPdf(convex, docId, doc.fileName || `${doc.name || "document"}.docx`, srcBuf);
+      // Office docs keep their real extension; text-likes are forced to .txt so LibreOffice
+      // renders them as a plain-text page rather than failing on an unknown type (e.g. .md).
+      const base = (doc.fileName || doc.name || "document").replace(/\.[^.]+$/, "");
+      const lambdaName = isText ? `${base}.txt` : doc.fileName || `${base}.docx`;
+      const pdfBuf = await officeToPdf(convex, docId, lambdaName, srcBuf);
       if (pdfBuf) png = await pdfFirstPagePng(pdfBuf);
     }
     if (!png) {
