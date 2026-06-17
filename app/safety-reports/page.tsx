@@ -242,7 +242,7 @@ function ReportDetail({ report, requestingUserId, onClose }: { report: Report; r
 
 export default function SafetyReportsPage() {
   return (
-    <Protected requiredRoles={["super_admin", "admin"]}>
+    <Protected requiredRoles={["super_admin"]}>
       <SafetyReportsInner />
     </Protected>
   );

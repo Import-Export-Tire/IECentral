@@ -610,7 +610,7 @@ export default function Sidebar() {
                 "/equipment/scanners": permissions.menu.equipment,
                 "/locations": permissions.menu.locations,
                 "/safety-check/manager": permissions.menu.equipment,
-                "/safety-reports": tier >= 4,
+                "/safety-reports": tier >= 5,
                 "/settings/safety-checklists": permissions.menu.safetyCheckQR,
                 "/bin-labels": permissions.menu.binLabels,
                 // Finance

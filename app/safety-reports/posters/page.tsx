@@ -109,7 +109,7 @@ function PostersInner() {
 
 export default function PostersPage() {
   return (
-    <Protected requiredRoles={["super_admin", "admin"]}>
+    <Protected requiredRoles={["super_admin"]}>
       <PostersInner />
     </Protected>
   );

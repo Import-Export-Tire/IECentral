@@ -1,10 +1,12 @@
 import { mutation, query, internalAction, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
-import { requireAdmin } from "./authGuards";
+import { requireRole } from "./authGuards";
 
-// Roles that receive new-report alerts and may review reports.
-const RECIPIENT_ROLES = new Set(["super_admin", "admin"]);
+// Roles that receive new-report alerts and may review reports. Anonymous reports can be
+// sensitive (harassment/theft), so this is intentionally tight — widen here if needed.
+const REVIEWER_ROLES = ["super_admin"] as const;
+const RECIPIENT_ROLES = new Set<string>(REVIEWER_ROLES);
 
 const CATEGORY_LABELS: Record<string, string> = {
   safety: "Safety hazard",
@@ -97,7 +99,7 @@ export const generatePhotoUploadUrl = mutation({
 export const getPhotoUrl = query({
   args: { requestingUserId: v.id("users"), reportId: v.id("safetyReports") },
   handler: async (ctx, args): Promise<string | null> => {
-    await requireAdmin(ctx, args.requestingUserId);
+    await requireRole(ctx, args.requestingUserId, REVIEWER_ROLES);
     const report = await ctx.db.get(args.reportId);
     if (!report || !report.photoFileId) return null;
     return await ctx.storage.getUrl(report.photoFileId);
@@ -241,7 +243,7 @@ export const list = query({
     locationId: v.optional(v.id("locations")),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args.requestingUserId);
+    await requireRole(ctx, args.requestingUserId, REVIEWER_ROLES);
     let reports = await ctx.db.query("safetyReports").withIndex("by_created").order("desc").collect();
     if (args.status) reports = reports.filter((r) => r.status === args.status);
     if (args.category) reports = reports.filter((r) => r.category === args.category);
@@ -253,7 +255,7 @@ export const list = query({
 export const counts = query({
   args: { requestingUserId: v.id("users") },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args.requestingUserId);
+    await requireRole(ctx, args.requestingUserId, REVIEWER_ROLES);
     const reports = await ctx.db.query("safetyReports").collect();
     return {
       total: reports.length,
@@ -271,7 +273,7 @@ export const updateStatus = mutation({
     reviewNotes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args.requestingUserId);
+    await requireRole(ctx, args.requestingUserId, REVIEWER_ROLES);
     const report = await ctx.db.get(args.reportId);
     if (!report) throw new Error("Report not found");
     const user = await ctx.db.get(args.requestingUserId);
