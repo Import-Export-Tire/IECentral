@@ -241,3 +241,104 @@ export const segmentRoster = query({
     return rows;
   },
 });
+
+export const assignVideos = mutation({
+  args: { personnelId: v.id("personnel"), videoIds: v.array(v.id("trainingVideos")), requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireTrainingAccess(ctx, args.requestingUserId);
+    const existing = await ctx.db.query("trainingAssignments").withIndex("by_personnel", (q) => q.eq("personnelId", args.personnelId)).collect();
+    const have = new Set(existing.map((a) => a.videoId));
+    const now = Date.now();
+    for (const videoId of args.videoIds) {
+      if (have.has(videoId)) continue;
+      const video = await ctx.db.get(videoId);
+      if (!video) continue;
+      await ctx.db.insert("trainingAssignments", { personnelId: args.personnelId, videoId, segmentId: video.segmentId, assignedBy: args.requestingUserId, assignedAt: now });
+    }
+    return args.personnelId;
+  },
+});
+
+export const assignSegment = mutation({
+  args: { personnelId: v.id("personnel"), segmentId: v.id("trainingSegments"), requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireTrainingAccess(ctx, args.requestingUserId);
+    const vids = await ctx.db.query("trainingVideos").withIndex("by_segment", (q) => q.eq("segmentId", args.segmentId)).collect();
+    const existing = await ctx.db.query("trainingAssignments").withIndex("by_personnel", (q) => q.eq("personnelId", args.personnelId)).collect();
+    const have = new Set(existing.map((a) => a.videoId));
+    const now = Date.now();
+    for (const video of vids) {
+      if (have.has(video._id)) continue;
+      await ctx.db.insert("trainingAssignments", { personnelId: args.personnelId, videoId: video._id, segmentId: args.segmentId, assignedBy: args.requestingUserId, assignedAt: now });
+    }
+    return args.personnelId;
+  },
+});
+
+export const unassign = mutation({
+  args: { personnelId: v.id("personnel"), videoId: v.id("trainingVideos"), requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireTrainingAccess(ctx, args.requestingUserId);
+    const rows = await ctx.db.query("trainingAssignments").withIndex("by_personnel", (q) => q.eq("personnelId", args.personnelId)).collect();
+    for (const r of rows) if (r.videoId === args.videoId) await ctx.db.delete(r._id);
+    return args.personnelId;
+  },
+});
+
+// Resolve the caller's personnel record, return assigned videos + completion state grouped by segment.
+export const myAssignedTraining = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user || !user.personnelId) return [];
+    const personnelId = user.personnelId;
+    const assignments = await ctx.db.query("trainingAssignments").withIndex("by_personnel", (q) => q.eq("personnelId", personnelId)).collect();
+    if (assignments.length === 0) return [];
+    const completions = await ctx.db.query("trainingCompletions").withIndex("by_personnel", (q) => q.eq("personnelId", personnelId)).collect();
+    const done = new Set(completions.map((c) => c.videoId));
+    const bySeg = new Map<string, { videoId: any; title: string; s3Key: string; order: number; completed: boolean }[]>();
+    for (const a of assignments) {
+      const video = await ctx.db.get(a.videoId);
+      if (!video) continue;
+      const arr = bySeg.get(a.segmentId) ?? [];
+      arr.push({ videoId: video._id, title: video.title, s3Key: video.s3Key, order: video.order, completed: done.has(video._id) });
+      bySeg.set(a.segmentId, arr);
+    }
+    const out = [];
+    for (const [segId, vids] of bySeg) {
+      const seg = await ctx.db.get(segId as any);
+      vids.sort((a, b) => a.order - b.order);
+      out.push({ segmentId: segId, title: (seg as any)?.title ?? "Training", videos: vids });
+    }
+    return out;
+  },
+});
+
+// True if the user is a manager OR the video is assigned to the user's personnel record.
+export const canViewVideo = query({
+  args: { userId: v.id("users"), videoId: v.id("trainingVideos") },
+  handler: async (ctx, args) => {
+    if (await userHasTrainingAccess(ctx, args.userId)) return true;
+    const user = await ctx.db.get(args.userId);
+    if (!user || !user.personnelId) return false;
+    const rows = await ctx.db.query("trainingAssignments").withIndex("by_personnel", (q) => q.eq("personnelId", user.personnelId!)).collect();
+    return rows.some((r) => r.videoId === args.videoId);
+  },
+});
+
+// Employee marks an assigned video complete (self-serve). Verifies assignment.
+export const markVideoComplete = mutation({
+  args: { userId: v.id("users"), videoId: v.id("trainingVideos") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user || !user.personnelId) throw new Error("No personnel record linked to this account");
+    const personnelId = user.personnelId;
+    const assignments = await ctx.db.query("trainingAssignments").withIndex("by_personnel", (q) => q.eq("personnelId", personnelId)).collect();
+    if (!assignments.some((a) => a.videoId === args.videoId)) throw new Error("This video is not assigned to you");
+    const video = await ctx.db.get(args.videoId);
+    if (!video) throw new Error("Video not found");
+    const segment = await ctx.db.get(video.segmentId);
+    await upsertCompletion(ctx, { personnelId, video, segmentTitle: (segment as any)?.title ?? "", source: "self" });
+    return args.videoId;
+  },
+});
