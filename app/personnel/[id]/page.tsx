@@ -355,6 +355,10 @@ function PersonnelDetailContent() {
   const equipment = useQuery(api.equipment.getPersonnelEquipment, { personnelId });
   const equipmentAgreements = useQuery(api.equipment.getPersonnelAgreements, { personnelId });
   const locations = useQuery(api.locations.list);
+  const trainingProgress = useQuery(
+    api.training.personnelTrainingProgress,
+    user ? { personnelId, requestingUserId: user._id } : "skip"
+  ) || [];
   const safetyCompletions = useQuery(api.safetyChecklist.getPersonnelCompletions, { personnelId, limit: 20 });
   const portalLogin = useQuery(api.auth.getPersonnelPortalLogin, { personnelId });
 
@@ -1672,6 +1676,31 @@ function PersonnelDetailContent() {
                   </p>
                 )}
               </div>
+
+            {/* Video Training (TIA) */}
+            <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+              <h3 className={`text-lg font-semibold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>Video Training</h3>
+              {trainingProgress.length === 0 ? (
+                <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>No video training assigned or completed yet.</p>
+              ) : (
+                <div className="space-y-4 mt-3">
+                  {trainingProgress.map((seg) => (
+                    <div key={seg.segmentId}>
+                      <div className={`text-sm font-medium ${isDark ? "text-slate-200" : "text-gray-800"}`}>
+                        {seg.title} — {seg.completedCount} of {seg.totalVideos} videos
+                      </div>
+                      <ul className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+                        {seg.videos.map((v) => (
+                          <li key={v.videoId} className={`text-xs flex items-center gap-1.5 ${v.completed ? (isDark ? "text-green-400" : "text-green-700") : (isDark ? "text-slate-500" : "text-gray-500")}`}>
+                            <span>{v.completed ? "✓" : v.assigned ? "○" : "·"}</span> {v.title}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
               {/* Linked Application Card */}
               {personnel.applicationId && (
