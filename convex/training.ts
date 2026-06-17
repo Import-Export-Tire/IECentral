@@ -221,8 +221,7 @@ export const segmentRoster = query({
     const vids = await ctx.db.query("trainingVideos").withIndex("by_segment", (q) => q.eq("segmentId", args.segmentId)).collect();
     const total = vids.length;
     const completions = await ctx.db.query("trainingCompletions").withIndex("by_segment", (q) => q.eq("segmentId", args.segmentId)).collect();
-    const assignments = await ctx.db.query("trainingAssignments").withIndex("by_video").collect();
-    const segAssignments = assignments.filter((a) => a.segmentId === args.segmentId);
+    const segAssignments = await ctx.db.query("trainingAssignments").withIndex("by_segment", (q) => q.eq("segmentId", args.segmentId)).collect();
     const byPersonnel = new Map<string, { completed: Set<string>; assigned: number }>();
     for (const c of completions) {
       const e = byPersonnel.get(c.personnelId) ?? { completed: new Set<string>(), assigned: 0 };

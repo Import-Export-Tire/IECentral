@@ -3630,5 +3630,6 @@ export default defineSchema({
     assignedAt: v.number(),
   })
     .index("by_personnel", ["personnelId"])
-    .index("by_video", ["videoId"]),
+    .index("by_video", ["videoId"])
+    .index("by_segment", ["segmentId"]),
 });

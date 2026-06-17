@@ -49,7 +49,10 @@ export default function LogSessionModal({ segmentId, onClose }: { segmentId: Id<
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg mb-3" />
         {videos.length > 0 && (
           <>
-            <label className="block text-sm font-medium mb-1">Videos covered</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium">Videos covered</label>
+              <button type="button" onClick={() => setSelectedVideos(new Set(videos.map((v) => v._id)))} className="text-xs text-[#007AFF]">Select all</button>
+            </div>
             <div className="max-h-36 overflow-y-auto border rounded-lg p-2 mb-3">
               {videos.map((v) => (
                 <label key={v._id} className="flex items-center gap-2 py-1 text-sm">
