@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     const isImage = mime.startsWith("image/");
     const isPdf = mime.includes("pdf");
     const isOffice = OFFICE_MIMES.some((m) => mime.includes(m));
-    if (!isImage && !isPdf && !isOffice) return new Response("no thumbnail for type", { status: 204 });
+    if (!isImage && !isPdf && !isOffice) return new Response(null, { status: 204 }); // no body allowed on 204
 
     // Fetch the original file bytes.
     const srcUrl = await convex.action(api.documents.getFileDownloadUrl, { documentId: docId });
