@@ -180,6 +180,9 @@ export default function Sidebar() {
     user?._id ? { userId: user._id } : "skip"
   );
 
+  // Get employee assigned training (for sidebar link)
+  const myAssigned = useQuery(api.training.myAssignedTraining, user?._id ? { userId: user._id } : "skip");
+
   // Check if any item in a group is active
   const isGroupActive = (group: NavGroup) => {
     return group.items.some((item) => pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href)));
@@ -407,6 +410,14 @@ export default function Sidebar() {
                 </svg>
                 <span className="font-medium text-sm sm:text-base">Announcements</span>
               </Link>
+
+              {/* Training — only shown when employee has assigned videos */}
+              {myAssigned && myAssigned.length > 0 && (
+                <Link href="/training" onClick={handleNavClick} className={`flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg transition-all ${pathname === "/training" ? (isDark ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-blue-50 text-blue-600 border border-blue-200") : (isDark ? "text-slate-400 hover:bg-slate-700/50 hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}`}>
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                  <span className="font-medium text-sm sm:text-base">Training</span>
+                </Link>
+              )}
             </>
           ) : isDepartmentManager ? (
             <>
