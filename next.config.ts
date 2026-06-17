@@ -110,6 +110,18 @@ const nextConfig: NextConfig = {
   // Native modules used by the Doc Hub thumbnail route — keep them out of the
   // webpack bundle so their prebuilt .node binaries load at runtime.
   serverExternalPackages: ["sharp", "@napi-rs/canvas", "pdf-to-img"],
+  // @napi-rs/canvas resolves its platform .node binary via a runtime require()
+  // that Vercel's file tracer can't follow, so the Linux binary (and pdf.js
+  // assets) get left out of the serverless bundle and PDF/Office thumbnails fail.
+  // Force them into the thumbnail function's bundle.
+  outputFileTracingIncludes: {
+    "/api/documents/thumbnail": [
+      "./node_modules/@napi-rs/canvas-linux-x64-gnu/**",
+      "./node_modules/@napi-rs/canvas/**",
+      "./node_modules/pdf-to-img/**",
+      "./node_modules/pdfjs-dist/**",
+    ],
+  },
   async headers() {
     return [
       {
