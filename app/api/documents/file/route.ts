@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { resolveFileType, isTextType } from "@/lib/fileTypes";
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "https://outstanding-dalmatian-787.convex.cloud";
 
@@ -33,13 +34,20 @@ export async function GET(request: NextRequest) {
     if (!upstream.ok || !upstream.body) return new Response("upstream fetch failed", { status: 502 });
 
     const fileName = (doc.fileName || doc.name || "file").replace(/["\r\n]/g, "");
-    const contentType = doc.fileType || upstream.headers.get("content-type") || "application/octet-stream";
+    // Derive a usable type from the extension when the stored type is generic
+    // (octet-stream / x-msdownload), so the browser embeds PDFs/images instead of
+    // downloading them. Add a UTF-8 charset for text so non-ASCII content isn't
+    // mis-decoded as Latin-1.
+    let contentType = resolveFileType(doc.fileType, doc.fileName) || upstream.headers.get("content-type") || "application/octet-stream";
+    if (isTextType(contentType) && !contentType.includes("charset")) contentType += "; charset=utf-8";
+    // RFC 5987: keep a sanitized ASCII filename and add a UTF-8-encoded one for non-ASCII names.
+    const asciiName = fileName.replace(/[^\x20-\x7E]/g, "_");
 
     return new Response(upstream.body, {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        "Content-Disposition": `${asDownload ? "attachment" : "inline"}; filename="${fileName}"`,
+        "Content-Disposition": `${asDownload ? "attachment" : "inline"}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
         "Cache-Control": "private, max-age=60",
       },
     });

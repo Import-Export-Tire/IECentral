@@ -3,12 +3,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useDocHub } from "./DocHubContext";
 import { getFileIcon, getFileColor, formatFileSize, type DocumentType, type FolderType } from "./types";
+import { resolveFileType } from "@/lib/fileTypes";
 
 // Google-Drive-style thumbnail: images render directly, PDFs render their first
 // page via pdf.js (lazy when the card scrolls into view; skipped for very large
 // files), everything else falls back to the file-type icon.
 function FileThumb({ doc, isDark }: { doc: DocumentType; isDark: boolean }) {
-  const ft = (doc.fileType || "").toLowerCase();
+  const ft = resolveFileType(doc.fileType, doc.fileName).toLowerCase();
   const fn = (doc.fileName || "").toLowerCase();
   const isImage = ft.includes("image");
   const isPdf = ft.includes("pdf") || fn.endsWith(".pdf");
@@ -37,7 +38,9 @@ function FileThumb({ doc, isDark }: { doc: DocumentType; isDark: boolean }) {
     (async () => {
       try {
         const pdfjs = await import("pdfjs-dist");
-        pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+        // Serve the worker from our own origin (bundled in /public) instead of a public
+        // CDN, so PDF thumbnails don't depend on unpkg being reachable.
+        pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
         const pdf = await pdfjs.getDocument(proxyUrl).promise;
         const page = await pdf.getPage(1);
         const base = page.getViewport({ scale: 1 });

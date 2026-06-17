@@ -14,7 +14,8 @@ const LAMBDA_KEY = process.env.OFFICE_PDF_AWS_ACCESS_KEY_ID;
 const LAMBDA_SECRET = process.env.OFFICE_PDF_AWS_SECRET_ACCESS_KEY;
 
 // LibreOffice cold-converts can take a while; give the whole round-trip room.
-export const maxDuration = 60;
+// 60s was too tight for cold starts (the route got killed mid-conversion); 300s is the Pro/Fluid max.
+export const maxDuration = 300;
 
 const PDF_HEADERS = (fileName: string) => ({
   "Content-Type": "application/pdf",

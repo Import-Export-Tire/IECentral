@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useDocHub } from "./DocHubContext";
 import { formatFileSize, isOfficeDocument } from "./types";
+import { resolveFileType } from "@/lib/fileTypes";
 
 export default function PreviewModal() {
   const {
@@ -23,7 +24,7 @@ export default function PreviewModal() {
   const [converting, setConverting] = useState(false);
 
   const docId = previewDocument?._id;
-  const ft0 = previewDocument?.fileType.toLowerCase() ?? "";
+  const ft0 = resolveFileType(previewDocument?.fileType, previewDocument?.fileName).toLowerCase();
   const isOffice0 = isOfficeDocument(ft0);
   // Reset transient state whenever a different document is opened.
   useEffect(() => {
@@ -34,7 +35,7 @@ export default function PreviewModal() {
   if (!previewDocument) return null;
 
   const doc = previewDocument;
-  const ft = doc.fileType.toLowerCase();
+  const ft = resolveFileType(doc.fileType, doc.fileName).toLowerCase();
   const fn = doc.fileName.toLowerCase();
   const isImage = ft.includes("image");
   const isPdf = ft.includes("pdf") || fn.endsWith(".pdf");
