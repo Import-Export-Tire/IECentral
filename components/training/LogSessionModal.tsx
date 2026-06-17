@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -8,14 +8,22 @@ import { useAuth } from "@/app/auth-context";
 export default function LogSessionModal({ segmentId, onClose }: { segmentId: Id<"trainingSegments">; onClose: () => void }) {
   const { user } = useAuth();
   const personnel = useQuery(api.personnel.list, { status: "active" }) || [];
+  const videos = useQuery(api.training.listVideos, user ? { segmentId, requestingUserId: user._id } : "skip") || [];
   const logSession = useMutation(api.training.logSession);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectedVideos, setSelectedVideos] = useState<Set<string>>(new Set());
   const [guests, setGuests] = useState<string[]>([]);
   const [guestInput, setGuestInput] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Pre-check all videos once they load.
+  useEffect(() => {
+    if (videos.length > 0) setSelectedVideos(new Set(videos.map((v) => v._id)));
+  }, [videos.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const toggle = (id: string) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const toggleVideo = (id: string) => setSelectedVideos((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   const save = async () => {
     if (!user) return;
@@ -23,6 +31,7 @@ export default function LogSessionModal({ segmentId, onClose }: { segmentId: Id<
     try {
       await logSession({
         segmentId, date,
+        videoIds: [...selectedVideos] as Id<"trainingVideos">[],
         personnelAttendees: [...selected] as Id<"personnel">[],
         guestAttendees: guests,
         requestingUserId: user._id,
@@ -38,6 +47,19 @@ export default function LogSessionModal({ segmentId, onClose }: { segmentId: Id<
         <h3 className="text-lg font-semibold mb-3">Log training session</h3>
         <label className="block text-sm font-medium mb-1">Date</label>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg mb-3" />
+        {videos.length > 0 && (
+          <>
+            <label className="block text-sm font-medium mb-1">Videos covered</label>
+            <div className="max-h-36 overflow-y-auto border rounded-lg p-2 mb-3">
+              {videos.map((v) => (
+                <label key={v._id} className="flex items-center gap-2 py-1 text-sm">
+                  <input type="checkbox" checked={selectedVideos.has(v._id)} onChange={() => toggleVideo(v._id)} />
+                  {v.title}
+                </label>
+              ))}
+            </div>
+          </>
+        )}
         <label className="block text-sm font-medium mb-1">Attendees (employees)</label>
         <div className="max-h-48 overflow-y-auto border rounded-lg p-2 mb-3">
           {personnel.map((p) => (
