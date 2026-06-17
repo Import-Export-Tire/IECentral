@@ -3633,4 +3633,30 @@ export default defineSchema({
     .index("by_personnel", ["personnelId"])
     .index("by_video", ["videoId"])
     .index("by_segment", ["segmentId"]),
+
+  // "See Something, Say Something" anonymous reports submitted via the public /report
+  // form (QR-poster). Submissions are intentionally unauthenticated — no IP/identifiers
+  // are stored; an optional contact block is filled only if the reporter wants follow-up.
+  safetyReports: defineTable({
+    category: v.string(), // "safety" | "security" | "theft" | "harassment" | "other"
+    locationId: v.optional(v.id("locations")),
+    locationName: v.optional(v.string()), // snapshot for display even if a location is renamed
+    description: v.string(),
+    occurredAt: v.optional(v.string()), // free-text "when it happened"
+    photoFileId: v.optional(v.id("_storage")), // optional photo (EXIF stripped server-side for anonymity)
+    // Optional self-identification — only if the reporter wants follow-up.
+    reporterName: v.optional(v.string()),
+    reporterPhone: v.optional(v.string()),
+    reporterEmail: v.optional(v.string()),
+    referenceCode: v.string(), // short code shown to the reporter (e.g. "SR-7F3K2")
+    status: v.string(), // "new" | "in_review" | "resolved" | "dismissed"
+    reviewNotes: v.optional(v.string()),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedByName: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"])
+    .index("by_location", ["locationId"]),
 });

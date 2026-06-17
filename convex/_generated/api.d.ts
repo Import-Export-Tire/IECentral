@@ -100,6 +100,7 @@ import type * as quickbooks from "../quickbooks.js";
 import type * as reportData from "../reportData.js";
 import type * as reports from "../reports.js";
 import type * as safetyChecklist from "../safetyChecklist.js";
+import type * as safetyReports from "../safetyReports.js";
 import type * as savedReports from "../savedReports.js";
 import type * as scannerMdm from "../scannerMdm.js";
 import type * as scratchpad from "../scratchpad.js";
@@ -219,6 +220,7 @@ declare const fullApi: ApiFromModules<{
   reportData: typeof reportData;
   reports: typeof reports;
   safetyChecklist: typeof safetyChecklist;
+  safetyReports: typeof safetyReports;
   savedReports: typeof savedReports;
   scannerMdm: typeof scannerMdm;
   scratchpad: typeof scratchpad;
