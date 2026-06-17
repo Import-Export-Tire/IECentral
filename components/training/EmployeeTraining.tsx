@@ -33,7 +33,7 @@ export default function EmployeeTraining() {
       {playing && user && (
         <VideoPlayerModal s3Key={playing.s3Key} title={playing.title} videoId={playing.videoId}
           onClose={() => setPlaying(null)}
-          onEnded={async () => { await markComplete({ userId: user._id, videoId: playing.videoId }); }} />
+          onEnded={async () => { try { await markComplete({ userId: user._id, videoId: playing.videoId }); } catch (e) { console.error("Failed to record training completion:", e); } }} />
       )}
     </div>
   );
