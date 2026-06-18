@@ -253,22 +253,28 @@ function NinetyDayReviewsContent() {
     const dt = typeof d === "string" ? new Date(d) : d;
     return isNaN(dt.getTime()) ? "—" : dt.toLocaleDateString();
   };
+  const toFormPerson = (r: typeof ninetyRows[number] | typeof annualRows[number]): ReviewFormPerson => {
+    const rr = r as typeof ninetyRows[number] & typeof annualRows[number];
+    return {
+      name: rr.name,
+      position: rr.position,
+      department: (rr as { department?: string }).department,
+      locationName: rr.locationName,
+      hireDate: rr.hireDate,
+      dueDateLabel: tab === "ninety" ? "90-Day Due" : "Annual Due",
+      dueDate: fmtDate(tab === "ninety" ? (rr as typeof ninetyRows[number]).reviewDueDate : (rr as typeof annualRows[number]).nextDue),
+    };
+  };
   const printForms = (which: "due" | "all") => {
     const src = which === "all" ? [...overdue, ...dueSoon, ...upcoming] : [...overdue, ...dueSoon];
-    const people: ReviewFormPerson[] = src.map((r) => {
-      const rr = r as typeof ninetyRows[number] & typeof annualRows[number];
-      return {
-        name: rr.name,
-        position: rr.position,
-        department: (rr as { department?: string }).department,
-        locationName: rr.locationName,
-        hireDate: rr.hireDate,
-        dueDateLabel: tab === "ninety" ? "90-Day Due" : "Annual Due",
-        dueDate: fmtDate(tab === "ninety" ? (rr as typeof ninetyRows[number]).reviewDueDate : (rr as typeof annualRows[number]).nextDue),
-      };
-    });
+    const people = src.map(toFormPerson);
     if (people.length === 0) return;
     setPrintPeople(people);
+    setTimeout(() => window.print(), 80);
+  };
+  // Print a single pre-filled form (the per-row "Print" action).
+  const printSingle = (r: typeof ninetyRows[number] | typeof annualRows[number]) => {
+    setPrintPeople([toFormPerson(r)]);
     setTimeout(() => window.print(), 80);
   };
 
@@ -519,6 +525,15 @@ function NinetyDayReviewsContent() {
                         {openingScore === r.id ? "…" : "Score"}
                       </button>
                     )}
+                    {canManagePersonnel && (
+                      <button
+                        onClick={() => printSingle(r)}
+                        className={`text-xs font-medium px-2.5 py-1 rounded-lg mr-2 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                        title="Print this one pre-filled review form"
+                      >
+                        Print
+                      </button>
+                    )}
                     {!r.review && canManagePersonnel && (
                       <button
                         onClick={() => handleQuickMarkNinety(r.id)}
@@ -643,6 +658,15 @@ function NinetyDayReviewsContent() {
                         title="Enter scores, see the recommended raise, and approve/deny"
                       >
                         {openingScore === r.id ? "…" : "Score"}
+                      </button>
+                    )}
+                    {canManagePersonnel && (
+                      <button
+                        onClick={() => printSingle(r)}
+                        className={`text-xs font-medium px-2.5 py-1 rounded-lg mr-2 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                        title="Print this one pre-filled review form"
+                      >
+                        Print
                       </button>
                     )}
                     {r.daysToReview <= 0 && canManagePersonnel && (
