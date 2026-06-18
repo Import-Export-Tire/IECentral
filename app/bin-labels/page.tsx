@@ -19,19 +19,33 @@ async function loadImageForPdf(url: string): Promise<{ dataUrl: string; w: numbe
     const res = await fetch(url);
     if (!res.ok) return null;
     const blob = await res.blob();
-    const dataUrl: string = await new Promise((resolve, reject) => {
+    const rawUrl: string = await new Promise((resolve, reject) => {
       const fr = new FileReader();
       fr.onload = () => resolve(fr.result as string);
       fr.onerror = reject;
       fr.readAsDataURL(blob);
     });
-    const dims = await new Promise<{ w: number; h: number }>((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
-      img.onerror = reject;
-      img.src = dataUrl;
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = reject;
+      im.src = rawUrl;
     });
-    return { dataUrl, ...dims };
+    const w = img.naturalWidth, h = img.naturalHeight;
+    if (!w || !h) return null;
+    // Re-encode the logo through a white-backed canvas before handing it to jsPDF.
+    // Some brand PNGs (e.g. interlaced or palette+alpha) make jsPDF emit a solid
+    // black block instead of the artwork; redrawing onto an opaque white canvas
+    // (the label is white anyway) normalizes the encoding and flattens transparency.
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return { dataUrl: rawUrl, w, h };
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    return { dataUrl: canvas.toDataURL("image/png"), w, h };
   } catch {
     return null;
   }
@@ -55,10 +69,17 @@ interface LabelData {
 
 interface TireLabelData {
   itemId: string;
+  mpn: string; // manufacturer part number — printed AS the barcode (falls back to itemId)
   brand: string;
   model: string;
   sizeDesc: string;
   qty: number; // how many copies of THIS label to print
+}
+
+// The value encoded in (and printed under) the barcode: the MPN when we have one,
+// otherwise the internal item-ID so there's always a scannable code.
+function tireBarcodeValue(l: { mpn?: string; itemId: string }): string {
+  return ((l.mpn ?? "").trim() || (l.itemId ?? "")).trim();
 }
 
 type Mode = "bin" | "tire";
@@ -66,7 +87,7 @@ type Mode = "bin" | "tire";
 interface WorkOrderRow {
   _id: string;
   title: string;
-  labels: (Omit<TireLabelData, "qty"> & { qty?: number })[];
+  labels: (Omit<TireLabelData, "qty" | "mpn"> & { qty?: number; mpn?: string })[];
   copies: number;
   status: string;
   createdByName: string;
@@ -86,7 +107,7 @@ export default function BinLabelsPage() {
   }, []);
   const [labels, setLabels] = useState<LabelData[]>([{ locationId: "", locationName: "" }]);
   const [tireLabels, setTireLabels] = useState<TireLabelData[]>([
-    { itemId: "", brand: "", model: "", sizeDesc: "", qty: 1 },
+    { itemId: "", mpn: "", brand: "", model: "", sizeDesc: "", qty: 1 },
   ]);
   const [copies, setCopies] = useState(1);
   const [lookupLoading, setLookupLoading] = useState<number | null>(null);
@@ -134,9 +155,10 @@ export default function BinLabelsPage() {
   // Generate tire barcodes when tire labels change
   useEffect(() => {
     tireLabels.forEach((label, index) => {
-      if (label.itemId && tireBarcodeRefs.current[index]) {
+      const value = tireBarcodeValue(label);
+      if (value && tireBarcodeRefs.current[index]) {
         try {
-          JsBarcode(tireBarcodeRefs.current[index], label.itemId, {
+          JsBarcode(tireBarcodeRefs.current[index], value, {
             format: "CODE128",
             width: 2,
             height: 70,
@@ -171,7 +193,7 @@ export default function BinLabelsPage() {
   };
 
   const addTireLabel = () => {
-    setTireLabels([...tireLabels, { itemId: "", brand: "", model: "", sizeDesc: "", qty: 1 }]);
+    setTireLabels([...tireLabels, { itemId: "", mpn: "", brand: "", model: "", sizeDesc: "", qty: 1 }]);
   };
 
   const removeTireLabel = (index: number) => {
@@ -185,7 +207,7 @@ export default function BinLabelsPage() {
     }
   };
 
-  const updateTireLabel = (index: number, field: "itemId" | "brand" | "model" | "sizeDesc", value: string) => {
+  const updateTireLabel = (index: number, field: "itemId" | "mpn" | "brand" | "model" | "sizeDesc", value: string) => {
     const newLabels = [...tireLabels];
     newLabels[index] = { ...newLabels[index], [field]: value };
     setTireLabels(newLabels);
@@ -200,7 +222,7 @@ export default function BinLabelsPage() {
   // Fill a row from a catalog search pick (untagged tire — no manual entry).
   const fillTireFromSearch = (index: number, r: TireSearchResult) => {
     const newLabels = [...tireLabels];
-    newLabels[index] = { ...newLabels[index], itemId: r.itemId, brand: r.brand, model: r.model, sizeDesc: r.sizeDesc };
+    newLabels[index] = { ...newLabels[index], itemId: r.itemId, mpn: r.mpn || "", brand: r.brand, model: r.model, sizeDesc: r.sizeDesc };
     setTireLabels(newLabels);
     setLookupNotFound((prev) => ({ ...prev, [index]: false }));
   };
@@ -217,6 +239,7 @@ export default function BinLabelsPage() {
         const newLabels = [...tireLabels];
         newLabels[index] = {
           ...newLabels[index],
+          mpn: data.mfgItemId || "",
           brand: data.manufacturerName || "",
           model: data.model || "",
           sizeDesc: data.description || "",
@@ -243,7 +266,7 @@ export default function BinLabelsPage() {
     if (mode === "bin") {
       setLabels([{ locationId: "", locationName: "" }]);
     } else {
-      setTireLabels([{ itemId: "", brand: "", model: "", sizeDesc: "", qty: 1 }]);
+      setTireLabels([{ itemId: "", mpn: "", brand: "", model: "", sizeDesc: "", qty: 1 }]);
       setLookupNotFound({});
     }
     setCopies(1);
@@ -277,9 +300,10 @@ export default function BinLabelsPage() {
     }
   };
 
-  const loadWorkOrder = (wo: { _id: string; labels: (Omit<TireLabelData, "qty"> & { qty?: number })[]; copies: number }) => {
-    // Older work orders predate per-label qty: fall back to the order's global "copies".
-    setTireLabels(wo.labels.map((l) => ({ ...l, qty: l.qty ?? wo.copies ?? 1 })));
+  const loadWorkOrder = (wo: { _id: string; labels: (Omit<TireLabelData, "qty" | "mpn"> & { qty?: number; mpn?: string })[]; copies: number }) => {
+    // Older work orders predate per-label qty / mpn: fall back to the order's global
+    // "copies" and to an empty MPN (the barcode then uses the item-ID, as before).
+    setTireLabels(wo.labels.map((l) => ({ ...l, mpn: l.mpn ?? "", qty: l.qty ?? wo.copies ?? 1 })));
     setCopies(wo.copies);
     setLoadedWorkOrderId(wo._id);
     setLookupNotFound({});
@@ -370,9 +394,11 @@ export default function BinLabelsPage() {
       if (l.model) { doc.setFont("helvetica", "normal"); doc.setFontSize(18); doc.text(l.model, cx, y, { align: "center", maxWidth: 3.7 }); y += 0.4; }
       if (l.sizeDesc) { doc.setFont("helvetica", "normal"); doc.setFontSize(15); doc.text(l.sizeDesc, cx, y, { align: "center", maxWidth: 3.7 }); }
 
-      // Barcode (fixed lower position so layout stays consistent).
-      if (l.itemId) {
-        const bc = barcodePngForPdf(l.itemId);
+      // Barcode (fixed lower position so layout stays consistent). Encodes the MPN
+      // when available, falling back to the internal item-ID.
+      const barcodeVal = tireBarcodeValue(l);
+      if (barcodeVal) {
+        const bc = barcodePngForPdf(barcodeVal);
         if (bc) {
           let bw = 3.4, bh = (bw * bc.h) / bc.w;
           if (bh > 1.2) { bh = 1.2; bw = (bh * bc.w) / bc.h; }
@@ -730,7 +756,7 @@ export default function BinLabelsPage() {
                           <div className="flex flex-wrap items-end gap-3">
                             <div className="flex-1 min-w-[180px]">
                               <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                                Item ID (Barcode Value)
+                                Item ID (for lookup)
                               </label>
                               <input
                                 type="text"
@@ -812,6 +838,19 @@ export default function BinLabelsPage() {
                               />
                             </div>
                           </div>
+                          {/* MPN — this is what prints AS the barcode. Auto-filled by search/lookup; editable. */}
+                          <div>
+                            <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              MPN (prints as barcode)
+                            </label>
+                            <input
+                              type="text"
+                              value={label.mpn}
+                              onChange={(e) => updateTireLabel(index, "mpn", e.target.value.toUpperCase())}
+                              placeholder="Auto-filled from lookup — falls back to Item ID if blank"
+                              className={`w-full px-4 py-2 rounded-lg font-mono ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                            />
+                          </div>
                         </div>
                         <button
                           onClick={() => removeTireLabel(index)}
@@ -885,7 +924,7 @@ export default function BinLabelsPage() {
                                   {label.sizeDesc && (
                                     <p className="text-xl font-medium leading-snug text-black">{label.sizeDesc}</p>
                                   )}
-                                  {label.itemId && (
+                                  {tireBarcodeValue(label) && (
                                     <svg
                                       ref={(el) => { tireBarcodeRefs.current[index] = el; }}
                                       className="mt-4"
@@ -1020,7 +1059,7 @@ export default function BinLabelsPage() {
               tireLabelsWithCopies.map((label, index) =>
                 tireIsPrintable(label) ? (
                   <div key={index} className="print-tire-label">
-                    <PrintTireLabel itemId={label.itemId} brand={label.brand} model={label.model} sizeDesc={label.sizeDesc} footer={labelFooter} />
+                    <PrintTireLabel barcodeValue={tireBarcodeValue(label)} brand={label.brand} model={label.model} sizeDesc={label.sizeDesc} footer={labelFooter} />
                   </div>
                 ) : null,
               )}
@@ -1101,13 +1140,13 @@ function fitBarcode(svg: SVGSVGElement | null) {
 }
 
 function PrintTireLabel({
-  itemId,
+  barcodeValue,
   brand,
   model,
   sizeDesc,
   footer,
 }: {
-  itemId: string;
+  barcodeValue: string;
   brand: string;
   model: string;
   sizeDesc: string;
@@ -1116,8 +1155,8 @@ function PrintTireLabel({
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (svgRef.current && itemId) {
-      JsBarcode(svgRef.current, itemId, {
+    if (svgRef.current && barcodeValue) {
+      JsBarcode(svgRef.current, barcodeValue, {
         format: "CODE128",
         width: 2,          // narrow bars so a long item-ID fits within the 4" label width
         height: 70,
@@ -1127,9 +1166,9 @@ function PrintTireLabel({
         textMargin: 4,
         margin: 4,
       });
-      fitBarcode(svgRef.current); // scale to label width so long item-IDs never overhang
+      fitBarcode(svgRef.current); // scale to label width so long values never overhang
     }
-  }, [itemId]);
+  }, [barcodeValue]);
 
   return (
     <div
@@ -1145,7 +1184,7 @@ function PrintTireLabel({
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
-              style={{ maxHeight: "1in", maxWidth: "3.25in", objectFit: "contain", filter: "grayscale(1) contrast(1.15)" }}
+              style={{ maxHeight: "1in", maxWidth: "3.25in", objectFit: "contain" }}
             />
           )}
           <p style={{ fontSize: "40px", fontWeight: "bold", lineHeight: 1.1, maxWidth: "100%", wordBreak: "break-word" }}>{brand}</p>
@@ -1153,7 +1192,7 @@ function PrintTireLabel({
       )}
       {model && <p style={{ fontSize: "26px", fontWeight: 500, lineHeight: 1.2, maxWidth: "100%", wordBreak: "break-word" }}>{model}</p>}
       {sizeDesc && <p style={{ fontSize: "22px", fontWeight: 500, lineHeight: 1.3, maxWidth: "100%", wordBreak: "break-word" }}>{sizeDesc}</p>}
-      {itemId && <svg ref={svgRef} className="flex-shrink-0 mt-1" style={{ maxWidth: "100%", height: "auto" }} />}
+      {barcodeValue && <svg ref={svgRef} className="flex-shrink-0 mt-1" style={{ maxWidth: "100%", height: "auto" }} />}
       {footer && (
         <div style={{ position: "absolute", bottom: "0.18in", left: 0, right: 0, fontSize: "11px", color: "#444" }}>{footer}</div>
       )}

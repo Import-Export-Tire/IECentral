@@ -140,6 +140,7 @@ export interface TireSearchResult {
   brand: string;
   model: string;
   sizeDesc: string;
+  mpn: string;
 }
 
 /**
@@ -165,7 +166,7 @@ export async function searchTires(query: string, limit = 40): Promise<TireSearch
     const dedupKey = `${e.manufacturerName}|${e.model}|${e.description}`;
     if (seen.has(dedupKey)) continue;
     seen.add(dedupKey);
-    out.push({ itemId, brand: e.manufacturerName, model: e.model, sizeDesc: e.description });
+    out.push({ itemId, brand: e.manufacturerName, model: e.model, sizeDesc: e.description, mpn: e.mfgItemId });
     if (out.length >= limit) break;
   }
   return out;

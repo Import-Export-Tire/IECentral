@@ -9,6 +9,7 @@ export interface TireSearchResult {
   brand: string;
   model: string;
   sizeDesc: string;
+  mpn: string;
 }
 
 export default function TireSearchBox({
