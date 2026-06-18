@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
@@ -155,6 +156,8 @@ function ReportDetail({ report, requestingUserId, onClose }: { report: Report; r
   const [status, setStatus] = useState(report.status);
   const [notes, setNotes] = useState(report.reviewNotes || "");
   const [saving, setSaving] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const hasContact = !!(report.reporterName || report.reporterPhone || report.reporterEmail);
 
   const save = async () => {
@@ -231,10 +234,95 @@ function ReportDetail({ report, requestingUserId, onClose }: { report: Report; r
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 px-6 py-4 border-t theme-border-primary">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg theme-bg-primary theme-text-secondary text-sm">Cancel</button>
-          <button onClick={save} disabled={saving} className="px-4 py-2 rounded-lg bg-[#007AFF] text-white text-sm font-medium disabled:opacity-60">{saving ? "Saving…" : "Save"}</button>
+        <div className="flex items-center justify-between gap-2 px-6 py-4 border-t theme-border-primary">
+          <button onClick={() => window.print()} className="px-4 py-2 rounded-lg theme-bg-primary theme-text-secondary text-sm font-medium" title="Print this report on one page">Print</button>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 rounded-lg theme-bg-primary theme-text-secondary text-sm">Cancel</button>
+            <button onClick={save} disabled={saving} className="px-4 py-2 rounded-lg bg-[#007AFF] text-white text-sm font-medium disabled:opacity-60">{saving ? "Saving…" : "Save"}</button>
+          </div>
         </div>
+      </div>
+
+      {mounted && createPortal(
+        <div id="safety-report-print-root">
+          <SafetyReportPrint report={report} photoUrl={photoUrl} />
+          <style dangerouslySetInnerHTML={{ __html: `
+            #safety-report-print-root { display: none; }
+            @media print {
+              @page { size: letter portrait; margin: 0.5in; }
+              body > :not(#safety-report-print-root) { display: none !important; }
+              #safety-report-print-root { display: block !important; color: #000; }
+            }
+          ` }} />
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
+}
+
+// Clean one-page printable sheet for a single report. Rendered into a hidden
+// print-root portal and revealed only under @media print (see ReportDetail).
+function SafetyReportPrint({ report, photoUrl }: { report: Report; photoUrl?: string | null }) {
+  const hasContact = !!(report.reporterName || report.reporterPhone || report.reporterEmail);
+  const statusLabel = STATUSES.find((s) => s.value === report.status)?.label || report.status;
+  const labelStyle: React.CSSProperties = { fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.04em", color: "#555", marginBottom: "3px" };
+  const boxStyle: React.CSSProperties = { border: "1px solid #999", borderRadius: "4px", padding: "10px", whiteSpace: "pre-wrap" };
+  const cell = (label: string, value: string) => (
+    <div style={{ marginBottom: "10px" }}>
+      <div style={labelStyle}>{label}</div>
+      <div style={{ fontSize: "13px", color: "#000" }}>{value}</div>
+    </div>
+  );
+  return (
+    <div style={{ fontFamily: "Arial, sans-serif", color: "#000", fontSize: "13px", maxWidth: "7.5in" }}>
+      <div style={{ borderBottom: "2px solid #000", paddingBottom: "8px", marginBottom: "14px" }}>
+        <div style={{ fontSize: "20px", fontWeight: 700 }}>See Something, Say Something — Report</div>
+        <div style={{ fontSize: "12px", color: "#333", marginTop: "3px" }}>
+          Ref <span style={{ fontFamily: "monospace" }}>{report.referenceCode}</span> · Status: {statusLabel} · Submitted {new Date(report.createdAt).toLocaleString()}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: "24px" }}>
+        {cell("Category", CATEGORY_LABELS[report.category] || report.category)}
+        {cell("Location", report.locationName || "Not specified")}
+        {cell("When it happened", report.occurredAt || "Not specified")}
+        {cell("Reporter", hasContact ? "Provided contact (below)" : "Anonymous")}
+      </div>
+
+      <div style={{ marginTop: "4px", marginBottom: "12px" }}>
+        <div style={labelStyle}>Description</div>
+        <div style={{ ...boxStyle, minHeight: "1in" }}>{report.description}</div>
+      </div>
+
+      {hasContact && (
+        <div style={{ marginBottom: "12px" }}>
+          <div style={labelStyle}>Reporter contact (optional follow-up)</div>
+          <div style={boxStyle}>
+            {report.reporterName && <div>{report.reporterName}</div>}
+            {report.reporterPhone && <div>{report.reporterPhone}</div>}
+            {report.reporterEmail && <div>{report.reporterEmail}</div>}
+          </div>
+        </div>
+      )}
+
+      {report.reviewNotes && (
+        <div style={{ marginBottom: "12px" }}>
+          <div style={labelStyle}>Review notes (internal){report.reviewedByName ? ` — ${report.reviewedByName}` : ""}</div>
+          <div style={boxStyle}>{report.reviewNotes}</div>
+        </div>
+      )}
+
+      {photoUrl && (
+        <div style={{ marginBottom: "12px" }}>
+          <div style={labelStyle}>Photo</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={photoUrl} alt="Report attachment" style={{ maxWidth: "100%", maxHeight: "4in", border: "1px solid #999", borderRadius: "4px" }} />
+        </div>
+      )}
+
+      <div style={{ marginTop: "18px", borderTop: "1px solid #ccc", paddingTop: "6px", fontSize: "10px", color: "#666" }}>
+        Confidential — handle per company policy. Printed {new Date().toLocaleString()}.
       </div>
     </div>
   );
