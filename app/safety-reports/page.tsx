@@ -250,8 +250,13 @@ function ReportDetail({ report, requestingUserId, onClose }: { report: Report; r
             #safety-report-print-root { display: none; }
             @media print {
               @page { size: letter portrait; margin: 0.5in; }
+              /* Zero the UA body margin (8px) — it's added INSIDE the @page margin box and
+                 pushes content a sliver past the page, producing a near-blank 2nd page. */
+              html, body { margin: 0 !important; padding: 0 !important; }
               body > :not(#safety-report-print-root) { display: none !important; }
               #safety-report-print-root { display: block !important; color: #000; }
+              /* No trailing margin on the last element, so it can't bleed onto a new page. */
+              #safety-report-print-root > div > :last-child { margin-bottom: 0 !important; }
             }
           ` }} />
         </div>,
@@ -292,7 +297,7 @@ function SafetyReportPrint({ report, photoUrl }: { report: Report; photoUrl?: st
 
       <div style={{ marginTop: "4px", marginBottom: "12px" }}>
         <div style={labelStyle}>Description</div>
-        <div style={{ ...boxStyle, minHeight: "1in" }}>{report.description}</div>
+        <div style={{ ...boxStyle, minHeight: "0.75in" }}>{report.description}</div>
       </div>
 
       {hasContact && (
@@ -317,11 +322,11 @@ function SafetyReportPrint({ report, photoUrl }: { report: Report; photoUrl?: st
         <div style={{ marginBottom: "12px" }}>
           <div style={labelStyle}>Photo</div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photoUrl} alt="Report attachment" style={{ maxWidth: "100%", maxHeight: "4in", border: "1px solid #999", borderRadius: "4px" }} />
+          <img src={photoUrl} alt="Report attachment" style={{ maxWidth: "100%", maxHeight: "3in", border: "1px solid #999", borderRadius: "4px", display: "block" }} />
         </div>
       )}
 
-      <div style={{ marginTop: "18px", borderTop: "1px solid #ccc", paddingTop: "6px", fontSize: "10px", color: "#666" }}>
+      <div style={{ marginTop: "14px", borderTop: "1px solid #ccc", paddingTop: "6px", fontSize: "10px", color: "#666" }}>
         Confidential — handle per company policy. Printed {new Date().toLocaleString()}.
       </div>
     </div>
