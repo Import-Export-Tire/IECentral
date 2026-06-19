@@ -69,6 +69,7 @@ const DASHBOARD_CARDS = [
   { id: "tenureCheckIns", label: "Tenure Check-ins", description: "Due employee milestone reviews" },
   { id: "email", label: "Email", description: "Recent unread emails from your inbox" },
   { id: "financialSnapshot", label: "Financial Snapshot", description: "Sales KPIs and revenue breakdown (super admin)" },
+  { id: "safetyReports", label: "Safety Reports", description: "Anonymous See Something, Say Something reports (super admin)" },
 ];
 
 // Sortable card component for settings modal
@@ -1305,8 +1306,8 @@ function DashboardContent() {
             <FinancialSnapshotWidget />
           )}
 
-          {/* Safety Reports (See Something, Say Something) - super admin only */}
-          {isSuperAdmin && <SafetyReportsWidget />}
+          {/* Safety Reports (See Something, Say Something) - super admin only, toggleable */}
+          {isSuperAdmin && isCardEnabled("safetyReports") && <SafetyReportsWidget />}
 
           {/* Email Widget */}
           {isCardEnabled("email") && user?.hasEmailAccess && (
@@ -1438,6 +1439,7 @@ function DashboardContent() {
                     if (card.id === "activityFeed" && !widgets.activityFeed) return null;
                     if (card.id === "email" && !user?.hasEmailAccess) return null;
                     if (card.id === "financialSnapshot" && !widgets.financialSnapshot) return null;
+                    if (card.id === "safetyReports" && !isSuperAdmin) return null;
                     return (
                       <SortableCard
                         key={card.id}

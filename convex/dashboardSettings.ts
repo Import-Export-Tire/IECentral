@@ -3,7 +3,7 @@ import { mutation, query } from "./_generated/server";
 
 // Default cards for different roles
 const DEFAULT_CARDS_BY_ROLE: Record<string, string[]> = {
-  super_admin: ["projects", "applications", "websiteMessages", "hiringAnalytics", "activityFeed", "tenureCheckIns"],
+  super_admin: ["projects", "applications", "websiteMessages", "hiringAnalytics", "activityFeed", "tenureCheckIns", "safetyReports"],
   admin: ["projects", "applications", "websiteMessages", "hiringAnalytics", "activityFeed", "tenureCheckIns"],
   office_manager: ["projects", "activityFeed"],
   warehouse_manager: ["projects", "activityFeed"],
