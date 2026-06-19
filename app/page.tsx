@@ -14,6 +14,7 @@ import { SearchButton } from "@/components/GlobalSearch";
 import ActivityFeed from "@/components/ActivityFeed";
 import EmailWidget from "@/components/EmailWidget";
 import FinancialSnapshotWidget from "@/components/FinancialSnapshotWidget";
+import SafetyReportsWidget from "@/components/SafetyReportsWidget";
 import { Id } from "@/convex/_generated/dataModel";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import {
@@ -1303,6 +1304,9 @@ function DashboardContent() {
           {widgets.financialSnapshot && isCardEnabled("financialSnapshot") && (
             <FinancialSnapshotWidget />
           )}
+
+          {/* Safety Reports (See Something, Say Something) - super admin only */}
+          {isSuperAdmin && <SafetyReportsWidget />}
 
           {/* Email Widget */}
           {isCardEnabled("email") && user?.hasEmailAccess && (

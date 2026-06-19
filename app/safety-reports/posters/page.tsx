@@ -126,7 +126,16 @@ function PostersInner() {
   </div>
 </body></html>`);
     w.document.close();
-    w.onload = () => {
+
+    // Trigger printing once the fonts + logo are ready. IMPORTANT: the popup is built
+    // with document.write, so its `load` event is unreliable — it can fire before we'd
+    // attach a handler, or never fire at all. The old code put ALL of this (including the
+    // fallback timer) inside w.onload, so for some posters nothing ever called print()
+    // and the page just sat there blank. Run it directly, guarded so it fires only once.
+    let started = false;
+    const startPrint = () => {
+      if (started) return;
+      started = true;
       let printed = false;
       const done = () => { if (printed) return; printed = true; try { w.focus(); w.print(); } catch { /* ignore */ } };
       const img = w.document.querySelector("img.logo") as HTMLImageElement | null;
@@ -136,6 +145,10 @@ function PostersInner() {
       if (waits.length) Promise.all(waits).then(done); else done();
       setTimeout(done, 2500); // fallback if fonts/logo are slow
     };
+    // document.write parses synchronously, so the DOM/fonts are queryable now — kick off
+    // immediately, and also hook load as a backup in case assets need another tick.
+    w.addEventListener("load", startPrint);
+    startPrint();
   };
 
   return (
