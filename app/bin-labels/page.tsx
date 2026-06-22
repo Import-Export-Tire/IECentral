@@ -256,10 +256,62 @@ export default function BinLabelsPage() {
     }
   };
 
+  // Bin labels → exact 6x2 PDF, one label per page. Like the tire-label PDF, this
+  // replaces the browser @media print path, which spilled each label onto a blank
+  // second page. jsPDF only emits the pages we add (one per label).
+  const printBinLabelsPdf = async () => {
+    const items = labelsWithCopies.filter((l) => l.locationId);
+    if (items.length === 0) return;
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "in", format: [6, 2], orientation: "landscape" });
+
+    for (let i = 0; i < items.length; i++) {
+      const l = items[i];
+      if (i > 0) doc.addPage([6, 2], "landscape");
+      doc.setTextColor(0, 0, 0);
+
+      // Barcode (Code 128 of the bin/location id, value printed beneath) on the left.
+      const bc = barcodePngForPdf(l.locationId);
+      if (bc) {
+        let bw = 3.5, bh = (bw * bc.h) / bc.w;
+        if (bh > 1.6) { bh = 1.6; bw = (bh * bc.w) / bc.h; }
+        const bx = 0.2 + (3.5 - bw) / 2;
+        const by = (2 - bh) / 2;
+        doc.addImage(bc.dataUrl, "PNG", bx, by, bw, bh);
+      }
+
+      // Location name (right), auto-fit so long names never overflow the label.
+      if (l.locationName) {
+        const nameCx = 4.75; // center of the right region (~3.7in .. 5.8in)
+        const maxNameW = 2.0;
+        doc.setFont("helvetica", "bold");
+        let fs = 30;
+        doc.setFontSize(fs);
+        while (fs > 10 && doc.getTextWidth(l.locationName) > maxNameW) {
+          fs -= 1;
+          doc.setFontSize(fs);
+        }
+        doc.text(l.locationName, nameCx, 1.05, { align: "center", baseline: "middle", maxWidth: 2.1 });
+      }
+    }
+
+    // Print via a hidden iframe (no popup-blocker issues after the async build).
+    const url = doc.output("bloburl") as unknown as string;
+    const iframe = document.createElement("iframe");
+    Object.assign(iframe.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0" });
+    iframe.src = url;
+    iframe.onload = () => {
+      setTimeout(() => { try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch { /* ignore */ } }, 400);
+    };
+    document.body.appendChild(iframe);
+    setTimeout(() => { try { document.body.removeChild(iframe); } catch { /* ignore */ } }, 120000);
+  };
+
   const handlePrint = () => {
-    // Tire labels → exact 4x6 PDF (printer-agnostic). Bin labels keep the CSS print path.
+    // Both label types print as exact-size PDFs (printer-agnostic), avoiding the
+    // browser @media print path that produced a blank second page/label.
     if (mode === "tire") { void printTireLabelsPdf(); return; }
-    window.print();
+    void printBinLabelsPdf();
   };
 
   const clearAll = () => {
