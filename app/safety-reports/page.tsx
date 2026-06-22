@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
@@ -156,8 +155,6 @@ function ReportDetail({ report, requestingUserId, onClose }: { report: Report; r
   const [status, setStatus] = useState(report.status);
   const [notes, setNotes] = useState(report.reviewNotes || "");
   const [saving, setSaving] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
   const hasContact = !!(report.reporterName || report.reporterPhone || report.reporterEmail);
 
   const save = async () => {
@@ -168,6 +165,142 @@ function ReportDetail({ report, requestingUserId, onClose }: { report: Report; r
     } finally {
       setSaving(false);
     }
+  };
+
+  // Render the report as an exact one-page Letter PDF and send it to the printer.
+  // We build the PDF directly (jsPDF) rather than relying on the browser's
+  // @media print path, which kept spilling onto a blank second page across
+  // browsers/margin settings. jsPDF only emits the page(s) we add — we never
+  // call addPage, so the output is guaranteed to be exactly one page.
+  const printReportPdf = async () => {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "in", format: "letter", orientation: "portrait" });
+    const W = 8.5, H = 11, M = 0.5, CW = W - 2 * M;
+    const statusLabel = STATUSES.find((s) => s.value === report.status)?.label || report.status;
+
+    const label = (text: string, x: number, yy: number) => {
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(110, 110, 110);
+      doc.text(text.toUpperCase(), x, yy);
+    };
+    const value = (text: string, x: number, yy: number, maxW: number) => {
+      doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.setTextColor(0, 0, 0);
+      doc.text(doc.splitTextToSize(text || "", maxW), x, yy);
+    };
+    // Bordered, clamped text box. Returns the y just below the box.
+    const box = (labelText: string, text: string, top: number, maxH: number): number => {
+      label(labelText, M, top);
+      const boxTop = top + 0.16;
+      const pad = 0.08, lineH = 0.17, textW = CW - 2 * pad;
+      // Measure wrapping at the SAME font we draw with (11pt), else lines
+      // measured at the label's 8pt would be drawn wider and overflow the box.
+      doc.setFont("helvetica", "normal"); doc.setFontSize(11);
+      let lines: string[] = doc.splitTextToSize(text || "", textW);
+      const maxLines = Math.max(1, Math.floor((maxH - 0.16 - 2 * pad) / lineH));
+      if (lines.length > maxLines) {
+        lines = lines.slice(0, maxLines);
+        const last = lines[maxLines - 1] || "";
+        lines[maxLines - 1] = last.replace(/.$/, "") + "…";
+      }
+      const boxH = lines.length * lineH + 2 * pad;
+      doc.setDrawColor(150); doc.setLineWidth(0.01);
+      doc.roundedRect(M, boxTop, CW, boxH, 0.04, 0.04);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.setTextColor(0, 0, 0);
+      doc.text(lines, M + pad, boxTop + pad + 0.11);
+      return boxTop + boxH;
+    };
+
+    // Header.
+    doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold"); doc.setFontSize(17);
+    doc.text("See Something, Say Something — Report", M, M + 0.25);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(60, 60, 60);
+    doc.text(
+      `Ref ${report.referenceCode}   ·   Status: ${statusLabel}   ·   Submitted ${new Date(report.createdAt).toLocaleString()}`,
+      M, M + 0.5,
+    );
+    doc.setDrawColor(0); doc.setLineWidth(0.02); doc.line(M, M + 0.62, W - M, M + 0.62);
+
+    // 2×2 facts grid.
+    let y = M + 0.95;
+    const colW = CW / 2, col2 = M + colW;
+    label("Category", M, y); label("Location", col2, y);
+    value(CATEGORY_LABELS[report.category] || report.category, M, y + 0.17, colW - 0.2);
+    value(report.locationName || "Not specified", col2, y + 0.17, colW - 0.2);
+    y += 0.6;
+    label("When it happened", M, y); label("Reporter", col2, y);
+    value(report.occurredAt || "Not specified", M, y + 0.17, colW - 0.2);
+    value(hasContact ? "Provided contact (below)" : "Anonymous", col2, y + 0.17, colW - 0.2);
+    y += 0.62;
+
+    // Optional photo — load via canvas; skip gracefully if it can't be read.
+    let photo: { dataUrl: string; w: number; h: number } | null = null;
+    if (photoUrl) {
+      photo = await new Promise((resolve) => {
+        const img = new window.Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          try {
+            const c = document.createElement("canvas");
+            c.width = img.naturalWidth; c.height = img.naturalHeight;
+            const ctx = c.getContext("2d");
+            if (!ctx) return resolve(null);
+            ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+            ctx.drawImage(img, 0, 0);
+            resolve({ dataUrl: c.toDataURL("image/jpeg", 0.85), w: img.naturalWidth, h: img.naturalHeight });
+          } catch { resolve(null); }
+        };
+        img.onerror = () => resolve(null);
+        img.src = photoUrl;
+      });
+    }
+
+    // Reserve the bottom of the page: footer, then photo band above it.
+    const footerBaseline = H - M;
+    let photoTop = 0, photoH = 0, photoW = 0;
+    if (photo) {
+      photoW = CW; photoH = (photoW * photo.h) / photo.w;
+      if (photoH > 2.6) { photoH = 2.6; photoW = (photoH * photo.w) / photo.h; }
+      photoTop = footerBaseline - 0.35 - photoH;
+    }
+    const textFloor = (photo ? photoTop - 0.15 : footerBaseline - 0.3);
+
+    // Description (flexible) then optional contact/notes, all clamped so nothing
+    // can ever push onto a second page.
+    const contactReserve = hasContact ? 0.95 : 0;
+    const notesReserve = report.reviewNotes ? 0.95 : 0;
+    const descMax = Math.max(0.5, textFloor - y - contactReserve - notesReserve - 0.3);
+    y = box("Description", report.description, y, descMax) + 0.18;
+    if (hasContact) {
+      const contact = [report.reporterName, report.reporterPhone, report.reporterEmail].filter(Boolean).join("\n");
+      y = box("Reporter contact (optional follow-up)", contact, y, contactReserve) + 0.18;
+    }
+    if (report.reviewNotes) {
+      const lbl = `Review notes (internal)${report.reviewedByName ? ` — ${report.reviewedByName}` : ""}`;
+      y = box(lbl, report.reviewNotes, y, notesReserve) + 0.18;
+    }
+
+    // Photo.
+    if (photo) {
+      label("Photo", M, photoTop - 0.16);
+      doc.setDrawColor(150); doc.setLineWidth(0.01);
+      doc.addImage(photo.dataUrl, "JPEG", M, photoTop, photoW, photoH);
+      doc.rect(M, photoTop, photoW, photoH);
+    }
+
+    // Footer.
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(110, 110, 110);
+    doc.setDrawColor(200); doc.setLineWidth(0.01); doc.line(M, footerBaseline - 0.18, W - M, footerBaseline - 0.18);
+    doc.text(`Confidential — handle per company policy. Printed ${new Date().toLocaleString()}.`, M, footerBaseline - 0.04);
+
+    // Print via a hidden iframe (avoids popup blockers after the async build).
+    const url = doc.output("bloburl") as unknown as string;
+    const iframe = document.createElement("iframe");
+    Object.assign(iframe.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0" });
+    iframe.src = url;
+    iframe.onload = () => {
+      setTimeout(() => { try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch { /* ignore */ } }, 400);
+    };
+    document.body.appendChild(iframe);
+    setTimeout(() => { try { document.body.removeChild(iframe); } catch { /* ignore */ } }, 120000);
   };
 
   return (
@@ -235,99 +368,12 @@ function ReportDetail({ report, requestingUserId, onClose }: { report: Report; r
         </div>
 
         <div className="flex items-center justify-between gap-2 px-6 py-4 border-t theme-border-primary">
-          <button onClick={() => window.print()} className="px-4 py-2 rounded-lg theme-bg-primary theme-text-secondary text-sm font-medium" title="Print this report on one page">Print</button>
+          <button onClick={() => void printReportPdf()} className="px-4 py-2 rounded-lg theme-bg-primary theme-text-secondary text-sm font-medium" title="Print this report on one page">Print</button>
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-2 rounded-lg theme-bg-primary theme-text-secondary text-sm">Cancel</button>
             <button onClick={save} disabled={saving} className="px-4 py-2 rounded-lg bg-[#007AFF] text-white text-sm font-medium disabled:opacity-60">{saving ? "Saving…" : "Save"}</button>
           </div>
         </div>
-      </div>
-
-      {mounted && createPortal(
-        <div id="safety-report-print-root">
-          <SafetyReportPrint report={report} photoUrl={photoUrl} />
-          <style dangerouslySetInnerHTML={{ __html: `
-            #safety-report-print-root { display: none; }
-            @media print {
-              @page { size: letter portrait; margin: 0.5in; }
-              /* Zero the UA body margin (8px) — it's added INSIDE the @page margin box and
-                 pushes content a sliver past the page, producing a near-blank 2nd page. */
-              html, body { margin: 0 !important; padding: 0 !important; }
-              body > :not(#safety-report-print-root) { display: none !important; }
-              #safety-report-print-root { display: block !important; color: #000; }
-              /* No trailing margin on the last element, so it can't bleed onto a new page. */
-              #safety-report-print-root > div > :last-child { margin-bottom: 0 !important; }
-            }
-          ` }} />
-        </div>,
-        document.body,
-      )}
-    </div>
-  );
-}
-
-// Clean one-page printable sheet for a single report. Rendered into a hidden
-// print-root portal and revealed only under @media print (see ReportDetail).
-function SafetyReportPrint({ report, photoUrl }: { report: Report; photoUrl?: string | null }) {
-  const hasContact = !!(report.reporterName || report.reporterPhone || report.reporterEmail);
-  const statusLabel = STATUSES.find((s) => s.value === report.status)?.label || report.status;
-  const labelStyle: React.CSSProperties = { fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.04em", color: "#555", marginBottom: "3px" };
-  const boxStyle: React.CSSProperties = { border: "1px solid #999", borderRadius: "4px", padding: "10px", whiteSpace: "pre-wrap" };
-  const cell = (label: string, value: string) => (
-    <div style={{ marginBottom: "10px" }}>
-      <div style={labelStyle}>{label}</div>
-      <div style={{ fontSize: "13px", color: "#000" }}>{value}</div>
-    </div>
-  );
-  return (
-    <div style={{ fontFamily: "Arial, sans-serif", color: "#000", fontSize: "13px", maxWidth: "7.5in" }}>
-      <div style={{ borderBottom: "2px solid #000", paddingBottom: "8px", marginBottom: "14px" }}>
-        <div style={{ fontSize: "20px", fontWeight: 700 }}>See Something, Say Something — Report</div>
-        <div style={{ fontSize: "12px", color: "#333", marginTop: "3px" }}>
-          Ref <span style={{ fontFamily: "monospace" }}>{report.referenceCode}</span> · Status: {statusLabel} · Submitted {new Date(report.createdAt).toLocaleString()}
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: "24px" }}>
-        {cell("Category", CATEGORY_LABELS[report.category] || report.category)}
-        {cell("Location", report.locationName || "Not specified")}
-        {cell("When it happened", report.occurredAt || "Not specified")}
-        {cell("Reporter", hasContact ? "Provided contact (below)" : "Anonymous")}
-      </div>
-
-      <div style={{ marginTop: "4px", marginBottom: "12px" }}>
-        <div style={labelStyle}>Description</div>
-        <div style={{ ...boxStyle, minHeight: "0.75in" }}>{report.description}</div>
-      </div>
-
-      {hasContact && (
-        <div style={{ marginBottom: "12px" }}>
-          <div style={labelStyle}>Reporter contact (optional follow-up)</div>
-          <div style={boxStyle}>
-            {report.reporterName && <div>{report.reporterName}</div>}
-            {report.reporterPhone && <div>{report.reporterPhone}</div>}
-            {report.reporterEmail && <div>{report.reporterEmail}</div>}
-          </div>
-        </div>
-      )}
-
-      {report.reviewNotes && (
-        <div style={{ marginBottom: "12px" }}>
-          <div style={labelStyle}>Review notes (internal){report.reviewedByName ? ` — ${report.reviewedByName}` : ""}</div>
-          <div style={boxStyle}>{report.reviewNotes}</div>
-        </div>
-      )}
-
-      {photoUrl && (
-        <div style={{ marginBottom: "12px" }}>
-          <div style={labelStyle}>Photo</div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photoUrl} alt="Report attachment" style={{ maxWidth: "100%", maxHeight: "3in", border: "1px solid #999", borderRadius: "4px", display: "block" }} />
-        </div>
-      )}
-
-      <div style={{ marginTop: "14px", borderTop: "1px solid #ccc", paddingTop: "6px", fontSize: "10px", color: "#666" }}>
-        Confidential — handle per company policy. Printed {new Date().toLocaleString()}.
       </div>
     </div>
   );
