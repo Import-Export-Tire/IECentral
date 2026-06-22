@@ -6,8 +6,13 @@ import { createInterface } from "readline";
 import { brandCodeToName } from "@/lib/brandMapping";
 
 const BUCKET = "ietires-dunlop-jmk-uploads";
-const META_KEY = "jmk-uploads/oeival/_cache/latest.meta.json";
-const ITEMS_KEY = "jmk-uploads/oeival/_cache/latest.items.ndjson.gz";
+// Tire-label lookups read the COLLECTIVE index (cumulative union of every
+// OEIVAL ever processed, keyed by itemId, never shrinks) — NOT the latest.*
+// reporting snapshot. This way a partial upload (e.g. "R20 ONLY") can refresh
+// reports without making non-R20 tire labels disappear. Built by the
+// dunlop-oeival-processor Lambda (update_lookup_index).
+const META_KEY = "jmk-uploads/oeival/_cache/lookup.meta.json";
+const ITEMS_KEY = "jmk-uploads/oeival/_cache/lookup.items.ndjson.gz";
 
 // Rebuild at least this often even if generatedAt looks unchanged, as a
 // safety net against a stale/missing meta.

@@ -23,11 +23,93 @@ import boto3
 s3 = boto3.client("s3")
 
 BUCKET = os.environ.get("S3_JMK_UPLOADS_BUCKET", "ietires-dunlop-jmk-uploads")
-# Cache layout (latest OEIVAL only — overwritten on every upload):
-#   _cache/latest.meta.json    — small JSON with fileDate, fileName, totalRows, filters
-#   _cache/latest.items.ndjson.gz — gzipped newline-delimited JSON of items
+
+# ── Two caches, two purposes ────────────────────────────────────────────
+# REPORTING snapshot (latest.*): the latest OEIVAL only, overwritten on every
+#   upload. The Vercel inventory/custom-data report routes read this so reports
+#   always reflect the most recent file (even a partial/single-location export).
+#
+# LOOKUP collective index (lookup.*): a cumulative union of every OEIVAL ever
+#   processed, keyed by itemId (newest wins, NEVER shrinks). The tire-label
+#   lookup (resolve-brand / tire search) reads this so a partial upload such as
+#   "IET-oeival R20 ONLY.csv" can refresh the report snapshot without erasing
+#   coverage for every other tire. This is what fixes "tire label not found".
 META_KEY = "jmk-uploads/oeival/_cache/latest.meta.json"
 ITEMS_KEY = "jmk-uploads/oeival/_cache/latest.items.ndjson.gz"
+LOOKUP_META_KEY = "jmk-uploads/oeival/_cache/lookup.meta.json"
+LOOKUP_ITEMS_KEY = "jmk-uploads/oeival/_cache/lookup.items.ndjson.gz"
+
+# Fields the tire-label lookup needs (mirrors BrandEntry in
+# lib/oeivalBrandIndex.ts). Keep the lookup index slim — quantities and
+# location-specific columns belong to the reporting snapshot, not here.
+LOOKUP_FIELDS = ("itemId", "manufacturerName", "description", "model", "mfgItemId")
+
+
+def update_lookup_index(items: "list[dict[str, Any]]") -> dict:
+    """Merge this upload's items into the cumulative tire-label lookup index.
+
+    Union by uppercased itemId, newest wins, never shrinks. A partial upload
+    therefore updates only its own items and can never reduce coverage for the
+    rest of the catalog. Read back by lib/oeivalBrandIndex.ts.
+    """
+    index: "dict[str, dict[str, Any]]" = {}
+
+    # Load the existing index (if any) so we accumulate rather than replace.
+    try:
+        res = s3.get_object(Bucket=BUCKET, Key=LOOKUP_ITEMS_KEY)
+        with gzip.GzipFile(fileobj=io.BytesIO(res["Body"].read()), mode="rb") as gz:
+            for raw in gz:
+                line = raw.strip()
+                if not line:
+                    continue
+                try:
+                    o = json.loads(line)
+                except Exception:
+                    continue
+                k = str(o.get("itemId", "")).strip().upper()
+                if k:
+                    index[k] = o
+    except s3.exceptions.NoSuchKey:
+        pass  # first run — start empty
+    except Exception as e:
+        print(f"lookup index: could not read existing ({e}); seeding from this file only")
+
+    # Overlay this upload's items (newest wins).
+    before = len(index)
+    for it in items:
+        k = str(it.get("itemId", "")).strip().upper()
+        if not k:
+            continue
+        index[k] = {f: it.get(f, "") for f in LOOKUP_FIELDS}
+
+    # Write the merged index back.
+    buf = io.BytesIO()
+    with gzip.GzipFile(fileobj=buf, mode="wb", compresslevel=6) as gz:
+        for o in index.values():
+            gz.write(json.dumps(o, separators=(",", ":")).encode("utf-8"))
+            gz.write(b"\n")
+    data = buf.getvalue()
+    s3.put_object(
+        Bucket=BUCKET,
+        Key=LOOKUP_ITEMS_KEY,
+        Body=data,
+        ContentType="application/x-ndjson",
+        ContentEncoding="gzip",
+    )
+
+    meta = {
+        "count": len(index),
+        "itemsKey": LOOKUP_ITEMS_KEY,
+        "itemsBytes": len(data),
+        "generatedAt": _now_iso(),
+    }
+    s3.put_object(
+        Bucket=BUCKET,
+        Key=LOOKUP_META_KEY,
+        Body=json.dumps(meta, separators=(",", ":")).encode("utf-8"),
+        ContentType="application/json",
+    )
+    return {"lookupCount": len(index), "lookupAdded": len(index) - before, "lookupBytes": len(data)}
 
 # Column header → field key map (mirrors the Vercel route's headerMap
 # in app/api/reports/inventory-data/route.ts). Lowercase, exact-match
@@ -287,6 +369,15 @@ def handler(event, _context):
         ContentType="application/json",
     )
 
+    # ── Collective tire-label lookup index — merge (never shrink) so a partial
+    # upload refreshes the report snapshot above without dropping label coverage.
+    try:
+        lookup_stats = update_lookup_index(items)
+        print(f"lookup index: {lookup_stats}")
+    except Exception as e:
+        lookup_stats = {"lookupError": str(e)}
+        print(f"lookup index update failed (non-fatal): {e}")
+
     # Auto-heal: ask IECentral to backfill any brand-less inventory adjustments now
     # that a fresh OEIVAL cache is available. Best-effort — never block processing.
     try:
@@ -304,6 +395,7 @@ def handler(event, _context):
         "totalRows": len(items),
         "itemsBytes": len(items_bytes),
         "metaBytes": len(meta_bytes),
+        **lookup_stats,
     }
 
 
