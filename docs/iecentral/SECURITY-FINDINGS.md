@@ -33,8 +33,13 @@ including several that leak secrets to anonymous callers.
 | 5 | `zoomAccounts.getWithCredentials` | public query — returned any user's Zoom OAuth tokens | → `internalQuery` (+ repointed the `zoomMeetings` action to `internal.*`) |
 | 6 | `documentFolders.getFolderWithPassword` | public query — returned folder `passwordHash` (offline brute-force) | → `internalQuery` (+ in-file callers) |
 | 7 | `documentFolders.getDocumentsInternal` | public query — **bypassed folder password/access control**, returned every doc in any protected folder | → `internalQuery` (+ in-file callers) |
+| 8 | `locations.list` / `listActive` / `listActiveWarehouses` / `get` / `getByName` | public queries returned every location's pin/alarm/gate codes, wifi password, security notes | secrets stripped from public queries; added guarded `locations.listWithSecurity` (requireAdmin); admin Locations page gated to admin |
+| 9 | `equipment.listComputers` / `getRemoteAccessComputers` | public queries returned every computer's admin/user passwords, remote access code, usable Chrome Remote URL | gated to **tier 2** via new `requireMinTier` (matches the equipment page); callers pass `requestingUserId` |
+| 10 | `deletedRecords.getDeletedRecords` / `getDeletionAuditLog` / `getDeletedRecordCounts` | public queries returned full JSON snapshots of soft-deleted records incl. secrets | gated to **tier 4** via `requireMinTier` (matches `/deleted-records`) |
 
-All fixes were verified to have no external (Next-route) callers; `convex` typechecks clean.
+All fixes were verified to have no other external callers; `convex` + app typecheck clean. Added a
+reusable server-side `requireMinTier(ctx, userId, n)` guard in `convex/authGuards.ts` (mirrors
+`getTier` in `lib/permissions.ts`) for gating a handler to the same tier its page already requires.
 
 ---
 
@@ -44,11 +49,12 @@ These return secrets or grant control to any anonymous caller. Most are **querie
 UI screens**, so the fix is *not* a simple `internalQuery` flip — it's "strip the secret fields
 from the public query and add a guarded variant for the admin screen," or add a server-secret gate.
 
+> `locations.*`, `equipment.listComputers`/`getRemoteAccessComputers`, and
+> `deletedRecords.getDeletedRecords`/`getDeletionAuditLog`/`getDeletedRecordCounts` were in this
+> table and are now **FIXED** (see the Fixed table above).
+
 | Function | Exploit | Recommended fix |
 |---|---|---|
-| `locations.list` / `listActive` / `get` / `getByName` | Returns every location's `pinCode`, `alarmCode`, `gateCode`, `wifiPassword`, `securityNotes` | Strip secret fields from the public query; add `requireAdmin` variant for the admin screen |
-| `equipment.listComputers` / `getRemoteAccessComputers` | Returns every computer's `adminPassword`, `userPassword`, `remoteAccessCode`, usable Chrome Remote URL | Same: strip secrets from public query, guarded variant for admin |
-| `deletedRecords.getDeletedRecords` / `getDeletionAuditLog` | Returns full JSON snapshots of soft-deleted users/personnel/equipment — **incl. deleted computers' passwords** | Add super_admin guard (the delete/restore mutations here already gate on `ctx.auth`) |
 | `auditLogs.log` | Anon can **forge audit-log entries** with arbitrary userId/email/details | Make `internalMutation`, or guard; logging should be server-initiated |
 | `scannerMdm.logScannerCommand` | Anon can issue arbitrary commands (lock/wipe) to any scanner | Add `requireAdmin`; verify caller |
 | `quickbooks.saveConnection` | Anon overwrites the active QB Web Connector username/password (hijack payroll sync) | `requireAdmin(ctx, args.userId)` |
