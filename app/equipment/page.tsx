@@ -127,7 +127,10 @@ function EquipmentContent() {
   const vehicles = useQuery(api.equipment.listVehicles,
     selectedLocation === "all" ? {} : { locationId: selectedLocation }
   );
-  const computers = useQuery(api.equipment.listComputers, {});
+  const computers = useQuery(
+    api.equipment.listComputers,
+    user ? { requestingUserId: user._id } : "skip",
+  );
   const personnel = useQuery(api.personnel.list, {});
   const activePersonnel = useQuery(api.equipment.listActivePersonnel);
   const safetyCompletions = useQuery(

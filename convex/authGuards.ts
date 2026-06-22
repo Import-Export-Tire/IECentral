@@ -147,3 +147,47 @@ export async function requireRole(
     );
   }
 }
+
+/**
+ * Role → tier map. MUST stay in sync with `getTier` in `lib/permissions.ts`
+ * (the client side that drives `<Protected minTier=...>`).
+ */
+const ROLE_TIER: Record<string, number> = {
+  super_admin: 5,
+  admin: 4,
+  warehouse_director: 3,
+  warehouse_manager: 2,
+  office_manager: 2,
+  retail_manager: 2,
+  retail_store_manager: 2,
+  department_manager: 1,
+  shift_lead: 1,
+  retail_associate: 1,
+  member: 0,
+  employee: 0,
+};
+
+/**
+ * Throws unless the requesting user is active and at or above `minTier`.
+ * Use to match a page's `<Protected minTier={n}>` gate on the server so a
+ * query/mutation can't be called by lower-tier users (or anonymously).
+ */
+export async function requireMinTier(
+  ctx: AnyCtx,
+  requestingUserId: Id<"users">,
+  minTier: number,
+): Promise<void> {
+  const user = await ctx.db.get(requestingUserId);
+  if (!user) {
+    throw new Error("Unauthorized: requesting user not found");
+  }
+  if (user.isActive === false) {
+    throw new Error("Unauthorized: account is inactive");
+  }
+  const tier = ROLE_TIER[user.role] ?? 0;
+  if (tier < minTier) {
+    throw new Error(
+      `Unauthorized: this action requires tier ${minTier}+ (you are ${user.role}, tier ${tier})`,
+    );
+  }
+}

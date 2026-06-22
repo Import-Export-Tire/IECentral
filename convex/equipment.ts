@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
-import { requireAdmin, requireManagePersonnel } from "./authGuards";
+import { requireAdmin, requireManagePersonnel, requireMinTier } from "./authGuards";
 
 // ============ SCANNER QUERIES ============
 
@@ -1673,11 +1673,16 @@ export const deleteVehicle = mutation({
 // List all computers with remote access
 export const listComputers = query({
   args: {
+    // SECURITY: computer rows hold adminPassword/userPassword/remoteAccessCode.
+    // Gate to tier 2+ (matches the equipment page's <Protected minTier={2}>) so
+    // these secrets are never returned to anonymous or low-tier callers.
+    requestingUserId: v.id("users"),
     status: v.optional(v.string()),
     department: v.optional(v.string()),
     locationId: v.optional(v.id("locations")),
   },
   handler: async (ctx, args) => {
+    await requireMinTier(ctx, args.requestingUserId, 2);
     let computers = await ctx.db
       .query("equipment")
       .filter((q) =>
@@ -1729,10 +1734,12 @@ export const listComputers = query({
   },
 });
 
-// Get computers with active remote access
+// Get computers with active remote access.
+// SECURITY: returns remote-access codes/links — gate to tier 2+ like listComputers.
 export const getRemoteAccessComputers = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireMinTier(ctx, args.requestingUserId, 2);
     const computers = await ctx.db
       .query("equipment")
       .filter((q) =>

@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { requireMinTier } from "./authGuards";
 
 // Supported tables for soft delete
 const SUPPORTED_TABLES = [
@@ -22,12 +23,17 @@ const DELETE_ROLES = ["super_admin", "admin"];
 // Roles that can restore deleted records
 const RESTORE_ROLES = ["super_admin"];
 
-// Get all deleted records for super_admin review
+// Get all deleted records for admin review.
+// SECURITY: each row's recordData is a full JSON snapshot of a deleted record
+// (incl. user/equipment secrets), so this must be gated. Tier 4+ matches the
+// /deleted-records page's <Protected minTier={4}>.
 export const getDeletedRecords = query({
   args: {
+    requestingUserId: v.id("users"),
     tableName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireMinTier(ctx, args.requestingUserId, 4);
     let records;
 
     if (args.tableName) {
@@ -48,12 +54,15 @@ export const getDeletedRecords = query({
   },
 });
 
-// Get deletion audit log (all deletions including restored)
+// Get deletion audit log (all deletions including restored).
+// SECURITY: returns recordData snapshots — gate to tier 4+.
 export const getDeletionAuditLog = query({
   args: {
+    requestingUserId: v.id("users"),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireMinTier(ctx, args.requestingUserId, 4);
     const limit = args.limit || 100;
     const records = await ctx.db
       .query("deletedRecords")
@@ -309,10 +318,11 @@ export const permanentlyDelete = mutation({
   },
 });
 
-// Get count of deleted records by table
+// Get count of deleted records by table (counts only, but gate to match the page).
 export const getDeletedRecordCounts = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireMinTier(ctx, args.requestingUserId, 4);
     const records = await ctx.db
       .query("deletedRecords")
       .filter((q) => q.eq(q.field("restoredAt"), undefined))

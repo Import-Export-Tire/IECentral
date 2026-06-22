@@ -6,6 +6,7 @@ import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useTheme } from "../theme-context";
+import { useAuth } from "../auth-context";
 import { Id } from "@/convex/_generated/dataModel";
 
 const TABLE_LABELS: Record<string, string> = {
@@ -23,15 +24,20 @@ const TABLE_LABELS: Record<string, string> = {
 function DeletedRecordsContent() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const { user } = useAuth();
 
   const [selectedTable, setSelectedTable] = useState<string | undefined>(undefined);
   const [confirmingRestore, setConfirmingRestore] = useState<Id<"deletedRecords"> | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<Id<"deletedRecords"> | null>(null);
 
-  const deletedRecords = useQuery(api.deletedRecords.getDeletedRecords, {
-    tableName: selectedTable,
-  });
-  const counts = useQuery(api.deletedRecords.getDeletedRecordCounts);
+  const deletedRecords = useQuery(
+    api.deletedRecords.getDeletedRecords,
+    user ? { requestingUserId: user._id, tableName: selectedTable } : "skip",
+  );
+  const counts = useQuery(
+    api.deletedRecords.getDeletedRecordCounts,
+    user ? { requestingUserId: user._id } : "skip",
+  );
 
   const restoreRecord = useMutation(api.deletedRecords.restoreRecord);
   const permanentlyDelete = useMutation(api.deletedRecords.permanentlyDelete);
