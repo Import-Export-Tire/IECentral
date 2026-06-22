@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query, action } from "./_generated/server";
+import { mutation, query, action, internalQuery } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 
 // ============ QBWC SESSION MANAGEMENT ============
@@ -564,8 +564,10 @@ export const markExportCompleted = mutation({
 
 // ============ QBXML GENERATION ============
 
-// Generate QWC file content
-export const generateQwcFile = query({
+// Generate QWC file content.
+// SECURITY: internalQuery — the .qwc payload embeds the QBWC username/password,
+// so this must never be a public (client-callable) query. No app callers.
+export const generateQwcFile = internalQuery({
   args: {
     appUrl: v.string(), // The URL where the SOAP service is hosted
     appName: v.string(),

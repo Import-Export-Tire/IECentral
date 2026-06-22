@@ -2,7 +2,7 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 
 export const createZoomMeeting = action({
   args: {
@@ -13,7 +13,7 @@ export const createZoomMeeting = action({
   },
   handler: async (ctx, args) => {
     // Get Zoom account with encrypted tokens
-    const account = await ctx.runQuery(api.zoomAccounts.getWithCredentials, {
+    const account = await ctx.runQuery(internal.zoomAccounts.getWithCredentials, {
       userId: args.userId,
     });
 

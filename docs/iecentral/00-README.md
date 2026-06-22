@@ -135,11 +135,13 @@ Vercel function — it OOM-kills the 2048 MB serverless function.
 These came out of reading the code and are recorded here so they aren't lost. **They are
 observations, not changes** — verify and prioritize before acting.
 
-- **RBAC is largely unenforced on the backend.** Both `RBAC_AUDIT.md` and `RBAC_AUDIT_BACKEND.md`
-  conclude "not remediated": the vast majority of Convex mutations have no permission check and
-  many trust a client-supplied `userId`, so some are identity-spoofable (e.g. self-promotion to
-  `super_admin`). The intended guard surface (`convex/authGuards.ts`) is applied to only a small
-  fraction of handlers. See [01](01-platform-architecture.md) for specifics. **Highest-priority area.**
+- **RBAC is largely unenforced on the backend.** Verified in a full backend read — see
+  [SECURITY-FINDINGS.md](SECURITY-FINDINGS.md): ~195 guard call-sites across 21 of ~90 files, so
+  most of the 665 mutations have no permission check and many trust a client-supplied `userId`.
+  The original audits' headline example (`auth.updateUser` self-promotion) is now **fixed/stale**.
+  The worst anonymous secret-disclosure / privilege-escalation paths have now been **closed**
+  (`seedSuperuser`, the QBWC/Zoom credential queries, the Doc Hub folder-password bypass); a
+  prioritized CRITICAL/HIGH backlog remains in SECURITY-FINDINGS.md. **Highest-priority area.**
 - **`convex/deletedRecords.ts`** is the only file using Convex's built-in `ctx.auth.getUserIdentity()`,
   which `authGuards.ts` says is not wired up — so soft-delete/restore may throw for everyone via the
   normal client path. Worth verifying. ([01](01-platform-architecture.md))

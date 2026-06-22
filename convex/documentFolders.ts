@@ -1,6 +1,6 @@
-import { query, mutation, action } from "./_generated/server";
+import { query, mutation, action, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 
 // Password hashing utilities (same as auth.ts)
 const PBKDF2_ITERATIONS = 100000;
@@ -537,16 +537,20 @@ export const moveFolder = mutation({
 
 // ============ ACTIONS (for password-protected operations) ============
 
-// Internal query to get folder with password hash (for action use)
-export const getFolderWithPassword = query({
+// Internal query to get folder with password hash (for action use).
+// SECURITY: internalQuery — a public query here returns passwordHash and
+// enables offline brute-force of protected-folder passwords.
+export const getFolderWithPassword = internalQuery({
   args: { folderId: v.id("documentFolders") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.folderId);
   },
 });
 
-// Internal query to get documents (used by action)
-export const getDocumentsInternal = query({
+// Internal query to get documents (used by action).
+// SECURITY: internalQuery — a public query here bypasses folder password /
+// access control and returns every document in any protected folder.
+export const getDocumentsInternal = internalQuery({
   args: { folderId: v.id("documentFolders") },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -565,7 +569,7 @@ export const verifyPassword = action({
     password: v.string(),
   },
   handler: async (ctx, args): Promise<{ success: boolean; error?: string }> => {
-    const folder = await ctx.runQuery(api.documentFolders.getFolderWithPassword, {
+    const folder = await ctx.runQuery(internal.documentFolders.getFolderWithPassword, {
       folderId: args.folderId,
     });
 
@@ -600,7 +604,7 @@ export const getProtectedDocuments = action({
   },
   handler: async (ctx, args): Promise<{ success: boolean; error?: string; documents?: unknown[]; accessMethod?: string }> => {
     try {
-      const folder = await ctx.runQuery(api.documentFolders.getFolderWithPassword, {
+      const folder = await ctx.runQuery(internal.documentFolders.getFolderWithPassword, {
         folderId: args.folderId,
       });
 
@@ -613,7 +617,7 @@ export const getProtectedDocuments = action({
 
       // FAST PATH: Community folders are accessible to everyone - no auth needed
       if (folderVisibility === "community") {
-        const documents = await ctx.runQuery(api.documentFolders.getDocumentsInternal, {
+        const documents = await ctx.runQuery(internal.documentFolders.getDocumentsInternal, {
           folderId: args.folderId,
         });
         return { success: true, documents, accessMethod: "community" };
@@ -732,7 +736,7 @@ export const getProtectedDocuments = action({
       }
 
       // Fetch documents via internal query
-      const documents = await ctx.runQuery(api.documentFolders.getDocumentsInternal, {
+      const documents = await ctx.runQuery(internal.documentFolders.getDocumentsInternal, {
         folderId: args.folderId,
       });
 

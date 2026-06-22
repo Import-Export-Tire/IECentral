@@ -21,7 +21,11 @@ export const get = query({
   },
 });
 
-// Internal: get with actual password for sync
+// Get with stored (encrypted) password for server-side sync routes.
+// SECURITY TODO: still a PUBLIC query — callable by the external Convex client
+// from app/api/reports/ftp-{sync,list}. It returns the encrypted password +
+// host/user (not plaintext; routes decrypt server-side), but should be locked
+// behind a shared service secret and the ftp-list route should require auth.
 export const getWithCredentials = query({
   args: { id: v.id("ftpConnections") },
   handler: async (ctx, args) => {

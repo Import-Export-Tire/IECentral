@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 
 export const getByUser = query({
   args: { userId: v.id("users") },
@@ -101,8 +101,9 @@ export const updateTokens = internalMutation({
   },
 });
 
-// Internal: get account with encrypted tokens (for actions)
-export const getWithCredentials = query({
+// Internal: get account with encrypted OAuth tokens (for actions).
+// SECURITY: internalQuery — a public query here leaks any user's Zoom tokens.
+export const getWithCredentials = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     return await ctx.db
