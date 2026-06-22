@@ -4,29 +4,38 @@ import { requireAdmin } from "./authGuards";
 
 // ============ QUERIES ============
 
-// Get all locations
+// SECURITY: location rows hold physical-security secrets (door PIN, alarm/gate
+// codes, wifi password, security notes). These public queries feed dropdowns and
+// filters across the app and must NEVER return those fields to clients. The
+// admin Locations screen uses the guarded `listWithSecurity` below instead.
+function stripSecrets<T extends Record<string, unknown> | null>(loc: T): T {
+  if (!loc) return loc;
+  const { pinCode: _p, alarmCode: _a, gateCode: _g, wifiPassword: _w, securityNotes: _s, ...safe } = loc as Record<string, unknown>;
+  return safe as T;
+}
+
+// Get all locations (secrets stripped)
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db
-      .query("locations")
-      .order("asc")
-      .collect();
+    const rows = await ctx.db.query("locations").order("asc").collect();
+    return rows.map(stripSecrets);
   },
 });
 
-// Get active locations only
+// Get active locations only (secrets stripped)
 export const listActive = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db
+    const rows = await ctx.db
       .query("locations")
       .withIndex("by_active", (q) => q.eq("isActive", true))
       .collect();
+    return rows.map(stripSecrets);
   },
 });
 
-// Get active warehouse locations only
+// Get active warehouse locations only (secrets stripped)
 export const listActiveWarehouses = query({
   args: {},
   handler: async (ctx) => {
@@ -34,26 +43,37 @@ export const listActiveWarehouses = query({
       .query("locations")
       .withIndex("by_active", (q) => q.eq("isActive", true))
       .collect();
-    return all.filter((l) => l.locationType === "warehouse");
+    return all.filter((l) => l.locationType === "warehouse").map(stripSecrets);
   },
 });
 
-// Get single location by ID
+// Get single location by ID (secrets stripped)
 export const get = query({
   args: { id: v.id("locations") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    return stripSecrets(await ctx.db.get(args.id));
   },
 });
 
-// Get location by name
+// Get location by name (secrets stripped)
 export const getByName = query({
   args: { name: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const row = await ctx.db
       .query("locations")
       .withIndex("by_name", (q) => q.eq("name", args.name))
       .first();
+    return stripSecrets(row);
+  },
+});
+
+// Admin-only: full location rows INCLUDING security codes. Used by the
+// Locations management screen, which displays/edits the codes.
+export const listWithSecurity = query({
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
+    return await ctx.db.query("locations").order("asc").collect();
   },
 });
 

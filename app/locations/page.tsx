@@ -14,7 +14,11 @@ function LocationsContent() {
   const isDark = theme === "dark";
   const { user } = useAuth();
 
-  const locations = useQuery(api.locations.list);
+  // Admin screen: fetch full rows incl. security codes via the guarded query.
+  const locations = useQuery(
+    api.locations.listWithSecurity,
+    user ? { requestingUserId: user._id } : "skip",
+  );
   const createLocation = useMutation(api.locations.create);
   const updateLocation = useMutation(api.locations.update);
   const deactivateLocation = useMutation(api.locations.deactivate);
@@ -559,8 +563,10 @@ function LocationsContent() {
 }
 
 export default function LocationsPage() {
+  // Admin-only: this screen displays/edits physical-security codes, and the
+  // listWithSecurity query + all location mutations require an admin role.
   return (
-    <Protected>
+    <Protected requiredRoles={["super_admin", "admin"]}>
       <LocationsContent />
     </Protected>
   );
