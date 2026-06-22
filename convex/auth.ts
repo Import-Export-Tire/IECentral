@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { requireAdmin } from "./authGuards";
@@ -342,7 +342,10 @@ export const getUsersFormatted = query({
 });
 
 // Seed superuser (bypasses existing user check)
-export const seedSuperuser = mutation({
+// SECURITY: internalMutation, NOT a public mutation. This creates/elevates an
+// admin and can overwrite an existing user's password — if exposed to clients it
+// is a one-call account-takeover. Run it from the Convex dashboard/CLI only.
+export const seedSuperuser = internalMutation({
   args: {
     email: v.string(),
     password: v.string(),
@@ -384,8 +387,10 @@ export const seedSuperuser = mutation({
   },
 });
 
-// Set forcePasswordChange flag for a user
-export const setForcePasswordChange = mutation({
+// Set forcePasswordChange flag for a user.
+// SECURITY: internalMutation — patches an arbitrary userId with no caller check.
+// Unused by the app; keep off the public API.
+export const setForcePasswordChange = internalMutation({
   args: {
     userId: v.id("users"),
     forcePasswordChange: v.boolean(),
@@ -398,8 +403,10 @@ export const setForcePasswordChange = mutation({
   },
 });
 
-// Set requiresDailyLog flag for a user (admin only)
-export const setRequiresDailyLog = mutation({
+// Set requiresDailyLog flag for a user (admin only).
+// SECURITY: internalMutation — patches an arbitrary userId with no caller check.
+// Unused by the app; keep off the public API.
+export const setRequiresDailyLog = internalMutation({
   args: {
     userId: v.id("users"),
     requiresDailyLog: v.boolean(),
