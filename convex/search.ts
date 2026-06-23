@@ -1,139 +1,175 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
+import { tierOf } from "./authGuards";
+import { canSeeDocument } from "../lib/docVisibility";
 
-// Global search across all major tables
+type Result = {
+  type: string;
+  id: string;
+  title: string;
+  subtitle: string;
+  href: string;
+  icon: string;
+  category: string;
+};
+
+const PER = 6; // cap per source so one bucket can't crowd out the rest
+const TOTAL = 30;
+
+// Permission-aware global search. Every bucket is gated to the same rule its
+// area enforces, so a result appears only if the requesting user could open it.
+// Tires live in S3 (not Convex) and are merged client-side by GlobalSearch.tsx.
 export const globalSearch = query({
-  args: { searchQuery: v.string() },
+  args: { requestingUserId: v.id("users"), searchQuery: v.string() },
   handler: async (ctx, args) => {
-    const query = args.searchQuery.toLowerCase().trim();
-    if (!query) return { results: [], totalCount: 0 };
+    const q = args.searchQuery.toLowerCase().trim();
+    if (!q) return { results: [], totalCount: 0 };
 
-    const results: Array<{
-      type: "project" | "personnel" | "application" | "equipment" | "user";
-      id: string;
-      title: string;
-      subtitle: string;
-      href: string;
-      icon: string;
-    }> = [];
+    const user = await ctx.db.get(args.requestingUserId);
+    if (!user || user.isActive === false) return { results: [], totalCount: 0 };
+    const tier = tierOf(user.role);
+    const uid = args.requestingUserId as unknown as string;
 
-    // Search projects
+    const out: Result[] = [];
+
+    // ── Doc Hub (all authenticated users; visibility + folder-access filtered) ──
+    const groups = await ctx.db
+      .query("groups")
+      .withIndex("by_active", (g) => g.eq("isActive", true))
+      .collect();
+    const groupIds = new Set(
+      groups.filter((g) => g.memberIds.includes(args.requestingUserId)).map((g) => String(g._id)),
+    );
+    const grants = await ctx.db
+      .query("folderAccessGrants")
+      .withIndex("by_user", (x) => x.eq("grantedToUserId", args.requestingUserId))
+      .filter((x) => x.eq(x.field("isRevoked"), false))
+      .collect();
+    const grantedFolders = new Set(grants.map((x) => String(x.folderId)));
+    const folders = await ctx.db
+      .query("documentFolders")
+      .withIndex("by_active", (x) => x.eq("isActive", true))
+      .collect();
+    const lockedFolders = new Set(
+      folders
+        .filter((f) => f.passwordHash && String(f.createdBy) !== uid && !grantedFolders.has(String(f._id)))
+        .map((f) => String(f._id)),
+    );
+    const docs = await ctx.db
+      .query("documents")
+      .withIndex("by_active", (x) => x.eq("isActive", true))
+      .collect();
+    let dc = 0;
+    for (const d of docs) {
+      if (dc >= PER) break;
+      const hit =
+        d.name?.toLowerCase().includes(q) ||
+        d.description?.toLowerCase().includes(q) ||
+        d.fileName?.toLowerCase().includes(q);
+      if (!hit) continue;
+      const visible = canSeeDocument(
+        {
+          uploadedBy: String(d.uploadedBy),
+          visibility: d.visibility,
+          isPublic: d.isPublic,
+          sharedWith: (d.sharedWith || []).map(String),
+          sharedWithGroups: (d.sharedWithGroups || []).map(String),
+          folderId: d.folderId ? String(d.folderId) : undefined,
+        },
+        uid,
+        groupIds,
+        lockedFolders,
+      );
+      if (!visible) continue;
+      out.push({ type: "document", id: d._id, title: d.name, subtitle: "Document", href: `/documents?doc=${d._id}`, icon: "document", category: "Documents" });
+      dc++;
+    }
+
+    // ── People & HR ──
+    if (tier >= 2) {
+      const personnel = await ctx.db.query("personnel").collect();
+      let n = 0;
+      for (const p of personnel) {
+        if (n >= PER) break;
+        const full = `${p.firstName} ${p.lastName}`.toLowerCase();
+        if (full.includes(q) || p.position?.toLowerCase().includes(q) || p.department?.toLowerCase().includes(q)) {
+          out.push({ type: "personnel", id: p._id, title: `${p.firstName} ${p.lastName}`, subtitle: `${p.position ?? ""}${p.department ? ` - ${p.department}` : ""}`, href: `/personnel/${p._id}`, icon: "user", category: "People" });
+          n++;
+        }
+      }
+      const apps = await ctx.db.query("applications").collect();
+      let a = 0;
+      for (const ap of apps) {
+        if (a >= PER) break;
+        const full = `${ap.firstName} ${ap.lastName}`.toLowerCase();
+        if (full.includes(q) || ap.email?.toLowerCase().includes(q)) {
+          out.push({ type: "application", id: ap._id, title: `${ap.firstName} ${ap.lastName}`, subtitle: `Applicant - ${ap.status}`, href: `/applications/${ap._id}`, icon: "document", category: "People" });
+          a++;
+        }
+      }
+    }
+    if (tier >= 4) {
+      const users = await ctx.db.query("users").collect();
+      let n = 0;
+      for (const u of users) {
+        if (n >= PER) break;
+        if (u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q)) {
+          out.push({ type: "user", id: u._id, title: u.name, subtitle: `${u.role} - ${u.email}`, href: "/users", icon: "users", category: "People" });
+          n++;
+        }
+      }
+    }
+
+    // ── Operations ──
+    if (tier >= 2) {
+      const scanners = await ctx.db.query("scanners").collect();
+      let s = 0;
+      for (const sc of scanners) {
+        if (s >= PER) break;
+        if (sc.number?.toLowerCase().includes(q) || sc.serialNumber?.toLowerCase().includes(q) || sc.model?.toLowerCase().includes(q)) {
+          out.push({ type: "equipment", id: sc._id, title: `Scanner #${sc.number}`, subtitle: `${sc.model || "Scanner"} - ${sc.status}`, href: "/equipment", icon: "device", category: "Operations" });
+          s++;
+        }
+      }
+      const pickers = await ctx.db.query("pickers").collect();
+      let p2 = 0;
+      for (const pk of pickers) {
+        if (p2 >= PER) break;
+        if (pk.number?.toLowerCase().includes(q) || pk.serialNumber?.toLowerCase().includes(q) || pk.model?.toLowerCase().includes(q)) {
+          out.push({ type: "equipment", id: pk._id, title: `Picker #${pk.number}`, subtitle: `${pk.model || "Picker"} - ${pk.status}`, href: "/equipment", icon: "device", category: "Operations" });
+          p2++;
+        }
+      }
+    }
     const projects = await ctx.db.query("projects").collect();
-    for (const project of projects) {
-      if (
-        project.name.toLowerCase().includes(query) ||
-        project.description?.toLowerCase().includes(query)
-      ) {
-        results.push({
-          type: "project",
-          id: project._id,
-          title: project.name,
-          subtitle: `Project - ${project.status}`,
-          href: "/projects",
-          icon: "folder",
-        });
+    let pc = 0;
+    for (const pr of projects) {
+      if (pc >= PER) break;
+      const canSee = String(pr.createdBy) === uid || (pr.sharedWith || []).map(String).includes(uid) || tier >= 4;
+      if (canSee && (pr.name.toLowerCase().includes(q) || pr.description?.toLowerCase().includes(q))) {
+        out.push({ type: "project", id: pr._id, title: pr.name, subtitle: `Project - ${pr.status}`, href: "/projects", icon: "folder", category: "Operations" });
+        pc++;
+      }
+    }
+    const anns = await ctx.db.query("announcements").collect();
+    let ac = 0;
+    for (const an of anns) {
+      if (ac >= PER) break;
+      if (an.title?.toLowerCase().includes(q) || an.content?.toLowerCase().includes(q)) {
+        out.push({ type: "announcement", id: an._id, title: an.title, subtitle: "Announcement", href: "/announcements", icon: "document", category: "Operations" });
+        ac++;
+      }
+    }
+    const locs = await ctx.db.query("locations").collect();
+    let lc = 0;
+    for (const lo of locs) {
+      if (lc >= PER) break;
+      if (lo.name?.toLowerCase().includes(q)) {
+        out.push({ type: "location", id: lo._id, title: lo.name, subtitle: "Location", href: "/locations", icon: "folder", category: "Operations" });
+        lc++;
       }
     }
 
-    // Search personnel
-    const personnel = await ctx.db.query("personnel").collect();
-    for (const person of personnel) {
-      const fullName = `${person.firstName} ${person.lastName}`.toLowerCase();
-      if (
-        fullName.includes(query) ||
-        person.position?.toLowerCase().includes(query) ||
-        person.department?.toLowerCase().includes(query)
-      ) {
-        results.push({
-          type: "personnel",
-          id: person._id,
-          title: `${person.firstName} ${person.lastName}`,
-          subtitle: `${person.position} - ${person.department}`,
-          href: `/personnel/${person._id}`,
-          icon: "user",
-        });
-      }
-    }
-
-    // Search applications
-    const applications = await ctx.db.query("applications").collect();
-    for (const app of applications) {
-      const fullName = `${app.firstName} ${app.lastName}`.toLowerCase();
-      if (
-        fullName.includes(query) ||
-        app.email?.toLowerCase().includes(query)
-      ) {
-        results.push({
-          type: "application",
-          id: app._id,
-          title: `${app.firstName} ${app.lastName}`,
-          subtitle: `Applicant - ${app.status}`,
-          href: `/applications/${app._id}`,
-          icon: "document",
-        });
-      }
-    }
-
-    // Search scanners
-    const scanners = await ctx.db.query("scanners").collect();
-    for (const scanner of scanners) {
-      if (
-        scanner.number?.toLowerCase().includes(query) ||
-        scanner.serialNumber?.toLowerCase().includes(query) ||
-        scanner.model?.toLowerCase().includes(query)
-      ) {
-        results.push({
-          type: "equipment",
-          id: scanner._id,
-          title: `Scanner #${scanner.number}`,
-          subtitle: `${scanner.model || "Scanner"} - ${scanner.status}`,
-          href: "/equipment",
-          icon: "device",
-        });
-      }
-    }
-
-    // Search pickers
-    const pickers = await ctx.db.query("pickers").collect();
-    for (const picker of pickers) {
-      if (
-        picker.number?.toLowerCase().includes(query) ||
-        picker.serialNumber?.toLowerCase().includes(query) ||
-        picker.model?.toLowerCase().includes(query)
-      ) {
-        results.push({
-          type: "equipment",
-          id: picker._id,
-          title: `Picker #${picker.number}`,
-          subtitle: `${picker.model || "Picker"} - ${picker.status}`,
-          href: "/equipment",
-          icon: "device",
-        });
-      }
-    }
-
-    // Search users
-    const users = await ctx.db.query("users").collect();
-    for (const user of users) {
-      if (
-        user.name?.toLowerCase().includes(query) ||
-        user.email?.toLowerCase().includes(query)
-      ) {
-        results.push({
-          type: "user",
-          id: user._id,
-          title: user.name,
-          subtitle: `${user.role} - ${user.email}`,
-          href: "/users",
-          icon: "users",
-        });
-      }
-    }
-
-    // Return top 20 results
-    return {
-      results: results.slice(0, 20),
-      totalCount: results.length,
-    };
+    return { results: out.slice(0, TOTAL), totalCount: out.length };
   },
 });

@@ -167,6 +167,11 @@ const ROLE_TIER: Record<string, number> = {
   employee: 0,
 };
 
+/** Non-throwing tier lookup for a role (0 if unknown). */
+export function tierOf(role: string): number {
+  return ROLE_TIER[role] ?? 0;
+}
+
 /**
  * Throws unless the requesting user is active and at or above `minTier`.
  * Use to match a page's `<Protected minTier={n}>` gate on the server so a
