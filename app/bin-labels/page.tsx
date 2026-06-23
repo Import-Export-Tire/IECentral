@@ -464,6 +464,7 @@ export default function BinLabelsPage() {
     }
 
     // Print via a hidden iframe (no popup-blocker issues after the async build).
+    // The blob: URL must be allowed by the CSP frame-src directive (see next.config.ts).
     const url = doc.output("bloburl") as unknown as string;
     const iframe = document.createElement("iframe");
     Object.assign(iframe.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0" });

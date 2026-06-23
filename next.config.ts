@@ -129,7 +129,7 @@ const nextConfig: NextConfig = {
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://api.zoom.us https://zoom.us https://*.amazonaws.com https://api.giphy.com; img-src 'self' data: blob: https: https://media*.giphy.com; frame-src 'self' https://zoom.us; media-src 'self' blob: https://*.amazonaws.com;" },
+          { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://api.zoom.us https://zoom.us https://*.amazonaws.com https://api.giphy.com; img-src 'self' data: blob: https: https://media*.giphy.com; frame-src 'self' blob: https://zoom.us; media-src 'self' blob: https://*.amazonaws.com;" },
         ],
       },
     ];
