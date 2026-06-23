@@ -44,6 +44,13 @@ export default function InventoryReportPage() {
   const [staleWarning, setStaleWarning] = useState<string | null>(null);
   const [error, setError] = useState("");
 
+  // Deep-link from global search: ?search=<itemId> shows that product's inventory
+  // across all locations. Read once on mount (avoids useSearchParams Suspense).
+  useEffect(() => {
+    const s = new URLSearchParams(window.location.search).get("search");
+    if (s) setSearch(s);
+  }, []);
+
   // Fetch data from S3-backed API
   useEffect(() => {
     setLoading(true);

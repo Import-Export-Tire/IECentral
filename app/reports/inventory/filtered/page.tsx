@@ -78,16 +78,6 @@ export default function FilteredInventoryReportPage() {
   const [adjPage, setAdjPage] = useState(0);
   const [adjPageSize, setAdjPageSize] = useState(50);
 
-  // Deep-link from global search: ?tab=adjustments&q=<itemId> lands on this item's
-  // adjustment history filtered to it. Read once on mount (avoids useSearchParams Suspense).
-  useEffect(() => {
-    const sp = new URLSearchParams(window.location.search);
-    const qTab = sp.get("tab");
-    const qItem = sp.get("q");
-    if (qTab === "adjustments") setTab("adjustments");
-    if (qItem) { setTab("adjustments"); setAdjSearch(qItem); setAdjRange("all"); }
-  }, []);
-
   const addAdjustment = useMutation(api.inventoryAdjustments.add);
   const removeAdjustment = useMutation(api.inventoryAdjustments.remove);
   // Log display: cap at 50 most-recent to stay under Convex bandwidth
