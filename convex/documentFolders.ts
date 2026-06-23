@@ -124,24 +124,74 @@ export const search = query({
 
 // ============ QUERIES ============
 
-// HIPAA-compliant folder visibility helper
-async function getFolderWithCounts(ctx: any, folder: any, allFolders: any[]) {
-  const docs = await ctx.db
-    .query("documents")
-    .withIndex("by_folder", (q: any) => q.eq("folderId", folder._id))
-    .filter((q: any) => q.eq(q.field("isActive"), true))
-    .collect();
+// Build a parentFolderId -> child folder ids map from a set of (active) folders.
+function buildChildrenMap(allFolders: any[]): Map<string, string[]> {
+  const childrenByParent = new Map<string, string[]>();
+  for (const f of allFolders) {
+    if (!f.parentFolderId) continue;
+    const arr = childrenByParent.get(f.parentFolderId) ?? [];
+    arr.push(f._id);
+    childrenByParent.set(f.parentFolderId, arr);
+  }
+  return childrenByParent;
+}
 
-  // Count subfolders
-  const subfolders = allFolders.filter(
-    (f: any) => f.parentFolderId === folder._id && f.isActive
-  );
+// Build a folderId -> direct active-document count map from a set of (active) docs.
+function buildDirectDocCount(allDocs: any[]): Map<string, number> {
+  const count = new Map<string, number>();
+  for (const d of allDocs) {
+    if (!d.folderId) continue;
+    count.set(d.folderId, (count.get(d.folderId) ?? 0) + 1);
+  }
+  return count;
+}
 
+// Total active documents in a folder's whole subtree (the folder + all descendants).
+function countDocsInSubtree(
+  folderId: string,
+  childrenByParent: Map<string, string[]>,
+  directCount: Map<string, number>,
+): number {
+  let total = directCount.get(folderId) ?? 0;
+  for (const childId of childrenByParent.get(folderId) ?? []) {
+    total += countDocsInSubtree(childId, childrenByParent, directCount);
+  }
+  return total;
+}
+
+// HIPAA-compliant folder visibility helper.
+// documentCount is RECURSIVE (files in this folder + every subfolder) so a
+// container folder whose files live in subfolders no longer reads "0 files".
+// directDocumentCount is the count of files directly in this folder.
+function getFolderWithCounts(
+  folder: any,
+  childrenByParent: Map<string, string[]>,
+  directCount: Map<string, number>,
+) {
+  const subfolderCount = (childrenByParent.get(folder._id) ?? []).length;
   return {
     ...folder,
-    documentCount: docs.length,
-    subfolderCount: subfolders.length,
+    documentCount: countDocsInSubtree(folder._id, childrenByParent, directCount),
+    directDocumentCount: directCount.get(folder._id) ?? 0,
+    subfolderCount,
     isProtected: !!folder.passwordHash,
+  };
+}
+
+// Load the active folders + docs and build the maps the helper needs (recursive
+// counts span the whole tree, so we always tally over ALL active folders/docs).
+async function loadFolderCountMaps(ctx: any) {
+  const allDocs = await ctx.db
+    .query("documents")
+    .withIndex("by_active", (q: any) => q.eq("isActive", true))
+    .collect();
+  const allActiveFolders = await ctx.db
+    .query("documentFolders")
+    .withIndex("by_active", (q: any) => q.eq("isActive", true))
+    .collect();
+  return {
+    directCount: buildDirectDocCount(allDocs),
+    childrenByParent: buildChildrenMap(allActiveFolders),
   };
 }
 
@@ -167,10 +217,9 @@ export const getMyFolders = query({
       filteredFolders = filteredFolders.filter((f) => f.parentFolderId === args.parentFolderId);
     }
 
-    // Get document counts and subfolder counts
-    return await Promise.all(
-      filteredFolders.map((folder) => getFolderWithCounts(ctx, folder, allFolders))
-    );
+    // Get (recursive) document counts and subfolder counts
+    const { directCount, childrenByParent } = await loadFolderCountMaps(ctx);
+    return filteredFolders.map((folder) => getFolderWithCounts(folder, childrenByParent, directCount));
   },
 });
 
@@ -195,10 +244,9 @@ export const getCommunityFolders = query({
       filteredFolders = filteredFolders.filter((f) => f.parentFolderId === args.parentFolderId);
     }
 
-    // Get document counts and subfolder counts
-    return await Promise.all(
-      filteredFolders.map((folder) => getFolderWithCounts(ctx, folder, allFolders))
-    );
+    // Get (recursive) document counts and subfolder counts
+    const { directCount, childrenByParent } = await loadFolderCountMaps(ctx);
+    return filteredFolders.map((folder) => getFolderWithCounts(folder, childrenByParent, directCount));
   },
 });
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useDocHub } from "./DocHubContext";
-import { getFileIcon, getFileColor, formatFileSize, type DocumentType, type FolderType } from "./types";
+import { getFileIcon, getFileColor, formatFileSize, folderCountLabel, type DocumentType, type FolderType } from "./types";
 import { resolveFileType } from "@/lib/fileTypes";
 
 // Google-Drive-style thumbnail: images render directly; PDFs/Word/Excel/PowerPoint show a
@@ -367,7 +367,7 @@ export function FolderGridCard({ folder }: { folder: FolderType }) {
           )}
         </div>
         <p className={`text-xs mt-0.5 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-          {isDropTarget ? "Drop here to move" : `${folder.documentCount} ${folder.documentCount === 1 ? "file" : "files"}`}
+          {isDropTarget ? "Drop here to move" : folderCountLabel(folder)}
         </p>
       </div>
     </div>
@@ -455,7 +455,7 @@ export function FolderListRow({ folder }: { folder: FolderType }) {
         </div>
       </div>
       <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-        {isDropTarget ? "Drop here" : `${folder.documentCount} files`}
+        {isDropTarget ? "Drop here" : folderCountLabel(folder)}
       </span>
       <span className={`hidden lg:block text-xs w-28 text-right ${isDark ? "text-slate-500" : "text-gray-400"}`}>
         {new Date(folder.updatedAt).toLocaleDateString()}

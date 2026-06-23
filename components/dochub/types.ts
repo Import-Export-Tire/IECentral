@@ -188,7 +188,20 @@ export type FolderType = {
   createdByName: string;
   isActive: boolean;
   isProtected: boolean;
-  documentCount: number;
+  documentCount: number; // recursive: files in this folder + all subfolders
+  directDocumentCount?: number; // files directly in this folder
+  subfolderCount?: number;
   createdAt: number;
   updatedAt: number;
 };
+
+// "3 folders · 12 files" / "5 files" / "2 folders" / "Empty" — reflects nested
+// content so a container folder whose files live in subfolders isn't shown as "0 files".
+export function folderCountLabel(folder: { subfolderCount?: number; documentCount?: number }): string {
+  const folders = folder.subfolderCount ?? 0;
+  const files = folder.documentCount ?? 0;
+  const parts: string[] = [];
+  if (folders > 0) parts.push(`${folders} ${folders === 1 ? "folder" : "folders"}`);
+  if (files > 0) parts.push(`${files} ${files === 1 ? "file" : "files"}`);
+  return parts.length ? parts.join(" · ") : "Empty";
+}
