@@ -3561,6 +3561,7 @@ export default defineSchema({
       model: v.string(),
       sizeDesc: v.string(),
       qty: v.optional(v.number()),
+      mpn: v.optional(v.string()), // manufacturer part number (matches the create validator + saved labels)
     })),
     copies: v.number(),
     notes: v.optional(v.string()),
