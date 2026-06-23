@@ -9,8 +9,12 @@
  * Invoked via a Function URL (POST JSON) by IECentral's /api/documents/office-pdf
  * route. Auth is a shared secret in the `x-convert-secret` header (CONVERT_SECRET env).
  *
- * Request  body: { "filename": "foo.docx", "contentBase64": "<base64 of the file>" }
- * Response body: { "pdfBase64": "<base64 of the produced PDF>" }
+ * Two transports (the synchronous SDK invoke caps request AND response payloads
+ * at 6 MB, so large files must NOT travel in the payload):
+ *   - URL mode (preferred): { filename, srcUrl, uploadUrl } — fetch the source
+ *     from srcUrl, convert, POST the PDF to uploadUrl (a Convex upload URL),
+ *     return { storageId }. Payloads stay tiny regardless of file size.
+ *   - Inline mode (small files / legacy): { filename, contentBase64 } -> { pdfBase64 }.
  *
  * LibreOffice ships in a public layer as a brotli-compressed tarball at
  * /opt/lo.tar.br. We decompress it (Node has native brotli) and untar it to
@@ -83,8 +87,8 @@ exports.handler = async (event) => {
   const provided = headers["x-convert-secret"] || headers["X-Convert-Secret"] || payload.secret;
   if (!SECRET || provided !== SECRET) return json(401, { error: "unauthorized" });
 
-  const { filename, contentBase64 } = payload;
-  if (!contentBase64) return json(400, { error: "missing contentBase64" });
+  const { filename, contentBase64, srcUrl, uploadUrl } = payload;
+  if (!contentBase64 && !srcUrl) return json(400, { error: "missing source (contentBase64 or srcUrl)" });
 
   const safeName = String(filename || "input.docx").replace(/[^A-Za-z0-9._-]/g, "_");
   const ext = path.extname(safeName) || ".docx";
@@ -92,7 +96,20 @@ exports.handler = async (event) => {
   const inPath = `/tmp/${base}${ext}`;
   const outPath = `/tmp/${base}.pdf`;
 
-  fs.writeFileSync(inPath, Buffer.from(contentBase64, "base64"));
+  // Acquire the source bytes — from a URL (any size) or inline base64 (small/legacy).
+  let inputBuf;
+  if (srcUrl) {
+    try {
+      const r = await fetch(srcUrl);
+      if (!r.ok) return json(502, { error: "source fetch failed", status: r.status });
+      inputBuf = Buffer.from(await r.arrayBuffer());
+    } catch (e) {
+      return json(502, { error: "source fetch failed", detail: String(e && e.message).slice(0, 300) });
+    }
+  } else {
+    inputBuf = Buffer.from(contentBase64, "base64");
+  }
+  fs.writeFileSync(inPath, inputBuf);
 
   try {
     await ensureLibreOffice();
@@ -110,7 +127,7 @@ exports.handler = async (event) => {
         // absent from this layer, normally sets this).
         LD_LIBRARY_PATH: `/tmp/instdir/program:${process.env.LD_LIBRARY_PATH || ""}`,
       },
-      timeout: 55000,
+      timeout: 100000,
       stdio: "pipe",
     });
   } catch (e) {
@@ -123,5 +140,24 @@ exports.handler = async (event) => {
   if (!fs.existsSync(outPath)) return json(500, { error: "no PDF produced" });
   const pdf = fs.readFileSync(outPath);
   try { fs.rmSync(outPath, { force: true }); } catch {}
+
+  // URL mode: stream the PDF straight into Convex storage and return only the id,
+  // so the (6 MB-capped) invoke response payload stays tiny.
+  if (uploadUrl) {
+    try {
+      const up = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/pdf" },
+        body: pdf,
+      });
+      if (!up.ok) return json(502, { error: "pdf upload failed", status: up.status });
+      const out = await up.json(); // Convex upload returns { storageId }
+      if (!out || !out.storageId) return json(502, { error: "upload returned no storageId" });
+      return json(200, { storageId: out.storageId });
+    } catch (e) {
+      return json(502, { error: "pdf upload failed", detail: String(e && e.message).slice(0, 300) });
+    }
+  }
+
   return json(200, { pdfBase64: pdf.toString("base64") });
 };

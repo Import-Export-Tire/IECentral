@@ -13,7 +13,8 @@ RUNTIME="nodejs20.x"
 # Public LibreOffice layer (brotli-compressed; handler unpacks /opt/lo.tar.br).
 LAYER_ARN="${LIBREOFFICE_LAYER_ARN:-arn:aws:lambda:us-east-1:764866452798:layer:libreoffice-brotli:1}"
 MEM=2048
-TIMEOUT=60
+# 120s headroom: URL mode does fetch(source) + convert (up to 100s) + upload(PDF).
+TIMEOUT=120
 EPHEMERAL=2048
 
 : "${CONVERT_SECRET:?Set CONVERT_SECRET (must equal IECentral PREVIEW_PDF_SECRET)}"

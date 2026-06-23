@@ -61,15 +61,19 @@ export async function GET(request: NextRequest) {
       return new Response("conversion not configured", { status: 503 });
     }
 
-    // Fetch the original Office file bytes.
+    // Signed download URL for the original Office file (handed to the Lambda).
     const srcUrl = await convex.action(api.documents.getFileDownloadUrl, { documentId: docId });
     if (!srcUrl) return new Response("source unavailable", { status: 404 });
-    const srcResp = await fetch(srcUrl);
-    if (!srcResp.ok) return new Response("source fetch failed", { status: 502 });
-    const srcBuf = Buffer.from(await srcResp.arrayBuffer());
 
     // 3) Convert via the private LibreOffice Lambda (direct SDK invoke; IAM is the
     // boundary, the secret is passed in-payload as defense in depth).
+    //
+    // Transport the file through Convex storage URLs, NOT the invoke payload: the
+    // synchronous invoke caps the request AND response at 6 MB, so a large PPTX in
+    // the payload errors ("Request must be smaller than 6291456 bytes"). Instead we
+    // hand the Lambda a source download URL + a Convex upload URL; it fetches the
+    // file, converts, uploads the PDF straight to storage, and returns only the id.
+    const uploadUrl = (await convex.mutation(api.documents.generatePreviewUploadUrl, { secret: SECRET })) as string;
     const lambda = new LambdaClient({
       region: LAMBDA_REGION,
       credentials: { accessKeyId: LAMBDA_KEY, secretAccessKey: LAMBDA_SECRET },
@@ -81,7 +85,8 @@ export async function GET(request: NextRequest) {
           JSON.stringify({
             secret: SECRET,
             filename: doc.fileName || `${fileName}.docx`,
-            contentBase64: srcBuf.toString("base64"),
+            srcUrl,
+            uploadUrl,
           })
         ),
       })
@@ -89,37 +94,30 @@ export async function GET(request: NextRequest) {
     if (invoked.FunctionError || !invoked.Payload) {
       return new Response(`conversion failed: ${invoked.FunctionError || "no payload"}`, { status: 502 });
     }
-    // The handler returns proxy-style { statusCode, body: JSON.stringify({pdfBase64}) }.
+    // The handler returns proxy-style { statusCode, body: JSON.stringify({storageId}) }.
     const outer = JSON.parse(Buffer.from(invoked.Payload).toString("utf8")) as { statusCode?: number; body?: string };
     if (outer.statusCode && outer.statusCode >= 400) {
       return new Response(`conversion failed: ${(outer.body || "").slice(0, 300)}`, { status: 502 });
     }
-    const { pdfBase64 } = JSON.parse(outer.body || "{}") as { pdfBase64?: string };
-    if (!pdfBase64) return new Response("conversion returned no pdf", { status: 502 });
-    const pdfBuf = Buffer.from(pdfBase64, "base64");
+    const { storageId } = JSON.parse(outer.body || "{}") as { storageId?: string };
+    if (!storageId) return new Response("conversion returned no storageId", { status: 502 });
 
-    // 4) Cache the rendition in Convex storage and link it to the document.
-    try {
-      const uploadUrl = (await convex.mutation(api.documents.generatePreviewUploadUrl, { secret: SECRET })) as string;
-      const up = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/pdf" },
-        body: pdfBuf,
-      });
-      if (up.ok) {
-        const { storageId } = (await up.json()) as { storageId: string };
-        await convex.mutation(api.documents.setPreviewPdf, {
-          documentId: docId,
-          fileId: storageId as Id<"_storage">,
-          secret: SECRET,
-        });
+    // 4) Link the cached rendition to the document.
+    await convex.mutation(api.documents.setPreviewPdf, {
+      documentId: docId,
+      fileId: storageId as Id<"_storage">,
+      secret: SECRET,
+    });
+
+    // 5) Stream the freshly converted PDF from storage.
+    const outUrl = await convex.action(api.documents.getPreviewPdfUrl, { documentId: docId });
+    if (outUrl) {
+      const out = await fetch(outUrl);
+      if (out.ok && out.body) {
+        return new Response(out.body, { status: 200, headers: PDF_HEADERS(fileName) });
       }
-    } catch {
-      // Caching is best-effort; we still serve the freshly converted PDF below.
     }
-
-    // 5) Stream the freshly converted PDF.
-    return new Response(pdfBuf, { status: 200, headers: PDF_HEADERS(fileName) });
+    return new Response("conversion succeeded but rendition unavailable", { status: 502 });
   } catch (err) {
     return new Response(err instanceof Error ? err.message : "error", { status: 500 });
   }
