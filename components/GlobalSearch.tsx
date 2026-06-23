@@ -5,14 +5,17 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/app/theme-context";
+import { useAuth } from "@/app/auth-context";
+import { usePermissions } from "@/lib/usePermissions";
 
 interface SearchResult {
-  type: "project" | "personnel" | "application" | "equipment" | "user";
+  type: "project" | "personnel" | "application" | "equipment" | "user" | "document" | "announcement" | "location" | "tire";
   id: string;
   title: string;
   subtitle: string;
   href: string;
   icon: string;
+  category: string;
 }
 
 const typeColors: Record<string, { bg: string; text: string }> = {
@@ -21,6 +24,10 @@ const typeColors: Record<string, { bg: string; text: string }> = {
   application: { bg: "bg-purple-500/20", text: "text-purple-400" },
   equipment: { bg: "bg-orange-500/20", text: "text-orange-400" },
   user: { bg: "bg-blue-500/20", text: "text-blue-400" },
+  document: { bg: "bg-slate-500/20", text: "text-slate-400" },
+  announcement: { bg: "bg-pink-500/20", text: "text-pink-400" },
+  location: { bg: "bg-teal-500/20", text: "text-teal-400" },
+  tire: { bg: "bg-amber-500/20", text: "text-amber-400" },
 };
 
 const typeIcons: Record<string, React.ReactNode> = {
@@ -93,12 +100,52 @@ export default function GlobalSearch() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
+  const { user } = useAuth();
+  const { menu } = usePermissions();
+
+  // Debounce so we don't scan on every keystroke.
+  const [debounced, setDebounced] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(query), 250);
+    return () => clearTimeout(t);
+  }, [query]);
+
   const searchResults = useQuery(
     api.search.globalSearch,
-    query.length >= 2 ? { searchQuery: query } : "skip"
+    debounced.length >= 2 && user ? { requestingUserId: user._id, searchQuery: debounced } : "skip",
   );
+  const dbResults = (searchResults?.results || []) as SearchResult[];
 
-  const results = searchResults?.results || [];
+  // Tires live in S3 (not Convex) — merge client-side, only for reports-permissioned users.
+  const [tireResults, setTireResults] = useState<SearchResult[]>([]);
+  useEffect(() => {
+    if (!menu.reports || debounced.length < 2) { setTireResults([]); return; }
+    let cancelled = false;
+    fetch(`/api/reports/tire-search?q=${encodeURIComponent(debounced)}`)
+      .then((r) => r.json())
+      .then((d: { results?: Array<{ itemId: string; brand: string; model: string; sizeDesc: string }> }) => {
+        if (cancelled) return;
+        setTireResults(
+          (d.results || []).slice(0, 6).map((t) => ({
+            type: "tire" as const,
+            id: t.itemId,
+            title: `${t.brand} ${t.model}`.trim() || t.itemId,
+            subtitle: t.sizeDesc || t.itemId,
+            href: `/reports/inventory/filtered?q=${encodeURIComponent(t.itemId)}`,
+            icon: "device",
+            category: "Tires",
+          })),
+        );
+      })
+      .catch(() => { if (!cancelled) setTireResults([]); });
+    return () => { cancelled = true; };
+  }, [debounced, menu.reports]);
+
+  // Combined + grouped by category; keyboard nav indexes this ordered list.
+  const CAT_ORDER = ["People", "Documents", "Tires", "Operations"];
+  const results = [...dbResults, ...tireResults].sort(
+    (a, b) => CAT_ORDER.indexOf(a.category) - CAT_ORDER.indexOf(b.category),
+  );
 
   // Handle keyboard shortcut (Cmd+K / Ctrl+K) and custom event
   useEffect(() => {
@@ -185,7 +232,7 @@ export default function GlobalSearch() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyboardNavigation}
-              placeholder="Search projects, personnel, applications..."
+              placeholder="Search documents, people, tires, equipment..."
               className={`flex-1 bg-transparent outline-none ${
                 isDark ? "text-white placeholder-slate-500" : "text-gray-900 placeholder-gray-400"
               }`}
@@ -211,39 +258,46 @@ export default function GlobalSearch() {
                   const colors = typeColors[result.type] || typeColors.project;
                   const icon = typeIcons[result.icon] || typeIcons.folder;
                   const isSelected = index === selectedIndex;
+                  const showHeader = index === 0 || results[index - 1].category !== result.category;
 
                   return (
-                    <button
-                      key={`${result.type}-${result.id}`}
-                      onClick={() => handleSelect(result)}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                        isSelected
-                          ? isDark ? "bg-cyan-500/10" : "bg-blue-50"
-                          : isDark ? "hover:bg-slate-800/50" : "hover:bg-gray-50"
-                      }`}
-                    >
-                      <div className={`flex-shrink-0 p-2 rounded-lg ${colors.bg} ${colors.text}`}>
-                        {icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className={`text-sm font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>
-                          {result.title}
+                    <div key={`${result.type}-${result.id}`}>
+                      {showHeader && (
+                        <div className={`px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                          {result.category}
                         </div>
-                        <div className={`text-xs truncate ${isDark ? "text-slate-500" : "text-gray-500"}`}>
-                          {result.subtitle}
+                      )}
+                      <button
+                        onClick={() => handleSelect(result)}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                          isSelected
+                            ? isDark ? "bg-cyan-500/10" : "bg-blue-50"
+                            : isDark ? "hover:bg-slate-800/50" : "hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className={`flex-shrink-0 p-2 rounded-lg ${colors.bg} ${colors.text}`}>
+                          {icon}
                         </div>
-                      </div>
-                      <span className={`flex-shrink-0 px-2 py-0.5 text-[10px] font-medium rounded ${colors.bg} ${colors.text}`}>
-                        {result.type}
-                      </span>
-                    </button>
+                        <div className="flex-1 min-w-0">
+                          <div className={`text-sm font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                            {result.title}
+                          </div>
+                          <div className={`text-xs truncate ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                            {result.subtitle}
+                          </div>
+                        </div>
+                        <span className={`flex-shrink-0 px-2 py-0.5 text-[10px] font-medium rounded ${colors.bg} ${colors.text}`}>
+                          {result.type}
+                        </span>
+                      </button>
+                    </div>
                   );
                 })}
-                {searchResults && searchResults.totalCount > 20 && (
+                {searchResults && searchResults.totalCount > dbResults.length && (
                   <div className={`px-4 py-2 text-xs text-center border-t ${
                     isDark ? "text-slate-500 border-slate-800" : "text-gray-500 border-gray-100"
                   }`}>
-                    Showing 20 of {searchResults.totalCount} results
+                    Showing top matches — refine your search to narrow down
                   </div>
                 )}
               </div>
