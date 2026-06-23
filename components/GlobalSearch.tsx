@@ -131,7 +131,7 @@ export default function GlobalSearch() {
             id: t.itemId,
             title: `${t.brand} ${t.model}`.trim() || t.itemId,
             subtitle: t.sizeDesc || t.itemId,
-            href: `/reports/inventory/filtered?q=${encodeURIComponent(t.itemId)}`,
+            href: `/reports/inventory/filtered?tab=adjustments&q=${encodeURIComponent(t.itemId)}`,
             icon: "device",
             category: "Tires",
           })),
