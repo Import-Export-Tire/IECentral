@@ -25,6 +25,7 @@ export const processResume = action({
     matchedJob?: string;
     overallScore?: number;
     currentPosition?: string;
+    message?: string;
   }> => {
     const { resumeText, fileName, selectedJobId, skipAiMatching } = args;
 
