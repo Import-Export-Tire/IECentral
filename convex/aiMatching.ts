@@ -493,8 +493,11 @@ export const reanalyzeApplication = action({
 // overallScore of exactly 50, or a placeholder/blank name. Safe to run repeatedly —
 // it won't re-score correctly-analyzed candidates.
 export const reanalyzeFailedApplications = action({
-  args: {},
-  handler: async (ctx): Promise<{ total: number; targeted: number; processed: number; errors: number; scores: { name: string; score: number }[] }> => {
+  // Processes up to `limit` targets per call so a single invocation stays well under
+  // the action time limit; returns `remaining` so the caller loops until it's 0.
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args): Promise<{ targetedTotal: number; processed: number; remaining: number; errors: number; scores: { name: string; score: number }[] }> => {
+    const limit = args.limit ?? 8;
     const applications = await ctx.runQuery(api.applications.getAll, { includeArchived: true }) as any[];
     const isPlaceholderName = (a: any) =>
       !a.firstName || a.firstName === "Unknown" || String(a.lastName || "").startsWith("(");
@@ -503,8 +506,9 @@ export const reanalyzeFailedApplications = action({
         a.resumeText && a.resumeText.trim().length >= 50 &&
         (a.candidateAnalysis?.overallScore === 50 || isPlaceholderName(a)),
     );
-    const results = { total: applications.length, targeted: targets.length, processed: 0, errors: 0, scores: [] as { name: string; score: number }[] };
-    for (const app of targets) {
+    const batch = targets.slice(0, limit);
+    const results = { targetedTotal: targets.length, processed: 0, remaining: Math.max(0, targets.length - batch.length), errors: 0, scores: [] as { name: string; score: number }[] };
+    for (const app of batch) {
       try {
         const r = await ctx.runAction(api.aiMatching.reanalyzeApplication, { applicationId: app._id }) as { success: boolean; overallScore?: number };
         if (r.success) {
