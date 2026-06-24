@@ -4,6 +4,7 @@ import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { createGunzip } from "zlib";
 import { createInterface } from "readline";
 import { brandCodeToName } from "@/lib/brandMapping";
+import { tireSizeMatchesQuery } from "@/lib/tireSearch";
 
 const BUCKET = "ietires-dunlop-jmk-uploads";
 // Tire-label lookups read the COLLECTIVE index (cumulative union of every
@@ -167,7 +168,13 @@ export async function searchTires(query: string, limit = 40): Promise<TireSearch
   for (const [itemId, e] of map) {
     const hay = `${e.manufacturerName} ${e.model} ${e.description} ${itemId}`.toLowerCase();
     const hayComp = compact(hay);
-    if (!terms.every((t) => hay.includes(t.raw) || (t.comp.length >= 2 && hayComp.includes(t.comp)))) continue;
+    // Each term must match by substring, separator-stripped compact, OR as a tire
+    // size with an optional "R" (so "2056016" finds "205/60R16" without the R).
+    if (!terms.every((t) =>
+      hay.includes(t.raw) ||
+      (t.comp.length >= 2 && hayComp.includes(t.comp)) ||
+      tireSizeMatchesQuery(e.description, t.raw)
+    )) continue;
     const dedupKey = `${e.manufacturerName}|${e.model}|${e.description}`;
     if (seen.has(dedupKey)) continue;
     seen.add(dedupKey);

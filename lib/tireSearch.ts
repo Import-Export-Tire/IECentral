@@ -11,10 +11,12 @@ const TIRE_SIZE_RE = /(\d{2,3})\s*\/\s*(\d{2,3})\s*Z?R\s*(\d{2})/i;
 
 export function tireSizeMatchesQuery(description: string | null | undefined, query: string): boolean {
   if (!description || !query) return false;
-  const qNoSep = query.replace(/[^a-z0-9]/gi, "");
-  if (qNoSep.length < 5) return false;
+  // Compare DIGITS only on both sides, so the "R"/"ZR" is optional in the query:
+  // "2056016", "20560R16", "205/60R16", and "205/60ZR16" all match the same row.
+  const qDigits = query.replace(/\D/g, "");
+  if (qDigits.length < 5) return false;
   const m = TIRE_SIZE_RE.exec(description);
   if (!m) return false;
   const sizeDigits = m[1] + m[2] + m[3];
-  return sizeDigits.includes(qNoSep) || qNoSep.includes(sizeDigits);
+  return sizeDigits.includes(qDigits) || qDigits.includes(sizeDigits);
 }
