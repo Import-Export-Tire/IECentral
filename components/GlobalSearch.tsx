@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
@@ -142,10 +142,15 @@ export default function GlobalSearch() {
   }, [debounced, menu.reports]);
 
   // Combined + grouped by category; keyboard nav indexes this ordered list.
-  const CAT_ORDER = ["People", "Documents", "Tires", "Operations"];
-  const results = [...dbResults, ...tireResults].sort(
-    (a, b) => CAT_ORDER.indexOf(a.category) - CAT_ORDER.indexOf(b.category),
-  );
+  // MUST be memoized — an inline array would get a new reference every render,
+  // which retriggers the `[results]` effect and resets the arrow-key selection.
+  const results = useMemo(() => {
+    const CAT_ORDER = ["People", "Documents", "Tires", "Operations"];
+    const db = (searchResults?.results || []) as SearchResult[];
+    return [...db, ...tireResults].sort(
+      (a, b) => CAT_ORDER.indexOf(a.category) - CAT_ORDER.indexOf(b.category),
+    );
+  }, [searchResults, tireResults]);
 
   // Handle keyboard shortcut (Cmd+K / Ctrl+K) and custom event
   useEffect(() => {
