@@ -18,7 +18,7 @@ export const processResume = action({
   handler: async (ctx, args): Promise<{
     success: boolean;
     error?: string;
-    type?: "new_application" | "personnel_update";
+    type?: "new_application" | "personnel_update" | "duplicate_pdf_attached";
     applicationId?: string;
     personnelId?: string;
     candidateName?: string;
