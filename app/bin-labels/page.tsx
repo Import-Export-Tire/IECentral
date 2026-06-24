@@ -154,10 +154,12 @@ export default function BinLabelsPage() {
     { itemId: "", mpn: "", brand: "", model: "", sizeDesc: "", qty: 1, dclass: "" },
   ]);
   const [copies, setCopies] = useState(1);
+  const [includeItemId, setIncludeItemId] = useState(false); // add a 2nd Item-ID barcode
   const [lookupLoading, setLookupLoading] = useState<number | null>(null);
   const [lookupNotFound, setLookupNotFound] = useState<Record<number, boolean>>({});
   const barcodeRefs = useRef<(SVGSVGElement | null)[]>([]);
   const tireBarcodeRefs = useRef<(SVGSVGElement | null)[]>([]);
+  const tireItemIdBarcodeRefs = useRef<(SVGSVGElement | null)[]>([]);
   const tirePreviewRef = useRef<HTMLDivElement>(null);
   const tireFormRef = useRef<HTMLDivElement>(null);
 
@@ -219,6 +221,25 @@ export default function BinLabelsPage() {
       }
     });
   }, [tireLabels]);
+
+  // Generate the optional second Item-ID barcode in the preview.
+  useEffect(() => {
+    if (!includeItemId) return;
+    tireLabels.forEach((label, index) => {
+      const itemIdVal = (label.itemId ?? "").trim();
+      if (itemIdVal && itemIdVal !== tireBarcodeValue(label) && tireItemIdBarcodeRefs.current[index]) {
+        try {
+          JsBarcode(tireItemIdBarcodeRefs.current[index], itemIdVal, {
+            format: "CODE128", width: 2, height: 70, displayValue: true,
+            fontSize: 18, font: "monospace", textMargin: 5, margin: 5,
+          });
+          fitBarcode(tireItemIdBarcodeRefs.current[index]);
+        } catch (e) {
+          console.error("Item-ID barcode generation error:", e);
+        }
+      }
+    });
+  }, [tireLabels, includeItemId]);
 
   const addLabel = () => {
     setLabels([...labels, { locationId: "", locationName: "" }]);
@@ -495,16 +516,30 @@ export default function BinLabelsPage() {
       if (l.model) { doc.setFont("helvetica", "normal"); doc.setFontSize(18); doc.text(l.model, cx, y, { align: "center", maxWidth: 3.7 }); y += 0.4; }
       if (l.sizeDesc) { doc.setFont("helvetica", "normal"); doc.setFontSize(15); doc.text(l.sizeDesc, cx, y, { align: "center", maxWidth: 3.7 }); }
 
-      // Barcode (fixed lower position so layout stays consistent). Encodes the MPN
-      // when available, falling back to the internal item-ID.
-      const barcodeVal = tireBarcodeValue(l);
-      if (barcodeVal) {
-        const bc = barcodePngForPdf(barcodeVal);
-        if (bc) {
-          let bw = 3.4, bh = (bw * bc.h) / bc.w;
-          if (bh > 1.2) { bh = 1.2; bw = (bh * bc.w) / bc.h; }
-          doc.addImage(bc.dataUrl, "PNG", cx - bw / 2, 4.25, bw, bh);
+      // Barcode(s). Primary = MPN (+ d-class) for an exact scan match. Optionally a
+      // second Item-ID barcode for inventory; when both show they stack with captions.
+      const drawBarcode = (value: string, caption: string, topY: number, maxH: number) => {
+        const bc = barcodePngForPdf(value);
+        if (!bc) return;
+        let bw = 3.4, bh = (bw * bc.h) / bc.w;
+        if (bh > maxH) { bh = maxH; bw = (bh * bc.w) / bc.h; }
+        if (caption) {
+          doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(90, 90, 90);
+          doc.text(caption, cx, topY, { align: "center" });
         }
+        doc.setTextColor(0, 0, 0);
+        doc.addImage(bc.dataUrl, "PNG", cx - bw / 2, topY + (caption ? 0.13 : 0), bw, bh);
+      };
+      const barcodeVal = tireBarcodeValue(l);
+      const itemIdVal = (l.itemId ?? "").trim();
+      const showItemId = includeItemId && !!itemIdVal && itemIdVal !== barcodeVal;
+      if (barcodeVal && showItemId) {
+        drawBarcode(barcodeVal, "MPN", 3.40, 0.85);
+        drawBarcode(itemIdVal, "ITEM ID", 4.55, 0.85);
+      } else if (barcodeVal) {
+        drawBarcode(barcodeVal, "", 4.25, 1.2);
+      } else if (showItemId) {
+        drawBarcode(itemIdVal, "ITEM ID", 4.25, 1.2);
       }
 
       // Accountability footer.
@@ -793,6 +828,15 @@ export default function BinLabelsPage() {
                       <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
                         Set <strong>Qty</strong> on each tire for the number of copies
                       </span>
+                      <label className={`flex items-center gap-2 text-sm cursor-pointer ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                        <input
+                          type="checkbox"
+                          checked={includeItemId}
+                          onChange={(e) => setIncludeItemId(e.target.checked)}
+                          className="w-4 h-4 accent-cyan-500"
+                        />
+                        Add Item&nbsp;ID barcode
+                      </label>
                       <button
                         onClick={addTireLabel}
                         className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
@@ -1046,13 +1090,32 @@ export default function BinLabelsPage() {
                                   {label.sizeDesc && (
                                     <p className="text-xl font-medium leading-snug text-black">{label.sizeDesc}</p>
                                   )}
-                                  {tireBarcodeValue(label) && (
-                                    <svg
-                                      ref={(el) => { tireBarcodeRefs.current[index] = el; }}
-                                      className="mt-4"
-                                      style={{ maxWidth: "100%", height: "auto" }}
-                                    />
-                                  )}
+                                  {(() => {
+                                    const itemIdVal = (label.itemId ?? "").trim();
+                                    const showItemId = includeItemId && !!itemIdVal && itemIdVal !== tireBarcodeValue(label);
+                                    return (
+                                      <>
+                                        {tireBarcodeValue(label) && (
+                                          <div className="flex flex-col items-center mt-4">
+                                            {showItemId && <span className="text-[11px] font-semibold text-gray-500">MPN</span>}
+                                            <svg
+                                              ref={(el) => { tireBarcodeRefs.current[index] = el; }}
+                                              style={{ maxWidth: "100%", height: "auto" }}
+                                            />
+                                          </div>
+                                        )}
+                                        {showItemId && (
+                                          <div className="flex flex-col items-center mt-2">
+                                            <span className="text-[11px] font-semibold text-gray-500">ITEM ID</span>
+                                            <svg
+                                              ref={(el) => { tireItemIdBarcodeRefs.current[index] = el; }}
+                                              style={{ maxWidth: "100%", height: "auto" }}
+                                            />
+                                          </div>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                                 <div style={{ position: "absolute", bottom: "8px", left: 0, right: 0, fontSize: "10px", color: "#666" }}>{labelFooter}</div>
                               </div>
