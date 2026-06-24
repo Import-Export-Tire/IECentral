@@ -103,6 +103,22 @@ function applyDclass(base: string, dclass: string): string {
   return b + (dclass ?? "");
 }
 
+// Remove a trailing d-class symbol so the MPN field shows the clean part number.
+function stripDclass(s: string): string {
+  const v = (s ?? "").trim();
+  return v && DCLASS_SYMBOLS.includes(v[v.length - 1]) ? v.slice(0, -1) : v;
+}
+
+// Detect the d-class from a looked-up part number: the first candidate whose last
+// character is a d-class symbol wins (check MPN, then item-ID). "" if none.
+function detectDclass(...vals: string[]): string {
+  for (const raw of vals) {
+    const s = (raw ?? "").trim();
+    if (s && DCLASS_SYMBOLS.includes(s[s.length - 1])) return s[s.length - 1];
+  }
+  return "";
+}
+
 // The value encoded in (and printed under) the barcode: the MPN when we have one,
 // otherwise the internal item-ID — plus the d-class suffix so it scans exactly.
 function tireBarcodeValue(l: { mpn?: string; itemId: string; dclass?: string }): string {
@@ -250,7 +266,10 @@ export default function BinLabelsPage() {
   // Fill a row from a catalog search pick (untagged tire — no manual entry).
   const fillTireFromSearch = (index: number, r: TireSearchResult) => {
     const newLabels = [...tireLabels];
-    newLabels[index] = { ...newLabels[index], itemId: r.itemId, mpn: r.mpn || "", brand: r.brand, model: r.model, sizeDesc: r.sizeDesc };
+    // Auto-detect the d-class from the looked-up part number and pre-select it;
+    // show the MPN field clean (the dropdown carries the suffix). User can override.
+    const dclass = detectDclass(r.mpn || "", r.itemId);
+    newLabels[index] = { ...newLabels[index], itemId: r.itemId, mpn: stripDclass(r.mpn || ""), brand: r.brand, model: r.model, sizeDesc: r.sizeDesc, dclass };
     setTireLabels(newLabels);
     setLookupNotFound((prev) => ({ ...prev, [index]: false }));
   };
@@ -267,10 +286,12 @@ export default function BinLabelsPage() {
         const newLabels = [...tireLabels];
         newLabels[index] = {
           ...newLabels[index],
-          mpn: data.mfgItemId || "",
+          mpn: stripDclass(data.mfgItemId || ""),
           brand: data.manufacturerName || "",
           model: data.model || "",
           sizeDesc: data.description || "",
+          // Auto-detect d-class from the part number / item-ID (user can override).
+          dclass: detectDclass(data.mfgItemId || "", itemId),
         };
         setTireLabels(newLabels);
       } else {
