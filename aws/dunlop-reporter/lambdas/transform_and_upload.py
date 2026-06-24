@@ -64,6 +64,12 @@ secrets = boto3.client("secretsmanager")
 def handler(event, context):
     """Main entry point."""
     try:
+        # S3-triggered hourly JMK drop (jmk-uploads/sftp-sales/): refresh the
+        # dashboard sales data ONLY. The Dunlop report + outbound SFTP stay on the
+        # monthly job — we must not re-send Dunlop a report every hour.
+        if isinstance(event, dict) and event.get("Records"):
+            return _handle_s3_sales_drop(event)
+
         # Parse input — API Gateway or EventBridge
         if "body" in event:
             body = json.loads(event["body"])
@@ -150,6 +156,34 @@ def handler(event, context):
 
     except Exception as e:
         return _response(500, {"error": str(e)})
+
+
+def _handle_s3_sales_drop(event):
+    """Refresh processed/{month}.json from an SFTP-dropped sales file. Parses the
+    file, groups rows by their activity month, and rewrites each month's snapshot
+    (same replace-semantics as the manual run — functionality unchanged, just more
+    frequent). No Dunlop report, no outbound SFTP."""
+    import urllib.parse
+
+    refreshed = {}
+    for rec in event.get("Records", []):
+        key = urllib.parse.unquote_plus(rec.get("s3", {}).get("object", {}).get("key", ""))
+        if not key or key.endswith("/"):
+            continue
+        rows = _parse_csv(_read_s3_file(key))
+        by_month = {}
+        for row in rows:
+            if len(row) <= COL_ACTIVITY_DATE:
+                continue
+            parsed = _parse_date(row[COL_ACTIVITY_DATE].strip())
+            if not parsed:
+                continue
+            ym = f"{parsed[0]}{parsed[1]:02d}"
+            by_month.setdefault(ym, []).append(row)
+        for ym, mrows in by_month.items():
+            _save_sales_data(mrows, ym)
+            refreshed[ym] = refreshed.get(ym, 0) + len(mrows)
+    return _response(200, {"refreshed": refreshed, "source": "sftp-sales-drop"})
 
 
 # ─── PARSE ────────────────────────────────────────────────────────────────────

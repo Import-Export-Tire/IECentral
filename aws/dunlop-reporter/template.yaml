@@ -568,7 +568,145 @@ Resources:
       AlarmActions:
         - !Ref AlarmTopic
 
+  # ═══════════════════════════════════════════════════════════════════════════
+  # INBOUND SFTP (AWS Transfer Family) — JMK hourly sales + inventory feed
+  #   JMK logs in (password) and uploads to /sales and /inventory:
+  #     /sales      -> s3://.../jmk-uploads/sftp-sales/  (sales dashboard refresh)
+  #     /inventory  -> s3://.../jmk-uploads/oeival/       (existing OEIVAL trigger)
+  #   Manual uploads (presigned URL + /dunlop/run) are untouched.
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  JmkSftpUserSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: dunlop-reporter/jmk-sftp-user
+      Description: Inbound SFTP login for JMK (username + password); read by the IdP Lambda
+      GenerateSecretString:
+        SecretStringTemplate: '{"username":"jmk"}'
+        GenerateStringKey: password
+        PasswordLength: 24
+        ExcludePunctuation: true
+      Tags:
+        - Key: Project
+          Value: DunlopReporter
+
+  JmkSftpAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: dunlop-jmk-sftp-access
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: transfer.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: JmkSftpS3Scoped
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: List
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: arn:aws:s3:::ietires-dunlop-jmk-uploads
+                Condition:
+                  StringLike:
+                    s3:prefix:
+                      - "jmk-uploads/sftp-sales/*"
+                      - "jmk-uploads/oeival/*"
+              - Sid: ReadWrite
+                Effect: Allow
+                Action: [s3:PutObject, s3:GetObject, s3:DeleteObject, s3:GetObjectVersion]
+                Resource:
+                  - arn:aws:s3:::ietires-dunlop-jmk-uploads/jmk-uploads/sftp-sales/*
+                  - arn:aws:s3:::ietires-dunlop-jmk-uploads/jmk-uploads/oeival/*
+
+  TransferLoggingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: dunlop-sftp-logging
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: transfer.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: TransferCloudWatchLogs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:DescribeLogStreams, logs:PutLogEvents]
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/transfer/*"
+
+  SftpIdpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: dunlop-sftp-idp
+      Handler: sftp_idp.handler
+      CodeUri: lambdas/
+      Runtime: python3.12
+      Timeout: 10
+      MemorySize: 128
+      Environment:
+        Variables:
+          SFTP_USER_SECRET_ID: !Ref JmkSftpUserSecret
+          SFTP_USER_ROLE_ARN: !GetAtt JmkSftpAccessRole.Arn
+          S3_JMK_UPLOADS_BUCKET: ietires-dunlop-jmk-uploads
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref JmkSftpUserSecret
+
+  SftpIdpInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SftpIdpFunction
+      Action: lambda:InvokeFunction
+      Principal: transfer.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+
+  JmkSftpServer:
+    Type: AWS::Transfer::Server
+    Properties:
+      Protocols: [SFTP]
+      EndpointType: PUBLIC
+      Domain: S3
+      IdentityProviderType: AWS_LAMBDA
+      IdentityProviderDetails:
+        Function: !GetAtt SftpIdpFunction.Arn
+      LoggingRole: !GetAtt TransferLoggingRole.Arn
+      Tags:
+        - Key: Project
+          Value: DunlopReporter
+
+  # Lets S3 invoke transform-and-upload for the new sftp-sales/ prefix.
+  # (The bucket notification itself is merged post-deploy so the existing
+  #  OEIVAL trigger is preserved — see deploy notes.)
+  TransformS3InvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref TransformAndUploadFunction
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: arn:aws:s3:::ietires-dunlop-jmk-uploads
+
 Outputs:
+  SftpEndpoint:
+    Description: SFTP hostname for JMK
+    Value: !Sub "${JmkSftpServer.ServerId}.server.transfer.${AWS::Region}.amazonaws.com"
+
+  SftpServerId:
+    Description: Transfer Family server ID
+    Value: !Ref JmkSftpServer
+
+  JmkSftpUserSecretArn:
+    Description: Secrets Manager ARN holding JMK's SFTP username/password
+    Value: !Ref JmkSftpUserSecret
+
   ApiUrl:
     Description: API Gateway URL for Dunlop Reporter
     Value: !Sub "https://${DunlopApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
