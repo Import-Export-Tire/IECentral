@@ -111,6 +111,22 @@ export const processResume = action({
       });
 
       if (existingApplication) {
+        // The applicant already exists (e.g. came in via Indeed/website as text-only).
+        // If THIS upload carries a resume PDF and the existing record has none, attach
+        // it instead of discarding the upload — this is how re-uploading a batch fills
+        // in missing resume PDFs. Otherwise it's a true duplicate.
+        if (args.resumeFileId && !existingApplication.resumeFileId) {
+          await ctx.runMutation(api.applications.updateResumeFile, {
+            applicationId: existingApplication._id,
+            resumeFileId: args.resumeFileId,
+          });
+          return {
+            success: true,
+            type: "duplicate_pdf_attached",
+            candidateName: `${existingApplication.firstName} ${existingApplication.lastName}`,
+            message: `Attached resume PDF to existing applicant ${existingApplication.firstName} ${existingApplication.lastName}`,
+          };
+        }
         return {
           success: false,
           error: `Duplicate: Application already exists for ${existingApplication.firstName} ${existingApplication.lastName} (${existingApplication.email})`,
