@@ -14,13 +14,14 @@ interface FileStatus {
   error?: string;
   manualText?: string;
   result?: {
-    type?: "new_application" | "personnel_update";
+    type?: "new_application" | "personnel_update" | "duplicate_pdf_attached";
     candidateName?: string;
     matchedJob?: string;
     overallScore?: number;
     applicationId?: string;
     personnelId?: string;
     currentPosition?: string;
+    message?: string;
   };
 }
 
@@ -275,6 +276,7 @@ export default function BulkUploadPage() {
   const successCount = files.filter((f) => f.status === "success").length;
   const newApplicationCount = files.filter((f) => f.status === "success" && f.result?.type === "new_application").length;
   const personnelUpdateCount = files.filter((f) => f.status === "success" && f.result?.type === "personnel_update").length;
+  const pdfAttachedCount = files.filter((f) => f.status === "success" && f.result?.type === "duplicate_pdf_attached").length;
   const errorCount = files.filter((f) => f.status === "error").length;
   const processingCount = files.filter((f) => f.status === "extracting" || f.status === "processing").length;
 
@@ -584,6 +586,11 @@ export default function BulkUploadPage() {
                 {personnelUpdateCount > 0 && (
                   <p>
                     <span className="text-purple-400">{personnelUpdateCount}</span> employee record{personnelUpdateCount !== 1 ? "s" : ""} updated with resume
+                  </p>
+                )}
+                {pdfAttachedCount > 0 && (
+                  <p>
+                    <span className="text-emerald-400">{pdfAttachedCount}</span> resume PDF{pdfAttachedCount !== 1 ? "s" : ""} attached to existing applicant{pdfAttachedCount !== 1 ? "s" : ""}
                   </p>
                 )}
                 {errorCount > 0 && (

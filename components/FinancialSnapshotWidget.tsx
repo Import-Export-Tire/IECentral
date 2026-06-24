@@ -32,6 +32,12 @@ function fmtCurrency(n: number): string {
   return `$${n.toFixed(0)}`;
 }
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function formatYm(ym: string): string {
+  if (!/^\d{6}$/.test(ym)) return ym;
+  return `${MONTH_NAMES[parseInt(ym.slice(4, 6), 10) - 1]} ${ym.slice(0, 4)}`;
+}
+
 function ChangeBadge({ current, previous, isDark }: { current: number; previous: number; isDark: boolean }) {
   if (!previous) return null;
   const pct = ((current - previous) / previous) * 100;
@@ -53,6 +59,7 @@ export default function FinancialSnapshotWidget() {
 
   const [data, setData] = useState<SalesData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [monthLabel, setMonthLabel] = useState<string>("");
 
   useEffect(() => {
     async function fetchData() {
@@ -66,8 +73,14 @@ export default function FinancialSnapshotWidget() {
           return;
         }
 
-        // Fetch latest month with comparison
-        const latestMonth = months[0];
+        // Use the latest COMPLETE month — skip the in-progress current calendar
+        // month (whose partial data made the snapshot read as a huge drop) and any
+        // malformed entries. Keeps the headline accurate and stable.
+        const now = new Date();
+        const currentYm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+        const ymList = (months as string[]).filter((m) => /^\d{6}$/.test(m));
+        const latestMonth = ymList.find((m) => m < currentYm) || ymList[0] || months[0];
+        setMonthLabel(formatYm(latestMonth));
         const res = await fetch(`/api/sales?months=${latestMonth}&compare=true`);
         const salesData = await res.json();
         setData(salesData);
@@ -120,7 +133,10 @@ export default function FinancialSnapshotWidget() {
           <svg className={`w-5 h-5 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <h3 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Financial Snapshot</h3>
+          <h3 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+            Financial Snapshot
+            {monthLabel && <span className={`ml-2 text-xs font-normal ${isDark ? "text-slate-400" : "text-gray-400"}`}>{monthLabel}</span>}
+          </h3>
         </div>
         <a
           href="/reports"
