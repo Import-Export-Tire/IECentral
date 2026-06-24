@@ -3562,6 +3562,7 @@ export default defineSchema({
       sizeDesc: v.string(),
       qty: v.optional(v.number()),
       mpn: v.optional(v.string()), // manufacturer part number (matches the create validator + saved labels)
+      dclass: v.optional(v.string()), // d-class symbol appended to the barcode (e.g. "[")
     })),
     copies: v.number(),
     notes: v.optional(v.string()),

@@ -74,12 +74,40 @@ interface TireLabelData {
   model: string;
   sizeDesc: string;
   qty: number; // how many copies of THIS label to print
+  dclass: string; // d-class symbol appended to the barcode (e.g. "[" so AB1234 -> AB1234[)
+}
+
+// D-class options: a single symbol appended to the part number so the printed
+// barcode exactly matches the item in inventory (the scanner does an exact match,
+// so "AB1234" won't scan an item that is really "AB1234["). Empty = no d-class.
+const DCLASS_OPTIONS: { name: string; symbol: string }[] = [
+  { name: "None", symbol: "" },
+  { name: "Dot  .", symbol: "." },
+  { name: "Caret  ^", symbol: "^" },
+  { name: "Bracket  [", symbol: "[" },
+  { name: "Colon  :", symbol: ":" },
+  { name: "Dash  -", symbol: "-" },
+  { name: "Tilde  ~", symbol: "~" },
+  { name: "Star  *", symbol: "*" },
+  { name: "Hash  #", symbol: "#" },
+  { name: "Bang  !", symbol: "!" },
+];
+const DCLASS_SYMBOLS = DCLASS_OPTIONS.map((o) => o.symbol).filter(Boolean).join("");
+
+// Append the selected d-class symbol to the base part number. First strip any
+// trailing d-class symbol the base already carries (the item-ID may include one),
+// so we never double it: "AB1234[" + Bracket still yields "AB1234[".
+function applyDclass(base: string, dclass: string): string {
+  let b = (base ?? "").trim();
+  if (b && DCLASS_SYMBOLS.includes(b[b.length - 1])) b = b.slice(0, -1);
+  return b + (dclass ?? "");
 }
 
 // The value encoded in (and printed under) the barcode: the MPN when we have one,
-// otherwise the internal item-ID so there's always a scannable code.
-function tireBarcodeValue(l: { mpn?: string; itemId: string }): string {
-  return ((l.mpn ?? "").trim() || (l.itemId ?? "")).trim();
+// otherwise the internal item-ID — plus the d-class suffix so it scans exactly.
+function tireBarcodeValue(l: { mpn?: string; itemId: string; dclass?: string }): string {
+  const base = ((l.mpn ?? "").trim() || (l.itemId ?? "")).trim();
+  return applyDclass(base, l.dclass ?? "");
 }
 
 type Mode = "bin" | "tire";
@@ -87,7 +115,7 @@ type Mode = "bin" | "tire";
 interface WorkOrderRow {
   _id: string;
   title: string;
-  labels: (Omit<TireLabelData, "qty" | "mpn"> & { qty?: number; mpn?: string })[];
+  labels: (Omit<TireLabelData, "qty" | "mpn" | "dclass"> & { qty?: number; mpn?: string; dclass?: string })[];
   copies: number;
   status: string;
   createdByName: string;
@@ -107,7 +135,7 @@ export default function BinLabelsPage() {
   }, []);
   const [labels, setLabels] = useState<LabelData[]>([{ locationId: "", locationName: "" }]);
   const [tireLabels, setTireLabels] = useState<TireLabelData[]>([
-    { itemId: "", mpn: "", brand: "", model: "", sizeDesc: "", qty: 1 },
+    { itemId: "", mpn: "", brand: "", model: "", sizeDesc: "", qty: 1, dclass: "" },
   ]);
   const [copies, setCopies] = useState(1);
   const [lookupLoading, setLookupLoading] = useState<number | null>(null);
@@ -193,7 +221,7 @@ export default function BinLabelsPage() {
   };
 
   const addTireLabel = () => {
-    setTireLabels([...tireLabels, { itemId: "", mpn: "", brand: "", model: "", sizeDesc: "", qty: 1 }]);
+    setTireLabels([...tireLabels, { itemId: "", mpn: "", brand: "", model: "", sizeDesc: "", qty: 1, dclass: "" }]);
   };
 
   const removeTireLabel = (index: number) => {
@@ -207,7 +235,7 @@ export default function BinLabelsPage() {
     }
   };
 
-  const updateTireLabel = (index: number, field: "itemId" | "mpn" | "brand" | "model" | "sizeDesc", value: string) => {
+  const updateTireLabel = (index: number, field: "itemId" | "mpn" | "brand" | "model" | "sizeDesc" | "dclass", value: string) => {
     const newLabels = [...tireLabels];
     newLabels[index] = { ...newLabels[index], [field]: value };
     setTireLabels(newLabels);
@@ -318,7 +346,7 @@ export default function BinLabelsPage() {
     if (mode === "bin") {
       setLabels([{ locationId: "", locationName: "" }]);
     } else {
-      setTireLabels([{ itemId: "", mpn: "", brand: "", model: "", sizeDesc: "", qty: 1 }]);
+      setTireLabels([{ itemId: "", mpn: "", brand: "", model: "", sizeDesc: "", qty: 1, dclass: "" }]);
       setLookupNotFound({});
     }
     setCopies(1);
@@ -352,10 +380,10 @@ export default function BinLabelsPage() {
     }
   };
 
-  const loadWorkOrder = (wo: { _id: string; labels: (Omit<TireLabelData, "qty" | "mpn"> & { qty?: number; mpn?: string })[]; copies: number }) => {
+  const loadWorkOrder = (wo: { _id: string; labels: (Omit<TireLabelData, "qty" | "mpn" | "dclass"> & { qty?: number; mpn?: string; dclass?: string })[]; copies: number }) => {
     // Older work orders predate per-label qty / mpn: fall back to the order's global
     // "copies" and to an empty MPN (the barcode then uses the item-ID, as before).
-    setTireLabels(wo.labels.map((l) => ({ ...l, mpn: l.mpn ?? "", qty: l.qty ?? wo.copies ?? 1 })));
+    setTireLabels(wo.labels.map((l) => ({ ...l, mpn: l.mpn ?? "", qty: l.qty ?? wo.copies ?? 1, dclass: l.dclass ?? "" })));
     setCopies(wo.copies);
     setLoadedWorkOrderId(wo._id);
     setLookupNotFound({});
@@ -903,6 +931,26 @@ export default function BinLabelsPage() {
                               placeholder="Auto-filled from lookup — falls back to Item ID if blank"
                               className={`w-full px-4 py-2 rounded-lg font-mono ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                             />
+                          </div>
+                          {/* D-Class — appended to the barcode so it scans exactly (AB1234 -> AB1234[) */}
+                          <div>
+                            <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              D-Class (barcode suffix)
+                            </label>
+                            <select
+                              value={label.dclass}
+                              onChange={(e) => updateTireLabel(index, "dclass", e.target.value)}
+                              className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-800 border-slate-600 text-white" : "bg-white border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                            >
+                              {DCLASS_OPTIONS.map((o) => (
+                                <option key={o.name} value={o.symbol}>{o.name}</option>
+                              ))}
+                            </select>
+                            {tireBarcodeValue(label) && (
+                              <p className={`mt-1 text-xs font-mono ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
+                                Barcode: {tireBarcodeValue(label)}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <button

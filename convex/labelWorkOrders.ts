@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
-const LABEL = v.object({ itemId: v.string(), brand: v.string(), model: v.string(), sizeDesc: v.string(), qty: v.optional(v.number()), mpn: v.optional(v.string()) });
+const LABEL = v.object({ itemId: v.string(), brand: v.string(), model: v.string(), sizeDesc: v.string(), qty: v.optional(v.number()), mpn: v.optional(v.string()), dclass: v.optional(v.string()) });
 
 export const create = mutation({
   args: {
