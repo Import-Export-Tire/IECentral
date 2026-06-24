@@ -130,7 +130,7 @@ Return ONLY a JSON array of question strings, no other text:
 
     try {
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-6",
         max_tokens: 2048,
         messages: [
           {
@@ -316,7 +316,7 @@ Provide your evaluation in the following JSON format:
 
     try {
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-6",
         max_tokens: 2048,
         messages: [
           {
