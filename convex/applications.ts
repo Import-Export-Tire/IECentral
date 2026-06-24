@@ -217,6 +217,12 @@ export const updateAIAnalysis = mutation({
         hiringTeamNotes: v.string(),
       })
     ),
+    // Optional contact backfill — used by re-analysis to repair applicant records
+    // whose name/email were never extracted (e.g. the AI-down fallback batch).
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { applicationId, ...updates } = args;

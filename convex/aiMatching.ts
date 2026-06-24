@@ -457,11 +457,28 @@ export const reanalyzeApplication = action({
         }
       : undefined;
 
+    // Backfill name/email/phone when the record is a placeholder (e.g. created
+    // while the AI model was down — "Unknown (filename)"). Never overwrite a real
+    // name, or an email/phone that's already set.
+    const namePlaceholder =
+      !application.firstName ||
+      application.firstName === "Unknown" ||
+      String(application.lastName || "").startsWith("(");
+    const contact = namePlaceholder
+      ? {
+          firstName: analysis.firstName || undefined,
+          lastName: analysis.lastName || undefined,
+          email: application.email ? undefined : (analysis.email || undefined),
+          phone: application.phone ? undefined : (analysis.phone || undefined),
+        }
+      : {};
+
     // Update the application with the new analysis
     await ctx.runMutation(api.applications.updateAIAnalysis, {
       applicationId: args.applicationId,
       aiAnalysis,
       candidateAnalysis: analysis.candidateAnalysis,
+      ...contact,
     });
 
     return {
@@ -469,6 +486,40 @@ export const reanalyzeApplication = action({
       overallScore: analysis.candidateAnalysis.overallScore,
       recommendedAction: analysis.candidateAnalysis.recommendedAction,
     };
+  },
+});
+
+// Re-analyze ONLY the applications broken during the AI-down period: a fallback
+// overallScore of exactly 50, or a placeholder/blank name. Safe to run repeatedly —
+// it won't re-score correctly-analyzed candidates.
+export const reanalyzeFailedApplications = action({
+  args: {},
+  handler: async (ctx): Promise<{ total: number; targeted: number; processed: number; errors: number; scores: { name: string; score: number }[] }> => {
+    const applications = await ctx.runQuery(api.applications.getAll, { includeArchived: true }) as any[];
+    const isPlaceholderName = (a: any) =>
+      !a.firstName || a.firstName === "Unknown" || String(a.lastName || "").startsWith("(");
+    const targets = applications.filter(
+      (a) =>
+        a.resumeText && a.resumeText.trim().length >= 50 &&
+        (a.candidateAnalysis?.overallScore === 50 || isPlaceholderName(a)),
+    );
+    const results = { total: applications.length, targeted: targets.length, processed: 0, errors: 0, scores: [] as { name: string; score: number }[] };
+    for (const app of targets) {
+      try {
+        const r = await ctx.runAction(api.aiMatching.reanalyzeApplication, { applicationId: app._id }) as { success: boolean; overallScore?: number };
+        if (r.success) {
+          results.processed++;
+          const updated = await ctx.runQuery(api.applications.getById, { applicationId: app._id }) as any;
+          results.scores.push({ name: `${updated?.firstName ?? ""} ${updated?.lastName ?? ""}`.trim(), score: r.overallScore ?? 0 });
+        } else {
+          results.errors++;
+        }
+      } catch (e) {
+        console.error("reanalyzeFailedApplications error:", e);
+        results.errors++;
+      }
+    }
+    return results;
   },
 });
 
