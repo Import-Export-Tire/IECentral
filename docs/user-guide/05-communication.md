@@ -216,8 +216,10 @@ Invite**.
 
 For full remote desktop control during a meeting — actually moving the mouse and typing on the
 other person's computer, not just seeing it — there's the **IECentral Companion App**. From the
-**Meetings** page you can download it for **macOS** or **Windows**. You only need it if you want to
-give or take real remote control; ordinary video, audio, and screen sharing work without it.
+**Meetings** page you can download the **Windows** version today. The **macOS** version is
+**coming soon** (it's pending Apple notarization), so it shows as "Coming soon" rather than a
+download for now. You only need the Companion App if you want to give or take real remote control;
+ordinary video, audio, and screen sharing work without it.
 
 ### AI meeting notes
 

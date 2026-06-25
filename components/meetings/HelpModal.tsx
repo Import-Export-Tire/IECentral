@@ -211,8 +211,8 @@ function SectionContent({ section, isDark }: { section: Section; isDark: boolean
 
           <div className="space-y-2">
             <div className={card}>
-              <p className={`text-sm font-medium mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>macOS</p>
-              <p className={subtext}>Download the .dmg file from the meetings page. Drag to Applications and grant Accessibility permissions when prompted (required for remote input).</p>
+              <p className={`text-sm font-medium mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>macOS <span className="font-normal opacity-70">· Coming soon</span></p>
+              <p className={subtext}>The macOS build isn&apos;t available yet — it&apos;s pending Apple notarization. Use the Windows companion in the meantime; remote control of Mac computers will be enabled in a future release.</p>
             </div>
             <div className={card}>
               <p className={`text-sm font-medium mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>Windows</p>

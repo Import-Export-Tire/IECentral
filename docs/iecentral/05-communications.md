@@ -184,7 +184,7 @@ A self-hosted, peer-to-peer (WebRTC) video conferencing system built into IECent
 
 | Route | File | Purpose |
 |---|---|---|
-| `/meetings` | `app/meetings/page.tsx` | Dashboard: create instant/scheduled, join by code, upcoming/past lists, Companion App downloads |
+| `/meetings` | `app/meetings/page.tsx` | Dashboard: create instant/scheduled, join by code, upcoming/past lists, Companion App downloads (Windows `.exe` live; macOS `.dmg` shown as "Coming soon" — build exists on S3 but is unsigned/un-notarized, no Apple Developer account) |
 | `/meetings/room/[meetingId]` | `app/meetings/room/[meetingId]/page.tsx` | Live room — orchestrates all WebRTC hooks, recording, invites (the heart of the module) |
 | `/meetings/notes/[meetingId]` | `app/meetings/notes/[meetingId]/page.tsx` | Authenticated AI notes viewer (+ Save to DocHub) |
 | `/meetings/notes/shared` | `app/meetings/notes/shared/page.tsx` | Public token-gated notes view for external invitees |

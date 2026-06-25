@@ -413,16 +413,16 @@ export default function MeetingsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <a
-                    href="https://iecentral-downloads.s3.amazonaws.com/IECentral-Companion.dmg"
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  <span
+                    title="macOS build coming soon"
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-not-allowed select-none opacity-60 ${
                       isDark
-                        ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        ? "bg-slate-800 text-slate-500 border border-slate-700"
+                        : "bg-gray-50 text-gray-400 border border-gray-200"
                     }`}
                   >
-                    macOS
-                  </a>
+                    macOS · Coming soon
+                  </span>
                   <a
                     href="https://iecentral-downloads.s3.amazonaws.com/IECentral-Companion.exe"
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
