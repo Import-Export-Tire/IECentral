@@ -614,9 +614,11 @@ Resources:
                     s3:prefix:
                       - "jmk-uploads/sftp-sales/*"
                       - "jmk-uploads/oeival/*"
-              - Sid: ReadWrite
+              # Upload-only: PutObject only. No GetObject (read) or DeleteObject
+              # (delete) — JMK can drop files but cannot download or remove anything.
+              - Sid: UploadOnly
                 Effect: Allow
-                Action: [s3:PutObject, s3:GetObject, s3:DeleteObject, s3:GetObjectVersion]
+                Action: [s3:PutObject]
                 Resource:
                   - arn:aws:s3:::ietires-dunlop-jmk-uploads/jmk-uploads/sftp-sales/*
                   - arn:aws:s3:::ietires-dunlop-jmk-uploads/jmk-uploads/oeival/*
