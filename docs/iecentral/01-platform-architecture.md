@@ -137,16 +137,22 @@ Practical consequences:
 - `createUser` / `resetUserPassword` / `deleteUser` / `updateUser`: gated by
   `requireAdmin(ctx, requestingUserId)`. New users get `forcePasswordChange: true`
   and an optional welcome email (scheduled via `internal.emails.sendNewUserWelcomeEmail`).
-- `createInitialAdmin` / `seedSuperuser`: bootstrap mutations (the former only
-  works when no users exist; the latter upserts a `super_admin`/`admin`).
+- `createInitialAdmin` / `seedSuperuser`: bootstrap mutations (the former is a
+  public mutation that only works when no users exist; the latter upserts a
+  `super_admin`/`admin` and is now an **`internalMutation`** — server-only — see
+  the FIXED note below).
 - `createEmployeePortalLogin` / `resetEmployeePortalPassword`: provision an
   `employee`-role login from a `personnel` record, generating a random temp
   password.
 
-> **Gotcha:** `seedSuperuser`, `setForcePasswordChange`, and
-> `setRequiresDailyLog` take **no `requestingUserId`** and have **no guard** —
-> they are callable by anyone with the Convex deployment URL. `createInitialAdmin`
-> is only safe because it self-disables once any user exists.
+> **FIXED (since 2026-06-22):** `seedSuperuser`, `setForcePasswordChange`, and
+> `setRequiresDailyLog` were previously **public mutations with no guard** —
+> anyone with the Convex URL could create an admin or **overwrite any user's
+> password and set their role to admin** (account takeover). All three are now
+> **`internalMutation`** (`convex/auth.ts:348,393,409`), so they are no longer
+> client-callable; only server code (crons / other Convex functions) can invoke
+> them. `createInitialAdmin` remains safe because it self-disables once any user
+> exists. This closes the headline anonymous privilege-escalation hole.
 
 ### 2.3 Client auth context (`app/auth-context.tsx`)
 
@@ -273,9 +279,18 @@ a plain `Error` on failure:
 | `requireSelfOrManager(ownerId)` | the resource owner, else falls back to `requireManagePersonnel` |
 | `requireTrainingAccess` | `super_admin` or `permissionOverrides["menu.training"] === true` |
 | `requireRole(roles[])` | any explicit role list |
+| `requireMinTier(ctx, userId, n)` | any user whose tier (via `ROLE_TIER`) is `>= n` |
 
 All guards re-fetch the user via `ctx.db.get(requestingUserId)` and reject
 inactive accounts.
+
+> **New (security pass, since 2026-06-22):** `requireMinTier` was added
+> (`convex/authGuards.ts:180`) to gate a handler to the **same tier its page already
+> requires** (mirrors `getTier` in `lib/permissions.ts`, via the local `ROLE_TIER`
+> map; `tierOf` is the non-throwing variant used by global search). It is the fix
+> surface for queries that feed admin screens but must not leak to lower tiers —
+> e.g. `equipment.listComputers` / `getRemoteAccessComputers` (tier 2,
+> `equipment.ts:1685,1742`) and the `deletedRecords` read queries (tier 4, §5.2).
 
 ### 3.5 Route protection (`app/protected.tsx`)
 
@@ -332,6 +347,29 @@ Convex files. Findings (severity-rated):
 > at audit time were applied to only a small fraction of handlers (notably the
 > `auth.*` user-management mutations now call `requireAdmin`).
 
+**Security-hardening pass (`docs/iecentral/SECURITY-FINDINGS.md`, 2026-06-22).** A
+follow-up read of the backend (665 mutations, ~195 guard call-sites) re-confirmed
+the audit and **fixed the most dangerous anonymous-disclosure / takeover items**.
+Fixed in that pass:
+
+| Item | Before | Now |
+|---|---|---|
+| `auth.seedSuperuser` | anon could create an admin or overwrite any user's password + role (takeover) | → `internalMutation` |
+| `auth.setForcePasswordChange`, `auth.setRequiresDailyLog` | public, patch any userId, no check | → `internalMutation` |
+| `quickbooks.generateQwcFile` | public query leaking QBWC username + plaintext password | → `internalQuery` |
+| `zoomAccounts.getWithCredentials` | public query returning any user's Zoom OAuth tokens | → `internalQuery` (+ action repointed to `internal.*`) |
+| `documentFolders.getFolderWithPassword`, `getDocumentsInternal` | public — leaked folder `passwordHash` / bypassed folder access control | → `internalQuery` |
+| `locations.list`/`listActive`/`listActiveWarehouses`/`get`/`getByName` | public queries returned every location's PIN/alarm/gate codes, wifi password, security notes | secrets **stripped** from public queries; guarded `locations.listWithSecurity` (`requireAdmin`) added for the admin page (`locations.ts:13,72`) |
+| `equipment.listComputers`/`getRemoteAccessComputers` | public — returned every computer's admin/user passwords + remote-access code/URL | gated to **tier 2** via `requireMinTier` (`equipment.ts:1685,1742`) |
+| `deletedRecords.getDeletedRecords`/`getDeletionAuditLog`/`getDeletedRecordCounts` | public — full JSON snapshots of soft-deleted records (incl. secrets) | gated to **tier 4** via `requireMinTier` (`deletedRecords.ts:36,65,325`) |
+
+**Still open** (per SECURITY-FINDINGS): `auditLogs.log` (forgeable),
+`scannerMdm.logScannerCommand`, `quickbooks.saveConnection`,
+`ftpConnections.getWithCredentials`/`create`/`update`, the payroll/time-approval
+bypass set, cross-user HR writes, `messages.*` / `documents.getDownloadUrl` /
+`documentFolders.*`, etc. **The system is still NOT fully remediated** — the pass
+stopped the worst secret-leaks but most CRUD remains guard-by-omission.
+
 ---
 
 ## 4. App Shell & Navigation
@@ -375,11 +413,75 @@ reports, Training, etc.).
 
 ### 4.4 Global search (`components/GlobalSearch.tsx` + `convex/search.ts`)
 
-- Opened with **Cmd/Ctrl-K**. Calls `api.search.globalSearch(searchQuery)`.
-- `globalSearch` is a **brute-force `.collect()` + substring scan** across
-  `projects`, `personnel`, `applications`, `scanners`, `pickers`, and `users`,
-  returning the top 20 typed results (`project|personnel|application|equipment|user`)
-  with a deep-link `href`. No search index, no permission filtering on results.
+> **Substantially rewritten since the original doc.** Global search was previously
+> a brute-force, *unfiltered* scan returning results regardless of who could open
+> them. It is now **permission-aware**: every bucket is gated to the same rule its
+> area enforces, so a result appears only if the requesting user could actually
+> open the target.
+
+**Backend (`convex/search.ts → globalSearch`)** — a `query` that now takes
+`{ requestingUserId, searchQuery }` (`search.ts:22`). It still `.collect()`s each
+source table and does a `toLowerCase()` substring match (no search index yet), but
+with these additions:
+
+- **Caller resolution & gating.** It loads the requesting user, bails if missing/
+  inactive, and computes their tier via `tierOf(user.role)` from `authGuards.ts`
+  (`search.ts:28-31`). Buckets are then tier-gated:
+  - **Doc Hub documents** — all authenticated users, but each candidate is run
+    through the **visibility predicate** (`search.ts:63-86`, see below).
+  - **Personnel + applications** — `tier >= 2` (`search.ts:89`).
+  - **Users** — `tier >= 4` (`search.ts:111`).
+  - **Scanners + pickers** (equipment) — `tier >= 2` (`search.ts:124`).
+  - **Projects** — visible if the user is the creator, is in `sharedWith`, or is
+    `tier >= 4` (`search.ts:148`).
+  - **Announcements, locations** — all authenticated users (`search.ts:154,163`).
+    (Location *results* are just name + a `/locations` link; the secret fields are
+    not part of the search payload — see §3.7 on the locations lockdown.)
+- **Doc Hub visibility predicate (`lib/docVisibility.ts → canSeeDocument`).** This
+  pure helper was **extracted from `convex/documents.ts`'s `getAll` so the same
+  rule can be reused by search and unit-tested without Convex** (`docVisibility.ts:1-31`).
+  A doc is visible when: it is **not** inside a password-protected folder the user
+  neither owns nor has an un-revoked `folderAccessGrants` grant to; AND (the user
+  uploaded it, OR its `visibility` is `community`/`internal`, OR `isPublic`, OR the
+  user is in `sharedWith`, OR the user is in a group listed in `sharedWithGroups`).
+  `globalSearch` pre-computes the user's group memberships and the set of
+  `lockedFolders` before the doc loop (`search.ts:36-57`) and passes them in.
+- **Caps & shape.** `PER = 6` per source (so one bucket can't crowd out the rest),
+  `TOTAL = 30` overall (`search.ts:16-17`). Each result is
+  `{ type, id, title, subtitle, href, icon, category }`; categories are `Documents`,
+  `People`, `Operations` (and `Tires`, added client-side). Returns
+  `{ results, totalCount }`.
+
+**Deep-links.** Result `href`s point straight at the target:
+- Documents → `/documents?doc=<id>` (Doc Hub opens the **preview** for that doc).
+- Personnel → `/personnel/<id>`; applications → `/applications/<id>`.
+- Users → `/users`; equipment → `/equipment`; projects → `/projects`;
+  announcements → `/announcements`; locations → `/locations`.
+- Tires → `/reports/inventory?search=<itemId>` (jumps the inventory report to that
+  item — see below).
+
+**Frontend (`components/GlobalSearch.tsx`).** Opened with **Cmd/Ctrl-K** (or the
+`openGlobalSearch()` custom-event helper / `SearchButton`). Notable behavior:
+- **250 ms debounce** on the query (`GlobalSearch.tsx:107-111`); the Convex query is
+  `"skip"`ped until there are ≥ 2 chars **and** a logged-in user, and it passes the
+  current `user._id` as `requestingUserId` (`GlobalSearch.tsx:113-116`).
+- **Tires are merged client-side**, because tire data lives in **S3, not Convex**.
+  Only users with the `menu.reports` permission (`usePermissions()`) fire a `fetch`
+  to **`/api/reports/tire-search?q=…`**; the top 6 hits are mapped into `tire`-typed
+  results deep-linking to the inventory report (`GlobalSearch.tsx:119-142`).
+- **Grouped, ordered results.** DB + tire results are merged and sorted by a fixed
+  category order `["People","Documents","Tires","Operations"]`, memoized so the
+  array reference is stable (an inline array would reset the keyboard selection on
+  every render) (`GlobalSearch.tsx:147-153`). Category sub-headers render when the
+  category changes (`GlobalSearch.tsx:266-273`).
+- **Arrow-key navigation.** ↑/↓ move `selectedIndex` (clamped), Enter opens the
+  selected result, Esc closes; selection resets when results change
+  (`GlobalSearch.tsx:190-210`). A "Showing top matches — refine your search" hint
+  appears when `totalCount` exceeds the rendered count.
+
+> **Scaling note (unchanged):** `globalSearch` still `.collect()`s whole tables and
+> filters in memory — fine at current volume, a cliff later. The win is correctness/
+> security (per-bucket gating + the visibility predicate), not yet indexing.
 
 ### 4.5 Keyboard shortcuts (`components/KeyboardShortcuts.tsx`)
 
@@ -428,16 +530,23 @@ mutations take a `userId` for `create` but have no permission guard.**
   archive `restoredAt`/`restoredBy`, audits it.
 - `permanentlyDelete` (**super_admin only**, "GDPR/compliance"): audits then
   removes the archive row.
-- Queries: `getDeletedRecords`, `getDeletionAuditLog`, `getDeletedRecordCounts`.
+- Queries: `getDeletedRecords`, `getDeletionAuditLog`, `getDeletedRecordCounts` —
+  **now gated by `requireMinTier(ctx, requestingUserId, 4)`** (`deletedRecords.ts:36,65,325`),
+  matching the T4+ `/deleted-records` page. Previously these were public queries
+  that returned full JSON snapshots of soft-deleted rows (including any secrets in
+  them) to any anonymous caller — that leak is closed (§3.7 / SECURITY-FINDINGS).
 
-> **MAJOR GOTCHA — inconsistent auth model.** `deletedRecords.ts` is the one file
-> that uses **`ctx.auth.getUserIdentity()`** (Convex built-in auth) to identify
-> the caller, then looks the user up by email. But per `authGuards.ts`, Convex
-> built-in auth is **not wired up** in this project — so `getUserIdentity()`
-> returns `null` and these mutations will throw **"Not authenticated"** for
-> everyone. The soft-delete/restore feature appears effectively non-functional
-> through the normal client path; the rest of the app uses the userId-arg model
-> instead. This is a real contradiction to verify before relying on it.
+> **GOTCHA — split auth model within this one file.** The **read queries** above
+> use the project's standard **userId-arg model** (a `requestingUserId` + a
+> `requireMinTier` guard). But the **write mutations** (`softDeleteRecord`,
+> `restoreRecord`, `permanentlyDelete`) still use **`ctx.auth.getUserIdentity()`**
+> (Convex built-in auth) to identify the caller, then look the user up by email
+> (`deletedRecords.ts:86,184,281`). Per `authGuards.ts`, Convex built-in auth is
+> **not wired up** in this project — so `getUserIdentity()` returns `null` and
+> these mutations **fail closed** ("Not authenticated") for everyone through the
+> normal client path. Net effect: the soft-delete/restore *writes* appear
+> effectively non-functional via the standard client, even though the *reads* are
+> now properly gated. Verify before relying on the write path.
 
 ---
 
@@ -524,12 +633,18 @@ A high-level grouping of the table families (representative tables, not exhausti
 2. **Two RBAC systems coexist** — legacy `canXxx` booleans in `auth-context.tsx`
    vs. the tier/permission-key system in `lib/permissions.ts`. Know which a page
    uses before changing access.
-3. **`deletedRecords.ts` uses `ctx.auth.getUserIdentity()`** — the only file
-   relying on Convex built-in auth, which isn't wired up. Soft-delete/restore is
-   likely broken via the normal path.
-4. **Unguarded sensitive mutations** — `seedSuperuser`, `setForcePasswordChange`,
-   `setRequiresDailyLog`, `groups.*`, `systemBanners.*`, `auditLogs.log`, and most
-   CRUD across the app have no permission check (per the backend audit, ~97%).
+3. **`deletedRecords.ts` write mutations use `ctx.auth.getUserIdentity()`** — the
+   only handlers relying on Convex built-in auth, which isn't wired up, so the
+   soft-delete/restore *writes* fail closed via the normal path. (The *read*
+   queries were switched to the userId-arg model + `requireMinTier(4)` in the
+   security pass — see §5.2.)
+4. **Unguarded sensitive mutations (partially remediated).** A 2026-06-22 security
+   pass made `seedSuperuser`/`setForcePasswordChange`/`setRequiresDailyLog`
+   `internal*`, locked down credential-leaking queries (QBWC, Zoom tokens, folder
+   passwords), stripped location security codes from public queries, and tier-gated
+   the computer-password + deleted-record queries (§3.7). **But** `groups.*`,
+   `systemBanners.*`, `auditLogs.log`, and the bulk of app CRUD still have no
+   permission check (the backend audit's ~97%-ungated finding stands).
 5. **Convex deploys on every Vercel build** (`buildCommand` runs `npx convex
    deploy`). Pushing `origin/main` ships frontend *and* backend together.
 6. **Hardcoded Convex URL** in `app/providers.tsx` (not read from env), so the
@@ -537,8 +652,9 @@ A high-level grouping of the table families (representative tables, not exhausti
 7. **Service-worker staleness is a known production hazard** — `clientsClaim` +
    `cleanupOutdatedCaches` are deliberately forced in `next.config.ts`.
 8. **`globalSearch` and `auditLogs.getAll` `.collect()` whole tables** then filter
-   in memory — fine now, a scaling cliff later. Search results are not
-   permission-filtered.
+   in memory — fine now, a scaling cliff later. Global search results **are now
+   permission-filtered** (per-bucket tier gating + a Doc Hub visibility predicate,
+   §4.4); it's the indexing, not the security, that's still pending.
 9. **Impersonation attributes writes to the target user** in the data; only the
    start/stop events record the real super-admin.
 10. **Heavy report routes need raised limits** (2048MB / up to 300s in

@@ -8,12 +8,21 @@ processing, SFTP delivery, and the OEIVAL inventory cache.
 
 The platform ingests JMK ERP report exports (chiefly the **OEA07V** daily sales
 extract and the **OEIVAL** inventory snapshot), parses/aggregates them, and drives
-a family of reports and vendor-submission tools.
+a family of reports and vendor-submission tools. Exports arrive two ways: manual
+browser uploads (presigned S3 PUT) and — newest — an **inbound AWS Transfer Family
+SFTP endpoint** that lets JMK drop their daily reports **hourly** (see §7).
 
 > Scope note: this document covers the Reports & Data Platform cluster only.
 > Areas: Reports hub & ingestion, OEIVAL inventory cache, brand sourcing, dealer
 > rebates, Dunlop sellout reporter, WTD commission, JMK uploads & CIR, and tire
 > search / label printing.
+>
+> **Point-in-time disclaimer:** accurate as of **2026-06-25** (originally written
+> 2026-06-22; this revision folds in the changes through commit `71c7d7b`). Line
+> citations drift as the code moves; treat `file:line` as a starting point, not a
+> guarantee. One change here is **uncommitted** at time of writing — the
+> `template.yaml` SFTP IAM tightening (see §7) — and is described as the current
+> on-disk state, not a committed fact.
 
 ---
 
@@ -45,7 +54,8 @@ There are several S3 buckets, all in `us-east-1`. The **primary** bucket is
 | `jmk-uploads/{YYYYMM}/iet-oea07v*.csv` | Daily/monthly OEA07V sales extracts | upload page (presigned PUT), `auto-process`, FTP sync | sales-by-day, sales-history-data, custom-data, WTD daily-run, dealer-rebates, Dunlop monthly-run |
 | `jmk-uploads/{YYYYMM}/iet-art24t*.csv`, `iet-art30s*.csv` | Other JMK reports (tracked, not auto-processed) | upload page | custom-data |
 | `jmk-uploads/{YYYYMM}/IET-oea07v-monthly-combined.csv` | Deduped monthly combine | `dunlop/monthly-run` | Dunlop run |
-| `jmk-uploads/oeival/{YYYYMM}/...csv` | Raw OEIVAL inventory snapshots (data source) | upload page (`oeival` data source) | OEIVAL processor Lambda (S3 trigger) |
+| `jmk-uploads/oeival/{YYYYMM}/...csv` | Raw OEIVAL inventory snapshots (data source) | upload page (`oeival` data source), **inbound SFTP `/inventory`** | OEIVAL processor Lambda (S3 trigger) |
+| `jmk-uploads/sftp-sales/...csv` | **Hourly JMK sales drop via SFTP** (`/sales` logical folder) | inbound AWS Transfer Family SFTP | `transform_and_upload` Lambda S3-event branch → `processed/{YYYYMM}.json` |
 | `jmk-uploads/oeival/_cache/latest.meta.json` | REPORTING snapshot meta (latest upload only) | `oeival_processor` Lambda | inventory-data, custom-data |
 | `jmk-uploads/oeival/_cache/latest.items.ndjson.gz` | REPORTING snapshot items (gzip NDJSON) | `oeival_processor` Lambda | inventory-data, custom-data (streamed) |
 | `jmk-uploads/oeival/_cache/lookup.meta.json` | COLLECTIVE tire-label index meta (cumulative) | `oeival_processor` Lambda | `lib/oeivalBrandIndex.ts` |
@@ -133,13 +143,18 @@ that lands JMK exports in S3 and triggers downstream processing.
 group, `external?`, `superAdminOnly?`); groups: hr, operations, inventory, sales,
 saved, vendor, admin.
 
-### Two ingestion architectures (important)
+### Ingestion architectures (important)
 
 1. **S3-direct (primary).** Upload page presigns via `/api/reports/upload-url`,
    `PUT`s straight to S3, records metadata via `jmkUploads.recordUpload`
    (`jmkUploadHistory` table). Report routes then read/parse the raw CSV (or the
    OEIVAL cache) from S3 on demand.
-2. **Convex-table (legacy/secondary).** `/api/reports/ingest` parses the file
+2. **Inbound SFTP (newest, automated).** A managed **AWS Transfer Family** endpoint
+   lets JMK push their existing daily reports **hourly**, landing them in the same
+   S3 prefixes the manual path uses (`jmk-uploads/sftp-sales/` and
+   `jmk-uploads/oeival/`) and firing the same S3-triggered Lambdas. The browser
+   upload path is left untouched and keeps working in parallel. Full stack in §7.
+3. **Convex-table (legacy/secondary).** `/api/reports/ingest` parses the file
    server-side and writes into the `tireCatalog` / `inventoryItems` / `salesHistory`
    tables via `convex/reportData.ts`. This path uses full `XLSX.read` and is the
    OOM-prone pattern the streaming OEIVAL cache replaced.
@@ -158,6 +173,15 @@ saved, vendor, admin.
 | `app/api/reports/inventory-data/route.ts` | GET (`maxDuration=60`) | Streams `latest.items.ndjson.gz` line-by-line applying filters; maps brand codes; `staleWarning` if cache missing. |
 | `app/api/reports/sales-by-day/route.ts` | GET | Aggregates OEA07V daily CSVs → per-day/week/month per-location qty + dollars; `CONCURRENCY=8`; dedup key `date|invoice|item|location|account`; ReS returns tracked separately; IET-house customers skipped. |
 | `app/api/reports/sales-history-data/route.ts` | GET | OEA07V → per-item monthly sales map; 10k-item cap; `debugItemId` mode. |
+
+**Dashboard "Financial Snapshot" widget** (`components/FinancialSnapshotWidget.tsx`)
+reads `/api/sales?months=…&compare=true` (backed by `processed/{YYYYMM}.json`, the
+same snapshots the SFTP sales-drop now refreshes hourly). As of commit `0d3bc18` it
+**headlines the latest COMPLETE month** instead of the in-progress current month:
+it computes `currentYm`, filters to well-formed `^\d{6}$` keys, and picks the newest
+`m < currentYm`. Before this, a partial current month was compared against a full
+prior month and read as a ~94% drop. The chosen period is now also labeled in the
+widget header (`formatYm` → e.g. "May 2026").
 
 ### Convex backend
 
@@ -366,7 +390,9 @@ is a hardcoded SKU allowlist; new sizes silently miss until added.
 
 **Purpose:** Automated monthly "sellout" reporting to SRNA/Dunlop. Filters OEA07V
 to Falken/Dunlop tires sold from IET warehouses, transforms to Dunlop's CSV spec,
-and **SFTPs** to Dunlop. Backfill Jan 2024–Feb 2026 baked into the UI.
+and **SFTPs** to Dunlop (*outbound*). Backfill Jan 2024–Feb 2026 baked into the UI.
+The same SAM stack also now hosts an **inbound** AWS Transfer Family SFTP endpoint
+for JMK's hourly feed (see "Inbound SFTP" below) — a distinct direction/mechanism.
 
 ### Front end & API routes
 
@@ -403,12 +429,13 @@ EventBridge `MonthlyTriggerRule` in SAM is **DISABLED**.
 | Lambda | Handler | API path |
 |---|---|---|
 | `dunlop-generate-presigned-url` | `generate_presigned_url.handler` | POST `/dunlop/upload-url` |
-| `dunlop-transform-and-upload` (VPC, Mem 1024, paramiko) | `transform_and_upload.handler` | POST `/dunlop/run` |
+| `dunlop-transform-and-upload` (VPC, Mem 1024, paramiko) | `transform_and_upload.handler` | POST `/dunlop/run` **+ S3 event for `sftp-sales/`** |
 | `dunlop-fetch-history` | `fetch_history.handler` | GET/DELETE `/dunlop/history` |
 | `dunlop-manage-settings` | `manage_settings.handler` | GET/PUT `/dunlop/settings` |
 | `dunlop-imap-relay` (VPC) | `imap_relay.handler` | POST `/imap/fetch`, `/imap/fetch-one`, `/imap/folders` |
 | `dunlop-fetch-sales` (Mem 1024) | `fetch_sales.handler` | GET `/dunlop/sales` |
 | `dunlop-oeival-processor` (Mem 2048) | `oeival_processor.handler` | (S3 event; see §4) |
+| `dunlop-sftp-idp` (Mem 128, Timeout 10) | `sftp_idp.handler` | (Transfer Family custom IdP; see below) |
 
 ### transform_and_upload.py highlights
 
@@ -425,6 +452,68 @@ Other lambdas: `fetch_sales` reads `processed/{month}.json` for the sales
 dashboard (excludes house brands `IET-P/IET-G/IET-T`); `fetch_history` lists run
 logs; `imap_relay` is the VPC-resident IMAP relay used by the in-app email client
 (auth via `X-Relay-Secret`).
+
+### Inbound SFTP — JMK hourly sales + inventory feed (AWS Transfer Family)
+
+**Added 2026-06-24** (commit `1e02341`). A managed **AWS Transfer Family** SFTP
+server (`JmkSftpServer`, `template.yaml:673`) lets JMK push their **existing daily
+reports hourly** instead of someone manually uploading them. It is a *second*
+ingest path that lands files in the same S3 prefixes the manual flow already uses,
+so the existing triggers fire unchanged and the presigned-URL + `/dunlop/run` flow
+is **untouched** (the manual path keeps working until the feed launches).
+
+**Server / auth.** `EndpointType: PUBLIC`, `Domain: S3`,
+`IdentityProviderType: AWS_LAMBDA`. Transfer Family's built-in auth is SSH-key only;
+**password auth** requires a custom identity-provider Lambda, `dunlop-sftp-idp`
+(`sftp_idp.py`). On each login it:
+
+- Rejects any attempt with **no password** (SSH-key attempts denied).
+- Reads `dunlop-reporter/jmk-sftp-user` from Secrets Manager (a `{username, password}`
+  secret, `JmkSftpUserSecret` — password auto-generated, length 24) and compares
+  with `hmac.compare_digest` (constant-time).
+- On success returns `Role` = `JmkSftpAccessRole` plus a **LOGICAL** home directory
+  so JMK sees only two folders mapped to real S3 targets:
+
+| Logical folder JMK sees | Real S3 target | Downstream |
+|---|---|---|
+| `/sales` | `…/jmk-uploads/sftp-sales/` | S3 event → `transform_and_upload` **sales-drop branch** |
+| `/inventory` | `…/jmk-uploads/oeival/` | the existing OEIVAL processor (§4) |
+
+**Scoped, upload-only IAM.** `JmkSftpAccessRole` (`template.yaml:593`) limits JMK to
+`s3:ListBucket` on those two prefixes plus **`s3:PutObject` only** on them.
+
+> **Uncommitted working change** (on disk at time of writing, not committed):
+> `git diff` shows the upload statement renamed `ReadWrite → UploadOnly` and its
+> actions cut from `[PutObject, GetObject, DeleteObject, GetObjectVersion]` down to
+> `[s3:PutObject]`. Effect: JMK can **drop** files but can no longer download or
+> delete anything over SFTP — a least-privilege tightening of the just-shipped feed.
+> Documented here as the current on-disk state; not reverted or committed by this doc.
+
+**The new `transform_and_upload` S3-event branch** (`transform_and_upload.py:64`):
+the handler checks for `event["Records"]` *first*; an S3-trigger event routes to
+`_handle_s3_sales_drop` (`:161`), which parses the dropped CSV, groups rows by
+their activity month, and rewrites each month's `processed/{YYYYMM}.json` snapshot
+(same replace-semantics as the manual run, just hourly). **Crucially it does NOT
+generate a Dunlop report or SFTP anything outbound** — that stays on the monthly
+job, so JMK's hourly drops never re-send Dunlop a report every hour. Non-S3 events
+(API Gateway body / EventBridge) fall through to the normal `/dunlop/run` pipeline.
+
+**Deploy note (in-template comments).** The S3→Lambda **bucket notification is
+merged post-deploy** (via CLI) rather than declared in SAM, both to dodge SAM's
+circular-dependency error when one bucket triggers multiple Lambdas (same caveat
+the OEIVAL processor carries, `template.yaml:436`) **and** to preserve the existing
+OEIVAL trigger when adding the new `sftp-sales/` one. `TransformS3InvokePermission`
+(`template.yaml:690`) grants S3 permission to invoke `transform_and_upload`.
+`TransferLoggingRole` ships Transfer Family logs to CloudWatch. Stack outputs expose
+`SftpEndpoint` (`{ServerId}.server.transfer.us-east-1.amazonaws.com`), `SftpServerId`,
+and `JmkSftpUserSecretArn`.
+
+> **Two distinct SFTP concerns — don't conflate them.** *Outbound* SFTP =
+> `transform_and_upload` → Dunlop (paramiko, dev/prod creds in
+> `dunlop-reporter/sftp-credentials`, egresses the static NAT IP `54.163.176.67`).
+> *Inbound* SFTP = AWS Transfer Family, JMK → us (password IdP, creds in
+> `dunlop-reporter/jmk-sftp-user`). Different direction, different secret, different
+> mechanism.
 
 ### `convex/ftpConnections.ts` + FTP routes
 
@@ -546,7 +635,7 @@ Archives generated CIR PDFs and logs runs for a coverage tracker.
 
 | File | Role |
 |---|---|
-| `lib/tireSearch.ts` | `tireSizeMatchesQuery` — match separator-stripped size query (e.g. `2656018`) against a description via `/(\d{2,3})\/(\d{2,3})Z?R(\d{2})/i`; bidirectional substring |
+| `lib/tireSearch.ts` | `tireSizeMatchesQuery` — match a size query against a description. **R-optional** (commit `ea6a520`): both sides are reduced to **digits only**, so `2056016`, `20560R16`, `205/60R16`, `205/60ZR16` all match the same row. Description size parsed via `/(\d{2,3})\s*\/\s*(\d{2,3})\s*Z?R\s*(\d{2})/i`; query must reduce to ≥5 digits; bidirectional substring on `width+aspect+rim` digits (so partial sizes like `26560` still hit) |
 | `lib/tireSize.ts` | `parseTireDims` + `tireSortKey(description) → [rim, width, aspect]` for stable sort |
 | `lib/tireDescriptions.ts` | `formatTireSize` (digits → `205/55R17`); `buildTireDescription` (Size + Load/Speed + Brand + Model + …) |
 | `components/TireSearchBox.tsx` | 300ms-debounced type-ahead → `GET /api/reports/tire-search` (used only by bin-labels Tire mode) |
@@ -558,16 +647,41 @@ the latest snapshot. `resolveBrand(itemId)` backs the bin-labels "Look up" butto
 
 ### Bin labels vs tire labels — `app/bin-labels/page.tsx`
 
-Single page (`/bin-labels`), mode toggle `bin | tire`; both use JsBarcode (CODE128).
+Single page (`/bin-labels`), mode toggle `bin | tire`. Live previews use JsBarcode
+(CODE128 SVG); **both modes now print exact-size PDFs via jsPDF** (printer-agnostic,
+hidden-iframe print — see the "both print as PDFs" gotcha below).
 
-- **Bin labels** (6"×2" thermal): global `copies` count; **printing is CSS-based**
-  (`window.print()` + a `createPortal` `#print-root` and `@page { size: 6in 2in }`).
+- **Bin labels** (6"×2" thermal): global `copies` count. `printBinLabelsPdf`
+  (`app/bin-labels/page.tsx:332`): `new jsPDF({unit:"in", format:[6,2], orientation:"landscape"})`,
+  one page per copy — CODE128 of the bin/location id (rasterized to PNG) on the left,
+  auto-fit location name on the right.
 - **Tire labels** (4"×6" shipping): per-label `qty`; fill via `TireSearchBox`,
-  item-ID "Look up" (`/api/reports/resolve-brand`), or manual. **Printing is
-  jsPDF-based** (`printTireLabelsPdf`): `new jsPDF({unit:"in", format:[4,6]})`,
-  brand logo (re-encoded white-backed PNG to avoid black-block bug) + brand/model/
-  size text + CODE128 barcode rasterized to PNG (value = MPN ?? itemId) + footer
-  `Created {date} · {user}`; output printed via a hidden iframe (popup-blocker safe).
+  item-ID "Look up" (`/api/reports/resolve-brand`), or manual. `printTireLabelsPdf`
+  (`:487`): `new jsPDF({unit:"in", format:[4,6]})`, brand logo (re-encoded
+  white-backed PNG to avoid the black-block bug) + brand/model/size text + CODE128
+  barcode(s) rasterized to PNG + footer `Created {date} · {user}`.
+
+**Tire-label barcode composition (precise).** The printed/encoded value is built by
+`tireBarcodeValue` (`:124`) = **`(MPN || itemId)` + D-class suffix**:
+
+1. **Base** = the manufacturer part number (`mpn`) when present, else the internal
+   `itemId`.
+2. **D-class suffix** = a single symbol appended via `applyDclass` (`:100`) so the
+   barcode scans an **exact** match in inventory (the scanner does an exact match, so
+   `AB1234` won't find an item that is really `AB1234[`). Options (`DCLASS_OPTIONS`,
+   `:83`): None / Dot `.` / Caret `^` / Bracket `[` / Colon `:` / Dash `-` /
+   Tilde `~` / Star `*` / Hash `#` / Bang `!`. `applyDclass` first strips any trailing
+   d-class symbol the base already carries, so it is **never doubled**
+   (`AB1234[` + Bracket still → `AB1234[`).
+3. **Auto-detect** (`detectDclass`, `:114`): on search-fill / item-ID "Look up", the
+   d-class is inferred from the looked-up part number (first candidate — MPN then
+   item-ID — whose last char is a d-class symbol wins), and the MPN field is shown
+   *clean* (`stripDclass`) with the dropdown carrying the suffix. User can override.
+4. **Optional second Item-ID barcode** (`includeItemId` toggle, default off, `:157`):
+   when on AND the trimmed `itemId` differs from the primary barcode value, the label
+   prints a **second** CODE128 barcode of the raw `itemId`. The two stack with
+   captions **`MPN`** (primary) and **`ITEM ID`** (secondary); when only one applies
+   it prints centered with no caption (`:533`).
 
 ### `convex/labelWorkOrders.ts`
 
@@ -575,8 +689,13 @@ Tire-mode batch save/print: `create` (labelType `"tire"`, status `"open"`), `lis
 (`by_status_created` / `by_created`), `get`, `markPrinted`, `remove`. Schema
 `labelWorkOrders` indexes `by_status_created`, `by_created`.
 
-**Gotcha:** the persisted label object omits `mpn`, so reloaded work orders lose a
-manually-entered MPN and the barcode falls back to itemId.
+**MPN/D-class persistence (gotcha now fixed).** The persisted label object earlier
+omitted `mpn`, so reloaded work orders lost a manually-entered MPN. As of commits
+`341323b` (mpn) and `d8e2a21` (dclass), the `LABEL` validator and schema include
+both `mpn: v.optional(v.string())` and `dclass: v.optional(v.string())`, so reprints
+keep the right barcode value + suffix. Work orders that predate these fields fall
+back to the order's global `copies` and an empty MPN/d-class (barcode → itemId,
+no suffix) on load (`loadWorkOrder`, `:425`).
 
 ---
 
@@ -598,8 +717,20 @@ manually-entered MPN and the barcode falls back to itemId.
 - **Idempotency everywhere:** dealer-rebate uploads keyed by `s3Key+program`; WTD
   `saveReport` by (customer, start, end); brand backfill skips already-populated
   rows; upload-history dedup by `s3Key`.
-- **Plaintext dev SFTP password** lives in `template.yaml`; prod creds are `TBD`
-  placeholders managed via Secrets Manager / the Settings tab.
+- **Two SFTP directions, two secrets.** *Outbound* (us → Dunlop): plaintext **dev**
+  SFTP password lives inline in `template.yaml`'s `dunlop-reporter/sftp-credentials`
+  secret; **prod** creds are `TBD` placeholders managed via Secrets Manager / the
+  Settings tab. *Inbound* (JMK → us): AWS Transfer Family password auto-generated
+  into `dunlop-reporter/jmk-sftp-user` (not plaintext in the template). Do not
+  conflate them.
+- **CSP `frame-src` must allow `blob:`** (`next.config.ts:132`). Both label PDFs and
+  other PDF previews print via a hidden `blob:` iframe; Chrome blocks the print
+  unless `frame-src 'self' blob: …` is set (Safari does not — easy to miss). Same
+  directive that the print/label work relies on (commit `519dd1c`).
+- **Both label types now print as exact-size jsPDF** (commit `dd15ca6`), replacing
+  the old `@media print` / `window.print()` path that produced a blank second
+  page/label. The legacy `@page { size: … }` CSS print path is still present for the
+  on-screen preview portal but is not the print mechanism.
 - **Two ingestion architectures** coexist — S3-direct (primary) and the legacy
   Convex-table `ingest` path (`XLSX.read`, OOM-prone).
 - **Store-transfer accounts** canonicalize both directions to one key, but the
@@ -618,5 +749,6 @@ manually-entered MPN and the barcode falls back to itemId.
 | Brand sourcing | `lib/{brandMapping,brandFilter,brandLogo,oeivalBrandIndex}.ts`, `convex/inventoryAdjustments.ts`, `app/api/reports/{resolve-brand,heal-adjustment-brands}/route.ts`, `app/api/brand-logo/route.ts` |
 | Dealer rebates | `app/dealer-rebates/page.tsx`, `convex/dealerRebates.ts`, `lib/dealerRebates/{aggregate,dedup}.ts`, `app/api/dealer-rebates/*` |
 | Dunlop reporter | `app/dunlop-reporting/page.tsx`, `app/api/dunlop/*`, `aws/dunlop-reporter/{template.yaml,lambdas/*.py}`, `convex/ftpConnections.ts` |
+| Inbound SFTP (JMK feed) | `aws/dunlop-reporter/{template.yaml,lambdas/sftp_idp.py}`, `transform_and_upload.py` (`_handle_s3_sales_drop`) |
 | WTD commission | `app/tools/wtd-commission/*`, `app/api/wtd-commission/*`, `convex/wtdCommission.ts` |
 | Tire search & labels | `lib/{tireSearch,tireSize,tireDescriptions}.ts`, `components/TireSearchBox.tsx`, `app/bin-labels/page.tsx`, `convex/labelWorkOrders.ts`, `app/api/reports/tire-search/route.ts` |

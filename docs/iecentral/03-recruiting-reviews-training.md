@@ -1,6 +1,10 @@
 # IECentral — Recruiting / Onboarding / Reviews / Training
 
-Internal HR platform cluster for **Import Export Tire Co** (a.k.a. "IE Tire"). Stack: **Next.js 15 (App Router)** front end, **Convex** reactive backend (`convex/*.ts`, schema in `convex/schema.ts`), and **AWS** for video storage (S3) and the public Indeed webhook. AI features use the **Anthropic SDK** (`@anthropic-ai/sdk`, model `claude-sonnet-4-20250514`) with graceful regex/heuristic fallbacks when `ANTHROPIC_API_KEY` is unset.
+Internal HR platform cluster for **Import Export Tire Co** (a.k.a. "IE Tire"). Stack: **Next.js 15 (App Router)** front end, **Convex** reactive backend (`convex/*.ts`, schema in `convex/schema.ts`), and **AWS** for video storage (S3) and the public Indeed webhook. AI features use the **Anthropic SDK** (`@anthropic-ai/sdk`, model **`claude-sonnet-4-6`**) with graceful regex/heuristic fallbacks when `ANTHROPIC_API_KEY` is unset.
+
+> **Point-in-time disclaimer.** This document was written 2026-06-22 and updated 2026-06-25; it describes the code as of those dates. `file:line` citations drift as the codebase changes — treat them as starting points, not guarantees.
+>
+> **Model id (verified 2026-06-25):** the previous model `claude-sonnet-4-20250514` has been retired and replaced everywhere with **`claude-sonnet-4-6`** (`convex/aiMatching.ts:263`, `convex/aiInterview.ts:133`/`:319`, `convex/exitInterviews.ts:711`, plus non-recruiting callers `convex/aiTasks.ts:74`, `convex/meetingNoteActions.ts:184`, `app/api/tech-wizard/route.ts:70`). Any reference to the older id is stale.
 
 This document covers the end-to-end hiring funnel and the post-hire people-ops modules:
 
@@ -30,7 +34,7 @@ Manage the full hiring pipeline: ingest applications from multiple sources, AI-s
   - Writes: `submitApplication` (public intake), `create` (manual), `updateStatus` / `updateStatusWithActivity`, `updateAIAnalysis`, `remove`, `archive` / `unarchive` / `archiveRejected` / `archiveHired`.
   - Interviews: `startInterviewRound`, `updateInterviewAnswer`, `savePreliminaryEvaluation`, `updateInterviewNotes`, `saveInterviewEvaluation`, `completeInterviewRound`, `deleteInterviewRound`, `markDidNotShow`.
   - Scheduling: `scheduleInterview`, `rescheduleInterview`, `clearScheduledInterview`, `addInterviewAttendees` / `getInterviewAttendees` / `removeInterviewAttendee`.
-  - Resume files: `generateUploadUrl`, `getResumeUrl`, `updateResumeFile`.
+  - Resume files: `generateUploadUrl`, `getResumeUrl`, `updateResumeFile` (the last is also how `processResume` attaches a PDF to an existing applicant — see *Résumé intake & dedupe* below).
   - Maintenance: `rescoreAllApplications`, `updateCandidateScore`, `restoreOriginalDates`, `autoExpireOldApplications` (cron internalMutation).
 
 ### Data tables
@@ -53,12 +57,32 @@ Manage the full hiring pipeline: ingest applications from multiple sources, AI-s
 - **`docs/ATS-USER-GUIDE.md`** — full lifecycle reference: 7 application statuses, four intake channels, pipeline table/kanban, candidate profile tabs (Overview/Resume/Interview/Activity), 3-phase interviews, offer-letter status flow (`draft→sent→viewed→accepted/declined/expired/withdrawn`), hire→personnel, onboarding docs, job postings, bulk upload, Indeed mapping. (v2.0, "Last Updated January 2026").
 - **`docs/APPLICATIONS_USER_GUIDE.md`** — operator-focused: dashboard layout (stats bar, gold/silver/bronze Top Candidates), AI scoring weights (**35% experience / 35% stability / 20% skills / 10% education**), score color bands (≥80 green, 60–79 amber, <60 red), preliminary-eval 1–4 criteria, interview round mechanics, hire form fields, troubleshooting (score=50 means AI failed), permissions table.
 
+### Résumé intake & dedupe (`convex/bulkUpload.ts:processResume`)
+Bulk upload and (indirectly) Indeed both funnel résumés through `processResume` (action, "use node", `convex/bulkUpload.ts:9`). The flow, per uploaded PDF:
+
+1. **Guard** — reject `resumeText` shorter than 50 chars (`bulkUpload.ts:32`).
+2. **AI extract** — always call `aiMatching.analyzeResume` for contact info + skills + per-job scores, even when a job is pre-selected (`:53`).
+3. **Existing-employee branch** — `personnel.searchByEmailOrName` (email/first/last). A match means this is a current employee, not a candidate: write the résumé + job-match analysis onto the personnel record via `personnel.updateResumeAndAnalysis` and return `type: "personnel_update"` (`:63`–`:104`).
+4. **Duplicate-applicant branch** — `applications.checkForDuplicate` (email/first/last, `:108`). When a prior applicant already exists (e.g. came in text-only via Indeed/website):
+   - **Dup-PDF-attach (new):** if *this* upload carries a `resumeFileId` **and** the existing record has no `resumeFileId`, attach the PDF to the existing applicant via `applications.updateResumeFile` and return the new `type: "duplicate_pdf_attached"` with a human-readable `message` (`:119`–`:129`). This is how re-running a batch backfills missing résumé PDFs instead of discarding the upload.
+   - Otherwise it is a true duplicate → `success: false` with an `error` string (`:131`–`:134`).
+5. **New-application branch** — build the `aiAnalysis` blob (top match, or score-100 minimal blob when a job is pre-selected) and call `applications.submitApplication` with `source` defaulting to bulk; return `type: "new_application"` (`:137`–`:192`).
+
+**`processResume` return shape (`bulkUpload.ts:18`–`29`):** `{ success, error?, type?, applicationId?, personnelId?, candidateName?, matchedJob?, overallScore?, currentPosition?, message? }`. The `type` union is `"new_application" | "personnel_update" | "duplicate_pdf_attached"`; `message` is the optional human-readable note (currently only populated on dup-PDF-attach). The bulk-upload UI tallies a separate `pdfAttachedCount` and shows "*N* resume PDFs attached to existing applicants" in its results summary (`app/applications/bulk-upload/page.tsx:279`, `:591`).
+
 ### AI features (Anthropic)
 | File | Export(s) | What it does |
 |------|-----------|--------------|
-| `convex/aiMatching.ts` (594) | `analyzeResume` (action), `reanalyzeApplication`, `reanalyzeAllApplications` | Single Claude call scores resume against **all** active jobs (by index), extracts contact info + skills + employment history + red/green flags + tenure stats + `recommendedAction`. `temperature:0`, `max_tokens:3000`, **3-retry exponential backoff** on 429/overloaded; `fallbackAnalysis()` does regex name/email/phone extraction + flat score 25 when AI unavailable. Prompt is heavily domain-tuned: tire-tech bonus rules, owner/founder is *not* a red-flag, career-stage (years-since-graduation) bonus for physical roles. |
-| `convex/aiInterview.ts` (465) | `generateInterviewQuestions`, `evaluateInterview` (actions) | Generates round-specific question sets (5–8 by round/positionType), avoids repeating prior-round questions, addresses red flags. `evaluateInterview` scores Q&A 0–100 with strengths/concerns/recommendation; **explicitly told answers are interviewer shorthand notes — do not penalize brevity**, and folds in the preliminary 1–4 small-talk average. Both have hardcoded fallback question banks / heuristic eval. |
-| `convex/aiTasks.ts` (211) | `generateTasks` (action) | **Not recruiting** — breaks a *project* description into tasks for the Projects module. Listed here only because it shares the Anthropic-SDK pattern. |
+| `convex/aiMatching.ts` (594) | `analyzeResume` (action), `reanalyzeApplication`, `reanalyzeFailedApplications`, `reanalyzeAllApplications` | Single Claude call (`model: "claude-sonnet-4-6"`, `convex/aiMatching.ts:263`) scores resume against **all** active jobs (by index), extracts contact info + skills + employment history + red/green flags + tenure stats + `recommendedAction`. `temperature:0`, `max_tokens:3000`, **3-retry exponential backoff** on 429/overloaded (`:256`–`:272`); `fallbackAnalysis()` does regex name/email/phone extraction + flat score 25 when AI unavailable or the JSON fails to parse. Prompt is heavily domain-tuned: tire-tech bonus rules, owner/founder is *not* a red-flag, career-stage (years-since-graduation) bonus for physical roles. |
+| `convex/aiInterview.ts` (465) | `generateInterviewQuestions`, `evaluateInterview` (actions) | Generates round-specific question sets (5–8 by round/positionType, `model: "claude-sonnet-4-6"` at `:133`), avoids repeating prior-round questions, addresses red flags. `evaluateInterview` (`:319`) scores Q&A 0–100 with strengths/concerns/recommendation; **explicitly told answers are interviewer shorthand notes — do not penalize brevity**, and folds in the preliminary 1–4 small-talk average. Both have hardcoded fallback question banks / heuristic eval. |
+| `convex/aiTasks.ts` (211) | `generateTasks` (action) | **Not recruiting** — breaks a *project* description into tasks for the Projects module. Listed here only because it shares the Anthropic-SDK pattern (`model: "claude-sonnet-4-6"`, `:74`). |
+
+### AI resilience & re-analysis
+`analyzeResume` degrades rather than fails: rate-limit/overload errors get up to 3 exponential-backoff retries (`aiMatching.ts:256`), an unparseable response falls through to `fallbackAnalysis()`, and a missing `ANTHROPIC_API_KEY` skips Claude entirely. During an AI outage, the fallback path produces records with a flat `overallScore` of **50** and/or placeholder names (`"Unknown"` first name or a `(filename)` last name). Two repair actions clean those up afterward:
+
+- **`reanalyzeApplication`** (`aiMatching.ts:418`) — re-runs `analyzeResume` for one application, rewrites `aiAnalysis`/`candidateAnalysis`, and **backfills contact info** when the record looks like a placeholder: it fills `firstName`/`lastName` from the fresh analysis, and fills `email`/`phone` only if those fields are still blank — it never overwrites a real name or an already-set email/phone (`:460`–`:482`).
+- **`reanalyzeFailedApplications`** (`aiMatching.ts:495`) — a **batched, idempotent** targeted re-eval of *only* the AI-down batch. It scans all applications (incl. archived) and targets those with usable résumé text whose `overallScore === 50` or whose name is a placeholder (`:502`–`:508`). It is batched to stay well under the Convex **action time limit**: it processes at most `limit` targets per call (default **8**, `:500`) and returns `{ targetedTotal, processed, remaining, errors, scores[] }` — the caller loops, re-invoking until `remaining` hits 0 (`:496`–`:510`). It is safe to run repeatedly because it skips correctly-scored candidates. (Backend-only; no UI trigger — invoked from the dashboard/CLI.)
+- **`reanalyzeAllApplications`** (`aiMatching.ts:531`) — the older un-batched "re-score everything with résumé text" pass; still present, but prefer `reanalyzeFailedApplications` to avoid action timeouts on large pipelines.
 
 ---
 
@@ -224,7 +248,7 @@ Source of truth for open positions — drives the public careers page, AI resume
 - **Personnel** is the hub for post-hire modules: onboarding signatures, surveys, reviews, training, and exit interviews all key off `personnelId`.
 - **Calendar (`events`/`eventInvites`):** interview scheduling and exit-interview scheduling create/cancel calendar events.
 - **Email (`convex/emails.ts`):** interview confirmations, offer letters, exit-interview links, survey invites are all scheduled via `ctx.scheduler.runAfter(...)`.
-- **Anthropic (`claude-sonnet-4-20250514`)** powers resume scoring, interview Q&A/eval, and exit-interview analytics — every call has a non-AI fallback.
+- **Anthropic (`claude-sonnet-4-6`)** powers resume scoring, interview Q&A/eval, and exit-interview analytics — every call has a non-AI fallback. Resilience: `analyzeResume` retries on overload then falls back, and `reanalyzeFailedApplications` is the batched repair pass for records left at score-50/placeholder during an AI outage.
 
 ## Env vars referenced
 `ANTHROPIC_API_KEY`, `NEXT_PUBLIC_CONVEX_URL`, `INDEED_API_SECRET`, `TRAINING_S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`.

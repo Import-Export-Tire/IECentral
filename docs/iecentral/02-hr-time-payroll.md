@@ -4,6 +4,8 @@ Internal people-operations cluster for **Import Export Tire Co** ("IE Tire"). St
 
 This document covers the modules that run the daily life of an hourly/salaried employee from the company's side: the **Personnel record** (the spine of everything), the **time clock** and its **timesheet → payroll → QuickBooks** pipeline, **scheduling/shifts**, **overtime offers**, **time-off / PTO**, **call-offs**, **holidays**, **pay stubs / payroll companies**, and **mileage / expense reimbursement**.
 
+> **Point-in-time disclaimer.** This document describes the code as it stood when last verified against source on **2026-06-25** (original draft 2026-06-22). `file:line` citations are accurate as of then; line numbers drift as files change, so treat them as starting points, not guarantees.
+
 ```
 Personnel (the employee record)
   ├─ Attendance / Write-ups / Merits / Call logs / Reviews / Training / Tenure check-ins
@@ -98,7 +100,9 @@ Capture raw punch events (`clock_in`, `clock_out`, `break_start`, `break_end`) f
 - **Schedule resolution on clock-in.** Looks up today's specific `shift` first, then falls back to the employee's `defaultScheduleTemplateId`, matching by department or assigned-personnel list, to get `scheduledStart`.
 - **Grace period = 5 minutes** (`GRACE_PERIOD_MINUTES = 5`). Clock-in **before** scheduled start is blocked; `isLate = minutesLate > 5`. A late punch can trigger `sendLateAlert` push notifications.
 - **Late-pattern flag:** `checkLatePattern` flags an employee with **>1 late clock-in in the last 7 days**.
-- **Hours computation (single source of truth, reused by payroll/QB):** pair `clock_in`/`clock_out`, subtract break spans, then `roundToQuarterHour` (nearest 15 min) before converting to hours. Overtime is **weekly, >40 hrs** (`regularHours = min(total, 40)`, `overtimeHours = max(0, total−40)`) — there is **no daily-8 OT rule**.
+- **Hours computation (the canonical algorithm, reused by payroll/QB):** the reference implementation is `calculateHoursFromEntries` in `timesheetApprovals.ts:255`. Per day: sort the day's entries by `timestamp`; sum `clock_out − clock_in` spans into `workMinutes`; sum matched `break_start`/`break_end` spans into `breakMinutes`; `netMinutes = max(0, workMinutes − breakMinutes)`; then **round each day to the nearest 15 min** via `roundToQuarterHour` (`timesheetApprovals.ts:6`) *before* summing days. OT is computed on the **summed, already-rounded total**: `regularHours = min(total, 40)`, `overtimeHours = max(0, total − 40)` (`timesheetApprovals.ts:335`). There is **no daily-8 OT rule**.
+- **OT window subtlety — "weekly >40" is only true week-by-week.** `calculateHoursFromEntries` is invoked with whatever date span its caller passes. The payroll UI passes a **whole 14-day pay period** (`getPayPeriodDetails`/`approvePayPeriod`), so the "over 40" cut is applied **once across all 14 days**, not per ISO week — an employee with 30 h + 30 h in the two weeks shows 40 reg / 20 OT, not 60 reg / 0 OT. The QB **granular** export path (`calculatePendingTimeExports`) is the only place that genuinely slices Sun→Sat weeks; the QB **bulk** path inherits the same whole-period behavior (see §4). Treat the "40" threshold as *per call span*, and know the two payroll surfaces disagree on what that span is.
+- **Two near-identical hour calculators exist.** `timeClock.getDailySummary` rounds the *whole day's* `workMinutes` once (`timeClock.ts:56`) for the live dashboard, while `calculateHoursFromEntries` rounds per day and re-sums; `quickbooks.ts` has yet a third inline copy (it does **not** round to quarter-hours at all — see §4). These can differ by a few minutes on the same data; the approval/lock figures (`timesheetApprovals.ts`) are the ones that gate payroll.
 - **Correction loop:** employee `requestCorrection` (pending) → manager `reviewCorrection`; on approve it patches/inserts/deletes the underlying `timeEntries` row and records `reviewedBy`/`reviewedAt`/`reviewNotes`.
 - **Lock enforcement:** `canEditTimeEntry(date)` consults `timesheetApprovals`; if the covering period is `locked`, edits are refused ("locked for payroll").
 - **Late-alert recipients (hardcoded role list):** `super_admin`, `admin`, `warehouse_director`, `coo`, plus the location's `managerId` — must be `isActive` with an `expoPushToken`.
@@ -129,10 +133,20 @@ Bi-weekly pay-period rollup and the CFO/payroll lock workflow that gates QuickBo
 | `payStubs` | L1715 | hours/pay/`deductions[]`, optional PDF (`fileId`), `source`, `externalId` (QB), `employeeNotifiedAt`/`employeeViewedAt`. |
 
 ### Key workflows & notable logic
-- **Pay period math:** reference date `2024-01-01`, **14-day** periods (`getPayPeriodFromDate`). Periods are computed, not stored, until an approval row is created.
-- **Lifecycle:** `pending → approved → locked → exportedToQB`. `lockPayPeriod` requires an existing `approved` state; `markExportedToQB` requires `locked`. `unlockPayPeriod` is the admin escape hatch back to `approved`.
-- **Issues flagged** per employee: pending corrections count, and **missing clock-out** (last entry of a day is `clock_in`/`break_start`). These roll into `issueCount`.
-- **Multi-company scoping:** employee→company resolution is **direct `payrollCompanyId` first, then department membership** in the company's `departments[]`. Approvals are per `(payrollCompanyId, payPeriodStart)`.
+- **Pay period math:** anchor `PAY_PERIOD_REFERENCE = 2024-01-01`, **14-day** periods. `getPayPeriodFromDate` (`timesheetApprovals.ts:15`) floors `(date − anchor)/14days` to a `payPeriodNumber`, then derives `startDate`/`endDate` (`start + 13`). Periods are **computed, never stored**, until an approval row is created — `getPayPeriods` synthesizes a status of `in_progress` (future/current) or `pending` (past) for any period lacking an approval row (`timesheetApprovals.ts:83`).
+- **Approval state machine** (status lives only on the `timesheetApprovals` row; absence = unmanaged):
+
+  | From | Mutation | Guard | To | Side effects |
+  |------|----------|-------|----|--------------|
+  | *(none)* / `pending` | `approvePayPeriod` | recomputes totals from live entries | `approved` | upserts the row; stamps `approvedBy`/`approvedAt`, `totalEmployees`, `totalRegularHours`/`totalOvertimeHours`/`totalHours` |
+  | `approved` | `lockPayPeriod` | throws unless current status is exactly `approved` | `locked` | `lockedAt`/`lockedBy`; from here `canEditTimeEntry` refuses edits |
+  | `locked` | `unlockPayPeriod` | admin escape hatch (no status precondition) | `approved` | clears `lockedAt`/`lockedBy` |
+  | `locked` | `markExportedToQB` | throws unless `locked` | *(stays `locked`)* | sets `exportedToQB=true`/`exportedAt` (a flag, not a status) |
+
+  `approvePayPeriod` is **idempotent/re-runnable** — re-approving an already-`approved` (or even `locked`) row patches it back to `approved` with freshly recomputed totals, silently un-doing a lock. `exportedToQB` is also set directly by `exportPayPeriodToQB` (§4), so the `/payroll` "Export" button never calls `markExportedToQB`.
+- **Issues flagged** per employee (`getPayPeriodDetails`): pending-correction count, and **missing clock-out** (the last entry of any day is a `clock_in`/`break_start`). Call-off days are surfaced separately (`callOffDays`) and an employee is included in the period view if they have any hours **or** any issue **or** any call-off (`timesheetApprovals.ts:225`). `issueCount`/`totalIssues` aggregate these.
+- **Multi-company scoping:** company-scoped reads/approvals filter personnel by **direct `payrollCompanyId` first, then department membership** in the company's `departments[]` (`timesheetApprovals.ts:125`). Company-scoped rows use index `by_company_period`; the "all companies" view filters `payrollCompanyId === undefined` (legacy/default bucket).
+- **Multi-company gotcha:** `canEditTimeEntry`, `markExportedToQB`, `getPayPeriodDetails`'s `approval` lookup, and `exportPayPeriodToQB` all query **`by_pay_period` `.first()` with no company filter**. With two companies running the *same* pay-period start, the lock/edit/export check resolves to whichever approval row the index returns first — i.e. a lock on Company A can spuriously block (or fail to block) edits attributed to Company B. The fully company-aware paths are `getPayPeriods`, `approvePayPeriod`, `lockPayPeriod`, `unlockPayPeriod`.
 - **Gotcha:** the schema groups `payrollCompanies` and `timesheetApprovals` adjacently with a slightly misplaced comment header; they are distinct tables.
 
 ---
@@ -173,7 +187,8 @@ QuickBooks Desktop ──(Web Connector, every N min)──► POST /api/qbwc (S
 - **Queue:** `addToSyncQueue` (dedups on pending `referenceType+referenceId`), `getPendingSyncItems`, `updateSyncQueueItem`.
 - **Logs/stats:** `createSyncLog`, `getSyncLogs`, `getSyncStats` (dashboard rollup).
 - **Time export:** `getPendingTimeExports`, `calculatePendingTimeExports`, `approveTimeExport`, `markExportCompleted`, `getExportablePayPeriods`, `exportPayPeriodToQB`.
-- **QBXML generators (QBXML version 13.0):** `generateQwcFile`, `generateTimeTrackingAddXml`, `generateEmployeeQueryXml`, `generatePaycheckQueryXml`.
+- **QBXML generators (QBXML version 13.0):** `generateTimeTrackingAddXml`, `generateEmployeeQueryXml`, `generatePaycheckQueryXml`, and **`generateQwcFile`** — note this last one is an **`internalQuery`**, not a public query (`quickbooks.ts:570`), with a security comment explaining the `.qwc` payload embeds the QBWC username/password and so must never be client-callable. The settings page must reach it via a server route, not a direct `useQuery`.
+- **Queue ordering / dedup:** `addToSyncQueue` dedups against any existing **pending** row with the same `(referenceType, referenceId)` and returns the existing id (`quickbooks.ts:270`); default `priority = 10`. `getPendingSyncItems` reads the `by_status_priority` index and `.take(limit)` — lower `priority` numbers sort first, so the **priority-5** `time_entry` items enqueued by the export paths drain ahead of any default-10 work. `updateSyncQueueItem` increments `attempts` when a row moves to **`failed` *or* `processing`** (`quickbooks.ts:328`), so simply handing an item to QBWC already burns one of its 3 attempts.
 
 ### SOAP method sequence (as implemented in `route.ts`)
 1. **`serverVersion()`** → returns a server version string.
@@ -186,20 +201,22 @@ QuickBooks Desktop ──(Web Connector, every N min)──► POST /api/qbwc (S
 8. **`closeConnection(ticket)`** → logs disconnect with `requestCount`, sets `connectionStatus="disconnected"`, deletes the session, returns `"OK"`.
 
 ### QBXML payloads
-- **`TimeTrackingAddRq`** — `TxnDate` = `weekEndDate` (Saturday), `EntityRef/ListID` from the employee mapping, `Duration` as ISO-8601 `PT#H#M`, `Notes` referencing the IECentral week. Returns null (skips) if no mapping exists.
+- **`TimeTrackingAddRq`** — `TxnDate` = the export row's `weekEndDate`, `EntityRef/ListID` from the employee mapping, a single `Duration` (ISO-8601 `PT#H#M`, computed from `totalHours` only), `Notes` referencing the IECentral week. **Only `totalHours` is sent** — the `regularHours`/`overtimeHours` split stored on `qbPendingTimeExport` is computed but **never emitted** (QB receives one lump time entry; OT classification has to be done QB-side via the payroll item). Returns `null` (the route then sends `""`, skipping) if the employee has no `qbEmployeeMapping`. `onError="stopOnError"`.
 - **`EmployeeQueryRq`** — `ActiveStatus=ActiveOnly`.
 - **`PaycheckQueryRq`** — date-range filtered with `IncludeLineItems`. **Generator exists but `receiveResponseXML` does not parse paycheck data — pay-stub import is unimplemented.**
 - **`.QWC` config (`generateQwcFile`)** — `AppName`, `AppURL = {appUrl}/api/qbwc`, `UserName`, random `OwnerID`/`FileID`, `QBType=QBFS`, `Scheduler/RunEveryNMinutes = syncIntervalMinutes`, `IsReadOnly=false`. The admin downloads this and imports it into the Web Connector, entering the password manually.
 
 ### Two export paths
-- **Granular:** `calculatePendingTimeExports` (requires the covering `timesheetApprovals` to be **locked**) builds per-week `qbPendingTimeExport` rows in `pending`; `approveTimeExport` flips them to `approved` and enqueues a `qbSyncQueue` `time_entry` item (priority 5).
-- **Bulk (the `/payroll` button):** `exportPayPeriodToQB` validates the period is `locked` and not already exported, then for every mapped employee creates an `approved` export and immediately enqueues it, and sets `timesheetApprovals.exportedToQB=true`.
+Both iterate **only over employees who have a `qbEmployeeMapping`** (unmapped staff are silently skipped — there is no warning surfaced) and both recompute hours with an **inline calculator in `quickbooks.ts` that does *not* round to quarter-hours** (`quickbooks.ts:459`, `:855`) — so QB durations can differ by a few minutes from the locked approval totals shown on `/payroll`. Both dedup on `(personnelId, weekStartDate)`, which means the two paths **collide if mixed**: the bulk path stores `weekStartDate = payPeriodStart`, so a later granular run for the first Sun-week of the same period (or vice versa) is suppressed as "already exists."
+
+- **Granular:** `calculatePendingTimeExports(weekStartDate, payPeriodStart?)` is the only true **Sun→Sat weekly** slicer (`weekEndDate = start + 6`). If `payPeriodStart` is passed it requires that period to be **`locked`**. It builds per-week `qbPendingTimeExport` rows in `pending`; `approveTimeExport` flips a row to `approved` and enqueues a priority-5 `qbSyncQueue` `time_entry` item.
+- **Bulk (the `/payroll` "Export to QuickBooks" button):** `exportPayPeriodToQB` validates the period is `locked` and not already `exportedToQB`, then for each mapped employee with `totalHours > 0` creates a **single export row spanning the whole 14-day period** (`weekStartDate = payPeriodStart`, `weekEndDate = payPeriodEnd`), status `approved` (auto-approved since locked), immediately enqueues a priority-5 item, and finally sets `timesheetApprovals.exportedToQB = true` directly. Consequence: the `TimeTrackingAdd.Duration` is the **whole-period total** and `TxnDate` is the period end (only a Saturday if the period happens to align), so the "weekly" framing in QBXML is nominal for this path.
 
 ### Notable gotchas / design decisions
-- **`wcPassword` is stored and compared in plain text** despite the schema comment saying "hashed." It travels only over TLS but is at-rest plaintext.
-- **Manual XML via regex** — fragile for large/edge responses; QBXML is always emitted at version 13.0 regardless of the detected QB version.
-- **No background retry / no stuck-item recovery** — `maxAttempts=3` only advances when QBWC re-polls; an item left `processing` after a connector crash is not auto-reclaimed.
-- **No paycheck import, no auto employee-mapping, `qbTxnId` not persisted back** onto the export from `TimeTrackingRet` (extracted but dropped).
+- **`wcPassword` is stored and compared in plain text** despite the still-present schema comment `// ...(hashed)` at `schema.ts:1982`. `handleAuthenticate` does a literal `connection.wcPassword !== password` string compare (`route.ts:137`). It travels only over TLS but is at-rest plaintext, and `generateQwcFile` returns it verbatim for the `.qwc` download. The comment is stale — there is no hashing anywhere.
+- **Manual XML via regex** — `parseSOAPRequest` (`route.ts:27`) extracts the method from the body element and each param via a fixed regex table; fragile for large/edge responses (e.g. the `<response>` capture is non-greedy `[\s\S]*?`). QBXML is always emitted at version **13.0** regardless of the QB version detected on `sendRequestXML`.
+- **No background retry / no stuck-item recovery** — there is no cron or scheduled action driving QBWC; everything advances only when the Windows-side connector re-polls. `attempts` is bumped on entering `processing` (not just on failure), so an item left `processing` after a connector crash both **counts against `maxAttempts=3`** and is **never auto-reclaimed** to `pending`.
+- **No paycheck import, no auto employee-mapping, `qbTxnId` not persisted back.** `markExportCompleted(exportId, qbTxnId)` exists and *would* write `qbTxnId` + flip the export to `exported`, but `receiveResponseXML` never calls it: it regex-extracts `<TxnID>` from a `TimeTrackingRet` into a local match and then **drops it** in an empty `if` block (`route.ts:284`). So exports stay `approved`, never reach `exported`, and `qbTxnId` is never stored. Employee `processEmployeeQueryResponse` likewise parses `<EmployeeRet>` `ListID`+`Name` pairs but only logs the count — auto-mapping is an explicit "would happen here" stub (`route.ts:329`).
 - **Static endpoint expectation:** the connector posts to a fixed `AppURL`; the platform is hosted on Vercel (see `reference_iecentral_deploy`), so the public `/api/qbwc` URL must remain stable for the Windows-side Web Connector config.
 
 ---
@@ -220,10 +237,13 @@ Offer optional (typically Saturday) overtime to targeted employees and track acc
 | `overtimeResponses` | L1582 | `response` (pending/accepted/declined), `respondedAt`, `notifiedAt`, `reminderSentAt`. Index `by_offer_personnel`. |
 
 ### Key workflows & notable logic
-- **Lifecycle:** `open → closed | cancelled` (with `reopen`). If `sendNotification`, pending `overtimeResponses` are pre-created for all targets.
-- **maxSlots enforced on accept** — `respondToOffer` throws "already full" once accepted count reaches `maxSlots`; the employee view exposes `slotsRemaining`/`isFull`.
-- **On accept**, in-app `notifications` go to managers (hardcoded roles: `super_admin`, `admin`, `payroll_manager`, `warehouse_director`, `warehouse_manager`).
-- **Gotcha:** **push notifications are TODO** — `createOffer`/`cancelOffer`/`sendReminders` only set timestamps / create in-app notifications; no Expo push is sent for overtime (unlike call-offs/late-alerts, which do push).
+- **Lifecycle:** `open → closed | cancelled`, reversible via `reopen` (which patches straight back to `open`). If `sendNotification` is true at create time, `createOffer` resolves the target set (specific list, or active personnel filtered by department/location, or "all") and **pre-creates a `pending` `overtimeResponses` row for each target** so the employee app shows the offer; it also stamps `notificationSentAt`.
+- **`payRate` is vestigial.** The schema keeps `overtimeOffers.payRate`, and the create modal shows a "1.5× for hours over 40/week" note, but `createOffer` **does not accept or set `payRate`** — its own comment says "Pay rate is not needed - overtime is calculated as hours over 40/week" (`overtime.ts:231`). OT pay is purely a function of the weekly-40 hours rule at payroll time; the offer carries no rate.
+- **`respondToOffer`** accepts `"accepted"`/`"declined"`, requires the offer to still be `open`, and **upserts** the employee's single response row (so an employee can freely flip accept↔decline while the offer is open; `respondedAt` is restamped).
+- **maxSlots enforced on accept** — on an accept it counts existing `accepted` rows and throws "This overtime slot is already full" once that reaches `maxSlots`. **Race condition:** the count-then-insert is **not** re-read-guarded (unlike the time-off mutations, which re-read status after patch), so two simultaneous accepts on the last slot can both pass the check and overfill. The employee view exposes `slotsRemaining`/`isFull` for display.
+- **On accept**, in-app `notifications` go to every active user in the hardcoded role list `super_admin`, `admin`, `payroll_manager`, `warehouse_director`, `warehouse_manager`.
+- **Audit logging:** `createOffer`, `closeOffer`, `cancelOffer`, and `deleteOffer` each write an `auditLogs` row; `reopenOffer` and `sendReminders` do **not** (inconsistent). `deleteOffer` cascade-deletes all `overtimeResponses` first.
+- **Gotcha:** **push notifications are TODO** — `createOffer`/`cancelOffer`/`sendReminders` only set timestamps / create in-app notifications (`// TODO: Actually send push notifications here`); no Expo push is sent for overtime (unlike call-offs/late-alerts, which do push).
 
 ---
 
@@ -246,8 +266,11 @@ Employee PTO requests with manager approval that move balances through pending�
 | `holidays` | L1465 | `type` (holiday/closure/override), `isPaidHoliday`, `affectedLocations[]`/`affectedDepartments[]` (empty = all), `isRecurring`. |
 
 ### Key workflows & notable logic
-- **Balance accounting:** `submit` computes `totalDays = ceil((end−start)/day)+1` and **increments `{type}Pending`** on the current-year `ptoBalances`; `approve` moves the days **pending → used**; `deny`/`cancel` (pending only) **back out the pending**. Race-safe re-read of status after patch.
-- **Accrual itself is not in `timeOffRequests.ts`** — these mutations only adjust the pending/used columns; accrual population of `ptoBalances` (from `ptoPolicies`) lives elsewhere/externally.
+- **Balance accounting (the exact bucket math):** `submit` computes `totalDays = ceil(|end−start| / 1 day) + 1` — **calendar days, inclusive**, with no business-day/holiday exclusion (a Fri→Mon request counts 4 days). It then resolves the current-year `ptoBalances` row by index `by_personnel_year` and **increments `{requestType}Pending`** via a dynamic key (`vacationPending` / `sickPending` / `personalPending`). `approve` moves the days **pending → used** (`Math.max(0, pending − totalDays)` and `used + totalDays`); `deny` and `cancel` **back the days out of pending** (`Math.max(0, pending − totalDays)`). `approve`/`deny` update status **first**, then **re-read** the row and throw "already processed by another manager" if the status isn't theirs — the race guard.
+- **No validation / overdraft is possible.** `submit` never checks that `pending + used + totalDays ≤ accrued`; nothing blocks requesting more PTO than the balance holds, and `requestType` values like `bereavement`/`other` have **no matching `{type}Pending` column**, so those requests adjust no balance at all (the dynamic-key guard `pendingField in ptoBalance` simply skips).
+- **Silent no-op when no balance row exists.** Every balance update is wrapped in `if (ptoBalance)`. If the employee has **no `ptoBalances` row for the current year**, `submit`/`approve`/`deny`/`cancel` still succeed and change the request's status, but touch **no balances at all**. This is the practical consequence of accrual living elsewhere (below) — until something seeds the year's row, PTO requests are tracked but never debited.
+- **`cancel` deletes; `deny` keeps.** A denied request is retained with `status="denied"` for the record; a cancelled request is **hard-deleted** (`ctx.db.delete`) after backing out its pending days. Both are pending-only; `cancel` additionally checks `request.personnelId === args.personnelId` (an employee can only cancel their own).
+- **Accrual itself is not in `timeOffRequests.ts`** — these mutations only adjust the pending/used columns; accrual population of `ptoBalances` (from `ptoPolicies`: `eligibleAfterMonths`, per-year day grants, `accrualMethod`, `maxCarryoverDays`, `tenureBonuses[]`) lives elsewhere/externally and is not wired into this file.
 - **`isHoliday`** filters by `affectedLocations`/`affectedDepartments` (empty arrays = applies to all), returning the first match.
 - **`createStandardHolidays`** seeds 9 US holidays with dynamic date math (4th Thu Nov, last Mon May, 1st Mon Sep, 3rd Mon Jan, etc.) marked `isRecurring`.
 - **Notifications:** request submission creates an in-app notification for the location manager (`managerNotifiedAt`).
@@ -331,7 +354,7 @@ Two parallel reimbursement workflows: IRS-rate mileage logs and itemized expense
 | `expenseReports` | L2110 | `items[]` (`{date,description,category,amount,hasReceipt}`), `totalAmount`, `status` (draft/submitted/approved/rejected/paid), approval/rejection/paid audit fields. |
 
 ### Key workflows & notable logic
-- **Mileage rate:** `CURRENT_IRS_RATE = 0.725` (2026 rate), default home `"Latrobe, PA"`. Reimbursement = `(isRoundTrip ? miles*2 : miles) * irsRate`, rounded to cents; the rate is **snapshotted** onto each entry, so edits recalc against the stored rate, not the current one. Workflow: `pending → submitted → approved → paid` (timestamp per transition). `updateStatus`/`bulkUpdateStatus`/`remove` require `requireAdmin`. Despite the schema comment "super_admin only," the guard in code is `requireAdmin`.
+- **Mileage rate:** `CURRENT_IRS_RATE = 0.725` (2026 rate), default home `"Latrobe, PA"`. Reimbursement = `(isRoundTrip ? miles*2 : miles) * irsRate`, rounded to cents. On **create** the rate used is the live `CURRENT_IRS_RATE` constant and is **snapshotted** onto the entry as `irsRate`; on **update** the recalc multiplies by `entry.irsRate` (the stored snapshot), not the current constant — so historical entries keep their original rate even after the constant changes. Workflow: `pending → submitted → approved → paid` (timestamp per transition). **`updateStatus` enforces a strict forward transition** (it only stamps the per-state timestamp when the prior status matches, e.g. `approved` only from `submitted`), but **`bulkUpdateStatus` skips that prior-state check** — it stamps the timestamp for the new status regardless of where the entry was, so bulk actions can move an entry to any status out of order. `updateStatus`/`bulkUpdateStatus`/`remove` require `requireAdmin`. Despite the schema comment "super_admin only," the guard in code is `requireAdmin`.
 - **Expenses:** `totalAmount` auto-summed from `items[]`. Workflow `draft → submitted → approved → paid`, with `reject` (→ `rejected`) and `revertToDraft` (rejected → draft for edit/resubmit). `create` can `submitImmediately`. Editing/deleting is **draft-only**; `approve`/`reject`/`markPaid`/`remove` require `requireAdmin`. UI has ~13 hardcoded categories and an invoice-style print template with certification + signature lines.
 
 ---
@@ -342,7 +365,8 @@ Two parallel reimbursement workflows: IRS-rate mileage logs and itemized expense
 |-------|---------|----------|
 | 5 min | Clock-in grace period | `timeClock.ts` (`GRACE_PERIOD_MINUTES`) |
 | 15 min | Worked-hours rounding | `timeClock.ts` / `timesheetApprovals.ts` |
-| 40 hrs/week | Overtime threshold (weekly only) | `timeClock.ts`, `timesheetApprovals.ts`, `quickbooks.ts` |
+| 40 hrs | Overtime threshold — applied **per calculation span** (genuinely weekly only in `calculatePendingTimeExports`; per-14-day-period in the payroll/approval UI) | `timeClock.ts`, `timesheetApprovals.ts`, `quickbooks.ts` |
+| 5 / 10 | QB sync-queue priority — time-entry exports (5) drain ahead of default (10) | `quickbooks.ts` |
 | 14 days, ref `2024-01-01` | Pay-period length & anchor | `timesheetApprovals.ts` |
 | >1 in 7 days | Late-pattern flag | `timeClock.ts` |
 | 0/1/2/3+ → verbal/written/suspension/termination | Attendance write-up escalation (6-mo window) | `attendance.ts` |
@@ -356,8 +380,12 @@ Two parallel reimbursement workflows: IRS-rate mileage logs and itemized expense
 
 ## Appendix — Known gaps / TODOs discovered in code
 
-- **QuickBooks:** plaintext `wcPassword`; paycheck import unimplemented; employee auto-mapping is a stub; `qbTxnId` not persisted back; no stuck-`processing` recovery or background retry.
-- **Overtime:** push notifications are TODO (in-app only).
-- **PTO:** accrual population of `ptoBalances` from `ptoPolicies` is not in `timeOffRequests.ts` (the request mutations only adjust pending/used).
-- **Pay stubs:** no in-app create/upload mutation; rows arrive via import/QB `source`.
+- **QuickBooks:** plaintext `wcPassword` (schema comment still falsely says "hashed"); paycheck import unimplemented; employee auto-mapping is a stub; `markExportCompleted` exists but is never called, so `qbTxnId` is never stored and exports never leave `approved` for `exported`; QBXML sends only `totalHours` (reg/OT split dropped); only mapped employees export (unmapped skipped silently); `attempts` is consumed on entering `processing`, and there's no stuck-`processing` recovery or background retry.
+- **Hours/OT consistency:** three separate hour calculators (live dashboard rounds whole-day once; approvals round per-day then sum; QB export does not round at all), so the same punches can yield slightly different hours across surfaces. The "40-hour" OT cut is applied across whatever span the caller passes — a whole 14-day period in the payroll UI, true Sun→Sat weeks only in the granular QB path.
+- **Multi-company:** lock/edit/export checks (`canEditTimeEntry`, `markExportedToQB`, `exportPayPeriodToQB`, `getPayPeriodDetails`'s approval lookup) use `by_pay_period.first()` with **no company filter**, so two companies sharing a pay-period start can cross-block each other.
+- **Approvals:** `approvePayPeriod` is re-runnable and will silently revert a `locked` period back to `approved` (recomputing totals) if invoked again.
+- **Overtime:** push notifications are TODO (in-app only); `maxSlots` accept-check is not re-read-guarded (can overfill on concurrent accepts); `payRate` field is vestigial/unused.
+- **PTO:** accrual population of `ptoBalances` from `ptoPolicies` is not in `timeOffRequests.ts` (request mutations only adjust pending/used); **no overdraft validation**; all balance updates are **no-ops if the current-year `ptoBalances` row is missing**; `bereavement`/`other` request types have no balance bucket; `totalDays` counts calendar days (weekends/holidays included).
+- **Pay stubs:** no in-app create/upload mutation; rows arrive via import/QB `source`; `PaycheckQueryRq` generator exists but its response is never parsed.
+- **Mileage:** `bulkUpdateStatus` skips the forward-only transition guard that `updateStatus` enforces.
 - **Time clock:** missing `break_end` silently drops break time; orphan clock-outs ignored.

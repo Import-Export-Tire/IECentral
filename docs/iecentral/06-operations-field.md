@@ -145,7 +145,7 @@ Pastebin-style ephemeral text sharing. `createCode` (unique 4-digit `0000`–`99
 
 - Most writes gated by `requireManagePersonnel`; destructive ops by `requireAdmin`.
 - Signatures are base64 PNGs stored inline (no file storage).
-- Computer passwords and Chrome Remote codes are stored **unencrypted**.
+- Computer `adminPassword`/`userPassword` and Chrome Remote codes are stored **plaintext** (`equipment.ts:1819-1820`), but the queries that return them are now **gated to tier 2+** (security-hardening update): `listComputers` (`:1685`) and `getRemoteAccessComputers` (`:1742`) both call `requireMinTier(ctx, requestingUserId, 2)`, so anonymous and tier-1 callers never receive the secrets. Codes remain unencrypted at rest.
 - Reassignment writes two history rows (unassign + assign) plus a condition check.
 
 ---
@@ -201,6 +201,14 @@ Pastebin-style ephemeral text sharing. `createCode` (unique 4-digit `0000`–`99
 
 `safetyReports` (line 3640): category, locationId + locationName snapshot, description, occurredAt, `photoFileId`, optional reporter contact, `referenceCode`, status (`new`/`in_review`/`resolved`/`dismissed`), review fields.
 
+### One-page PDF export (jsPDF)
+
+The inbox prints a single report to a **one-page PDF generated client-side with jsPDF** — the prior CSS `@media print` / `window.print()` approach was abandoned because it "kept spilling onto a blank second page across browsers/margin settings" (`app/safety-reports/page.tsx:171-173`).
+
+- `printReportPdf()` (`app/safety-reports/page.tsx:175-304`) dynamically imports jsPDF (`const { jsPDF } = await import("jspdf")`, line 176) and builds a Letter-size portrait doc in inches (`new jsPDF({ unit: "in", format: "letter", orientation: "portrait" })`, line 177). Triggered by the per-report button at line 371.
+- Layout: header "See Something, Say Something — Report" (line 214); reference code / status / submission timestamp (216-219); a 2×2 facts grid — Category, Location, When, Reporter (222-232); description (271); optional reporter contact (272-274); optional review notes + reviewer name (276-278); confidentiality + print-time footer (290-292).
+- **Photo** is loaded via canvas to a dataURL (234-254) and embedded as a JPEG (282-287). Reserve calculations (256-264) keep everything on a single page — there are no `addPage()` calls. Output is streamed to a hidden iframe for the print dialog (294-303).
+
 ### Notable logic / gotchas
 
 - **EXIF stripping** happens in `app/api/safety-reports/photo/route.ts`: `sharp().rotate().resize(1600, fit:inside).jpeg(82)` with **no `.withMetadata()`**, dropping GPS/timestamp/device data. Limits: image/* only, ≤25 MB; gated by `PREVIEW_PDF_SECRET`.
@@ -248,7 +256,7 @@ Pastebin-style ephemeral text sharing. `createCode` (unique 4-digit `0000`–`99
 
 - **`convex/projects.ts`:** queries `getAll` (access-filtered: owner + assigned + shared + public), `getByStatus`, `getById`, `getWithTasks`, `getStats`, `getArchived`, `getNotes`, `getSharedUsers`; mutations `create`, `update`, `updateStatus` (sets `doneAt`/`archivedAt`, audit-logged), `archive`/`unarchive`, `remove` (cascades tasks), `shareProject`/`unshareProject`, `updateVisibility`, `addNote`/`updateNote`/`deleteNote` (mention notifications); internal `autoArchiveOldDoneProjects` (>1 week in `done`, cron-driven).
 - **`convex/projectSuggestions.ts`:** `create`/`createWithUser`, `approve` (→ creates a `projects` row, status `backlog`, links `projectId`), `deny`, `remove`; queries `getInbox`, `getOutbox`, `getAllPending`, `getById`. Approve/deny gated to the recipient or a manager.
-- **`convex/activity.ts`:** `getRecentActivity(limit)` — **no dedicated activity table**; it synthesizes a feed on each call from `applications`, `projects`, `personnel`, `safetyChecklistCompletions`, and `messages` (takes ~10 of each, sorts by timestamp). `getEntityActivity` is a stub returning `[]`. Scales poorly at volume.
+- **`convex/activity.ts`:** `getRecentActivity(limit)` (default 50) — **still no dedicated activity table**; it synthesizes a feed on each call from `applications`, `projects`, `personnel`, `safetyChecklistCompletions` (last 10 of each), and `messages` (last 5), then sorts by timestamp and slices to `limit` (`activity.ts:5-175`). `getEntityActivity` remains a stub returning `[]` (`:178-188`). Scales poorly at volume.
 
 ### Tables
 
@@ -275,7 +283,7 @@ Pastebin-style ephemeral text sharing. `createCode` (unique 4-digit `0000`–`99
 ### Convex backend
 
 - **`convex/documents.ts`:** queries `getAll`/`getRootDocuments`/`getByCategory`/`search` (all visibility-filtered), `getById`, `getDownloadUrl`, `getCategoryCounts`, `getArchived`, `getVersions`, `getExpiring`, `getPublicBySlug`/`getPublicFileUrl` (no auth), `getStorageUsage` (the storage meter), `getThumbnailUrl`, `getPreviewPdfUrl`; mutations `generateUploadUrl`, `create`, `update`, `shareWith`/`unshareWith`/`shareWithGroups`/`unshareWithGroups`, `incrementDownload`, `archive`/`remove`/`restore`, `togglePublic` (slug = name + last-6 of docId), `setExpiration`/`removeExpiration`, `generatePreviewUploadUrl`/`setPreviewPdf`, `generateThumbnailUploadUrl`/`setThumbnail` (secret-gated), `uploadNewVersion`/`restoreVersion`.
-- **`convex/documentFolders.ts`:** folder tree + sharing + HIPAA logging. Notable: `getProtectedDocuments` action with a layered access check — community visibility (no auth) → owner → non-revoked/non-expired grant → group membership → `internal` visibility → password (PBKDF2, 100k iters, SHA-256, constant-time compare); **super-admins do NOT bypass folder passwords** (minimum-necessary). Logs both successful and failed (`password_attempt`) access. `moveFolder` walks the parent chain to prevent cycles; `archive` requires the folder be empty; `moveDocument` returns quietly if the doc is missing.
+- **`convex/documentFolders.ts`:** folder tree + sharing + HIPAA logging. **Folder cards now count files recursively and show a subfolder count.** A shared helper trio computes this once per query call: `buildDirectDocCount(allDocs)` maps each `folderId` → direct file count (`documentFolders.ts:140-147`); `countDocsInSubtree(folderId, childrenByParent, directCount)` **recursively** walks the children-by-parent map and sums the folder's own files plus every descendant folder's files (`150-160`); `getFolderWithCounts(...)` returns the folder enriched with `documentCount` (recursive total), `directDocumentCount` (this folder only), `subfolderCount` (immediate children), and `isProtected` (`166-179`). Used by `getMyFolders` (`199-224`), `getCommunityFolders` (`227-251`), and `getAll` (`255-322`). The UI renders the label via `folderCountLabel(folder)` in `components/dochub/types.ts:200-207` (e.g. `"2 folders · 14 files"`, falling back to `"Empty"`), drawn in `FileCard.tsx` at `:370` (grid) and `:458` (list). Notable: `getProtectedDocuments` action with a layered access check — community visibility (no auth) → owner → non-revoked/non-expired grant → group membership → `internal` visibility → password (PBKDF2, 100k iters, SHA-256, constant-time compare); **super-admins do NOT bypass folder passwords** (minimum-necessary). Logs both successful and failed (`password_attempt`) access. `moveFolder` walks the parent chain to prevent cycles; `archive` requires the folder be empty; `moveDocument` returns quietly if the doc is missing.
 - **`convex/documentTemplates.ts`:** `list`, `create`/`createFromUpload`, `useTemplate` (spawns a document, bumps `usageCount`), `archive`.
 
 ### API routes
@@ -285,12 +293,17 @@ Pastebin-style ephemeral text sharing. `createCode` (unique 4-digit `0000`–`99
 | `documents/file` | GET | Same-origin stream proxy of a Convex-stored file (avoids CORS/X-Frame); RFC-5987 filenames; `?dl=1` forces attachment; `Cache-Control: private, max-age=60` |
 | `documents/thumb` | GET | Streams the cached page-1 PNG; `max-age=86400`; 404 if not yet generated |
 | `documents/thumbnail` | POST | **Generates** the thumbnail (Node runtime, maxDuration 300): images via `sharp`, PDFs via `pdf-to-img`, Office/text via the LibreOffice Lambda → page-1 PNG; caches to Convex. Best-effort (silent fallback to icon) |
-| `documents/office-pdf` | GET | Returns a PDF rendition of an Office doc for inline preview/print; cache-hit streams `previewPdfFileId`, miss converts via Lambda then caches; 503 if not configured; `max-age=300` |
+| `documents/office-pdf` | GET | Returns a PDF rendition of an Office doc for inline preview/print; cache-hit streams `previewPdfFileId`, miss converts via Lambda then caches; 503 if not configured; `max-age=300`. **Now transports the file through Convex storage URLs, not the invoke payload:** it gets a source download URL (`documents.getFileDownloadUrl`) + a preview upload URL (`documents.generatePreviewUploadUrl`) and invokes the Lambda with `{secret, filename, srcUrl, uploadUrl}` so neither the source nor the rendered PDF rides the 6 MB synchronous invoke request/response cap (`office-pdf/route.ts:64-92`, rationale at `:71-75`). The Lambda fetches, converts, uploads, and returns just `{storageId}` |
 | `documents/upload-s3` | POST | Presigned S3 PUT (`DOCHUB_S3_BUCKET`, default `iecentral-dochub`); key `documents/{ts}-{sanitized}`; 1-hr expiry |
 
 ### Office→PDF Lambda — `aws/office-to-pdf/index.js`
 
-Node 20 (AL2023) Function-URL Lambda. LibreOffice ships as a brotli tarball at `/opt/lo.tar.br`, decompressed+untarred to `/tmp/instdir` on first warm invocation (writes a minimal `fonts.conf`; sets `HOME=/tmp`, `LD_LIBRARY_PATH`). Auth via `x-convert-secret` header (`CONVERT_SECRET`). Request `{filename, contentBase64}` → runs `soffice.bin --headless --convert-to pdf` → returns `{pdfBase64}`. Gotchas noted in-file: do **not** pass `-env:UserInstallation` (causes exit 81); 55s internal timeout. Invoked from the Next routes via SDK using `OFFICE_PDF_LAMBDA_FUNCTION` (default `office-to-pdf`), `OFFICE_PDF_AWS_REGION`/`S3_REGION`, and dedicated `OFFICE_PDF_AWS_ACCESS_KEY_ID`/`_SECRET_ACCESS_KEY`; payload secret is `PREVIEW_PDF_SECRET` on the Next side.
+Node 20 (AL2023) Function-URL Lambda. LibreOffice ships as a brotli tarball at `/opt/lo.tar.br`, decompressed+untarred to `/tmp/instdir` on first warm invocation (writes a minimal `fonts.conf`; sets `HOME=/tmp`, `LD_LIBRARY_PATH`). Auth via `x-convert-secret` header (`CONVERT_SECRET`). Runs `soffice.bin --headless --convert-to pdf`. Gotchas noted in-file: do **not** pass `-env:UserInstallation` (causes exit 81); 55s internal timeout. Invoked from the Next routes via SDK using `OFFICE_PDF_LAMBDA_FUNCTION` (default `office-to-pdf`), `OFFICE_PDF_AWS_REGION`/`S3_REGION`, and dedicated `OFFICE_PDF_AWS_ACCESS_KEY_ID`/`_SECRET_ACCESS_KEY`; payload secret is `PREVIEW_PDF_SECRET` on the Next side.
+
+**Two transport modes** (`aws/office-to-pdf/index.js:90-111`): the handler destructures `{ filename, contentBase64, srcUrl, uploadUrl }` and errors `400` unless one of `contentBase64`/`srcUrl` is present (`:90-91`).
+
+- **URL mode (preferred, for the preview/print PDF):** request `{filename, srcUrl, uploadUrl}` — the Lambda fetches the source from `srcUrl`, converts, POSTs the rendered PDF to `uploadUrl` (a Convex storage upload URL), and returns just `{storageId}`. This keeps large files off the 6 MB synchronous-invoke cap. Used by `documents/office-pdf`.
+- **Inline mode (legacy fallback, still fully supported):** request `{filename, contentBase64}` → returns `{pdfBase64}`. Still used by `documents/thumbnail` (`thumbnail/route.ts:60-61`), which needs the PDF bytes locally to rasterize a page-1 PNG rather than just storing the PDF.
 
 ### Tables
 
@@ -317,7 +330,9 @@ Node 20 (AL2023) Function-URL Lambda. LibreOffice ships as a brotli tarball at `
 
 ### `convex/locations.ts`
 
-Queries `list`, `listActive`, `listActiveWarehouses`, `get`, `getByName`, `listByType`. Mutations `create`/`update`/`deactivate`/`reactivate`/`seedLocations` (all `requireAdmin`). Deactivate is blocked if personnel or equipment (scanners/pickers) are still assigned; unique-name enforced. Security codes (`pinCode`, `alarmCode`, `gateCode`, `wifiPassword`) are stored **plaintext**. `managerId` FK feeds termination/manager rollup reports.
+Queries `list`, `listActive`, `listActiveWarehouses`, `get`, `getByName`, `listByType`. Mutations `create`/`update`/`deactivate`/`reactivate`/`seedLocations` (all `requireAdmin`). Deactivate is blocked if personnel or equipment (scanners/pickers) are still assigned; unique-name enforced. `managerId` FK feeds termination/manager rollup reports.
+
+**Security codes are now gated (security-hardening update).** Codes (`pinCode`, `alarmCode`, `gateCode`, `wifiPassword`, `securityNotes`) are still stored **plaintext** in the schema and accepted by `create`/`update` (`locations.ts:92-96`), **but they are no longer returned by the general-purpose queries.** A `stripSecrets()` helper (`locations.ts:11-15`) destructures those fields off every row returned by `list` (`:18-24`), `listActive` (`:27-36`), `listActiveWarehouses` (`:39-48`), `get` (`:51-56`), and `getByName` (`:59-68`); `listByType` returns only `_id`/`name`/`locationType` (`:291-301`). The codes are exposed **only** through the dedicated `listWithSecurity` query, which is `requireAdmin`-gated (`locations.ts:72-78`, gate at `:75`). The older "exposed plaintext to all callers" note is stale.
 
 ### `convex/orgChart.ts`
 
