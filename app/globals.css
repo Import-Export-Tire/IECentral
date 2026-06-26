@@ -1383,3 +1383,70 @@ button {
 .dracula-theme ::-webkit-scrollbar-track { background: var(--drac-bg); }
 .dracula-theme ::-webkit-scrollbar-thumb { background: var(--drac-comment); border-radius: 3px; }
 .dracula-theme svg { color: inherit !important; }
+
+/* ===== UI polish foundation (2026-06-25) ===== */
+
+/* Close the light-mode remap gap: opacity-variant slate was not matched by
+   the solid-class selectors, so these rendered as faint dark tints. */
+.light main .bg-slate-800\/50,
+.light main .bg-slate-800\/30 { background-color: #ffffff !important; }
+.light main .bg-slate-900\/50,
+.light main .bg-slate-900\/30 { background-color: #f2f2f7 !important; }
+.light main .bg-slate-700\/50,
+.light main .bg-slate-700\/30 { background-color: #e5e5ea !important; }
+.light main .border-slate-700\/50,
+.light main .border-slate-700\/30 { border-color: #d1d1d6 !important; }
+.light main .border-slate-600\/50 { border-color: #d1d1d6 !important; }
+
+/* Uppercase section label */
+.ui-section-label {
+  font-size: 12px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 6px;
+}
+
+/* Badges / pills — readable in both themes */
+.ui-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 600; line-height: 1.2;
+  padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+}
+.ui-badge-blue   { background: rgba(0,122,255,.12); color: #0062cc; }
+.ui-badge-green  { background: rgba(52,199,89,.15); color: #1f8f3d; }
+.ui-badge-amber  { background: rgba(255,149,0,.16); color: #b25e00; }
+.ui-badge-red    { background: rgba(255,59,48,.13);  color: #c4271d; }
+.ui-badge-purple { background: rgba(175,82,222,.14); color: #7e3bb0; }
+.ui-badge-gray   { background: rgba(120,120,128,.14); color: #5b5b60; }
+.dark .ui-badge-blue   { background: rgba(0,122,255,.20);  color: #6db3ff; }
+.dark .ui-badge-green  { background: rgba(52,199,89,.22);  color: #5fe08a; }
+.dark .ui-badge-amber  { background: rgba(255,149,0,.22);  color: #ffc266; }
+.dark .ui-badge-red    { background: rgba(255,59,48,.22);   color: #ff8a82; }
+.dark .ui-badge-purple { background: rgba(175,82,222,.24); color: #d59cf0; }
+.dark .ui-badge-gray   { background: rgba(174,174,178,.20); color: #c7c7cc; }
+
+/* Rating-scale segment (1–4) */
+.ui-segment {
+  width: 30px; height: 30px; border-radius: 8px;
+  border: 1px solid var(--border-primary); background: var(--bg-card);
+  color: var(--text-tertiary); font-size: 13px; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background-color .12s, border-color .12s, color .12s;
+}
+.ui-segment:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
+.ui-segment-on { background: var(--accent-primary); border-color: var(--accent-primary); color: #ffffff; }
+
+/* Theme-aware amber callout (replaces light-only bg-amber-50/text-gray-800) */
+.ui-callout-amber {
+  background: rgba(255,149,0,.08);
+  border: 1px solid rgba(255,149,0,.32);
+  color: var(--text-primary);
+}
+.dark .ui-callout-amber { background: rgba(255,149,0,.12); border-color: rgba(255,149,0,.38); }
+
+/* Button variants not already covered by theme-btn-primary/secondary */
+.ui-btn-ghost {
+  background: transparent; color: var(--text-secondary);
+  border: 1px solid var(--border-primary);
+}
+.ui-btn-ghost:hover { background: var(--bg-hover); }
+.ui-btn-danger { background: transparent; color: var(--accent-danger); border: 1px solid transparent; }
+.ui-btn-danger:hover { border-color: var(--accent-danger); }
