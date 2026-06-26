@@ -9,6 +9,11 @@ import { Id } from "@/convex/_generated/dataModel";
 import Protected from "../../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useAuth } from "@/app/auth-context";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
+import Button from "@/components/ui/Button";
+import StatusBadge from "@/components/ui/StatusBadge";
+import ScorePill from "@/components/ui/ScorePill";
 
 const STATUS_OPTIONS = [
   { value: "new", label: "New", color: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30" },
@@ -542,35 +547,26 @@ function ApplicationDetailContent({ id }: { id: string }) {
             <div className="flex items-center gap-4">
               {/* Show "View Personnel Record" button if already hired */}
               {existingPersonnel && (
-                <button
-                  onClick={() => router.push(`/personnel/${existingPersonnel._id}`)}
-                  className="px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/30 transition-colors flex items-center gap-2"
-                >
+                <Button variant="ghost" onClick={() => router.push(`/personnel/${existingPersonnel._id}`)}>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                   View Personnel Record
-                </button>
+                </Button>
               )}
               {/* Schedule Interview button in header */}
-              <button
-                onClick={() => setShowScheduleModal(true)}
-                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                  application.scheduledInterviewDate
-                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30"
-                    : "bg-cyan-500 hover:bg-cyan-600 text-white"
-                }`}
-              >
+              <Button variant="ghost" onClick={() => setShowScheduleModal(true)}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 {application.scheduledInterviewDate
                   ? `Interview: ${new Date(application.scheduledInterviewDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} @ ${application.scheduledInterviewTime}`
                   : "Schedule Interview"}
-              </button>
+              </Button>
               {/* Show "Hire" button if not already hired */}
               {!existingPersonnel && application.status !== "rejected" && (
-                <button
+                <Button
+                  variant="primary"
                   onClick={() => {
                     setHireForm({
                       ...hireForm,
@@ -578,17 +574,17 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     });
                     setShowHireModal(true);
                   }}
-                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                   </svg>
                   Hire Applicant
-                </button>
+                </Button>
               )}
               {/* Send Offer button */}
               {application.email && application.status !== "rejected" && application.status !== "hired" && (
-                <button
+                <Button
+                  variant="ghost"
                   onClick={() => {
                     setOfferForm({
                       ...offerForm,
@@ -596,21 +592,18 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     });
                     setShowOfferModal(true);
                   }}
-                  className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                   Send Offer
-                </button>
+                </Button>
               )}
+              <StatusBadge status={application.status} kind="applicant" />
               <select
                 value={application.status}
                 onChange={(e) => handleStatusChange(e.target.value)}
-                className={`px-4 py-2 rounded-lg border ${
-                  STATUS_OPTIONS.find((s) => s.value === application.status)?.color ||
-                  "bg-slate-700"
-                } bg-transparent focus:outline-none`}
+                className="theme-input focus:outline-none"
               >
                 {STATUS_OPTIONS.map((status) => (
                   <option key={status.value} value={status.value} className="bg-slate-800 text-white">
@@ -619,12 +612,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                 ))}
               </select>
               {(user?.role === "super_admin" || user?.role === "admin") && (
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"
-                >
-                  Delete
-                </button>
+                <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>Delete</Button>
               )}
             </div>
           </div>
@@ -666,8 +654,8 @@ function ApplicationDetailContent({ id }: { id: string }) {
           {/* Contact Info & Quick Stats */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Contact Info */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Contact Information</h2>
+            <Card>
+              <SectionHeader title="Contact Information" />
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-slate-500">Email</p>
@@ -692,32 +680,26 @@ function ApplicationDetailContent({ id }: { id: string }) {
                   </p>
                 </div>
               </div>
-            </div>
+            </Card>
 
             {/* Overall Scores */}
             {application.candidateAnalysis && (
-              <div className="lg:col-span-2 bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-                <h2 className="text-lg font-semibold text-white mb-4">Candidate Scores</h2>
+              <Card className="lg:col-span-2">
+                <SectionHeader title="Candidate Scores" />
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className={`p-4 rounded-lg border text-center ${getScoreBgColor(application.candidateAnalysis.overallScore)}`}>
-                    <p className={`text-3xl font-bold ${getScoreColor(application.candidateAnalysis.overallScore)}`}>
-                      {application.candidateAnalysis.overallScore}%
-                    </p>
+                  <div className="p-4 rounded-lg border theme-border text-center">
+                    <ScorePill score={application.candidateAnalysis.overallScore} size="md" />
                     <p className="text-sm text-slate-400 mt-1">Overall</p>
                   </div>
-                  <div className={`p-4 rounded-lg border text-center ${getScoreBgColor(application.candidateAnalysis.stabilityScore)}`}>
-                    <p className={`text-3xl font-bold ${getScoreColor(application.candidateAnalysis.stabilityScore)}`}>
-                      {application.candidateAnalysis.stabilityScore}%
-                    </p>
+                  <div className="p-4 rounded-lg border theme-border text-center">
+                    <ScorePill score={application.candidateAnalysis.stabilityScore} size="md" />
                     <p className="text-sm text-slate-400 mt-1">Stability</p>
                   </div>
-                  <div className={`p-4 rounded-lg border text-center ${getScoreBgColor(application.candidateAnalysis.experienceScore)}`}>
-                    <p className={`text-3xl font-bold ${getScoreColor(application.candidateAnalysis.experienceScore)}`}>
-                      {application.candidateAnalysis.experienceScore}%
-                    </p>
+                  <div className="p-4 rounded-lg border theme-border text-center">
+                    <ScorePill score={application.candidateAnalysis.experienceScore} size="md" />
                     <p className="text-sm text-slate-400 mt-1">Experience</p>
                   </div>
-                  <div className="p-4 rounded-lg border border-slate-600 bg-slate-900/50 text-center">
+                  <div className="p-4 rounded-lg border theme-border text-center">
                     <p className="text-3xl font-bold text-white">
                       {application.candidateAnalysis.totalYearsExperience.toFixed(1)}
                     </p>
@@ -735,29 +717,24 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     </span>
                   </div>
                 </div>
-              </div>
+              </Card>
             )}
           </div>
 
           {/* Cover Message */}
           {application.message && (
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-white mb-3">Cover Message</h2>
+            <Card>
+              <SectionHeader title="Cover Message" />
               <p className="text-slate-300 whitespace-pre-wrap">{application.message}</p>
-            </div>
+            </Card>
           )}
 
           {/* Red & Green Flags */}
           {application.candidateAnalysis && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Red Flags */}
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-                <h2 className="text-lg font-semibold text-red-400 mb-4 flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clipRule="evenodd" />
-                  </svg>
-                  Red Flags ({application.candidateAnalysis.redFlags.length})
-                </h2>
+              <Card>
+                <SectionHeader title={`Red Flags (${application.candidateAnalysis.redFlags.length})`} />
                 {application.candidateAnalysis.redFlags.length === 0 ? (
                   <p className="text-slate-500 text-sm">No red flags identified</p>
                 ) : (
@@ -765,16 +742,8 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     {application.candidateAnalysis.redFlags.map((flag, i) => (
                       <div key={i} className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs font-bold text-red-400 uppercase px-2 py-0.5 bg-red-500/20 rounded">
-                            {flag.type.replace(/_/g, " ")}
-                          </span>
-                          <span className={`text-xs px-2 py-0.5 rounded ${
-                            flag.severity === "high"
-                              ? "bg-red-500/30 text-red-300"
-                              : flag.severity === "medium"
-                                ? "bg-amber-500/30 text-amber-300"
-                                : "bg-slate-500/30 text-slate-300"
-                          }`}>
+                          <span className="ui-badge ui-badge-gray">{flag.type.replace(/_/g, " ")}</span>
+                          <span className={`ui-badge ${flag.severity === "high" ? "ui-badge-red" : flag.severity === "medium" ? "ui-badge-amber" : "ui-badge-gray"}`}>
                             {flag.severity}
                           </span>
                         </div>
@@ -783,38 +752,31 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     ))}
                   </div>
                 )}
-              </div>
+              </Card>
 
               {/* Green Flags */}
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-                <h2 className="text-lg font-semibold text-green-400 mb-4 flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  Green Flags ({application.candidateAnalysis.greenFlags.length})
-                </h2>
+              <Card>
+                <SectionHeader title={`Green Flags (${application.candidateAnalysis.greenFlags.length})`} />
                 {application.candidateAnalysis.greenFlags.length === 0 ? (
                   <p className="text-slate-500 text-sm">No green flags identified</p>
                 ) : (
                   <div className="space-y-3">
                     {application.candidateAnalysis.greenFlags.map((flag, i) => (
                       <div key={i} className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-                        <span className="text-xs font-bold text-green-400 uppercase px-2 py-0.5 bg-green-500/20 rounded mb-2 inline-block">
-                          {flag.type.replace(/_/g, " ")}
-                        </span>
+                        <span className="ui-badge ui-badge-gray">{flag.type.replace(/_/g, " ")}</span>
                         <p className="text-sm text-slate-300 mt-2">{flag.description}</p>
                       </div>
                     ))}
                   </div>
                 )}
-              </div>
+              </Card>
             </div>
           )}
 
           {/* Employment History */}
           {application.candidateAnalysis && application.candidateAnalysis.employmentHistory.length > 0 && (
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Employment History</h2>
+            <Card>
+              <SectionHeader title="Employment History" />
               <div className="space-y-4">
                 {application.candidateAnalysis.employmentHistory.map((job, i) => (
                   <div key={i} className="flex items-center justify-between p-4 bg-slate-900/50 rounded-lg border border-slate-700">
@@ -848,7 +810,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                   <p className="text-sm text-slate-400">Longest Tenure (months)</p>
                 </div>
               </div>
-            </div>
+            </Card>
           )}
 
           {/* Interview Rounds */}
@@ -1354,8 +1316,8 @@ function ApplicationDetailContent({ id }: { id: string }) {
 
           {/* AI Job Match Scores */}
           {application.aiAnalysis && application.aiAnalysis.allScores.length > 0 && (
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">AI Job Match Analysis</h2>
+            <Card>
+              <SectionHeader title="AI Job Match Analysis" />
               <div className="space-y-3">
                 {application.aiAnalysis.allScores
                   .sort((a, b) => b.score - a.score)
@@ -1391,9 +1353,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                             </div>
                           )}
                         </div>
-                        <div className={`text-2xl font-bold ${getScoreColor(score.score)}`}>
-                          {score.score}%
-                        </div>
+                        <ScorePill score={score.score} size="md" />
                       </div>
                       {score.reasoning && (
                         <p className="text-sm text-slate-400 mt-2">{score.reasoning}</p>
@@ -1416,123 +1376,111 @@ function ApplicationDetailContent({ id }: { id: string }) {
                   </div>
                 </div>
               )}
-            </div>
+            </Card>
           )}
 
           {/* Hiring Team Notes */}
           {application.candidateAnalysis && (
-            <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-cyan-400 mb-3">Hiring Team Notes</h2>
+            <Card tone="amber">
+              <SectionHeader title="Hiring Team Notes" />
               <p className="text-slate-300">{application.candidateAnalysis.hiringTeamNotes}</p>
-            </div>
+            </Card>
           )}
 
           {/* Activity Timeline */}
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Activity Timeline
-            </h2>
+          <Card>
+            <SectionHeader title="Activity Timeline" />
             {activityTimeline && activityTimeline.length > 0 ? (
-              <div className="relative">
-                {/* Timeline line */}
-                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-700" />
+              <ol className="flex flex-col gap-4 border-l theme-border pl-6">
+                {activityTimeline.map((activity, index) => {
+                  // Get icon and color based on activity type
+                  const getActivityStyle = (type: string) => {
+                    switch (type) {
+                      case "application_received":
+                        return { icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z", color: "bg-cyan-500", borderColor: "border-cyan-500/30" };
+                      case "status_change":
+                        return { icon: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15", color: "bg-purple-500", borderColor: "border-purple-500/30" };
+                      case "interview_scheduled":
+                        return { icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", color: "bg-orange-500", borderColor: "border-orange-500/30" };
+                      case "interview_completed":
+                        return { icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z", color: "bg-blue-500", borderColor: "border-blue-500/30" };
+                      case "note_added":
+                        return { icon: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z", color: "bg-amber-500", borderColor: "border-amber-500/30" };
+                      case "evaluation_added":
+                        return { icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", color: "bg-indigo-500", borderColor: "border-indigo-500/30" };
+                      case "hired":
+                        return { icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", color: "bg-green-500", borderColor: "border-green-500/30" };
+                      case "rejected":
+                        return { icon: "M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z", color: "bg-red-500", borderColor: "border-red-500/30" };
+                      default:
+                        return { icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z", color: "bg-slate-500", borderColor: "border-slate-500/30" };
+                    }
+                  };
 
-                <div className="space-y-4">
-                  {activityTimeline.map((activity, index) => {
-                    // Get icon and color based on activity type
-                    const getActivityStyle = (type: string) => {
-                      switch (type) {
-                        case "application_received":
-                          return { icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z", color: "bg-cyan-500", borderColor: "border-cyan-500/30" };
-                        case "status_change":
-                          return { icon: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15", color: "bg-purple-500", borderColor: "border-purple-500/30" };
-                        case "interview_scheduled":
-                          return { icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", color: "bg-orange-500", borderColor: "border-orange-500/30" };
-                        case "interview_completed":
-                          return { icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z", color: "bg-blue-500", borderColor: "border-blue-500/30" };
-                        case "note_added":
-                          return { icon: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z", color: "bg-amber-500", borderColor: "border-amber-500/30" };
-                        case "evaluation_added":
-                          return { icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", color: "bg-indigo-500", borderColor: "border-indigo-500/30" };
-                        case "hired":
-                          return { icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", color: "bg-green-500", borderColor: "border-green-500/30" };
-                        case "rejected":
-                          return { icon: "M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z", color: "bg-red-500", borderColor: "border-red-500/30" };
-                        default:
-                          return { icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z", color: "bg-slate-500", borderColor: "border-slate-500/30" };
-                      }
-                    };
+                  const style = getActivityStyle(activity.type);
+                  const isFirst = index === 0;
 
-                    const style = getActivityStyle(activity.type);
-                    const isFirst = index === 0;
-
-                    return (
-                      <div key={activity._id} className="relative flex items-start gap-4 pl-8">
-                        {/* Timeline dot */}
-                        <div className={`absolute left-0 w-8 h-8 rounded-full ${style.color} flex items-center justify-center z-10 ${isFirst ? "ring-2 ring-white/20" : ""}`}>
-                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={style.icon} />
-                          </svg>
-                        </div>
-
-                        {/* Content */}
-                        <div className={`flex-1 bg-slate-900/50 border ${style.borderColor} rounded-lg p-4`}>
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <p className="text-white font-medium">{activity.description}</p>
-                              {activity.previousValue && activity.newValue && (
-                                <p className="text-slate-400 text-sm mt-1">
-                                  <span className="text-slate-500">{activity.previousValue}</span>
-                                  <span className="mx-2">→</span>
-                                  <span className="text-slate-300">{activity.newValue}</span>
-                                </p>
-                              )}
-                              {activity.metadata && typeof activity.metadata === "object" && (
-                                <div className="mt-2 space-y-1">
-                                  {(activity.metadata as { score?: number; recommendation?: string; round?: number }).score !== undefined && (
-                                    <p className="text-sm">
-                                      <span className="text-slate-400">Score: </span>
-                                      <span className={getScoreColor((activity.metadata as { score: number }).score)}>
-                                        {(activity.metadata as { score: number }).score}%
-                                      </span>
-                                    </p>
-                                  )}
-                                  {(activity.metadata as { recommendation?: string }).recommendation && (
-                                    <p className="text-slate-300 text-sm">
-                                      {(activity.metadata as { recommendation: string }).recommendation}
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <p className="text-slate-400 text-sm">
-                                {new Date(activity.createdAt).toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                })}
+                  return (
+                    <li key={activity._id} className="relative">
+                      {/* Timeline dot */}
+                      <span className={`absolute -left-[31px] top-1 w-5 h-5 rounded-full ${style.color} flex items-center justify-center ${isFirst ? "ring-2 ring-white/20" : ""}`}>
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={style.icon} />
+                        </svg>
+                      </span>
+                      <Card padding="sm">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <p className="text-white font-medium">{activity.description}</p>
+                            {activity.previousValue && activity.newValue && (
+                              <p className="text-slate-400 text-sm mt-1">
+                                <span className="text-slate-500">{activity.previousValue}</span>
+                                <span className="mx-2">→</span>
+                                <span className="text-slate-300">{activity.newValue}</span>
                               </p>
-                              <p className="text-slate-500 text-xs">
-                                {new Date(activity.createdAt).toLocaleTimeString("en-US", {
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                })}
-                              </p>
-                            </div>
+                            )}
+                            {activity.metadata && typeof activity.metadata === "object" && (
+                              <div className="mt-2 space-y-1">
+                                {(activity.metadata as { score?: number; recommendation?: string; round?: number }).score !== undefined && (
+                                  <p className="text-sm">
+                                    <span className="text-slate-400">Score: </span>
+                                    <span className={getScoreColor((activity.metadata as { score: number }).score)}>
+                                      {(activity.metadata as { score: number }).score}%
+                                    </span>
+                                  </p>
+                                )}
+                                {(activity.metadata as { recommendation?: string }).recommendation && (
+                                  <p className="text-slate-300 text-sm">
+                                    {(activity.metadata as { recommendation: string }).recommendation}
+                                  </p>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          <p className="text-slate-500 text-xs mt-2">
-                            By: {activity.performedByName}
-                          </p>
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-slate-400 text-sm">
+                              {new Date(activity.createdAt).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })}
+                            </p>
+                            <p className="text-slate-500 text-xs">
+                              {new Date(activity.createdAt).toLocaleTimeString("en-US", {
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+                        <p className="text-slate-500 text-xs mt-2">
+                          By: {activity.performedByName}
+                        </p>
+                      </Card>
+                    </li>
+                  );
+                })}
+              </ol>
             ) : (
               <div className="text-center py-8">
                 <svg className="w-12 h-12 text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1542,7 +1490,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                 <p className="text-slate-500 text-sm mt-1">Activities will appear here as you interact with this application</p>
               </div>
             )}
-          </div>
+          </Card>
 
           {/* Scheduled Interview Banner */}
           {application.scheduledInterviewDate && (
@@ -2161,21 +2109,22 @@ function ApplicationDetailContent({ id }: { id: string }) {
           )}
 
           {/* Internal Notes (Editable) */}
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Internal Notes</h2>
-              {!isEditingNotes && (
-                <button
+          <Card>
+            <SectionHeader
+              title="Internal Notes"
+              actions={!isEditingNotes ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     setNotesInput(application.notes || "");
                     setIsEditingNotes(true);
                   }}
-                  className="px-3 py-1 text-sm text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 rounded transition-colors"
                 >
                   {application.notes ? "Edit" : "Add Notes"}
-                </button>
-              )}
-            </div>
+                </Button>
+              ) : undefined}
+            />
             {isEditingNotes ? (
               <div className="space-y-3">
                 <textarea
@@ -2224,7 +2173,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
             ) : (
               <p className="text-slate-500 text-sm italic">No notes added yet</p>
             )}
-          </div>
+          </Card>
 
           {/* Resume Section - PDF or Text */}
           {(application.resumeFileId || application.resumeText) && (
