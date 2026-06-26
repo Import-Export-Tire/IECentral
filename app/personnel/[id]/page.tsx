@@ -10,6 +10,9 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useTheme } from "../../theme-context";
 import { useAuth } from "../../auth-context";
 import { isTemp, computeTempEligibleDate, tempEligibilityLabel } from "@/lib/tempEligibility";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 const STATUS_OPTIONS = [
   { value: "active", label: "Active", color: "green" },
@@ -1000,13 +1003,13 @@ function PersonnelDetailContent() {
               month: "short", day: "numeric", year: "numeric",
             });
             return (
-              <div className={`mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+              <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-y-2 gap-x-6 text-sm theme-text-secondary">
                 <div className="flex items-center gap-2">
-                  <svg className={`w-4 h-4 ${isDark ? "text-slate-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <span><span className={isDark ? "text-slate-500" : "text-gray-500"}>Hired</span> {hireDateLabel}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isDark ? "bg-slate-700 text-slate-300" : "bg-gray-100 text-gray-700"}`}>
+                  <span><span className="theme-text-tertiary">Hired</span> {hireDateLabel}</span>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-medium theme-card border theme-border-secondary">
                     {tenure.display}
                   </span>
                 </div>
@@ -1022,12 +1025,12 @@ function PersonnelDetailContent() {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 ml-auto">
+                <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
                   {personnel.phone && (
                     <a
                       href={`tel:${personnel.phone}`}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${isDark ? "bg-slate-700/60 hover:bg-slate-700 text-slate-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
                       title={personnel.phone}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] rounded-[9px] font-semibold transition-colors ui-btn-ghost"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -1038,8 +1041,8 @@ function PersonnelDetailContent() {
                   {personnel.email && (
                     <a
                       href={`mailto:${personnel.email}`}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${isDark ? "bg-slate-700/60 hover:bg-slate-700 text-slate-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
                       title={personnel.email}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] rounded-[9px] font-semibold transition-colors ui-btn-ghost"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -1048,19 +1051,19 @@ function PersonnelDetailContent() {
                     </a>
                   )}
                   {canEditPersonnelInfo && (
-                    <button
+                    <Button
+                      variant="primary"
+                      size="sm"
                       onClick={() => {
                         initEditForm();
                         setShowEditPersonnelModal(true);
                       }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold text-white transition-colors"
-                      style={{ backgroundColor: "#007AFF" }}
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                       Edit Personnel
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -1068,19 +1071,15 @@ function PersonnelDetailContent() {
           })()}
 
           {/* Tabs */}
-          <div className="flex gap-2 mt-4">
+          <div className="flex gap-2 mt-4 flex-wrap">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   activeTab === tab.id
-                    ? isDark
-                      ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                      : "bg-blue-50 text-blue-600 border border-blue-200"
-                    : isDark
-                      ? "text-slate-400 hover:bg-slate-700/50"
-                      : "text-gray-500 hover:bg-gray-100"
+                    ? "theme-card border theme-border-secondary theme-text-primary font-semibold"
+                    : "theme-text-tertiary hover:theme-text-secondary hover:bg-black/5 dark:hover:bg-white/5"
                 }`}
               >
                 {tab.label}
@@ -1095,116 +1094,107 @@ function PersonnelDetailContent() {
             <div className="space-y-6">
               {/* Temp employee banner */}
               {isTemp((personnel as any).employeeType) && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
+                <Card tone="amber">
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="text-sm text-gray-800">
-                      <span className="font-semibold text-amber-700">TEMP</span>
+                    <div className="text-sm theme-text-primary">
+                      <span className="font-semibold">TEMP</span>
                       {(personnel as any).staffingAgency ? ` · ${(personnel as any).staffingAgency}` : ""}
                       {" · eligible "}
                       {(() => { const d = computeTempEligibleDate(personnel as any); return d ? d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—"; })()}
                       {` (${tempEligibilityLabel(personnel as any)})`}
                     </div>
-                    <button onClick={() => setShowConvertModal(true)} className="px-3 py-1.5 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: "#007AFF" }}>Convert to hire</button>
+                    <Button variant="primary" size="sm" onClick={() => setShowConvertModal(true)}>Convert to hire</Button>
                   </div>
-                </div>
+                </Card>
               )}
 
               {/* Stats Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className={`rounded-lg p-4 text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <div className="theme-card p-4 text-center">
+                  <p className="text-2xl font-bold theme-text-primary">
                     {personnel.stats?.writeUpsCount || 0}
                   </p>
-                  <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>Write-Ups</p>
+                  <p className="text-xs theme-text-tertiary">Write-Ups</p>
                 </div>
-                <div className={`rounded-lg p-4 text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <p className={`text-2xl font-bold text-green-400`}>
+                <div className="theme-card p-4 text-center">
+                  <p className="text-2xl font-bold text-green-400">
                     {personnel.stats?.meritsCount || 0}
                   </p>
-                  <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>Merits</p>
+                  <p className="text-xs theme-text-tertiary">Merits</p>
                 </div>
-                <div className={`rounded-lg p-4 text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <p className={`text-2xl font-bold text-blue-400`}>
+                <div className="theme-card p-4 text-center">
+                  <p className="text-2xl font-bold text-blue-400">
                     {personnel.stats?.attendance?.presentDays || 0}
                   </p>
-                  <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>Present (30d)</p>
+                  <p className="text-xs theme-text-tertiary">Present (30d)</p>
                 </div>
-                <div className={`rounded-lg p-4 text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <p className={`text-2xl font-bold text-red-400`}>
+                <div className="theme-card p-4 text-center">
+                  <p className="text-2xl font-bold text-red-400">
                     {personnel.stats?.activeWriteUps || 0}
                   </p>
-                  <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>Active Write-Ups</p>
+                  <p className="text-xs theme-text-tertiary">Active Write-Ups</p>
                 </div>
               </div>
 
               {/* Profile Info */}
-              <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                    Profile Information
-                  </h2>
-                  {canEditPersonnelInfo && (
-                    <button
+              <Card>
+                <SectionHeader
+                  title="Profile Information"
+                  actions={canEditPersonnelInfo ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => {
                         initEditForm();
                         setShowEditPersonnelModal(true);
                       }}
-                      className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
-                        isDark
-                          ? "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30"
-                          : "bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200"
-                      }`}
                     >
                       Edit
-                    </button>
-                  )}
-                </div>
+                    </Button>
+                  ) : undefined}
+                />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>Email</p>
-                    <p className={`${isDark ? "text-white" : "text-gray-900"}`}>{personnel.email}</p>
+                    <p className="text-xs font-medium theme-text-tertiary">Email</p>
+                    <p className="theme-text-primary">{personnel.email}</p>
                   </div>
                   <div>
-                    <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>Phone</p>
-                    <a href={`tel:${personnel.phone}`} className={`${isDark ? "text-white" : "text-gray-900"}`}>{personnel.phone}</a>
+                    <p className="text-xs font-medium theme-text-tertiary">Phone</p>
+                    <a href={`tel:${personnel.phone}`} className="theme-text-primary">{personnel.phone}</a>
                   </div>
                   <div>
-                    <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>Hire Date</p>
-                    <p className={`${isDark ? "text-white" : "text-gray-900"}`}>
+                    <p className="text-xs font-medium theme-text-tertiary">Hire Date</p>
+                    <p className="theme-text-primary">
                       {new Date(personnel.hireDate).toLocaleDateString()}
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>Hourly Rate</p>
-                    <p className={`${isDark ? "text-white" : "text-gray-900"}`}>
+                    <p className="text-xs font-medium theme-text-tertiary">Hourly Rate</p>
+                    <p className="theme-text-primary">
                       ${personnel.hourlyRate?.toFixed(2) || "N/A"}/hr
                     </p>
                   </div>
                   {personnel.emergencyContact && (
                     <div className="md:col-span-2">
-                      <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>Emergency Contact</p>
-                      <p className={`${isDark ? "text-white" : "text-gray-900"}`}>
+                      <p className="text-xs font-medium theme-text-tertiary">Emergency Contact</p>
+                      <p className="theme-text-primary">
                         {personnel.emergencyContact.name} ({personnel.emergencyContact.relationship}) - {personnel.emergencyContact.phone}
                       </p>
                     </div>
                   )}
                   {personnel.notes && (
                     <div className="md:col-span-2">
-                      <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>Notes</p>
-                      <p className={`${isDark ? "text-slate-300" : "text-gray-700"}`}>{personnel.notes}</p>
+                      <p className="text-xs font-medium theme-text-tertiary">Notes</p>
+                      <p className="theme-text-secondary">{personnel.notes}</p>
                     </div>
                   )}
                   {/* Link to original application if exists */}
                   {personnel.applicationId && (
-                    <div className="md:col-span-2 pt-2 border-t border-slate-700/50">
-                      <p className={`text-xs font-medium mb-1 ${isDark ? "text-slate-500" : "text-gray-500"}`}>Original Application</p>
+                    <div className="md:col-span-2 pt-2 border-t theme-border-secondary">
+                      <p className="text-xs font-medium mb-1 theme-text-tertiary">Original Application</p>
                       <a
                         href={`/applications/${personnel.applicationId}`}
-                        className={`inline-flex items-center gap-2 text-sm font-medium transition-colors ${
-                          isDark
-                            ? "text-cyan-400 hover:text-cyan-300"
-                            : "text-blue-600 hover:text-blue-700"
-                        }`}
+                        className="inline-flex items-center gap-2 text-sm font-medium transition-colors text-blue-500 dark:text-blue-400 hover:opacity-80"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1214,26 +1204,24 @@ function PersonnelDetailContent() {
                     </div>
                   )}
                 </div>
-              </div>
+              </Card>
 
               {/* Portal Login Section */}
-              <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                <div className="flex items-center justify-between">
+              <Card>
+                <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      portalLogin
-                        ? isDark ? "bg-green-500/20" : "bg-green-100"
-                        : isDark ? "bg-slate-700" : "bg-gray-100"
+                      portalLogin ? "bg-green-500/20" : "bg-black/5 dark:bg-white/10"
                     }`}>
-                      <svg className={`w-5 h-5 ${portalLogin ? "text-green-500" : isDark ? "text-slate-400" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className={`w-5 h-5 ${portalLogin ? "text-green-500" : "theme-text-tertiary"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     </div>
                     <div>
-                      <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                      <h2 className="text-[17px] font-semibold theme-text-primary leading-tight">
                         Employee Portal Access
                       </h2>
-                      <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      <p className="text-sm theme-text-secondary">
                         {portalLogin
                           ? `Active login: ${portalLogin.email}`
                           : "No portal login created yet"
@@ -1350,57 +1338,39 @@ function PersonnelDetailContent() {
                   )}
                 </div>
                 {!personnel.email && !portalLogin && (
-                  <p className={`mt-3 text-sm ${isDark ? "text-amber-400" : "text-amber-600"}`}>
+                  <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">
                     Add an email address to this personnel record to enable portal login creation.
                   </p>
                 )}
-              </div>
+              </Card>
 
               {/* Schedule Assignment Section */}
-              <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? "bg-blue-500/20" : "bg-blue-100"}`}>
-                      <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                        Schedule Assignment
-                      </h2>
-                      <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                        {personnel.defaultScheduleTemplateId
-                          ? "Assigned to schedule template"
-                          : "No schedule template assigned"
-                        }
-                      </p>
-                    </div>
-                  </div>
-                  {canManagePersonnel && (
-                    <button
-                      onClick={() => setShowScheduleModal(true)}
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                        isDark
-                          ? "bg-blue-500 hover:bg-blue-400 text-white"
-                          : "bg-blue-600 hover:bg-blue-700 text-white"
-                      }`}
-                    >
+              <Card>
+                <SectionHeader
+                  title="Schedule Assignment"
+                  actions={canManagePersonnel ? (
+                    <Button variant="primary" size="sm" onClick={() => setShowScheduleModal(true)}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                       {personnel.defaultScheduleTemplateId ? "Change Schedule" : "Assign Schedule"}
-                    </button>
-                  )}
-                </div>
+                    </Button>
+                  ) : undefined}
+                />
+                <p className="text-sm theme-text-secondary -mt-2 mb-2">
+                  {personnel.defaultScheduleTemplateId
+                    ? "Assigned to schedule template"
+                    : "No schedule template assigned"
+                  }
+                </p>
                 {personnel.defaultScheduleTemplateId && assignedScheduleTemplate && (
-                  <div className={`mt-4 p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
+                  <div className="mt-2 p-4 rounded-lg bg-black/5 dark:bg-white/5">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                        <p className="font-medium theme-text-primary">
                           {assignedScheduleTemplate.name}
                         </p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <p className="text-sm theme-text-secondary">
                           {getScheduleDisplay(assignedScheduleTemplate)}
                         </p>
                       </div>
@@ -1419,11 +1389,7 @@ function PersonnelDetailContent() {
                               }
                             }
                           }}
-                          className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-                            isDark
-                              ? "text-red-400 hover:bg-red-500/20"
-                              : "text-red-600 hover:bg-red-50"
-                          }`}
+                          className="px-3 py-1 text-sm rounded-lg transition-colors text-red-500 hover:bg-red-500/10"
                         >
                           Remove
                         </button>
@@ -1431,42 +1397,22 @@ function PersonnelDetailContent() {
                     </div>
                   </div>
                 )}
-              </div>
+              </Card>
 
               {/* Schedule Overrides Section */}
-              <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? "bg-purple-500/20" : "bg-purple-100"}`}>
-                      <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                        Schedule Overrides
-                      </h2>
-                      <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                        One-time schedule changes (days off, modified hours)
-                      </p>
-                    </div>
-                  </div>
-                  {canManagePersonnel && (
-                    <button
-                      onClick={() => setShowOverrideModal(true)}
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                        isDark
-                          ? "bg-purple-500 hover:bg-purple-400 text-white"
-                          : "bg-purple-600 hover:bg-purple-700 text-white"
-                      }`}
-                    >
+              <Card>
+                <SectionHeader
+                  title="Schedule Overrides"
+                  label="One-time schedule changes (days off, modified hours)"
+                  actions={canManagePersonnel ? (
+                    <Button variant="secondary" size="sm" onClick={() => setShowOverrideModal(true)}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
                       Add Override
-                    </button>
-                  )}
-                </div>
+                    </Button>
+                  ) : undefined}
+                />
 
                 {/* Overrides List */}
                 {scheduleOverrides && scheduleOverrides.length > 0 ? (
@@ -1560,14 +1506,14 @@ function PersonnelDetailContent() {
                     ))}
                   </div>
                 ) : (
-                  <div className={`text-center py-8 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <div className="text-center py-8 theme-text-secondary">
                     <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     <p>No upcoming schedule overrides</p>
                   </div>
                 )}
-              </div>
+              </Card>
 
               {/* Training Badges Section - IE Tire Badges of Honor */}
               <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
@@ -1690,7 +1636,7 @@ function PersonnelDetailContent() {
                     <option value="">Assign a program…</option>
                     {segments.map((s) => <option key={s._id} value={s._id}>{s.title}</option>)}
                   </select>
-                  <button disabled={!assignSeg} onClick={async () => { if (assignSeg && user) { await assignSegment({ personnelId, segmentId: assignSeg as Id<"trainingSegments">, requestingUserId: user._id }); setAssignSeg(""); } }} className="px-2 py-1 text-xs rounded-full text-white disabled:opacity-50" style={{ backgroundColor: "#007AFF" }}>Assign</button>
+                  <Button variant="primary" size="sm" disabled={!assignSeg} onClick={async () => { if (assignSeg && user) { await assignSegment({ personnelId, segmentId: assignSeg as Id<"trainingSegments">, requestingUserId: user._id }); setAssignSeg(""); } }}>Assign</Button>
                 </div>
               )}
               {trainingProgress.length === 0 ? (
@@ -2109,13 +2055,9 @@ function PersonnelDetailContent() {
                         </div>
                       </div>
                     ) : canManagePersonnel ? (
-                      <button
-                        onClick={() => setShowNinetyReviewForm(true)}
-                        className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
-                        style={{ backgroundColor: "#007AFF" }}
-                      >
+                      <Button variant="primary" onClick={() => setShowNinetyReviewForm(true)}>
                         Record 90-Day Review
-                      </button>
+                      </Button>
                     ) : (
                       <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
                         Review not yet recorded. Ask a manager to complete it.
@@ -3593,12 +3535,12 @@ function PersonnelDetailContent() {
                 <p className="text-xs text-gray-500">Reviews and insurance eligibility will start from this hire date. The staffing agency is kept for history; their write-ups/notes are retained.</p>
               </div>
               <div className="flex justify-end gap-2 mt-5">
-                <button onClick={() => setShowConvertModal(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-100">Cancel</button>
-                <button onClick={async () => {
+                <Button variant="secondary" onClick={() => setShowConvertModal(false)}>Cancel</Button>
+                <Button variant="primary" onClick={async () => {
                   if (!user) return;
                   await convertTempToHire({ personnelId: personnel._id, hireDate: convertForm.hireDate, employeeType: convertForm.employeeType, userId: user._id, requestingUserId: user._id });
                   setShowConvertModal(false);
-                }} className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ backgroundColor: "#007AFF" }}>Convert</button>
+                }}>Convert</Button>
               </div>
             </div>
           </div>
