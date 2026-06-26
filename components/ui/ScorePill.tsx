@@ -1,4 +1,4 @@
-// Thresholds matched to app/applications/[id]/page.tsx lines 355-357:
+// Thresholds match getScoreColor in app/applications/[id]/page.tsx:
 // score >= 70 → green, score >= 50 → amber, else → red
 const GREEN_MIN = 70;
 const AMBER_MIN = 50;

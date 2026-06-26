@@ -1079,7 +1079,7 @@ function PersonnelDetailContent() {
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   activeTab === tab.id
                     ? "theme-card border theme-border-secondary theme-text-primary font-semibold"
-                    : "theme-text-tertiary hover:theme-text-secondary hover:bg-black/5 dark:hover:bg-white/5"
+                    : "theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5"
                 }`}
               >
                 {tab.label}

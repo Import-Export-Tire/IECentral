@@ -1386,18 +1386,6 @@ button {
 
 /* ===== UI polish foundation (2026-06-25) ===== */
 
-/* Close the light-mode remap gap: opacity-variant slate was not matched by
-   the solid-class selectors, so these rendered as faint dark tints. */
-.light main .bg-slate-800\/50,
-.light main .bg-slate-800\/30 { background-color: #ffffff !important; }
-.light main .bg-slate-900\/50,
-.light main .bg-slate-900\/30 { background-color: #f2f2f7 !important; }
-.light main .bg-slate-700\/50,
-.light main .bg-slate-700\/30 { background-color: #e5e5ea !important; }
-.light main .border-slate-700\/50,
-.light main .border-slate-700\/30 { border-color: #d1d1d6 !important; }
-.light main .border-slate-600\/50 { border-color: #d1d1d6 !important; }
-
 /* Uppercase section label */
 .ui-section-label {
   font-size: 12px; font-weight: 600; letter-spacing: .06em;
@@ -1441,6 +1429,22 @@ button {
   color: var(--text-primary);
 }
 .dark .ui-callout-amber { background: rgba(255,149,0,.12); border-color: rgba(255,149,0,.38); }
+
+/* Theme-aware green callout */
+.ui-callout-green {
+  background: rgba(52,199,89,.10);
+  border: 1px solid rgba(52,199,89,.30);
+  color: var(--text-primary);
+}
+.dark .ui-callout-green { background: rgba(52,199,89,.14); border-color: rgba(52,199,89,.38); }
+
+/* Theme-aware red callout */
+.ui-callout-red {
+  background: rgba(255,59,48,.09);
+  border: 1px solid rgba(255,59,48,.28);
+  color: var(--text-primary);
+}
+.dark .ui-callout-red { background: rgba(255,59,48,.14); border-color: rgba(255,59,48,.38); }
 
 /* Button variants not already covered by theme-btn-primary/secondary */
 .ui-btn-ghost {

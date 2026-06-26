@@ -555,27 +555,23 @@ function ApplicationDetailContent({ id }: { id: string }) {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 flex-wrap">
               {/* Show "View Personnel Record" button if already hired */}
               {existingPersonnel && (
-                <button
+                <Button
+                  variant="ghost"
                   onClick={() => router.push(`/personnel/${existingPersonnel._id}`)}
-                  className="px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/30 transition-colors flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                   View Personnel Record
-                </button>
+                </Button>
               )}
               {/* Schedule Interview button in header */}
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => setShowScheduleModal(true)}
-                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                  application.scheduledInterviewDate
-                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30"
-                    : "bg-cyan-500 hover:bg-cyan-600 text-white"
-                }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -583,10 +579,11 @@ function ApplicationDetailContent({ id }: { id: string }) {
                 {application.scheduledInterviewDate
                   ? `Interview: ${new Date(application.scheduledInterviewDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} @ ${application.scheduledInterviewTime}`
                   : "Schedule Interview"}
-              </button>
+              </Button>
               {/* Show "Hire" button if not already hired */}
               {!existingPersonnel && application.status !== "rejected" && (
-                <button
+                <Button
+                  variant="primary"
                   onClick={() => {
                     setHireForm({
                       ...hireForm,
@@ -594,17 +591,17 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     });
                     setShowHireModal(true);
                   }}
-                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                   </svg>
                   Hire Applicant
-                </button>
+                </Button>
               )}
               {/* Send Offer button */}
               {application.email && application.status !== "rejected" && application.status !== "hired" && (
-                <button
+                <Button
+                  variant="secondary"
                   onClick={() => {
                     setOfferForm({
                       ...offerForm,
@@ -612,35 +609,31 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     });
                     setShowOfferModal(true);
                   }}
-                  className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                   Send Offer
-                </button>
+                </Button>
               )}
               <select
                 value={application.status}
                 onChange={(e) => handleStatusChange(e.target.value)}
-                className={`px-4 py-2 rounded-lg border ${
-                  STATUS_OPTIONS.find((s) => s.value === application.status)?.color ||
-                  "bg-slate-700"
-                } bg-transparent focus:outline-none`}
+                className="theme-input rounded-[9px] px-3 py-2 text-[13.5px] font-semibold focus:outline-none"
               >
                 {STATUS_OPTIONS.map((status) => (
-                  <option key={status.value} value={status.value} className="bg-slate-800 text-white">
+                  <option key={status.value} value={status.value}>
                     {status.label}
                   </option>
                 ))}
               </select>
               {(user?.role === "super_admin" || user?.role === "admin") && (
-                <button
+                <Button
+                  variant="danger"
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"
                 >
                   Delete
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -1159,7 +1152,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                                 </Card>
                               </div>
 
-                              <Card padding="sm" tone={round.aiEvaluation.recommendation.includes("YES") ? "default" : round.aiEvaluation.recommendation.includes("MAYBE") ? "amber" : "default"}>
+                              <Card padding="sm" tone={round.aiEvaluation.recommendation.includes("YES") ? "green" : round.aiEvaluation.recommendation.includes("MAYBE") ? "amber" : "red"}>
                                 <span className="font-semibold theme-text-primary">Recommendation: </span>
                                 <span className="theme-text-secondary">{round.aiEvaluation.recommendation}</span>
                               </Card>
@@ -1767,9 +1760,10 @@ function ApplicationDetailContent({ id }: { id: string }) {
                   </div>
 
                   {hireForm.employeeType === "temp" && (
-                    <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                    <Card tone="amber" padding="sm">
+                      <div className="space-y-3">
                       <div>
-                        <label className="block text-sm font-medium mb-1 text-slate-700">Staffing Agency</label>
+                        <label className="block text-sm font-medium mb-1 theme-text-secondary">Staffing Agency</label>
                         <input
                           type="text"
                           value={hireForm.staffingAgency}
@@ -1780,7 +1774,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-sm font-medium mb-1 text-slate-700">Eligible after</label>
+                          <label className="block text-sm font-medium mb-1 theme-text-secondary">Eligible after</label>
                           <input
                             type="number"
                             min={1}
@@ -1791,7 +1785,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium mb-1 text-slate-700">Basis</label>
+                          <label className="block text-sm font-medium mb-1 theme-text-secondary">Basis</label>
                           <select
                             value={hireForm.tempEligibilityMode}
                             onChange={(e) => setHireForm({ ...hireForm, tempEligibilityMode: e.target.value as "days" | "hours" })}
@@ -1803,7 +1797,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-1 text-slate-700">Override eligible date (optional)</label>
+                        <label className="block text-sm font-medium mb-1 theme-text-secondary">Override eligible date (optional)</label>
                         <input
                           type="date"
                           value={hireForm.tempEligibleDateOverride}
@@ -1811,7 +1805,8 @@ function ApplicationDetailContent({ id }: { id: string }) {
                           className="theme-input w-full"
                         />
                       </div>
-                    </div>
+                      </div>
+                    </Card>
                   )}
 
                   <div className="grid grid-cols-3 gap-4">
