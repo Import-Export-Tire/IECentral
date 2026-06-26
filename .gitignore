@@ -49,3 +49,6 @@ companion-app/node_modules/
 .aws-sam/
 aws/dunlop-reporter/layers/paramiko/python/
 aws/dunlop-reporter/samconfig.toml
+
+# Claude Code agent worktrees (scratch)
+.claude/worktrees/
