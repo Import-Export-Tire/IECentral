@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useAction } from "convex/react";
@@ -14,6 +14,7 @@ import SectionHeader from "@/components/ui/SectionHeader";
 import Button from "@/components/ui/Button";
 import StatusBadge from "@/components/ui/StatusBadge";
 import ScorePill from "@/components/ui/ScorePill";
+import RatingScale from "@/components/ui/RatingScale";
 
 const STATUS_OPTIONS = [
   { value: "new", label: "New", color: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30" },
@@ -237,6 +238,16 @@ function ApplicationDetailContent({ id }: { id: string }) {
   const [isScheduling, setIsScheduling] = useState(false);
   const [showAttendeeDropdown, setShowAttendeeDropdown] = useState(false);
   const [isAddingAttendee, setIsAddingAttendee] = useState(false);
+  const attendeePopoverRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showAttendeeDropdown) return;
+    const onDoc = (e: MouseEvent) => {
+      if (attendeePopoverRef.current && !attendeePopoverRef.current.contains(e.target as Node))
+        setShowAttendeeDropdown(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [showAttendeeDropdown]);
 
   // Hiring state
   const [showHireModal, setShowHireModal] = useState(false);
@@ -547,26 +558,35 @@ function ApplicationDetailContent({ id }: { id: string }) {
             <div className="flex items-center gap-4">
               {/* Show "View Personnel Record" button if already hired */}
               {existingPersonnel && (
-                <Button variant="ghost" onClick={() => router.push(`/personnel/${existingPersonnel._id}`)}>
+                <button
+                  onClick={() => router.push(`/personnel/${existingPersonnel._id}`)}
+                  className="px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/30 transition-colors flex items-center gap-2"
+                >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                   View Personnel Record
-                </Button>
+                </button>
               )}
               {/* Schedule Interview button in header */}
-              <Button variant="ghost" onClick={() => setShowScheduleModal(true)}>
+              <button
+                onClick={() => setShowScheduleModal(true)}
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                  application.scheduledInterviewDate
+                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30"
+                    : "bg-cyan-500 hover:bg-cyan-600 text-white"
+                }`}
+              >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 {application.scheduledInterviewDate
                   ? `Interview: ${new Date(application.scheduledInterviewDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} @ ${application.scheduledInterviewTime}`
                   : "Schedule Interview"}
-              </Button>
+              </button>
               {/* Show "Hire" button if not already hired */}
               {!existingPersonnel && application.status !== "rejected" && (
-                <Button
-                  variant="primary"
+                <button
                   onClick={() => {
                     setHireForm({
                       ...hireForm,
@@ -574,17 +594,17 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     });
                     setShowHireModal(true);
                   }}
+                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                   </svg>
                   Hire Applicant
-                </Button>
+                </button>
               )}
               {/* Send Offer button */}
               {application.email && application.status !== "rejected" && application.status !== "hired" && (
-                <Button
-                  variant="ghost"
+                <button
                   onClick={() => {
                     setOfferForm({
                       ...offerForm,
@@ -592,18 +612,21 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     });
                     setShowOfferModal(true);
                   }}
+                  className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                   Send Offer
-                </Button>
+                </button>
               )}
-              <StatusBadge status={application.status} kind="applicant" />
               <select
                 value={application.status}
                 onChange={(e) => handleStatusChange(e.target.value)}
-                className="theme-input focus:outline-none"
+                className={`px-4 py-2 rounded-lg border ${
+                  STATUS_OPTIONS.find((s) => s.value === application.status)?.color ||
+                  "bg-slate-700"
+                } bg-transparent focus:outline-none`}
               >
                 {STATUS_OPTIONS.map((status) => (
                   <option key={status.value} value={status.value} className="bg-slate-800 text-white">
@@ -612,7 +635,12 @@ function ApplicationDetailContent({ id }: { id: string }) {
                 ))}
               </select>
               {(user?.role === "super_admin" || user?.role === "admin") && (
-                <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>Delete</Button>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"
+                >
+                  Delete
+                </button>
               )}
             </div>
           </div>
@@ -654,8 +682,8 @@ function ApplicationDetailContent({ id }: { id: string }) {
           {/* Contact Info & Quick Stats */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Contact Info */}
-            <Card>
-              <SectionHeader title="Contact Information" />
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+              <h2 className="text-lg font-semibold text-white mb-4">Contact Information</h2>
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-slate-500">Email</p>
@@ -680,26 +708,32 @@ function ApplicationDetailContent({ id }: { id: string }) {
                   </p>
                 </div>
               </div>
-            </Card>
+            </div>
 
             {/* Overall Scores */}
             {application.candidateAnalysis && (
-              <Card className="lg:col-span-2">
-                <SectionHeader title="Candidate Scores" />
+              <div className="lg:col-span-2 bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                <h2 className="text-lg font-semibold text-white mb-4">Candidate Scores</h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="p-4 rounded-lg border theme-border text-center">
-                    <ScorePill score={application.candidateAnalysis.overallScore} size="md" />
+                  <div className={`p-4 rounded-lg border text-center ${getScoreBgColor(application.candidateAnalysis.overallScore)}`}>
+                    <p className={`text-3xl font-bold ${getScoreColor(application.candidateAnalysis.overallScore)}`}>
+                      {application.candidateAnalysis.overallScore}%
+                    </p>
                     <p className="text-sm text-slate-400 mt-1">Overall</p>
                   </div>
-                  <div className="p-4 rounded-lg border theme-border text-center">
-                    <ScorePill score={application.candidateAnalysis.stabilityScore} size="md" />
+                  <div className={`p-4 rounded-lg border text-center ${getScoreBgColor(application.candidateAnalysis.stabilityScore)}`}>
+                    <p className={`text-3xl font-bold ${getScoreColor(application.candidateAnalysis.stabilityScore)}`}>
+                      {application.candidateAnalysis.stabilityScore}%
+                    </p>
                     <p className="text-sm text-slate-400 mt-1">Stability</p>
                   </div>
-                  <div className="p-4 rounded-lg border theme-border text-center">
-                    <ScorePill score={application.candidateAnalysis.experienceScore} size="md" />
+                  <div className={`p-4 rounded-lg border text-center ${getScoreBgColor(application.candidateAnalysis.experienceScore)}`}>
+                    <p className={`text-3xl font-bold ${getScoreColor(application.candidateAnalysis.experienceScore)}`}>
+                      {application.candidateAnalysis.experienceScore}%
+                    </p>
                     <p className="text-sm text-slate-400 mt-1">Experience</p>
                   </div>
-                  <div className="p-4 rounded-lg border theme-border text-center">
+                  <div className="p-4 rounded-lg border border-slate-600 bg-slate-900/50 text-center">
                     <p className="text-3xl font-bold text-white">
                       {application.candidateAnalysis.totalYearsExperience.toFixed(1)}
                     </p>
@@ -717,24 +751,29 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     </span>
                   </div>
                 </div>
-              </Card>
+              </div>
             )}
           </div>
 
           {/* Cover Message */}
           {application.message && (
-            <Card>
-              <SectionHeader title="Cover Message" />
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+              <h2 className="text-lg font-semibold text-white mb-3">Cover Message</h2>
               <p className="text-slate-300 whitespace-pre-wrap">{application.message}</p>
-            </Card>
+            </div>
           )}
 
           {/* Red & Green Flags */}
           {application.candidateAnalysis && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Red Flags */}
-              <Card>
-                <SectionHeader title={`Red Flags (${application.candidateAnalysis.redFlags.length})`} />
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                <h2 className="text-lg font-semibold text-red-400 mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clipRule="evenodd" />
+                  </svg>
+                  Red Flags ({application.candidateAnalysis.redFlags.length})
+                </h2>
                 {application.candidateAnalysis.redFlags.length === 0 ? (
                   <p className="text-slate-500 text-sm">No red flags identified</p>
                 ) : (
@@ -742,8 +781,16 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     {application.candidateAnalysis.redFlags.map((flag, i) => (
                       <div key={i} className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="ui-badge ui-badge-gray">{flag.type.replace(/_/g, " ")}</span>
-                          <span className={`ui-badge ${flag.severity === "high" ? "ui-badge-red" : flag.severity === "medium" ? "ui-badge-amber" : "ui-badge-gray"}`}>
+                          <span className="text-xs font-bold text-red-400 uppercase px-2 py-0.5 bg-red-500/20 rounded">
+                            {flag.type.replace(/_/g, " ")}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            flag.severity === "high"
+                              ? "bg-red-500/30 text-red-300"
+                              : flag.severity === "medium"
+                                ? "bg-amber-500/30 text-amber-300"
+                                : "bg-slate-500/30 text-slate-300"
+                          }`}>
                             {flag.severity}
                           </span>
                         </div>
@@ -752,31 +799,38 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     ))}
                   </div>
                 )}
-              </Card>
+              </div>
 
               {/* Green Flags */}
-              <Card>
-                <SectionHeader title={`Green Flags (${application.candidateAnalysis.greenFlags.length})`} />
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                <h2 className="text-lg font-semibold text-green-400 mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Green Flags ({application.candidateAnalysis.greenFlags.length})
+                </h2>
                 {application.candidateAnalysis.greenFlags.length === 0 ? (
                   <p className="text-slate-500 text-sm">No green flags identified</p>
                 ) : (
                   <div className="space-y-3">
                     {application.candidateAnalysis.greenFlags.map((flag, i) => (
                       <div key={i} className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-                        <span className="ui-badge ui-badge-gray">{flag.type.replace(/_/g, " ")}</span>
+                        <span className="text-xs font-bold text-green-400 uppercase px-2 py-0.5 bg-green-500/20 rounded mb-2 inline-block">
+                          {flag.type.replace(/_/g, " ")}
+                        </span>
                         <p className="text-sm text-slate-300 mt-2">{flag.description}</p>
                       </div>
                     ))}
                   </div>
                 )}
-              </Card>
+              </div>
             </div>
           )}
 
           {/* Employment History */}
           {application.candidateAnalysis && application.candidateAnalysis.employmentHistory.length > 0 && (
-            <Card>
-              <SectionHeader title="Employment History" />
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+              <h2 className="text-lg font-semibold text-white mb-4">Employment History</h2>
               <div className="space-y-4">
                 {application.candidateAnalysis.employmentHistory.map((job, i) => (
                   <div key={i} className="flex items-center justify-between p-4 bg-slate-900/50 rounded-lg border border-slate-700">
@@ -810,7 +864,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                   <p className="text-sm text-slate-400">Longest Tenure (months)</p>
                 </div>
               </div>
-            </Card>
+            </div>
           )}
 
           {/* Interview Rounds */}
@@ -849,35 +903,24 @@ function ApplicationDetailContent({ id }: { id: string }) {
                 {application.interviewRounds
                   .sort((a, b) => a.round - b.round)
                   .map((round) => (
-                    <div
-                      key={round.round}
-                      className="bg-slate-900/50 border border-slate-700 rounded-lg overflow-hidden"
-                    >
+                    <Card key={round.round}>
                       {/* Round Header */}
                       <div
-                        className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-800/50 transition-colors"
+                        className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-800/30 transition-colors rounded-t-xl"
                         onClick={() =>
                           setExpandedRound(expandedRound === round.round ? null : round.round)
                         }
                       >
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center">
-                            <span className="text-cyan-400 font-bold">{round.round}</span>
-                          </div>
+                          <span className="ui-badge ui-badge-blue w-8 h-8 flex items-center justify-center text-base font-bold">{round.round}</span>
                           <div>
-                            <p className="text-white font-medium">Round {round.round}</p>
-                            <p className="text-slate-400 text-sm">
-                              Interviewer: {round.interviewerName} • {new Date(round.conductedAt).toLocaleDateString()}
-                            </p>
+                            <p className="theme-text-primary font-medium">Round {round.round} · {round.interviewerName}</p>
+                            <p className="theme-text-secondary text-sm">{new Date(round.conductedAt).toLocaleDateString()}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
                           {round.aiEvaluation && (
-                            <div className={`px-3 py-1 rounded-full text-sm font-medium ${getScoreBgColor(round.aiEvaluation.overallScore)}`}>
-                              <span className={getScoreColor(round.aiEvaluation.overallScore)}>
-                                {round.aiEvaluation.overallScore}%
-                              </span>
-                            </div>
+                            <span className="ui-badge ui-badge-blue">AI {round.aiEvaluation.overallScore}%</span>
                           )}
                           <svg
                             className={`w-5 h-5 text-slate-400 transition-transform ${
@@ -896,32 +939,21 @@ function ApplicationDetailContent({ id }: { id: string }) {
                       {expandedRound === round.round && (
                         <div className="border-t border-slate-700 p-4 space-y-4">
                           {/* Preliminary Evaluation (Small Talk Phase) */}
-                          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-4">
-                              <h4 className="text-amber-400 font-medium flex items-center gap-2">
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                Preliminary Evaluation (Small Talk Phase)
-                              </h4>
-                              {round.preliminaryEvaluation && (
-                                <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                                  Avg: {(
-                                    (round.preliminaryEvaluation.appearance +
-                                      round.preliminaryEvaluation.manner +
-                                      round.preliminaryEvaluation.conversation +
-                                      round.preliminaryEvaluation.intelligence +
-                                      round.preliminaryEvaluation.sociability +
-                                      round.preliminaryEvaluation.overallHealthOpinion) / 6
-                                  ).toFixed(1)} / 4
+                          <Card tone="amber" padding="sm">
+                            <SectionHeader
+                              title="Preliminary Evaluation"
+                              label="Small talk phase — rate 1–4"
+                              actions={round.preliminaryEvaluation ? (
+                                <span className="ui-badge ui-badge-green">
+                                  Avg {((round.preliminaryEvaluation.appearance + round.preliminaryEvaluation.manner + round.preliminaryEvaluation.conversation + round.preliminaryEvaluation.intelligence + round.preliminaryEvaluation.sociability + round.preliminaryEvaluation.overallHealthOpinion) / 6).toFixed(1)} / 4
                                 </span>
-                              )}
-                            </div>
+                              ) : undefined}
+                            />
 
                             {round.preliminaryEvaluation ? (
                               // Display saved evaluation
                               <div className="space-y-3">
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                <div className="space-y-0 divide-y divide-slate-700/50">
                                   {[
                                     { key: "appearance", label: "Appearance" },
                                     { key: "manner", label: "Manner" },
@@ -930,12 +962,13 @@ function ApplicationDetailContent({ id }: { id: string }) {
                                     { key: "sociability", label: "Sociability" },
                                     { key: "overallHealthOpinion", label: "Health Opinion" },
                                   ].map(({ key, label }) => (
-                                    <div key={key} className="bg-slate-800/50 rounded p-2 text-center">
-                                      <p className="text-slate-400 text-xs mb-1">{label}</p>
-                                      <p className="text-white font-bold text-lg">
-                                        {round.preliminaryEvaluation?.[key as keyof typeof round.preliminaryEvaluation]}
-                                        <span className="text-slate-500 text-sm font-normal">/4</span>
-                                      </p>
+                                    <div key={key} className="flex items-center justify-between py-2.5">
+                                      <span className="theme-text-secondary text-sm">{label}</span>
+                                      <RatingScale
+                                        name={label}
+                                        value={round.preliminaryEvaluation?.[key as keyof typeof round.preliminaryEvaluation] as number ?? null}
+                                        readOnly
+                                      />
                                     </div>
                                   ))}
                                 </div>
@@ -952,53 +985,31 @@ function ApplicationDetailContent({ id }: { id: string }) {
                             ) : (
                               // Evaluation form
                               <div className="space-y-3">
-                                <p className="text-slate-400 text-xs mb-2">
-                                  Rate each category from 1 (Poor) to 4 (Excellent) during the initial small talk phase.
-                                </p>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                <div className="space-y-0 divide-y divide-slate-700/50 mb-3">
                                   {[
-                                    { key: "appearance", label: "Appearance", desc: "Presentation & grooming" },
-                                    { key: "manner", label: "Manner", desc: "Professional demeanor" },
-                                    { key: "conversation", label: "Conversation", desc: "Communication skills" },
-                                    { key: "intelligence", label: "Intelligence", desc: "Quick thinking" },
-                                    { key: "sociability", label: "Sociability", desc: "Interpersonal skills" },
-                                    { key: "overallHealthOpinion", label: "Health Opinion", desc: "General fitness" },
-                                  ].map(({ key, label, desc }) => (
-                                    <div key={key} className="bg-slate-800/50 rounded p-2">
-                                      <p className="text-slate-300 text-xs font-medium mb-1">{label}</p>
-                                      <p className="text-slate-500 text-[10px] mb-2">{desc}</p>
-                                      <div className="flex gap-1">
-                                        {[1, 2, 3, 4].map((score) => (
-                                          <button
-                                            key={score}
-                                            onClick={() => {
-                                              initPrelimEvalForm(round.round);
-                                              setPrelimEvalForm(prev => ({
-                                                ...prev,
-                                                [round.round]: {
-                                                  ...(prev[round.round] || {
-                                                    appearance: 0,
-                                                    manner: 0,
-                                                    conversation: 0,
-                                                    intelligence: 0,
-                                                    sociability: 0,
-                                                    overallHealthOpinion: 0,
-                                                    notes: "",
-                                                  }),
-                                                  [key]: score,
-                                                },
-                                              }));
-                                            }}
-                                            className={`flex-1 py-1 text-xs font-medium rounded transition-colors ${
-                                              prelimEvalForm[round.round]?.[key as keyof typeof prelimEvalForm[number]] === score
-                                                ? "bg-amber-500 text-white"
-                                                : "bg-slate-700 text-slate-400 hover:bg-slate-600"
-                                            }`}
-                                          >
-                                            {score}
-                                          </button>
-                                        ))}
-                                      </div>
+                                    { key: "appearance", label: "Appearance" },
+                                    { key: "manner", label: "Manner" },
+                                    { key: "conversation", label: "Conversation" },
+                                    { key: "intelligence", label: "Intelligence" },
+                                    { key: "sociability", label: "Sociability" },
+                                    { key: "overallHealthOpinion", label: "Health Opinion" },
+                                  ].map(({ key, label }) => (
+                                    <div key={key} className="flex items-center justify-between py-2.5">
+                                      <span className="theme-text-secondary text-sm">{label}</span>
+                                      <RatingScale
+                                        name={label}
+                                        value={(prelimEvalForm[round.round]?.[key as keyof typeof prelimEvalForm[number]] as number) ?? null}
+                                        onChange={(v) => {
+                                          initPrelimEvalForm(round.round);
+                                          setPrelimEvalForm((prev) => ({
+                                            ...prev,
+                                            [round.round]: {
+                                              ...(prev[round.round] || { appearance: 0, manner: 0, conversation: 0, intelligence: 0, sociability: 0, overallHealthOpinion: 0, notes: "" }),
+                                              [key]: v,
+                                            },
+                                          }));
+                                        }}
+                                      />
                                     </div>
                                   ))}
                                 </div>
@@ -1026,33 +1037,23 @@ function ApplicationDetailContent({ id }: { id: string }) {
                                       }));
                                     }}
                                     rows={2}
-                                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 resize-none text-sm"
+                                    className="theme-input w-full resize-none text-sm"
                                   />
                                 </div>
-                                <button
-                                  onClick={() => handleSavePreliminaryEval(round.round)}
-                                  disabled={isSavingPrelimEval === round.round}
-                                  className="w-full px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
-                                >
-                                  {isSavingPrelimEval === round.round ? "Saving..." : "Save Preliminary Evaluation"}
-                                </button>
+                                <Button variant="primary" onClick={() => handleSavePreliminaryEval(round.round)} disabled={isSavingPrelimEval === round.round}>{isSavingPrelimEval === round.round ? "Saving..." : "Save Preliminary Evaluation"}</Button>
                               </div>
                             )}
-                          </div>
+                          </Card>
 
                           {/* Questions & Answers */}
                           <div className="space-y-4">
                             {round.questions.map((q, qIndex) => (
-                              <div key={qIndex} className="bg-slate-800/50 rounded-lg p-4">
+                              <Card key={qIndex} padding="sm">
                                 <div className="flex items-start gap-3 mb-3">
-                                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 text-xs flex items-center justify-center font-medium">
-                                    {qIndex + 1}
-                                  </span>
+                                  <span className="ui-badge ui-badge-blue flex-shrink-0">{qIndex + 1}</span>
                                   <p className="text-white font-medium">{q.question}</p>
                                   {q.aiGenerated && (
-                                    <span className="flex-shrink-0 text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded">
-                                      AI
-                                    </span>
+                                    <span className="ui-badge ui-badge-purple flex-shrink-0">AI</span>
                                   )}
                                 </div>
                                 <div className="ml-9">
@@ -1070,9 +1071,10 @@ function ApplicationDetailContent({ id }: { id: string }) {
                                           }))
                                         }
                                         rows={3}
-                                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 resize-none text-sm"
+                                        className="theme-input w-full resize-none text-sm"
                                       />
-                                      <button
+                                      <Button
+                                        size="sm"
                                         onClick={() => {
                                           const answer = answerInputs[`${round.round}-${qIndex}`];
                                           if (answer?.trim()) {
@@ -1085,14 +1087,13 @@ function ApplicationDetailContent({ id }: { id: string }) {
                                           }
                                         }}
                                         disabled={!answerInputs[`${round.round}-${qIndex}`]?.trim()}
-                                        className="px-3 py-1 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded text-sm transition-colors"
                                       >
                                         Save Answer
-                                      </button>
+                                      </Button>
                                     </div>
                                   )}
                                 </div>
-                              </div>
+                              </Card>
                             ))}
                           </div>
 
@@ -1112,7 +1113,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                                 }
                               }}
                               rows={3}
-                              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 resize-none text-sm"
+                              className="theme-input w-full resize-none text-sm"
                             />
                           </div>
 
@@ -1128,8 +1129,8 @@ function ApplicationDetailContent({ id }: { id: string }) {
 
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {/* Strengths */}
-                                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
-                                  <p className="text-green-400 font-medium text-sm mb-2">Strengths</p>
+                                <Card padding="sm">
+                                  <SectionHeader title="" actions={<span className="ui-badge ui-badge-green">Strengths</span>} />
                                   <ul className="space-y-1">
                                     {round.aiEvaluation.strengths.map((s, i) => (
                                       <li key={i} className="text-slate-300 text-sm flex items-start gap-2">
@@ -1140,11 +1141,11 @@ function ApplicationDetailContent({ id }: { id: string }) {
                                       </li>
                                     ))}
                                   </ul>
-                                </div>
+                                </Card>
 
                                 {/* Concerns */}
-                                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-                                  <p className="text-amber-400 font-medium text-sm mb-2">Concerns</p>
+                                <Card padding="sm">
+                                  <SectionHeader title="" actions={<span className="ui-badge ui-badge-amber">Concerns</span>} />
                                   <ul className="space-y-1">
                                     {round.aiEvaluation.concerns.map((c, i) => (
                                       <li key={i} className="text-slate-300 text-sm flex items-start gap-2">
@@ -1155,34 +1156,28 @@ function ApplicationDetailContent({ id }: { id: string }) {
                                       </li>
                                     ))}
                                   </ul>
-                                </div>
+                                </Card>
                               </div>
 
-                              <div className={`p-4 rounded-lg border ${
-                                round.aiEvaluation.recommendation.includes("STRONG YES") || round.aiEvaluation.recommendation.includes("YES")
-                                  ? "bg-green-500/10 border-green-500/30"
-                                  : round.aiEvaluation.recommendation.includes("MAYBE")
-                                    ? "bg-amber-500/10 border-amber-500/30"
-                                    : "bg-red-500/10 border-red-500/30"
-                              }`}>
-                                <p className="text-white font-medium text-sm mb-1">Recommendation</p>
-                                <p className="text-slate-300 text-sm">{round.aiEvaluation.recommendation}</p>
-                              </div>
+                              <Card padding="sm" tone={round.aiEvaluation.recommendation.includes("YES") ? "default" : round.aiEvaluation.recommendation.includes("MAYBE") ? "amber" : "default"}>
+                                <span className="font-semibold theme-text-primary">Recommendation: </span>
+                                <span className="theme-text-secondary">{round.aiEvaluation.recommendation}</span>
+                              </Card>
 
-                              <div className="bg-slate-800/50 rounded-lg p-4">
+                              <Card padding="sm">
                                 <p className="text-slate-400 font-medium text-sm mb-2">Detailed Feedback</p>
                                 <p className="text-slate-300 text-sm whitespace-pre-wrap">{round.aiEvaluation.detailedFeedback}</p>
-                              </div>
+                              </Card>
                             </div>
                           ) : (
                             <div className="pt-4 border-t border-slate-700">
-                              <button
+                              <Button
+                                variant="primary"
                                 onClick={() => handleEvaluateInterview(round.round)}
                                 disabled={
                                   isEvaluating === round.round ||
                                   round.questions.some((q) => !q.answer || q.answer.trim() === "")
                                 }
-                                className="w-full px-4 py-3 bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center justify-center gap-2"
                               >
                                 {isEvaluating === round.round ? (
                                   <>
@@ -1200,7 +1195,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                                     Generate AI Evaluation
                                   </>
                                 )}
-                              </button>
+                              </Button>
                               {round.questions.some((q) => !q.answer || q.answer.trim() === "") && (
                                 <p className="text-amber-400 text-xs text-center mt-2">
                                   Complete all answers before generating evaluation
@@ -1211,19 +1206,16 @@ function ApplicationDetailContent({ id }: { id: string }) {
 
                           {/* Delete Round Button */}
                           <div className="pt-4 border-t border-slate-700 flex justify-end">
-                            <button
-                              onClick={() => handleDeleteRound(round.round)}
-                              className="px-4 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors text-sm flex items-center gap-2"
-                            >
+                            <Button variant="danger" size="sm" onClick={() => handleDeleteRound(round.round)}>
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                               Delete Round
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       )}
-                    </div>
+                    </Card>
                   ))}
               </div>
             ) : (
@@ -1240,7 +1232,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
           {/* New Interview Modal */}
           {showNewInterview && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-md mx-4 w-full">
+              <Card className="max-w-md mx-4 w-full">
                 <h3 className="text-xl font-bold text-white mb-4">Start Interview Round {selectedRound}</h3>
                 <p className="text-slate-400 text-sm mb-6">
                   AI will generate personalized interview questions based on the candidate&apos;s profile and the position they applied for.
@@ -1254,7 +1246,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                       placeholder="Enter your name"
                       value={interviewerName}
                       onChange={(e) => setInterviewerName(e.target.value)}
-                      className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                      className="theme-input w-full"
                     />
                   </div>
 
@@ -1263,7 +1255,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     <select
                       value={selectedRound}
                       onChange={(e) => setSelectedRound(Number(e.target.value))}
-                      className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                      className="theme-input w-full"
                     >
                       {[1, 2, 3]
                         .filter((r) => !application.interviewRounds?.some((ir) => ir.round === r))
@@ -1277,21 +1269,10 @@ function ApplicationDetailContent({ id }: { id: string }) {
                 </div>
 
                 <div className="flex justify-end gap-3 mt-6">
-                  <button
-                    onClick={() => {
-                      setShowNewInterview(false);
-                      setInterviewerName("");
-                    }}
-                    disabled={isGeneratingQuestions}
-                    className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors disabled:opacity-50"
-                  >
+                  <Button variant="ghost" onClick={() => { setShowNewInterview(false); setInterviewerName(""); }} disabled={isGeneratingQuestions}>
                     Cancel
-                  </button>
-                  <button
-                    onClick={handleStartInterview}
-                    disabled={!interviewerName.trim() || isGeneratingQuestions}
-                    className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
+                  </Button>
+                  <Button variant="primary" onClick={handleStartInterview} disabled={!interviewerName.trim() || isGeneratingQuestions}>
                     {isGeneratingQuestions ? (
                       <>
                         <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -1308,16 +1289,16 @@ function ApplicationDetailContent({ id }: { id: string }) {
                         Generate Questions
                       </>
                     )}
-                  </button>
+                  </Button>
                 </div>
-              </div>
+              </Card>
             </div>
           )}
 
           {/* AI Job Match Scores */}
           {application.aiAnalysis && application.aiAnalysis.allScores.length > 0 && (
-            <Card>
-              <SectionHeader title="AI Job Match Analysis" />
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+              <h2 className="text-lg font-semibold text-white mb-4">AI Job Match Analysis</h2>
               <div className="space-y-3">
                 {application.aiAnalysis.allScores
                   .sort((a, b) => b.score - a.score)
@@ -1353,7 +1334,9 @@ function ApplicationDetailContent({ id }: { id: string }) {
                             </div>
                           )}
                         </div>
-                        <ScorePill score={score.score} size="md" />
+                        <div className={`text-2xl font-bold ${getScoreColor(score.score)}`}>
+                          {score.score}%
+                        </div>
                       </div>
                       {score.reasoning && (
                         <p className="text-sm text-slate-400 mt-2">{score.reasoning}</p>
@@ -1376,111 +1359,123 @@ function ApplicationDetailContent({ id }: { id: string }) {
                   </div>
                 </div>
               )}
-            </Card>
+            </div>
           )}
 
           {/* Hiring Team Notes */}
           {application.candidateAnalysis && (
-            <Card tone="amber">
-              <SectionHeader title="Hiring Team Notes" />
+            <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-6">
+              <h2 className="text-lg font-semibold text-cyan-400 mb-3">Hiring Team Notes</h2>
               <p className="text-slate-300">{application.candidateAnalysis.hiringTeamNotes}</p>
-            </Card>
+            </div>
           )}
 
           {/* Activity Timeline */}
-          <Card>
-            <SectionHeader title="Activity Timeline" />
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Activity Timeline
+            </h2>
             {activityTimeline && activityTimeline.length > 0 ? (
-              <ol className="flex flex-col gap-4 border-l theme-border pl-6">
-                {activityTimeline.map((activity, index) => {
-                  // Get icon and color based on activity type
-                  const getActivityStyle = (type: string) => {
-                    switch (type) {
-                      case "application_received":
-                        return { icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z", color: "bg-cyan-500", borderColor: "border-cyan-500/30" };
-                      case "status_change":
-                        return { icon: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15", color: "bg-purple-500", borderColor: "border-purple-500/30" };
-                      case "interview_scheduled":
-                        return { icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", color: "bg-orange-500", borderColor: "border-orange-500/30" };
-                      case "interview_completed":
-                        return { icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z", color: "bg-blue-500", borderColor: "border-blue-500/30" };
-                      case "note_added":
-                        return { icon: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z", color: "bg-amber-500", borderColor: "border-amber-500/30" };
-                      case "evaluation_added":
-                        return { icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", color: "bg-indigo-500", borderColor: "border-indigo-500/30" };
-                      case "hired":
-                        return { icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", color: "bg-green-500", borderColor: "border-green-500/30" };
-                      case "rejected":
-                        return { icon: "M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z", color: "bg-red-500", borderColor: "border-red-500/30" };
-                      default:
-                        return { icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z", color: "bg-slate-500", borderColor: "border-slate-500/30" };
-                    }
-                  };
+              <div className="relative">
+                {/* Timeline line */}
+                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-700" />
 
-                  const style = getActivityStyle(activity.type);
-                  const isFirst = index === 0;
+                <div className="space-y-4">
+                  {activityTimeline.map((activity, index) => {
+                    // Get icon and color based on activity type
+                    const getActivityStyle = (type: string) => {
+                      switch (type) {
+                        case "application_received":
+                          return { icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z", color: "bg-cyan-500", borderColor: "border-cyan-500/30" };
+                        case "status_change":
+                          return { icon: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15", color: "bg-purple-500", borderColor: "border-purple-500/30" };
+                        case "interview_scheduled":
+                          return { icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", color: "bg-orange-500", borderColor: "border-orange-500/30" };
+                        case "interview_completed":
+                          return { icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z", color: "bg-blue-500", borderColor: "border-blue-500/30" };
+                        case "note_added":
+                          return { icon: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z", color: "bg-amber-500", borderColor: "border-amber-500/30" };
+                        case "evaluation_added":
+                          return { icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", color: "bg-indigo-500", borderColor: "border-indigo-500/30" };
+                        case "hired":
+                          return { icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", color: "bg-green-500", borderColor: "border-green-500/30" };
+                        case "rejected":
+                          return { icon: "M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z", color: "bg-red-500", borderColor: "border-red-500/30" };
+                        default:
+                          return { icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z", color: "bg-slate-500", borderColor: "border-slate-500/30" };
+                      }
+                    };
 
-                  return (
-                    <li key={activity._id} className="relative">
-                      {/* Timeline dot */}
-                      <span className={`absolute -left-[31px] top-1 w-5 h-5 rounded-full ${style.color} flex items-center justify-center ${isFirst ? "ring-2 ring-white/20" : ""}`}>
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={style.icon} />
-                        </svg>
-                      </span>
-                      <Card padding="sm">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <p className="text-white font-medium">{activity.description}</p>
-                            {activity.previousValue && activity.newValue && (
-                              <p className="text-slate-400 text-sm mt-1">
-                                <span className="text-slate-500">{activity.previousValue}</span>
-                                <span className="mx-2">→</span>
-                                <span className="text-slate-300">{activity.newValue}</span>
-                              </p>
-                            )}
-                            {activity.metadata && typeof activity.metadata === "object" && (
-                              <div className="mt-2 space-y-1">
-                                {(activity.metadata as { score?: number; recommendation?: string; round?: number }).score !== undefined && (
-                                  <p className="text-sm">
-                                    <span className="text-slate-400">Score: </span>
-                                    <span className={getScoreColor((activity.metadata as { score: number }).score)}>
-                                      {(activity.metadata as { score: number }).score}%
-                                    </span>
-                                  </p>
-                                )}
-                                {(activity.metadata as { recommendation?: string }).recommendation && (
-                                  <p className="text-slate-300 text-sm">
-                                    {(activity.metadata as { recommendation: string }).recommendation}
-                                  </p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-slate-400 text-sm">
-                              {new Date(activity.createdAt).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              })}
-                            </p>
-                            <p className="text-slate-500 text-xs">
-                              {new Date(activity.createdAt).toLocaleTimeString("en-US", {
-                                hour: "numeric",
-                                minute: "2-digit",
-                              })}
-                            </p>
-                          </div>
+                    const style = getActivityStyle(activity.type);
+                    const isFirst = index === 0;
+
+                    return (
+                      <div key={activity._id} className="relative flex items-start gap-4 pl-8">
+                        {/* Timeline dot */}
+                        <div className={`absolute left-0 w-8 h-8 rounded-full ${style.color} flex items-center justify-center z-10 ${isFirst ? "ring-2 ring-white/20" : ""}`}>
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={style.icon} />
+                          </svg>
                         </div>
-                        <p className="text-slate-500 text-xs mt-2">
-                          By: {activity.performedByName}
-                        </p>
-                      </Card>
-                    </li>
-                  );
-                })}
-              </ol>
+
+                        {/* Content */}
+                        <div className={`flex-1 bg-slate-900/50 border ${style.borderColor} rounded-lg p-4`}>
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <p className="text-white font-medium">{activity.description}</p>
+                              {activity.previousValue && activity.newValue && (
+                                <p className="text-slate-400 text-sm mt-1">
+                                  <span className="text-slate-500">{activity.previousValue}</span>
+                                  <span className="mx-2">→</span>
+                                  <span className="text-slate-300">{activity.newValue}</span>
+                                </p>
+                              )}
+                              {activity.metadata && typeof activity.metadata === "object" && (
+                                <div className="mt-2 space-y-1">
+                                  {(activity.metadata as { score?: number; recommendation?: string; round?: number }).score !== undefined && (
+                                    <p className="text-sm">
+                                      <span className="text-slate-400">Score: </span>
+                                      <span className={getScoreColor((activity.metadata as { score: number }).score)}>
+                                        {(activity.metadata as { score: number }).score}%
+                                      </span>
+                                    </p>
+                                  )}
+                                  {(activity.metadata as { recommendation?: string }).recommendation && (
+                                    <p className="text-slate-300 text-sm">
+                                      {(activity.metadata as { recommendation: string }).recommendation}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-slate-400 text-sm">
+                                {new Date(activity.createdAt).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })}
+                              </p>
+                              <p className="text-slate-500 text-xs">
+                                {new Date(activity.createdAt).toLocaleTimeString("en-US", {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                          <p className="text-slate-500 text-xs mt-2">
+                            By: {activity.performedByName}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             ) : (
               <div className="text-center py-8">
                 <svg className="w-12 h-12 text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1490,11 +1485,11 @@ function ApplicationDetailContent({ id }: { id: string }) {
                 <p className="text-slate-500 text-sm mt-1">Activities will appear here as you interact with this application</p>
               </div>
             )}
-          </Card>
+          </div>
 
           {/* Scheduled Interview Banner */}
           {application.scheduledInterviewDate && (
-            <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-6">
+            <Card tone="amber">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full bg-orange-500/20 border border-orange-500/30 flex items-center justify-center">
@@ -1554,18 +1549,15 @@ function ApplicationDetailContent({ id }: { id: string }) {
               <div className="mt-4 pt-4 border-t border-orange-500/20">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-medium text-orange-300">Interview Attendees</h3>
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowAttendeeDropdown(!showAttendeeDropdown)}
-                      className="px-3 py-1.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-lg hover:bg-orange-500/30 transition-colors text-sm flex items-center gap-1"
-                    >
+                  <div ref={attendeePopoverRef} className="relative">
+                    <Button variant="ghost" size="sm" onClick={() => setShowAttendeeDropdown(o => !o)}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
                       Add Attendee
-                    </button>
+                    </Button>
                     {showAttendeeDropdown && (
-                      <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-10 max-h-60 overflow-y-auto">
+                      <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] theme-card p-2 z-20 shadow-lg rounded-lg max-h-60 overflow-y-auto">
                         {allUsers?.filter(u =>
                           !interviewAttendees?.some(a => a?._id === u._id)
                         ).map(u => (
@@ -1606,9 +1598,9 @@ function ApplicationDetailContent({ id }: { id: string }) {
                 <div className="flex flex-wrap gap-2">
                   {interviewAttendees && interviewAttendees.length > 0 ? (
                     interviewAttendees.map(attendee => attendee && (
-                      <div
+                      <span
                         key={attendee._id}
-                        className="flex items-center gap-2 bg-slate-700/50 px-3 py-1.5 rounded-lg"
+                        className="ui-badge ui-badge-gray flex items-center gap-2"
                       >
                         <div className="w-6 h-6 rounded-full bg-orange-500/30 flex items-center justify-center text-xs text-orange-300 font-medium">
                           {attendee.name.split(" ").map(n => n[0]).join("")}
@@ -1631,20 +1623,20 @@ function ApplicationDetailContent({ id }: { id: string }) {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                           </svg>
                         </button>
-                      </div>
+                      </span>
                     ))
                   ) : (
                     <span className="text-slate-400 text-sm">No attendees assigned yet</span>
                   )}
                 </div>
               </div>
-            </div>
+            </Card>
           )}
 
           {/* Schedule Interview Modal */}
           {showScheduleModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-md mx-4 w-full">
+              <Card className="max-w-md mx-4 w-full">
                 <h3 className="text-xl font-bold text-white mb-4">
                   {application.scheduledInterviewDate ? "Edit Interview Schedule" : "Schedule Interview"}
                 </h3>
@@ -1659,7 +1651,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                       type="date"
                       value={scheduleDate}
                       onChange={(e) => setScheduleDate(e.target.value)}
-                      className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                      className="theme-input w-full"
                     />
                   </div>
 
@@ -1669,7 +1661,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                       type="time"
                       value={scheduleTime}
                       onChange={(e) => setScheduleTime(e.target.value)}
-                      className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                      className="theme-input w-full"
                     />
                   </div>
 
@@ -1678,7 +1670,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     <select
                       value={scheduleLocation}
                       onChange={(e) => setScheduleLocation(e.target.value)}
-                      className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                      className="theme-input w-full"
                     >
                       <option value="In-person">In-person</option>
                       <option value="Phone">Phone</option>
@@ -1689,19 +1681,11 @@ function ApplicationDetailContent({ id }: { id: string }) {
                 </div>
 
                 <div className="flex justify-end gap-3 mt-6">
-                  <button
-                    onClick={() => {
-                      setShowScheduleModal(false);
-                      setScheduleDate("");
-                      setScheduleTime("");
-                      setScheduleLocation("In-person");
-                    }}
-                    disabled={isScheduling}
-                    className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors disabled:opacity-50"
-                  >
+                  <Button variant="ghost" onClick={() => { setShowScheduleModal(false); setScheduleDate(""); setScheduleTime(""); setScheduleLocation("In-person"); }} disabled={isScheduling}>
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="primary"
                     onClick={async () => {
                       if (!scheduleDate || !scheduleTime) return;
                       setIsScheduling(true);
@@ -1727,19 +1711,18 @@ function ApplicationDetailContent({ id }: { id: string }) {
                       }
                     }}
                     disabled={!scheduleDate || !scheduleTime || isScheduling}
-                    className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isScheduling ? "Scheduling..." : "Schedule Interview"}
-                  </button>
+                  </Button>
                 </div>
-              </div>
+              </Card>
             </div>
           )}
 
           {/* Hire Applicant Modal */}
           {showHireModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-lg mx-4 w-full">
+              <Card className="max-w-lg mx-4 w-full">
                 <h3 className="text-xl font-bold text-white mb-2">Hire Applicant</h3>
                 <p className="text-slate-400 text-sm mb-6">
                   Create a personnel record for {application.firstName} {application.lastName}. This will also update their application status to &quot;Hired&quot;.
@@ -1753,7 +1736,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                       placeholder="e.g., Warehouse Associate"
                       value={hireForm.position}
                       onChange={(e) => setHireForm({ ...hireForm, position: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                      className="theme-input w-full"
                     />
                   </div>
 
@@ -1764,7 +1747,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                       placeholder="e.g., Warehouse, Sales, Operations"
                       value={hireForm.department}
                       onChange={(e) => setHireForm({ ...hireForm, department: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                      className="theme-input w-full"
                     />
                   </div>
 
@@ -1773,7 +1756,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     <select
                       value={hireForm.employeeType}
                       onChange={(e) => setHireForm({ ...hireForm, employeeType: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                      className="theme-input w-full"
                     >
                       <option value="full_time">Full Time</option>
                       <option value="part_time">Part Time</option>
@@ -1791,7 +1774,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                           type="text"
                           value={hireForm.staffingAgency}
                           onChange={(e) => setHireForm({ ...hireForm, staffingAgency: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                          className="theme-input w-full"
                           placeholder="e.g. Express Employment"
                         />
                       </div>
@@ -1803,7 +1786,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                             min={1}
                             value={hireForm.tempEligibilityValue}
                             onChange={(e) => setHireForm({ ...hireForm, tempEligibilityValue: e.target.value })}
-                            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                            className="theme-input w-full"
                             placeholder="e.g. 90"
                           />
                         </div>
@@ -1812,7 +1795,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                           <select
                             value={hireForm.tempEligibilityMode}
                             onChange={(e) => setHireForm({ ...hireForm, tempEligibilityMode: e.target.value as "days" | "hours" })}
-                            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                            className="theme-input w-full"
                           >
                             <option value="days">Days</option>
                             <option value="hours">Hours (at 40/wk)</option>
@@ -1825,7 +1808,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                           type="date"
                           value={hireForm.tempEligibleDateOverride}
                           onChange={(e) => setHireForm({ ...hireForm, tempEligibleDateOverride: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                          className="theme-input w-full"
                         />
                       </div>
                     </div>
@@ -1838,7 +1821,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                         type="date"
                         value={hireForm.hireDate}
                         onChange={(e) => setHireForm({ ...hireForm, hireDate: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                        className="theme-input w-full"
                       />
                     </div>
 
@@ -1848,7 +1831,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                         type="time"
                         value={hireForm.startTime}
                         onChange={(e) => setHireForm({ ...hireForm, startTime: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                        className="theme-input w-full"
                       />
                     </div>
 
@@ -1860,7 +1843,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                         placeholder="e.g., 18.00"
                         value={hireForm.hourlyRate}
                         onChange={(e) => setHireForm({ ...hireForm, hourlyRate: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                        className="theme-input w-full"
                       />
                     </div>
                   </div>
@@ -1887,7 +1870,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                     <select
                       value={hireForm.scheduleTemplateId}
                       onChange={(e) => setHireForm({ ...hireForm, scheduleTemplateId: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                      className="theme-input w-full"
                     >
                       <option value="">No schedule assigned</option>
                       {scheduleTemplates?.map((template) => (
@@ -1903,7 +1886,8 @@ function ApplicationDetailContent({ id }: { id: string }) {
                 </div>
 
                 <div className="flex justify-end gap-3 mt-6">
-                  <button
+                  <Button
+                    variant="ghost"
                     onClick={() => {
                       setShowHireModal(false);
                       setHireForm({
@@ -1922,14 +1906,13 @@ function ApplicationDetailContent({ id }: { id: string }) {
                       });
                     }}
                     disabled={isHiring}
-                    className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors disabled:opacity-50"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="primary"
                     onClick={handleHire}
                     disabled={!hireForm.position || !hireForm.department || isHiring}
-                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {isHiring ? (
                       <>
@@ -1947,9 +1930,9 @@ function ApplicationDetailContent({ id }: { id: string }) {
                         Create Personnel Record
                       </>
                     )}
-                  </button>
+                  </Button>
                 </div>
-              </div>
+              </Card>
             </div>
           )}
 
@@ -1970,7 +1953,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                       placeholder="e.g., Warehouse Associate"
                       value={offerForm.positionTitle}
                       onChange={(e) => setOfferForm({ ...offerForm, positionTitle: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                      className="theme-input w-full"
                     />
                   </div>
 
@@ -1981,7 +1964,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                       placeholder="e.g., Warehouse, Operations"
                       value={offerForm.department}
                       onChange={(e) => setOfferForm({ ...offerForm, department: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                      className="theme-input w-full"
                     />
                   </div>
 
@@ -1991,7 +1974,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                       <select
                         value={offerForm.compensationType}
                         onChange={(e) => setOfferForm({ ...offerForm, compensationType: e.target.value as "hourly" | "salary" })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                        className="theme-input w-full"
                       >
                         <option value="hourly">Hourly</option>
                         <option value="salary">Salary</option>
@@ -2007,7 +1990,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                         placeholder={offerForm.compensationType === "hourly" ? "e.g., 18.00" : "e.g., 45000"}
                         value={offerForm.compensationAmount}
                         onChange={(e) => setOfferForm({ ...offerForm, compensationAmount: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                        className="theme-input w-full"
                       />
                     </div>
                   </div>
@@ -2019,7 +2002,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                         type="date"
                         value={offerForm.startDate}
                         onChange={(e) => setOfferForm({ ...offerForm, startDate: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                        className="theme-input w-full"
                       />
                     </div>
                     <div>
@@ -2028,7 +2011,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
                         type="time"
                         value={offerForm.startTime}
                         onChange={(e) => setOfferForm({ ...offerForm, startTime: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                        className="theme-input w-full"
                       />
                     </div>
                   </div>
@@ -2109,22 +2092,21 @@ function ApplicationDetailContent({ id }: { id: string }) {
           )}
 
           {/* Internal Notes (Editable) */}
-          <Card>
-            <SectionHeader
-              title="Internal Notes"
-              actions={!isEditingNotes ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">Internal Notes</h2>
+              {!isEditingNotes && (
+                <button
                   onClick={() => {
                     setNotesInput(application.notes || "");
                     setIsEditingNotes(true);
                   }}
+                  className="px-3 py-1 text-sm text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 rounded transition-colors"
                 >
                   {application.notes ? "Edit" : "Add Notes"}
-                </Button>
-              ) : undefined}
-            />
+                </button>
+              )}
+            </div>
             {isEditingNotes ? (
               <div className="space-y-3">
                 <textarea
@@ -2173,7 +2155,7 @@ function ApplicationDetailContent({ id }: { id: string }) {
             ) : (
               <p className="text-slate-500 text-sm italic">No notes added yet</p>
             )}
-          </Card>
+          </div>
 
           {/* Resume Section - PDF or Text */}
           {(application.resumeFileId || application.resumeText) && (
