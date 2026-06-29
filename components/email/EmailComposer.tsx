@@ -164,7 +164,7 @@ export default function EmailComposer({
     content: "",
     editorProps: {
       attributes: {
-        class: `prose max-w-none focus:outline-none min-h-[200px] p-4 ${isDark ? "prose-invert" : ""}`,
+        class: `prose max-w-none focus:outline-none min-h-[120px] sm:min-h-[200px] p-4 ${isDark ? "prose-invert" : ""}`,
       },
     },
     onUpdate: () => {

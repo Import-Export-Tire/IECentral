@@ -222,7 +222,7 @@ export default function EmailSidebar({
 
   return (
     <>
-      <div className={`w-64 h-full flex flex-col border-r theme-border flex-shrink-0 ${isDark ? 'bg-slate-800/50' : 'bg-gray-50'}`}>
+      <div className={`w-full h-full flex flex-col border-r theme-border flex-shrink-0 ${isDark ? 'bg-slate-800/50' : 'bg-gray-50'}`}>
         {/* Header */}
         <div className="p-4 border-b theme-border flex items-center justify-between">
           <h2 className="font-semibold theme-text-primary">Email</h2>

@@ -579,7 +579,7 @@ function CalendarContent() {
                 </select>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {/* Zoom Sync */}
               <button
                 onClick={handleZoomSync}
@@ -687,7 +687,7 @@ function CalendarContent() {
               >
                 &larr;
               </button>
-              <h2 className={`text-lg font-semibold min-w-[200px] text-center ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h2 className={`text-lg font-semibold text-center ${isDark ? "text-white" : "text-gray-900"}`}>
                 {selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
               </h2>
               <button
@@ -706,7 +706,8 @@ function CalendarContent() {
           </div>
 
           {/* Calendar Grid */}
-          <div className={`rounded-xl border overflow-hidden ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+          <div className="overflow-x-auto">
+          <div className={`rounded-xl border overflow-hidden min-w-[640px] ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
             {/* Day headers */}
             <div className="grid grid-cols-7">
               {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
@@ -809,6 +810,7 @@ function CalendarContent() {
                 );
               })}
             </div>
+          </div>
           </div>
         </div>
 

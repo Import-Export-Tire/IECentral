@@ -106,7 +106,7 @@ export default function MeetingControls({
 
   return (
     <div
-      className={`fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center gap-3 sm:gap-4 px-4 py-3 sm:py-4 ${
+      className={`fixed bottom-0 left-0 right-0 z-50 flex flex-wrap items-center justify-center gap-3 sm:gap-4 px-4 py-3 sm:py-4 ${
         isDark
           ? "bg-slate-900/95 border-t border-slate-700"
           : "bg-white/95 border-t border-gray-200 shadow-lg"
