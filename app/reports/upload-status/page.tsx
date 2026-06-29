@@ -181,7 +181,7 @@ export default function UploadStatusPage() {
                   </div>
 
                   {/* Legend */}
-                  <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-700/50">
+                  <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-slate-700/50">
                     {[
                       { color: "bg-emerald-500", label: "Complete" },
                       { color: "bg-amber-500", label: "Partial" },
@@ -227,7 +227,7 @@ export default function UploadStatusPage() {
                                   {source.frequency === "hourly" ? (
                                     <>
                                       {/* Hour grid */}
-                                      <div className="grid grid-cols-12 gap-0.5 mt-1">
+                                      <div className="grid grid-cols-6 sm:grid-cols-12 gap-0.5 mt-1">
                                         {Array.from({ length: 24 }).map((_, h) => {
                                           const hasFile = s.files.some((f) => f.hour === h);
                                           return (

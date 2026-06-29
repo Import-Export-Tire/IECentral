@@ -113,7 +113,7 @@ function TempConversionContent() {
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
           <div className="flex items-center gap-3">
             <Link href="/reports" className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,7 +127,7 @@ function TempConversionContent() {
           </div>
         </header>
 
-        <div className="p-8 max-w-5xl">
+        <div className="p-4 sm:p-8 max-w-5xl">
           <div className={`rounded-2xl border p-5 mb-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>

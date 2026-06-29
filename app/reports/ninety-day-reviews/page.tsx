@@ -510,15 +510,16 @@ function NinetyDayReviewsContent() {
                         ? `${Math.abs(r.daysToReview)}d past due`
                         : `in ${r.daysToReview}d`}
                   </td>
-                  <td className="px-5 py-2 text-right whitespace-nowrap">
+                  <td className="px-5 py-2 text-right">
+                    <div className="flex flex-wrap justify-end gap-1">
                     {(() => { const er = reviewByPersonnel.get(r.id as unknown as string); return er && er.averageScore != null ? (
-                      <span className={`mr-2 text-xs ${isDark ? "text-slate-300" : "text-gray-600"}`}>avg {er.averageScore.toFixed(1)}{er.decision !== "pending" ? ` · ${er.decision}` : ""}</span>
+                      <span className={`text-xs self-center ${isDark ? "text-slate-300" : "text-gray-600"}`}>avg {er.averageScore.toFixed(1)}{er.decision !== "pending" ? ` · ${er.decision}` : ""}</span>
                     ) : null; })()}
                     {canManagePersonnel && (
                       <button
                         onClick={() => openScore(r.id)}
                         disabled={openingScore === r.id}
-                        className="text-xs font-semibold text-white px-2.5 py-1 rounded-lg mr-2 disabled:opacity-50"
+                        className="text-xs font-semibold text-white px-2.5 py-1 rounded-lg disabled:opacity-50"
                         style={{ backgroundColor: "#FF9500" }}
                         title="Enter scores, see the recommended raise, and approve/deny"
                       >
@@ -528,7 +529,7 @@ function NinetyDayReviewsContent() {
                     {canManagePersonnel && (
                       <button
                         onClick={() => printSingle(r)}
-                        className={`text-xs font-medium px-2.5 py-1 rounded-lg mr-2 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                        className={`text-xs font-medium px-2.5 py-1 rounded-lg ${isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
                         title="Print this one pre-filled review form"
                       >
                         Print
@@ -565,6 +566,7 @@ function NinetyDayReviewsContent() {
                         Exclude
                       </button>
                     )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -724,7 +726,7 @@ function NinetyDayReviewsContent() {
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
           <div className="flex items-center gap-3">
             <Link
               href="/reports"
@@ -745,7 +747,7 @@ function NinetyDayReviewsContent() {
           </div>
         </header>
 
-        <div className="p-8 max-w-6xl space-y-5">
+        <div className="p-4 sm:p-8 max-w-6xl space-y-5">
           {/* Tabs */}
           <div className={`inline-flex items-center gap-1 rounded-full p-1 ${isDark ? "bg-slate-800/60 border border-slate-700" : "bg-gray-100"}`}>
             {tabButton("ninety", "90-Day", ninetyRows.length)}

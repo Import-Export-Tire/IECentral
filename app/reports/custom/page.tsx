@@ -436,7 +436,7 @@ export default function CustomReportPage() {
               {/* Date Range */}
               <div className="mb-5">
                 <label className={`block text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Date Range</label>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="date"
                     value={startDate}

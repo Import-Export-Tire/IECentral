@@ -120,7 +120,7 @@ export default function DunlopReportingPage() {
               </span>
             </div>
             {/* Tabs */}
-            <div className="flex gap-1 mt-4">
+            <div className="flex flex-wrap gap-1 mt-4">
               {visibleTabs.map(tab => (
                 <button
                   key={tab}
@@ -137,7 +137,7 @@ export default function DunlopReportingPage() {
             </div>
           </header>
 
-          <div className="max-w-5xl mx-auto px-6 py-6">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
             {activeTab === "Run History" && (
               <RunHistoryTab isDark={isDark} canDelete={permissions.hasPermission("dunlopReporting.deleteHistory")} canRerun={permissions.hasPermission("dunlopReporting.rerun")} env={env} userName={user?.name ?? "Unknown"} />
             )}
@@ -620,6 +620,7 @@ function RunHistoryTab({ isDark, canDelete, canRerun, env, userName }: { isDark:
   }
 
   return (
+    <div className="overflow-x-auto">
     <div className={`rounded-xl border overflow-hidden ${isDark ? "border-slate-700" : "border-gray-200"}`}>
       <table className="w-full text-sm">
         <thead>
@@ -764,6 +765,7 @@ function RunHistoryTab({ isDark, canDelete, canRerun, env, userName }: { isDark:
           ))}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }

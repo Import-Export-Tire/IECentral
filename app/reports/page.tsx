@@ -494,7 +494,7 @@ function ReportsContent() {
 
           {/* Report Content */}
           <div className={`border rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
               <h3 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
                 {reportTypes.find((r) => r.id === activeReport)?.label} Report
               </h3>

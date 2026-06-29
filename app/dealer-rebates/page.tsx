@@ -109,7 +109,7 @@ export default function DealerRebatesPage() {
               </div>
             </div>
             {/* Tabs */}
-            <div className="flex gap-1 mt-4">
+            <div className="flex flex-wrap gap-1 mt-4">
               {visibleTabs.map(tab => (
                 <button
                   key={tab}
@@ -516,7 +516,7 @@ function UploadTab({ isDark, userId }: { isDark: boolean; userId?: Id<"users"> }
       {step === 2 && results && (
         <div>
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             <div className={`rounded-xl border p-4 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
               <div className={`text-3xl font-mono font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{results.totalInputRows}</div>
               <div className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Total Rows</div>
@@ -1753,7 +1753,7 @@ function StatsTab({ isDark }: { isDark: boolean }) {
         <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 ${isDark ? "text-orange-400" : "text-orange-600"}`}>
           Year-over-Year Comparison
         </h3>
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div>
             <div className={`text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Combined</div>
             <div className="flex items-end gap-3">
