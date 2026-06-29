@@ -219,7 +219,7 @@ function ExitInterviewsContent() {
         <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-5">
           {error && <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm p-3">{error}</div>}
 
-          <div className={`inline-flex items-center gap-1 rounded-full p-1 ${isDark ? "bg-slate-800/60 border border-slate-700" : "bg-gray-100"}`}>
+          <div className={`flex items-center gap-1 rounded-full p-1 overflow-x-auto flex-nowrap ${isDark ? "bg-slate-800/60 border border-slate-700" : "bg-gray-100"}`}>
             {tabBtn("pending_signoff", "Pending sign-off")}
             {tabBtn("scheduled",       "Scheduled")}
             {tabBtn("completed",       "Completed")}
@@ -230,7 +230,83 @@ function ExitInterviewsContent() {
             {rows.length === 0 ? (
               <p className="text-sm theme-text-muted py-6 text-center">Nothing in this tab.</p>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                {/* Mobile card list */}
+                <div className="sm:hidden divide-y theme-border-secondary">
+                  {rows.map((i: any) => {
+                    const canReverse = i.reversibleUntil && Date.now() < i.reversibleUntil && i.status !== "reversed";
+                    const reversibleDays = canReverse ? Math.ceil((i.reversibleUntil - Date.now()) / 86400000) : 0;
+                    const contact = contactByPersonnelId.get(i.personnelId);
+                    return (
+                      <div key={i._id} className="py-3 space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <a href={`/personnel/${i.personnelId}`} className="theme-text-primary font-medium hover:text-[#007AFF] text-sm">
+                              {i.personnelName}
+                            </a>
+                            <p className="text-xs theme-text-secondary">{i.position || "—"} · {i.department || "—"}</p>
+                          </div>
+                          <span className={`flex-shrink-0 px-2 py-0.5 text-[11px] font-medium rounded-full ${
+                            i.status === "pending_signoff" || i.status === "pending" ? "bg-amber-100 text-amber-700" :
+                            i.status === "scheduled" ? "bg-blue-100 text-blue-700" :
+                            i.status === "completed" ? "bg-green-100 text-green-700" :
+                            "bg-gray-100 text-gray-700"
+                          }`}>{i.status.replace(/_/g, " ")}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 text-xs theme-text-tertiary tabular-nums">
+                          <span>Termed: {i.terminationDate}</span>
+                          <span>Tenure: {tenureStr(i)}</span>
+                          {canReverse && <span className="theme-text-muted">{reversibleDays}d to reverse</span>}
+                        </div>
+                        {i.terminationReason && (
+                          <p className="text-xs theme-text-secondary truncate">{i.terminationReason}</p>
+                        )}
+                        {(contact?.email || contact?.phone) && (
+                          <div className="flex flex-wrap gap-x-3 text-[11px] theme-text-tertiary">
+                            {contact?.email && (
+                              <a href={`mailto:${contact.email}`} className="hover:text-[#007AFF]">✉ {contact.email}</a>
+                            )}
+                            {contact?.phone && (
+                              <a href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} className="hover:text-[#007AFF]">☎ {contact.phone}</a>
+                            )}
+                          </div>
+                        )}
+                        <div className="flex gap-1 flex-wrap pt-0.5">
+                          {(i.status === "pending_signoff" || i.status === "pending") && (
+                            <button
+                              onClick={() => handleSignOff(i._id)}
+                              disabled={busy}
+                              className="px-3 py-1 text-xs font-medium rounded-full bg-[#007AFF]/10 text-[#007AFF] hover:bg-[#007AFF]/20"
+                            >Sign off</button>
+                          )}
+                          {i.status !== "completed" && i.status !== "reversed" && (
+                            <button
+                              onClick={() => setConductId(i._id)}
+                              disabled={busy}
+                              className="px-3 py-1 text-xs font-medium rounded-full bg-green-500/10 text-green-600 hover:bg-green-500/20"
+                            >Conduct</button>
+                          )}
+                          {i.status === "completed" && (
+                            <button
+                              onClick={() => setConductId(i._id)}
+                              className="px-3 py-1 text-xs font-medium rounded-full bg-slate-500/10 text-slate-500 hover:bg-slate-500/20"
+                            >View</button>
+                          )}
+                          {canReverse && (
+                            <button
+                              onClick={() => setReverseId(i._id)}
+                              disabled={busy}
+                              className="px-3 py-1 text-xs font-medium rounded-full bg-red-500/10 text-red-600 hover:bg-red-500/20"
+                            >Reverse</button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className={isDark ? "text-slate-400" : "text-gray-600"}>
                     <tr className="border-b theme-border-secondary">
@@ -320,7 +396,8 @@ function ExitInterviewsContent() {
                     })}
                   </tbody>
                 </table>
-              </div>
+                </div>
+              </>
             )}
           </div>
         </div>

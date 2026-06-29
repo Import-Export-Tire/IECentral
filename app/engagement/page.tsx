@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import Protected from "@/app/protected";
 import { useAuth } from "@/app/auth-context";
 import { useTheme } from "@/app/theme-context";
+import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import Link from "next/link";
 
 function EngagementDashboardContent() {
@@ -111,7 +112,10 @@ function EngagementDashboardContent() {
   };
 
   return (
-    <div className={`min-h-screen ${isDark ? "bg-slate-900" : "bg-gray-50"}`}>
+    <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+      <Sidebar />
+      <main className="flex-1 overflow-y-auto">
+        <MobileHeader />
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Back Button */}
         <Link
@@ -817,6 +821,7 @@ function EngagementDashboardContent() {
           </div>
         )}
       </div>
+      </main>
     </div>
   );
 }

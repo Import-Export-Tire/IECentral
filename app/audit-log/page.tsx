@@ -223,7 +223,43 @@ function AuditLogContent() {
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
+                {/* Mobile card list (phones) */}
+                <div className="sm:hidden divide-y divide-slate-700/30">
+                  {logs.map((log) => {
+                    const colors = actionTypeColors[log.actionType] || actionTypeColors.view;
+                    return (
+                      <div key={log._id} className={`p-4 space-y-2 ${isDark ? "hover:bg-slate-800/50" : "hover:bg-gray-50"}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${colors.bg} ${colors.text}`}>
+                            {log.actionType}
+                          </span>
+                          <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            {formatTimestamp(log.timestamp)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-medium ${
+                            isDark ? "bg-slate-700 text-slate-300" : "bg-gray-200 text-gray-600"
+                          }`}>
+                            {log.userEmail.charAt(0).toUpperCase()}
+                          </div>
+                          <span className={`text-sm truncate ${isDark ? "text-white" : "text-gray-900"}`}>{log.userEmail}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-0.5 rounded ${isDark ? "bg-slate-700 text-slate-300" : "bg-gray-100 text-gray-700"}`}>
+                            {log.resourceType}
+                          </span>
+                        </div>
+                        {log.details && (
+                          <p className={`text-xs truncate ${isDark ? "text-slate-400" : "text-gray-600"}`}>{log.details}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className={isDark ? "bg-slate-900/50" : "bg-gray-50"}>
                       <tr className={isDark ? "text-slate-400" : "text-gray-500"}>

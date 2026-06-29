@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import ProtectedRoute from "@/app/protected";
 import { useAuth } from "@/app/auth-context";
+import Sidebar, { MobileHeader } from "@/components/Sidebar";
 
 interface FileStatus {
   file: File;
@@ -282,7 +283,11 @@ export default function BulkUploadPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-slate-950 text-white">
+      <div className="flex h-screen bg-slate-950">
+        <Sidebar />
+        <main className="flex-1 overflow-y-auto text-white">
+          <MobileHeader />
+      <div className="min-h-0">
         {/* Header */}
         <div className="border-b border-slate-800 bg-slate-900/50">
           <div className="max-w-6xl mx-auto px-6 py-4">
@@ -620,6 +625,8 @@ export default function BulkUploadPage() {
             </div>
           )}
         </div>
+      </div>
+        </main>
       </div>
     </ProtectedRoute>
   );

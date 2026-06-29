@@ -353,7 +353,7 @@ function ApplicationsContent() {
         <div className="p-4 sm:p-8 space-y-4 sm:space-y-6">
           {/* Stats */}
           {stats && (
-            <div className="grid grid-cols-4 lg:grid-cols-8 gap-3">
+            <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
               <div className="theme-card p-4 text-center">
                 <p className="text-base sm:text-lg font-bold theme-text-primary">{stats.total}</p>
                 <p className="ui-section-label">Total</p>
