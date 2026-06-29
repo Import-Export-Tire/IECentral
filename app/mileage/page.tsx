@@ -354,7 +354,7 @@ function MileageContent() {
                 IRS Rate: ${currentRate?.toFixed(2)}/mile
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {/* Submit Report Button - only show when viewing pending and there are pending entries */}
               {selectedStatus === "pending" && pendingEntries.length > 0 && (
                 <button
@@ -666,7 +666,7 @@ function MileageContent() {
           </div>
 
           {/* Entries Table */}
-          <div className={`rounded-xl border overflow-hidden no-print ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+          <div className={`rounded-xl border overflow-x-auto no-print ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
             <table className="w-full">
               <thead className={isDark ? "bg-slate-700" : "bg-gray-50"}>
                 <tr>

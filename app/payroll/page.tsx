@@ -465,7 +465,7 @@ function PayrollContent() {
                             : "bg-white border border-gray-200 shadow-sm"
                         }`}
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                           <div>
                             <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
                               {employee.name}
@@ -483,8 +483,8 @@ function PayrollContent() {
                               </div>
                             )}
                           </div>
-                          <div className="text-right">
-                            <div className="grid grid-cols-3 gap-4 text-right">
+                          <div className="sm:text-right">
+                            <div className="grid grid-cols-3 gap-2 sm:gap-4 sm:text-right">
                               <div>
                                 <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>Regular</p>
                                 <p className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
@@ -557,7 +557,7 @@ function PayrollContent() {
 
         {/* Approval Modal */}
         {showApprovalModal && selectedPeriod && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
               <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
                 Approve Timesheets
@@ -610,7 +610,7 @@ function PayrollContent() {
 
         {/* Add Company Modal */}
         {showCompanyModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
               <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
                 Add Payroll Company

@@ -958,8 +958,8 @@ function PersonnelDetailContent() {
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
         {/* Header */}
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
-          <div className="flex items-center justify-between">
+        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => router.push("/personnel")}
@@ -1088,7 +1088,7 @@ function PersonnelDetailContent() {
           </div>
         </header>
 
-        <div className="p-8">
+        <div className="p-4 sm:p-8">
           {/* Overview Tab */}
           {activeTab === "overview" && (
             <div className="space-y-6">
@@ -2888,7 +2888,7 @@ function PersonnelDetailContent() {
 
         {/* Write-Up Modal */}
         {showWriteUpModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
               <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
                 Add Write-Up
@@ -3046,7 +3046,7 @@ function PersonnelDetailContent() {
 
         {/* Merit Modal */}
         {showMeritModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
               <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
                 Add Merit
@@ -3548,7 +3548,7 @@ function PersonnelDetailContent() {
 
         {/* Termination Modal */}
         {showTerminateModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
               <div className="flex items-center gap-3 mb-4">
                 <div className={`p-2 rounded-full ${isDark ? "bg-red-500/20" : "bg-red-100"}`}>
@@ -3674,7 +3674,7 @@ function PersonnelDetailContent() {
 
         {/* Rehire Modal */}
         {showRehireModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className={`w-full max-w-md rounded-xl p-6 max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800" : "bg-white"}`}>
               <div className="flex items-center gap-3 mb-4">
                 <div className={`p-2 rounded-full ${isDark ? "bg-green-500/20" : "bg-green-100"}`}>

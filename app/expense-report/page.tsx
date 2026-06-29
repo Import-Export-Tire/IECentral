@@ -247,7 +247,7 @@ function ExpenseReportContent() {
       <main className="flex-1 overflow-auto print:overflow-visible">
         <MobileHeader />
         {/* Header - Hidden when printing */}
-        <header className={`sticky top-0 z-10 p-6 border-b print:hidden print-hide ${isDark ? "bg-slate-900/95 backdrop-blur border-slate-700" : "bg-[#f2f2f7]/95 backdrop-blur border-gray-200"}`}>
+        <header className={`sticky top-0 z-10 px-4 sm:px-6 py-4 border-b print:hidden print-hide ${isDark ? "bg-slate-900/95 backdrop-blur border-slate-700" : "bg-[#f2f2f7]/95 backdrop-blur border-gray-200"}`}>
           <div className="flex items-center justify-between">
             <div>
               <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
@@ -614,7 +614,7 @@ function ExpenseReportContent() {
 
                 {/* Total & Actions */}
                 <div className={`mt-6 pt-4 border-t ${isDark ? "border-slate-600" : "border-gray-200"}`}>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <button
                         onClick={clearAll}

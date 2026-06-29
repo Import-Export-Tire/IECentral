@@ -120,7 +120,7 @@ function OvertimeContent() {
   return (
     <div className={`flex min-h-screen ${isDark ? "bg-[#0f172a]" : "bg-gray-50"}`}>
       <Sidebar />
-      <main className="flex-1 lg:ml-64">
+      <main className="flex-1">
         <MobileHeader />
         <div className="p-4 lg:p-8">
           {/* Header */}
@@ -157,7 +157,7 @@ function OvertimeContent() {
 
           {/* Filters */}
           <div className="mb-6">
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {["all", "open", "closed", "cancelled"].map((status) => (
                 <button
                   key={status}
