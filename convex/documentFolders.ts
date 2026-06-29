@@ -942,7 +942,12 @@ export const revokeAccess = mutation({
 
 // Get all folders shared with a user
 export const getSharedFolders = query({
-  args: { userId: v.id("users") },
+  args: {
+    userId: v.id("users"),
+    // Parent-aware like getMyFolders/getCommunityFolders so shared subfolders nest
+    // under their parent instead of all appearing flat at the root.
+    parentFolderId: v.optional(v.union(v.id("documentFolders"), v.null())),
+  },
   handler: async (ctx, args) => {
     const now = Date.now();
 
@@ -1006,8 +1011,16 @@ export const getSharedFolders = query({
       }
     }
 
+    // Filter to the requested level (mirrors getMyFolders): undefined = all levels
+    // (back-compat), null = top-level only, an id = direct children of that folder.
+    const atLevel = [...meta.values()].filter(({ folder }) => {
+      if (args.parentFolderId === undefined) return true;
+      if (args.parentFolderId === null) return !folder.parentFolderId;
+      return folder.parentFolderId === args.parentFolderId;
+    });
+
     const sharedFolders = await Promise.all(
-      [...meta.values()].map(async ({ folder, grantedAt, grantedByUserName, expiresAt }) => {
+      atLevel.map(async ({ folder, grantedAt, grantedByUserName, expiresAt }) => {
         const docs = await ctx.db
           .query("documents")
           .withIndex("by_folder", (q) => q.eq("folderId", folder._id))

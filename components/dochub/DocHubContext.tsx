@@ -224,7 +224,7 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
 
   const sharedFoldersWithMe = useQuery(
     api.documentFolders.getSharedFolders,
-    user ? { userId: user._id } : "skip"
+    user ? { userId: user._id, parentFolderId: currentFolderId ?? null } : "skip"
   ) as FolderType[] | undefined;
 
   const currentFolder = useQuery(

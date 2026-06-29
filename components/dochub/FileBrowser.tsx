@@ -82,7 +82,7 @@ function ListHeader() {
 
 export default function FileBrowser() {
   const {
-    isDark, viewMode, setViewMode, filteredDocuments, myFolders, communityFolders,
+    isDark, viewMode, setViewMode, filteredDocuments, myFolders, communityFolders, sharedFoldersWithMe,
     showArchived, setShowArchived, setShowUploadModal, setShowFolderModal,
     selectedCategory, setSelectedCategory, isAdmin, archivedDocuments,
     isDraggingOver, setIsDraggingOver, handleUpload, currentFolderId,
@@ -99,6 +99,11 @@ export default function FileBrowser() {
     : [
         ...(myFolders || []),
         ...(communityFolders || []).filter(cf => !myFolders?.find(mf => mf._id === cf._id)),
+        // Folders shared with the user via a group/grant (e.g. a subfolder of a
+        // group-shared folder) must also render as cards, deduped against the above.
+        ...(sharedFoldersWithMe || []).filter(
+          sf => sf && !myFolders?.find(mf => mf._id === sf._id) && !communityFolders?.find(cf => cf._id === sf._id)
+        ),
       ];
 
   // Drag and drop file upload handlers
