@@ -575,7 +575,7 @@ export default function MeetingRoomPage() {
       {/* Participant side panel */}
       {showParticipantList && (
         <div
-          className={`fixed top-0 right-0 bottom-0 w-72 z-40 border-l ${
+          className={`fixed top-0 right-0 bottom-0 w-full sm:w-72 z-40 border-l ${
             isDark
               ? "bg-slate-800 border-slate-700"
               : "bg-white border-gray-200"

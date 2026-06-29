@@ -253,7 +253,7 @@ export default function MeetingsPage() {
 
                   {/* Schedule fields */}
                   {meetingMode === "scheduled" && (
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
                         <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Date</label>
                         <input
@@ -412,7 +412,7 @@ export default function MeetingsPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span
                     title="macOS build coming soon"
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-not-allowed select-none opacity-60 ${

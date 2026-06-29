@@ -300,7 +300,7 @@ export default function EmailView({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-wrap overflow-x-auto">
           <button
             onClick={handleToggleStar}
             className={`p-2 rounded-lg transition-colors ${

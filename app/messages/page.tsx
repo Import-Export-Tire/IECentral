@@ -207,11 +207,21 @@ function MessagesContent() {
   const [gifSearchQuery, setGifSearchQuery] = useState("");
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const gifPickerRef = useRef<HTMLDivElement>(null);
+  const gifGridContainerRef = useRef<HTMLDivElement>(null);
+  const [gifGridWidth, setGifGridWidth] = useState(280);
 
   // File attachment state
   const [pendingAttachments, setPendingAttachments] = useState<MessageAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Measure GIF grid container width when picker opens
+  useEffect(() => {
+    if (showGifPicker && gifGridContainerRef.current) {
+      const w = gifGridContainerRef.current.offsetWidth;
+      if (w > 0) setGifGridWidth(w);
+    }
+  }, [showGifPicker]);
 
   // Close pickers when clicking outside
   useEffect(() => {
@@ -1030,7 +1040,7 @@ function MessagesContent() {
                             onClick={() => setReactionPickerMessageId(
                               reactionPickerMessageId === msg._id ? null : msg._id
                             )}
-                            className={`absolute ${isOwn ? "-left-8" : "-right-8"} top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all opacity-0 group-hover:opacity-100 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-400 hover:text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-500 hover:text-gray-700"}`}
+                            className={`absolute ${isOwn ? "-left-8" : "-right-8"} top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all opacity-0 group-hover:opacity-100 touch-auto [@media(hover:none)]:opacity-100 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-400 hover:text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-500 hover:text-gray-700"}`}
                             title="Add reaction"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1144,12 +1154,12 @@ function MessagesContent() {
                 {showEmojiPicker && (
                   <div
                     ref={emojiPickerRef}
-                    className="absolute bottom-full left-0 mb-2 z-50"
+                    className="absolute bottom-full left-0 mb-2 z-50 max-w-[300px] w-full"
                   >
                     <EmojiPicker
                       onEmojiClick={handleEmojiClick}
                       theme={Theme.DARK}
-                      width={300}
+                      width="100%"
                       height={400}
                     />
                   </div>
@@ -1225,10 +1235,10 @@ function MessagesContent() {
                         className={`w-full px-3 py-2 rounded-lg text-sm focus:outline-none ${isDark ? "bg-slate-900/50 border border-slate-600 text-white placeholder-slate-500 focus:border-cyan-500" : "bg-gray-50 border border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500"}`}
                       />
                     </div>
-                    <div className="h-64 overflow-y-auto p-2">
+                    <div className="h-64 overflow-y-auto p-2" ref={gifGridContainerRef}>
                       <Grid
                         key={gifSearchQuery}
-                        width={380}
+                        width={gifGridWidth}
                         columns={2}
                         fetchGifs={fetchGifs}
                         onGifClick={(gif, e) => {
