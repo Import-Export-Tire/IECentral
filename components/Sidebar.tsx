@@ -412,6 +412,31 @@ export default function Sidebar() {
                 <span className="font-medium text-sm sm:text-base">Announcements</span>
               </Link>
 
+              {/* Granted modules — extra access an admin gave this employee beyond the portal
+                  (set via permissionOverrides on the user; see Add/Edit User -> Module access) */}
+              {([
+                { permKey: "menu.timeClock", href: "/time-clock", label: "Time Clock", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
+                { permKey: "menu.documents", href: "/documents", label: "Documents", icon: "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" },
+                { permKey: "menu.calendar", href: "/calendar", label: "Calendar", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
+                { permKey: "menu.messages", href: "/messages", label: "Messages", icon: "M8 10h.01M12 10h.01M16 10h.01M21 12a8 8 0 01-11.5 7.2L3 21l1.8-5.5A8 8 0 1121 12z" },
+              ]).filter((m) => user?.permissionOverrides?.[m.permKey] === true).map((m) => (
+                <Link
+                  key={m.permKey}
+                  href={m.href}
+                  onClick={handleNavClick}
+                  className={`flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg transition-all ${
+                    pathname === m.href
+                      ? isDark ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-blue-50 text-blue-600 border border-blue-200"
+                      : isDark ? "text-slate-400 hover:bg-slate-700/50 hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  }`}
+                >
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={m.icon} />
+                  </svg>
+                  <span className="font-medium text-sm sm:text-base">{m.label}</span>
+                </Link>
+              ))}
+
               {/* Training — only shown when employee has assigned videos */}
               {myAssigned && myAssigned.length > 0 && (
                 <Link href="/training" onClick={handleNavClick} className={`flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg transition-all ${pathname === "/training" ? (isDark ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-blue-50 text-blue-600 border border-blue-200") : (isDark ? "text-slate-400 hover:bg-slate-700/50 hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}`}>
@@ -822,12 +847,11 @@ export default function Sidebar() {
 // Mobile header component with hamburger menu
 export function MobileHeader() {
   const { theme } = useTheme();
-  const { appearance } = useAppearance();
   const { toggle } = useSidebar();
   const { user } = useAuth();
   const isDark = theme === "dark";
-
-  if (appearance !== "modern") return null;
+  // Render the mobile hamburger header for ALL appearances (previously gated to
+  // "modern", which left pipboy/amber/dracula users with no way to open the nav).
 
   // Get unread notification count
   const unreadNotificationCount = useQuery(

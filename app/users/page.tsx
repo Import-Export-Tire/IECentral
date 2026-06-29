@@ -13,6 +13,7 @@ import {
   getRoleDefaults,
   type PermissionUser,
   type PermissionOverrides,
+  GRANTABLE_EMPLOYEE_MODULES,
 } from "@/lib/permissions";
 
 interface User {
@@ -68,6 +69,8 @@ function UsersContent() {
     role: "member",
     sendWelcomeEmail: true,
   });
+  // Modules to grant the new account beyond the employee portal (permKey -> granted)
+  const [newUserModules, setNewUserModules] = useState<Record<string, boolean>>({});
 
   // Form state for edit
   const [editForm, setEditForm] = useState({
@@ -229,12 +232,16 @@ function UsersContent() {
     setSuccess("");
 
     if (!currentUser) { setError("Not signed in"); return; }
+    const grantedOverrides = Object.fromEntries(
+      Object.entries(newUserModules).filter(([, granted]) => granted)
+    );
     const result = await createUser({
       name: newUser.name,
       email: newUser.email,
       password: newUser.password,
       role: newUser.role,
       sendWelcomeEmail: newUser.sendWelcomeEmail,
+      ...(Object.keys(grantedOverrides).length > 0 ? { permissionOverrides: grantedOverrides } : {}),
       requestingUserId: currentUser._id as Id<"users">,
     });
 
@@ -242,6 +249,7 @@ function UsersContent() {
       setSuccess(newUser.sendWelcomeEmail ? "User created and welcome email sent!" : "User created successfully");
       setShowAddModal(false);
       setNewUser({ name: "", email: "", password: "IETires2026!", role: "member", sendWelcomeEmail: true });
+      setNewUserModules({});
     } else {
       setError(result.error || "Failed to create user");
     }
@@ -832,6 +840,24 @@ function UsersContent() {
                     <option value="employee">Employee</option>
                   </optgroup>
                 </select>
+              </div>
+              {/* Module access beyond the employee portal */}
+              <div>
+                <label className="block text-xs font-medium theme-text-secondary mb-1">Module access (beyond the employee portal)</label>
+                <p className="text-[11px] theme-text-tertiary mb-2">Tick the areas this account can use. Data inside each area is still limited by existing sharing rules.</p>
+                <div className="space-y-1.5">
+                  {GRANTABLE_EMPLOYEE_MODULES.map((m) => (
+                    <label key={m.permKey} className="flex items-center gap-2.5 p-2.5 theme-bg-secondary rounded-lg border theme-border-primary cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!newUserModules[m.permKey]}
+                        onChange={(e) => setNewUserModules({ ...newUserModules, [m.permKey]: e.target.checked })}
+                        className="w-4 h-4 rounded text-[#007AFF] focus:ring-[#007AFF]/40"
+                      />
+                      <span className="text-sm theme-text-primary">{m.label}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
               <label className="flex items-center gap-2.5 p-3 theme-bg-secondary rounded-lg border theme-border-primary cursor-pointer">
                 <input

@@ -16,6 +16,17 @@ import { REPORT_TYPES } from "@/lib/reportTypes";
 // Permission override map: key is permission name, value is true (grant) or false (deny)
 export type PermissionOverrides = Record<string, boolean>;
 
+// Modules an admin can grant to an employee (tier-0) account so they get access
+// beyond the employee portal. Single source of truth shared by the Add-User
+// checklist and the employee sidebar. Granting sets permissionOverrides[permKey]=true.
+export const GRANTABLE_EMPLOYEE_MODULES: { permKey: string; label: string; href: string }[] = [
+  { permKey: "menu.timeClock", label: "Time Clock", href: "/time-clock" },
+  { permKey: "menu.documents", label: "Documents (Doc Hub)", href: "/documents" },
+  { permKey: "menu.calendar", label: "Calendar", href: "/calendar" },
+  { permKey: "menu.messages", label: "Messages", href: "/messages" },
+  { permKey: "menu.announcements", label: "Announcements", href: "/announcements" },
+];
+
 // User type for permission checks
 export interface PermissionUser {
   _id: Id<"users">;

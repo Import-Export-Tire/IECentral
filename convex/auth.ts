@@ -206,6 +206,9 @@ export const createUser = mutation({
     name: v.string(),
     role: v.string(),
     sendWelcomeEmail: v.optional(v.boolean()),
+    // Per-user module grants to set at creation (e.g. {"menu.documents": true}),
+    // so an admin can give an employee access beyond the portal in one step.
+    permissionOverrides: v.optional(v.record(v.string(), v.boolean())),
     requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
@@ -230,6 +233,9 @@ export const createUser = mutation({
       role: args.role,
       isActive: true,
       forcePasswordChange: true, // Force password change on first login
+      ...(args.permissionOverrides && Object.keys(args.permissionOverrides).length > 0
+        ? { permissionOverrides: args.permissionOverrides }
+        : {}),
       createdAt: Date.now(),
     });
 
