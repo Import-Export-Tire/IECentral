@@ -944,36 +944,84 @@ export const revokeAccess = mutation({
 export const getSharedFolders = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
+    const now = Date.now();
+
+    // Build a map of folders the user can access via sharing, keyed by folder id so a
+    // folder shared BOTH directly and via a group only appears once (direct grant wins).
+    // value carries the display metadata the UI expects (grantedAt / grantedByUserName / expiresAt).
+    const meta = new Map<
+      string,
+      { folder: any; grantedAt?: number; grantedByUserName?: string; expiresAt?: number }
+    >();
+
+    // 1) Direct per-user grants (folderAccessGrants).
     const grants = await ctx.db
       .query("folderAccessGrants")
       .withIndex("by_user", (q) => q.eq("grantedToUserId", args.userId))
       .filter((q) => q.eq(q.field("isRevoked"), false))
       .collect();
+    for (const grant of grants) {
+      if (grant.expiresAt && grant.expiresAt <= now) continue;
+      const folder = await ctx.db.get(grant.folderId);
+      if (!folder || !folder.isActive) continue;
+      meta.set(folder._id, {
+        folder,
+        grantedAt: grant.grantedAt,
+        grantedByUserName: grant.grantedByUserName,
+        expiresAt: grant.expiresAt,
+      });
+    }
 
-    // Get folder details for each grant
-    const now = Date.now();
+    // 2) Group-based sharing: any folder whose sharedWithGroups includes a group the
+    //    user is a member of. (This was previously ignored, so "share with a group"
+    //    granted no folder access through the listing.)
+    const userGroups = (
+      await ctx.db
+        .query("groups")
+        .withIndex("by_active", (q) => q.eq("isActive", true))
+        .collect()
+    ).filter((g) => g.memberIds.includes(args.userId));
+    if (userGroups.length > 0) {
+      const groupNameById = new Map(userGroups.map((g) => [g._id as string, g.name]));
+      const userGroupIds = new Set(userGroups.map((g) => g._id as string));
+      const allFolders = await ctx.db
+        .query("documentFolders")
+        .withIndex("by_active", (q) => q.eq("isActive", true))
+        .collect();
+      for (const folder of allFolders) {
+        if (meta.has(folder._id)) continue; // a direct grant already covers it
+        const viaGroupIds = (folder.sharedWithGroups ?? []).filter((gid) =>
+          userGroupIds.has(gid as string)
+        );
+        if (viaGroupIds.length === 0) continue;
+        const viaNames = viaGroupIds
+          .map((gid) => groupNameById.get(gid as string))
+          .filter(Boolean);
+        meta.set(folder._id, {
+          folder,
+          grantedAt: folder._creationTime,
+          grantedByUserName: viaNames.length ? `Group: ${viaNames.join(", ")}` : "Group",
+          expiresAt: undefined,
+        });
+      }
+    }
+
     const sharedFolders = await Promise.all(
-      grants
-        .filter((g) => !g.expiresAt || g.expiresAt > now)
-        .map(async (grant) => {
-          const folder = await ctx.db.get(grant.folderId);
-          if (!folder || !folder.isActive) return null;
-
-          const docs = await ctx.db
-            .query("documents")
-            .withIndex("by_folder", (q) => q.eq("folderId", folder._id))
-            .filter((q) => q.eq(q.field("isActive"), true))
-            .collect();
-
-          return {
-            ...folder,
-            documentCount: docs.length,
-            isProtected: !!folder.passwordHash,
-            grantedAt: grant.grantedAt,
-            grantedByUserName: grant.grantedByUserName,
-            expiresAt: grant.expiresAt,
-          };
-        })
+      [...meta.values()].map(async ({ folder, grantedAt, grantedByUserName, expiresAt }) => {
+        const docs = await ctx.db
+          .query("documents")
+          .withIndex("by_folder", (q) => q.eq("folderId", folder._id))
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .collect();
+        return {
+          ...folder,
+          documentCount: docs.length,
+          isProtected: !!folder.passwordHash,
+          grantedAt,
+          grantedByUserName,
+          expiresAt,
+        };
+      })
     );
 
     return sharedFolders.filter(Boolean);
