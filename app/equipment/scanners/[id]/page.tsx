@@ -265,7 +265,7 @@ function ScannerDetailContent() {
                 </div>
                 {/* Assignment actions in header */}
                 {canEdit && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {scanner.status === "available" && (
                       <button onClick={() => { setShowAssignModal(true); setAssignStep(1); setSelectedPersonnelId(""); setSignatureData(""); }}
                         className={`px-3 py-1.5 text-xs font-medium rounded-lg ${isDark ? "bg-cyan-500/15 text-cyan-400 hover:bg-cyan-500/25" : "bg-blue-50 text-blue-600 hover:bg-blue-100"}`}>
@@ -741,7 +741,7 @@ function ScannerDetailContent() {
                     </div>
                     <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Employee Signature</label>
                     <div className={`border rounded-lg overflow-hidden ${isDark ? "border-slate-700" : "border-gray-300"}`}>
-                      <SignaturePad width={460} height={150} onSignatureChange={(data: string | null) => setSignatureData(data ?? "")} />
+                      <SignaturePad height={150} onSignatureChange={(data: string | null) => setSignatureData(data ?? "")} />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
                       <button onClick={() => setAssignStep(1)} className={`px-4 py-2 text-sm rounded-lg ${isDark ? "text-slate-300 hover:bg-slate-700" : "text-gray-600 hover:bg-gray-100"}`}>Back</button>

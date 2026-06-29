@@ -281,15 +281,15 @@ function DocumentsContent() {
             </div>
 
             {/* Document Preview */}
-            <div className="flex-1 overflow-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4">
               {documentUrl ? (
                 <iframe
                   src={`${documentUrl}#toolbar=1&navpanes=0`}
-                  className="w-full h-[500px] rounded-lg border border-slate-600"
+                  className="w-full h-[50vh] rounded-lg border border-slate-600"
                   title={selectedDoc?.title}
                 />
               ) : (
-                <div className={`h-[500px] flex items-center justify-center rounded-lg ${isDark ? "bg-slate-900" : "bg-gray-100"}`}>
+                <div className={`h-[50vh] flex items-center justify-center rounded-lg ${isDark ? "bg-slate-900" : "bg-gray-100"}`}>
                   <div className="text-center">
                     <svg className="w-12 h-12 mx-auto mb-3 animate-spin text-cyan-500" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -311,7 +311,6 @@ function DocumentsContent() {
                   <SignaturePad
                     onSignatureChange={setSignatureData}
                     isDark={isDark}
-                    width={400}
                     height={100}
                     showControls={true}
                   />

@@ -155,7 +155,7 @@ function ScannerDashboardContent() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {canEdit && (
                     <button
                       onClick={async () => {
@@ -169,7 +169,7 @@ function ScannerDashboardContent() {
                       title="Download agent APK for sideloading onto new scanners"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                      Agent APK
+                      <span className="hidden sm:inline">Agent APK</span>
                     </button>
                   )}
                   {canEdit && (
@@ -178,7 +178,7 @@ function ScannerDashboardContent() {
                       className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-cyan-600 hover:bg-cyan-500 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                      Add Scanner
+                      <span className="hidden sm:inline">Add Scanner</span>
                     </button>
                   )}
                   {canEdit && (
@@ -193,7 +193,7 @@ function ScannerDashboardContent() {
                       }`}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" /></svg>
-                      Setup New Scanner
+                      <span className="hidden sm:inline">Setup New Scanner</span>
                     </button>
                   )}
                   {canEdit && (

@@ -267,7 +267,7 @@ function EmployeeSurveysContent() {
 
   return (
     <div className={`min-h-screen ${isDark ? "bg-slate-900" : "bg-gray-50"}`}>
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-lg mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -298,8 +298,8 @@ function EmployeeSurveysContent() {
                 key={survey._id}
                 className={`p-6 rounded-xl ${isDark ? "bg-slate-800" : "bg-white"} shadow-sm`}
               >
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                  <div className="flex-1 min-w-0">
                     <h3 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
                       {survey.campaign?.name || "Survey"}
                     </h3>
@@ -321,7 +321,7 @@ function EmployeeSurveysContent() {
                   </div>
                   <button
                     onClick={() => setSelectedSurvey(survey._id)}
-                    className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-colors"
+                    className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-colors self-start sm:flex-shrink-0"
                   >
                     Take Survey
                   </button>

@@ -751,11 +751,15 @@ export default function BinLabelsPage() {
                       <div className="flex flex-col gap-6 items-center min-w-min">
                         {labels.map((label, index) => (
                           label.locationId && (
-                            <div key={index} className="flex flex-col items-center">
+                            <div key={index} className="flex flex-col items-center w-full">
                               {/* Label number indicator */}
                               <span className={`text-xs font-medium mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
                                 Label #{index + 1} {copies > 1 && `(×${copies})`}
                               </span>
+
+                              {/* Scale wrapper: on small screens shrink to fit container */}
+                              <div className="w-full overflow-hidden flex justify-center">
+                              <div className="origin-top scale-[0.58] sm:scale-100" style={{ width: 576, height: 192, flexShrink: 0 }}>
 
                               {/* Thermal label mockup - HORIZONTAL 6" x 2" */}
                               <div
@@ -794,6 +798,8 @@ export default function BinLabelsPage() {
                                 <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-200 to-transparent" />
                                 <div className="absolute right-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-200 to-transparent" />
                               </div>
+                              </div>{/* scale wrapper inner */}
+                              </div>{/* scale wrapper outer */}
                             </div>
                           )
                         ))}
@@ -1054,10 +1060,14 @@ export default function BinLabelsPage() {
                       <div className="flex flex-wrap gap-6 items-start justify-center min-w-min">
                         {tireLabels.map((label, index) => (
                           tireIsPrintable(label) && (
-                            <div key={index} className="flex flex-col items-center">
+                            <div key={index} className="flex flex-col items-center w-full">
                               <span className={`text-xs font-medium mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
                                 Label #{index + 1} {(label.qty || 1) > 1 && `(×${label.qty} copies)`}
                               </span>
+
+                              {/* Scale wrapper: on small screens shrink to fit container */}
+                              <div className="w-full overflow-hidden flex justify-center">
+                              <div className="origin-top scale-[0.87] sm:scale-100" style={{ width: 384, height: 576, flexShrink: 0 }}>
 
                               {/* Shipping label mockup - PORTRAIT 4" x 6" */}
                               <div
@@ -1119,6 +1129,8 @@ export default function BinLabelsPage() {
                                 </div>
                                 <div style={{ position: "absolute", bottom: "8px", left: 0, right: 0, fontSize: "10px", color: "#666" }}>{labelFooter}</div>
                               </div>
+                              </div>{/* scale wrapper inner */}
+                              </div>{/* scale wrapper outer */}
                             </div>
                           )
                         ))}

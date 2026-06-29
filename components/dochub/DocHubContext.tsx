@@ -145,7 +145,9 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-  const [docSidebarCollapsed, setDocSidebarCollapsed] = useState(false);
+  const [docSidebarCollapsed, setDocSidebarCollapsed] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth < 1024
+  );
 
   // Navigation state
   const [currentFolderId, setCurrentFolderId] = useState<Id<"documentFolders"> | null>(null);

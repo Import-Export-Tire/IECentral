@@ -286,7 +286,7 @@ function ScannerSettingsContent() {
               </div>
 
               {/* Location Tabs */}
-              <div className="flex gap-2 mt-4">
+              <div className="flex gap-2 overflow-x-auto flex-nowrap pb-1 mt-4">
                 {locations?.map((loc) => (
                   <button
                     key={loc._id}

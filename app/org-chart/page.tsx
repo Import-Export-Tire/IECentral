@@ -247,10 +247,10 @@ function TierLevel({
 
       {/* Cards container */}
       <div className="relative">
-        {/* Horizontal connector line (if multiple cards) */}
+        {/* Horizontal connector line (if multiple cards) — hidden on mobile where cards stack */}
         {users.length > 1 && (
           <div
-            className={`absolute top-0 left-[90px] right-[90px] h-0.5 -translate-y-3 ${
+            className={`hidden sm:block absolute top-0 left-[90px] right-[90px] h-0.5 -translate-y-3 ${
               isDark ? "bg-slate-600" : "bg-gray-300"
             }`}
           />

@@ -226,7 +226,7 @@ function ReportContent() {
           {totals && (
             <div className="p-8 border-b border-gray-200 bg-gray-50 print:bg-gray-100">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">Summary</h2>
-              <div className="grid grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="text-center">
                   <p className="text-4xl font-bold text-blue-600">{totals.totalLogs}</p>
                   <p className="text-sm text-gray-600 mt-1">Logs Submitted</p>

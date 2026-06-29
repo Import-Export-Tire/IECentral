@@ -273,68 +273,73 @@ function AdminDailyLogView() {
                   View team activity and daily logs in real-time
                 </p>
               </div>
-              <div className="flex items-center gap-3">
-                {/* Filter by Person */}
-                <select
-                  value={selectedPerson}
-                  onChange={(e) => setSelectedPerson(e.target.value)}
-                  className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500"
-                >
-                  <option value="all">All Team Members</option>
-                  {uniqueUsers.map(u => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
+              <div className="flex flex-col gap-2 items-end">
+                {/* Row 1: select + drafts checkbox */}
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedPerson}
+                    onChange={(e) => setSelectedPerson(e.target.value)}
+                    className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500"
+                  >
+                    <option value="all">All Team Members</option>
+                    {uniqueUsers.map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
 
-                <label className="hidden sm:flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showDrafts}
-                    onChange={(e) => setShowDrafts(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0"
-                  />
-                  <span className="text-sm text-slate-300">Drafts</span>
-                </label>
+                  <label className="hidden sm:flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showDrafts}
+                      onChange={(e) => setShowDrafts(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0"
+                    />
+                    <span className="text-sm text-slate-300">Drafts</span>
+                  </label>
+                </div>
 
-                {/* Submit on Behalf */}
-                <button
-                  onClick={() => setShowSubmitOnBehalfModal(true)}
-                  className="px-3 py-2 bg-amber-500/20 text-amber-400 font-medium rounded-lg hover:bg-amber-500/30 transition-colors flex items-center gap-2 text-sm border border-amber-500/30"
-                  title="Submit log on behalf of employee"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                  </svg>
-                  <span className="hidden sm:inline">Submit for Employee</span>
-                </button>
+                {/* Row 2: action buttons — wraps on mobile */}
+                <div className="flex flex-wrap gap-2 justify-end">
+                  {/* Submit on Behalf */}
+                  <button
+                    onClick={() => setShowSubmitOnBehalfModal(true)}
+                    className="px-3 py-2 bg-amber-500/20 text-amber-400 font-medium rounded-lg hover:bg-amber-500/30 transition-colors flex items-center gap-2 text-sm border border-amber-500/30"
+                    title="Submit log on behalf of employee"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                    <span className="hidden sm:inline">Submit for Employee</span>
+                  </button>
 
-                {/* Export CSV */}
-                <button
-                  onClick={exportToCSV}
-                  className="px-3 py-2 bg-slate-700 text-slate-300 font-medium rounded-lg hover:bg-slate-600 hover:text-white transition-colors flex items-center gap-2 text-sm"
-                  title="Export to CSV"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <span className="hidden sm:inline">Export</span>
-                </button>
+                  {/* Export CSV */}
+                  <button
+                    onClick={exportToCSV}
+                    className="px-3 py-2 bg-slate-700 text-slate-300 font-medium rounded-lg hover:bg-slate-600 hover:text-white transition-colors flex items-center gap-2 text-sm"
+                    title="Export to CSV"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="hidden sm:inline">Export</span>
+                  </button>
 
-                <a
-                  href="/daily-log/report"
-                  className="px-3 py-2 bg-cyan-500 text-white font-medium rounded-lg hover:bg-cyan-600 transition-colors flex items-center gap-2 text-sm"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                  </svg>
-                  <span className="hidden sm:inline">Print</span>
-                </a>
+                  <a
+                    href="/daily-log/report"
+                    className="px-3 py-2 bg-cyan-500 text-white font-medium rounded-lg hover:bg-cyan-600 transition-colors flex items-center gap-2 text-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    <span className="hidden sm:inline">Print</span>
+                  </a>
+                </div>
               </div>
             </div>
 
             {/* Stats Bar - Show when filtering by person */}
             {selectedUserStats && (
-              <div className="flex items-center gap-6 py-2 px-4 bg-slate-800/50 rounded-lg">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-2 px-4 bg-slate-800/50 rounded-lg">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center">
                     <span className="text-cyan-400 text-sm font-bold">{selectedUserStats.currentStreak}</span>
@@ -344,17 +349,14 @@ function AdminDailyLogView() {
                     <p className="text-slate-500 text-xs">Consecutive submissions</p>
                   </div>
                 </div>
-                <div className="h-8 w-px bg-slate-700"></div>
                 <div>
                   <p className="text-white text-sm font-medium">{selectedUserStats.totalLogs} Logs</p>
                   <p className="text-slate-500 text-xs">Total submitted</p>
                 </div>
-                <div className="h-8 w-px bg-slate-700"></div>
                 <div>
                   <p className="text-white text-sm font-medium">{selectedUserStats.totalHours.toFixed(1)}h</p>
                   <p className="text-slate-500 text-xs">Hours logged</p>
                 </div>
-                <div className="h-8 w-px bg-slate-700"></div>
                 <div>
                   <p className="text-white text-sm font-medium">{selectedUserStats.totalAccomplishments}</p>
                   <p className="text-slate-500 text-xs">Accomplishments</p>

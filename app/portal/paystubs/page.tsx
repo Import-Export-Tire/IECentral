@@ -100,7 +100,7 @@ function PaystubsContent() {
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="grid grid-cols-3 gap-2 text-center text-sm">
                 <div>
                   <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>Hours</p>
                   <p className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
