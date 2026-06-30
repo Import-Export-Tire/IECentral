@@ -35,50 +35,58 @@ async function loadLogoForPdf(): Promise<{ dataUrl: string; width: number; heigh
 export async function printAgreementPdf(info: AgreementInfo): Promise<void> {
   const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "pt", format: "letter" });
-  const margin = 56;
-  const usableWidth = doc.internal.pageSize.getWidth() - margin * 2;
+  const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const bottomLimit = pageH - margin;
-  const lineH = 15;
+  const margin = 44;
+  const usableWidth = pageW - margin * 2;
   let y = margin;
 
   // Company logo at the top (best-effort; skipped if it can't load).
   const logo = await loadLogoForPdf();
   if (logo && logo.width > 0) {
-    const targetW = 150;
+    const targetW = 120;
     const targetH = (logo.height / logo.width) * targetW;
     doc.addImage(logo.dataUrl, "PNG", margin, y, targetW, targetH);
-    y += targetH + 16;
+    y += targetH + 12;
   }
 
   // Title
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
+  doc.setFontSize(12);
   doc.text("EQUIPMENT RESPONSIBILITY AGREEMENT", margin, y);
-  y += 26;
+  y += 18;
 
-  // Body (full disclosure) — drop the title line (rendered above) and paginate.
+  // Body (full disclosure, minus the title line). Auto-shrink the font so the whole
+  // agreement PLUS the signature block always fit on ONE page.
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
   const body = buildAgreementText(info).split("\n").slice(2).join("\n").trim();
-  const lines = doc.splitTextToSize(body, usableWidth);
+  const SIG_BLOCK_H = 74; // signature/date line + printed-name line
+  const availForBody = pageH - margin - SIG_BLOCK_H - y;
+  let bodySize = 9.5;
+  let lineH = bodySize * 1.28;
+  let lines: string[] = [];
+  for (; bodySize >= 6.5; bodySize -= 0.5) {
+    lineH = bodySize * 1.28;
+    doc.setFontSize(bodySize);
+    lines = doc.splitTextToSize(body, usableWidth) as string[];
+    if (lines.length * lineH <= availForBody) break;
+  }
+  doc.setFontSize(bodySize);
   for (const line of lines) {
-    if (y > bottomLimit) { doc.addPage(); y = margin; }
     doc.text(line, margin, y);
     y += lineH;
   }
 
-  // Signature block — keep it together; start a new page if it won't fit.
-  y += 30;
-  if (y + 90 > bottomLimit) { doc.addPage(); y = margin; }
-  const sigY = y + 20;
-  doc.line(margin, sigY, margin + 230, sigY);
-  doc.text("Employee signature", margin, sigY + 14);
-  doc.line(margin + 290, sigY, margin + 290 + 160, sigY);
-  doc.text("Date", margin + 290, sigY + 14);
-  const printedY = sigY + 56;
-  doc.line(margin, printedY, margin + 230, printedY);
-  doc.text(`Printed name: ${info.personName}`, margin, printedY + 14);
+  // Signature block (same page, just below the body)
+  doc.setFontSize(9);
+  const sigY = y + 22;
+  doc.line(margin, sigY, margin + 220, sigY);
+  doc.text("Employee signature", margin, sigY + 12);
+  doc.line(margin + 280, sigY, margin + 280 + 150, sigY);
+  doc.text("Date", margin + 280, sigY + 12);
+  const printedY = sigY + 44;
+  doc.line(margin, printedY, margin + 220, printedY);
+  doc.text(`Printed name: ${info.personName}`, margin, printedY + 12);
 
   const url = doc.output("bloburl") as unknown as string;
   const iframe = document.createElement("iframe");
