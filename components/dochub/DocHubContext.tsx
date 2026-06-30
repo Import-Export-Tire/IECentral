@@ -52,6 +52,8 @@ interface DocHubContextType {
   setShowUploadModal: (show: boolean) => void;
   showFolderModal: boolean;
   setShowFolderModal: (show: boolean) => void;
+  showGroupsModal: boolean;
+  setShowGroupsModal: (show: boolean) => void;
   // Upload
   handleUpload: (file: File, name: string, description: string, category: string, expirationDate?: string, expirationAlertDays?: number, requiresSignature?: boolean, visibility?: string) => Promise<void>;
   uploading: boolean;
@@ -158,6 +160,7 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
   // Modals
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
+  const [showGroupsModal, setShowGroupsModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
@@ -681,6 +684,7 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
       documents, folderDocuments, setFolderDocuments, filteredDocuments, myFolders, communityFolders, sharedFoldersWithMe, currentFolder, archivedDocuments,
       unlockedFolders, unlockFolder, handleOpenFolder, loadFolderDocuments, loadingFolderDocs,
       showUploadModal, setShowUploadModal, showFolderModal, setShowFolderModal,
+      showGroupsModal, setShowGroupsModal,
       handleUpload, uploading,
       handleDownload, handlePreview, handleArchive, handleDelete, handleRestore, handleEdit, handleShare, handleTogglePublic,
       handleCreateFolder, handleUpdateFolder, handleArchiveFolder, handleMoveDocument, handleMoveFolder,

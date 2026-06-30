@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAdmin } from "./authGuards";
 
 // Get all active groups
 export const list = query({
@@ -33,7 +34,7 @@ export const getForUser = query({
   },
 });
 
-// Create a new group
+// Create a new group (admin+ only — group membership controls Doc Hub folder access)
 export const create = mutation({
   args: {
     name: v.string(),
@@ -44,6 +45,7 @@ export const create = mutation({
     createdByName: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.createdBy);
     const now = Date.now();
     return await ctx.db.insert("groups", {
       ...args,
@@ -54,16 +56,18 @@ export const create = mutation({
   },
 });
 
-// Update group name/description/color
+// Update group name/description/color (admin+ only)
 export const update = mutation({
   args: {
     groupId: v.id("groups"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     color: v.optional(v.string()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const { groupId, ...updates } = args;
+    await requireAdmin(ctx, args.requestingUserId);
+    const { groupId, requestingUserId: _r, ...updates } = args;
     const filteredUpdates = Object.fromEntries(
       Object.entries(updates).filter(([, v]) => v !== undefined)
     );
@@ -74,13 +78,15 @@ export const update = mutation({
   },
 });
 
-// Add members to a group
+// Add members to a group (admin+ only)
 export const addMembers = mutation({
   args: {
     groupId: v.id("groups"),
     userIds: v.array(v.id("users")),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const group = await ctx.db.get(args.groupId);
     if (!group) throw new Error("Group not found");
     const merged = [...new Set([...group.memberIds, ...args.userIds])];
@@ -91,13 +97,15 @@ export const addMembers = mutation({
   },
 });
 
-// Remove a member from a group
+// Remove a member from a group (admin+ only)
 export const removeMember = mutation({
   args: {
     groupId: v.id("groups"),
     userId: v.id("users"),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     const group = await ctx.db.get(args.groupId);
     if (!group) throw new Error("Group not found");
     await ctx.db.patch(args.groupId, {
@@ -107,10 +115,11 @@ export const removeMember = mutation({
   },
 });
 
-// Archive a group
+// Archive a group (admin+ only)
 export const archive = mutation({
-  args: { groupId: v.id("groups") },
+  args: { groupId: v.id("groups"), requestingUserId: v.id("users") },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
     await ctx.db.patch(args.groupId, {
       isActive: false,
       updatedAt: Date.now(),

@@ -7,4 +7,5 @@ export { default as PreviewModal } from "./PreviewModal";
 export { default as UploadModal } from "./UploadModal";
 export { default as FolderModal } from "./FolderModal";
 export { default as ShareAccessModal } from "./ShareAccessModal";
+export { default as GroupsModal } from "./GroupsModal";
 export { default as HelpModal } from "./HelpModal";

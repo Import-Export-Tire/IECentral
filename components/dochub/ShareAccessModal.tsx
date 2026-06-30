@@ -8,7 +8,7 @@ import { api } from "@/convex/_generated/api";
 
 export default function ShareAccessModal() {
   const {
-    isDark, user, shareFolderId, setShareFolderId,
+    isDark, user, isAdmin, shareFolderId, setShareFolderId,
     folderAccessGrants, usersForSharing,
     handleGrantAccess, handleRevokeAccess, handleUpdateFolder,
     // Share document
@@ -178,6 +178,7 @@ export default function ShareAccessModal() {
                 <label className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-600"}`}>
                   Groups
                 </label>
+                {isAdmin && (
                 <button
                   onClick={() => {
                     setShowCreateGroup(!showCreateGroup);
@@ -195,6 +196,7 @@ export default function ShareAccessModal() {
                   </svg>
                   New Group
                 </button>
+                )}
               </div>
 
               {/* Inline create/edit group */}
@@ -279,17 +281,17 @@ export default function ShareAccessModal() {
                         setCreatingGroup(true);
                         try {
                           if (editingGroupId) {
-                            await updateGroupMutation({ groupId: editingGroupId, name: newGroupName, color: newGroupColor });
+                            await updateGroupMutation({ groupId: editingGroupId, name: newGroupName, color: newGroupColor, requestingUserId: user._id });
                             // Sync members: remove then add
                             const existing = allGroups?.find(g => g._id === editingGroupId);
                             if (existing) {
                               for (const id of existing.memberIds) {
                                 if (!newGroupMembers.includes(id)) {
-                                  await removeGroupMember({ groupId: editingGroupId, userId: id });
+                                  await removeGroupMember({ groupId: editingGroupId, userId: id, requestingUserId: user._id });
                                 }
                               }
                               const toAdd = newGroupMembers.filter(id => !existing.memberIds.includes(id));
-                              if (toAdd.length) await addGroupMembers({ groupId: editingGroupId, userIds: toAdd });
+                              if (toAdd.length) await addGroupMembers({ groupId: editingGroupId, userIds: toAdd, requestingUserId: user._id });
                             }
                           } else {
                             await createGroupMutation({
@@ -362,7 +364,8 @@ export default function ShareAccessModal() {
                             ({group.memberIds.length})
                           </span>
                         </button>
-                        {/* Edit button */}
+                        {/* Edit button (admin+) */}
+                        {isAdmin ? (
                         <button
                           onClick={() => {
                             setEditingGroupId(group._id);
@@ -382,6 +385,9 @@ export default function ShareAccessModal() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                           </svg>
                         </button>
+                        ) : (
+                          <span className={`p-1.5 border border-l-0 rounded-r-full ${isShared ? (isDark ? "border-cyan-500/40" : "border-blue-300") : (isDark ? "border-slate-700" : "border-gray-200")}`} />
+                        )}
                       </div>
                     );
                   })}

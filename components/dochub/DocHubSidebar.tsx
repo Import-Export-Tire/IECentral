@@ -101,6 +101,7 @@ export default function DocHubSidebar() {
     navigateToRoot, currentFolderId, setShowFolderModal,
     searchQuery, setSearchQuery, docSidebarCollapsed, setDocSidebarCollapsed,
     expiringDocuments, unsignedDocuments, storageUsage,
+    isAdmin, setShowGroupsModal,
   } = useDocHub();
 
   // Categorize folders by privacy tier
@@ -171,6 +172,17 @@ export default function DocHubSidebar() {
           Documents
         </h2>
         <div className="flex items-center gap-1">
+          {isAdmin && (
+            <button
+              onClick={() => setShowGroupsModal(true)}
+              className={`p-1.5 rounded-lg transition-colors ${isDark ? "hover:bg-slate-800 text-slate-400 hover:text-slate-200" : "hover:bg-gray-200 text-gray-500 hover:text-gray-700"}`}
+              title="Manage Groups"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a3 3 0 10-2-5.24M5 8a3 3 0 002 5.24" />
+              </svg>
+            </button>
+          )}
           <button
             onClick={() => setShowFolderModal(true)}
             className={`p-1.5 rounded-lg transition-colors ${isDark ? "hover:bg-slate-800 text-slate-400 hover:text-slate-200" : "hover:bg-gray-200 text-gray-500 hover:text-gray-700"}`}

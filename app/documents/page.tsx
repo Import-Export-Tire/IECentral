@@ -13,6 +13,7 @@ import {
   UploadModal,
   FolderModal,
   ShareAccessModal,
+  GroupsModal,
 } from "@/components/dochub";
 import { useDocHub } from "@/components/dochub/DocHubContext";
 
@@ -57,6 +58,7 @@ function DocumentsContent() {
           <UploadModal />
           <FolderModal />
           <ShareAccessModal />
+          <GroupsModal />
         </DocHubProvider>
       </main>
     </div>
