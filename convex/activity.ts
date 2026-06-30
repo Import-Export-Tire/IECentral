@@ -1,6 +1,15 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import { getTier, resolvePermission } from "../lib/permissions";
+
+// Tier per role (mirrors lib/permissions.ts getTier). Inlined here so this Convex
+// function does NOT import lib/permissions — that file uses "@/" path aliases the
+// Convex typecheck can't resolve, which breaks `convex deploy`.
+const ROLE_TIER: Record<string, number> = {
+  super_admin: 5, admin: 4, warehouse_director: 3,
+  warehouse_manager: 2, office_manager: 2, retail_manager: 2, retail_store_manager: 2,
+  department_manager: 1, shift_lead: 1, retail_associate: 1,
+  member: 0, employee: 0,
+};
 
 // Get recent activity
 export const getRecentActivity = query({
@@ -13,11 +22,9 @@ export const getRecentActivity = query({
     // per-user override). Denied users get nothing, even if the widget somehow renders.
     const u = await ctx.db.get(args.requestingUserId);
     if (!u) return [];
-    const allowed = resolvePermission(
-      "dashboard.activityFeed",
-      { "dashboard.activityFeed": getTier(u.role) >= 2 },
-      u.permissionOverrides
-    );
+    // Resolve dashboard.activityFeed: per-user override wins, else tier >= 2 default.
+    const override = u.permissionOverrides?.["dashboard.activityFeed"];
+    const allowed = override !== undefined ? override : (ROLE_TIER[u.role] ?? 0) >= 2;
     if (!allowed) return [];
 
     const limit = args.limit || 50;

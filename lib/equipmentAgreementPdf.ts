@@ -60,7 +60,7 @@ export async function printAgreementPdf(info: AgreementInfo): Promise<void> {
   // agreement PLUS the signature block always fit on ONE page.
   doc.setFont("helvetica", "normal");
   const body = buildAgreementText(info).split("\n").slice(2).join("\n").trim();
-  const SIG_BLOCK_H = 74; // signature/date line + printed-name line
+  const SIG_BLOCK_H = 96; // signature/date + printed-name + generated-by footer
   const availForBody = pageH - margin - SIG_BLOCK_H - y;
   let bodySize = 9.5;
   let lineH = bodySize * 1.28;
@@ -87,6 +87,13 @@ export async function printAgreementPdf(info: AgreementInfo): Promise<void> {
   const printedY = sigY + 44;
   doc.line(margin, printedY, margin + 220, printedY);
   doc.text(`Printed name: ${info.personName}`, margin, printedY + 12);
+
+  // Generated stamp — date/time + who printed it
+  doc.setFontSize(7.5);
+  doc.setTextColor(130);
+  const stamp = `Generated ${new Date().toLocaleString()}${info.generatedBy ? ` by ${info.generatedBy}` : ""}`;
+  doc.text(stamp, margin, printedY + 30);
+  doc.setTextColor(0);
 
   const url = doc.output("bloburl") as unknown as string;
   const iframe = document.createElement("iframe");

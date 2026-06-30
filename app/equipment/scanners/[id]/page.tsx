@@ -252,6 +252,7 @@ function ScannerDetailContent() {
       equipmentNumber: scanner.number,
       serialNumber: scanner.serialNumber,
       equipmentValue: agreement?.equipmentValue ?? EQUIPMENT_VALUE,
+      generatedBy: user?.name ?? user?.email,
     });
   };
 

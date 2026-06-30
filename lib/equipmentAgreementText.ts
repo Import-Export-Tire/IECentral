@@ -9,6 +9,7 @@ export type AgreementInfo = {
   equipmentNumber: string;
   serialNumber?: string | null;
   equipmentValue: number;
+  generatedBy?: string; // name of the person printing (for the footer stamp)
 };
 
 export function buildAgreementText(info: AgreementInfo): string {
