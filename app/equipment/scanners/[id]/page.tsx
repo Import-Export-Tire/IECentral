@@ -82,6 +82,7 @@ function ScannerDetailContent() {
   const unassignScanner = useMutation(api.equipment.unassignScanner);
   const storePendingProvision = useMutation(api.scannerMdm.storePendingProvision);
   const updateScanner = useMutation(api.equipment.updateScanner);
+  const deleteEquipment = useMutation(api.equipment.deleteEquipment);
   const generateAgreementUploadUrl = useMutation(api.equipment.generateAgreementUploadUrl);
   const attachSignedAgreement = useMutation(api.equipment.attachSignedAgreement);
   const agreement = useQuery(api.equipment.getEquipmentAgreement, { equipmentType: "scanner", equipmentId: scannerId });
@@ -254,6 +255,25 @@ function ScannerDetailContent() {
     });
   };
 
+  const handleStatusChange = async (newStatus: string) => {
+    if (!scanner || !user || newStatus === scanner.status) return;
+    try {
+      await updateScanner({ id: scannerId, status: newStatus, requestingUserId: user._id });
+    } catch (err) { console.error("Status update failed:", err); }
+  };
+
+  const handleDeleteScanner = async () => {
+    if (!scanner || !user) return;
+    if (!confirm(`Delete scanner ${scanner.number}? This permanently removes it and its history, agreements, and condition checks. This cannot be undone.`)) return;
+    try {
+      await deleteEquipment({ equipmentType: "scanner", equipmentId: scannerId, userId: user._id });
+      router.push("/equipment/scanners");
+    } catch (err) {
+      console.error("Delete scanner failed:", err);
+      alert("Failed to delete scanner. " + (err instanceof Error ? err.message : ""));
+    }
+  };
+
   const handleReturn = async () => {
     if (!scanner || !user) return;
     setSending(true);
@@ -355,6 +375,12 @@ function ScannerDetailContent() {
                         </button>
                       </>
                     )}
+                    {isSuperAdmin && (
+                      <button onClick={handleDeleteScanner}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg ${isDark ? "bg-red-500/15 text-red-400 hover:bg-red-500/25" : "bg-red-50 text-red-600 hover:bg-red-100"}`}>
+                        Delete
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -387,13 +413,29 @@ function ScannerDetailContent() {
                       { label: "Agent", value: scanner.agentVersion ? `v${scanner.agentVersion}` : null },
                       { label: "IoT Name", value: scanner.iotThingName },
                       { label: "MDM", value: scanner.mdmStatus },
-                      { label: "Status", value: scanner.status },
                     ].filter((r) => r.value).map(({ label, value }) => (
                       <div key={label} className="flex items-center justify-between">
                         <span className={`text-[11px] ${isDark ? "text-slate-600" : "text-gray-400"}`}>{label}</span>
                         <span className={`text-xs font-medium ${isDark ? "text-slate-300" : "text-gray-700"}`}>{value}</span>
                       </div>
                     ))}
+                    {/* Status — editable for managers/admins */}
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[11px] ${isDark ? "text-slate-600" : "text-gray-400"}`}>Status</span>
+                      {canEdit ? (
+                        <select
+                          value={scanner.status}
+                          onChange={(e) => handleStatusChange(e.target.value)}
+                          className={`text-xs font-medium rounded px-2 py-1 border ${isDark ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-white border-gray-300 text-gray-700"}`}
+                        >
+                          {["available", "assigned", "maintenance", "lost", "retired"].map((s) => (
+                            <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className={`text-xs font-medium ${isDark ? "text-slate-300" : "text-gray-700"}`}>{scanner.status}</span>
+                      )}
+                    </div>
                     {/* PIN with change button */}
                     <div className="flex items-center justify-between">
                       <span className={`text-[11px] ${isDark ? "text-slate-600" : "text-gray-400"}`}>System PIN</span>
