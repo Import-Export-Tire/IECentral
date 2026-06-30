@@ -758,7 +758,7 @@ export const generateAgreementText = (
 
   return `EQUIPMENT RESPONSIBILITY AGREEMENT
 
-This Equipment Responsibility Agreement ("Agreement") is entered into between the Employee named below and IE Tires, LLC ("Company").
+This Equipment Responsibility Agreement ("Agreement") is entered into between the Employee named below and Import Export Tire Company ("Company").
 
 EQUIPMENT ASSIGNED:
 ${equipmentLabel} #${equipmentNumber}${serialDisplay}
