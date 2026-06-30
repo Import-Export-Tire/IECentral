@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
 import { useTheme } from "@/app/theme-context";
+import { useAuth } from "@/app/auth-context";
 
 interface Activity {
   id: string;
@@ -111,8 +112,12 @@ export default function ActivityFeed({
   compact = false,
 }: ActivityFeedProps) {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const isDark = theme === "dark";
-  const activities = useQuery(api.activity.getRecentActivity, { limit });
+  const activities = useQuery(
+    api.activity.getRecentActivity,
+    user ? { limit, requestingUserId: user._id } : "skip"
+  );
 
   if (!activities) {
     return (

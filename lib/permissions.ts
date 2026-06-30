@@ -497,15 +497,29 @@ export interface DashboardWidgetPermissions {
 
 export function getDashboardWidgetPermissions(user: PermissionUser): DashboardWidgetPermissions {
   const tier = getTier(user.role);
+  // Tier defaults, keyed by permission key so a per-user override (Edit User ->
+  // Permissions -> "...Widget") can grant/deny any widget. Previously this was
+  // tier-only and ignored overrides, so denying e.g. the Activity Feed had no effect.
+  const defaults: Record<string, boolean> = {
+    "dashboard.dayAtAGlance": true, // All tiers
+    "dashboard.activeProjects": tier >= 2, // T2+
+    "dashboard.recentApplications": tier >= 2, // T2+
+    "dashboard.websiteMessages": tier >= 4, // T4+
+    "dashboard.hiringAnalytics": tier >= 2, // T2+
+    "dashboard.activityFeed": tier >= 2, // T2+
+    "dashboard.tenureCheckins": tier >= 2, // T2+
+    "dashboard.financialSnapshot": tier >= 5, // T5 only (super admin)
+  };
+  const r = (key: string) => resolvePermission(key, defaults, user.permissionOverrides);
   return {
-    dayAtAGlance: true, // All tiers
-    activeProjects: tier >= 2, // T2+
-    recentApplications: tier >= 2, // T2+
-    websiteMessages: tier >= 4, // T4+
-    hiringAnalytics: tier >= 2, // T2+
-    activityFeed: tier >= 2, // T2+
-    tenureCheckins: tier >= 2, // T2+
-    financialSnapshot: tier >= 5, // T5 only (super admin)
+    dayAtAGlance: r("dashboard.dayAtAGlance"),
+    activeProjects: r("dashboard.activeProjects"),
+    recentApplications: r("dashboard.recentApplications"),
+    websiteMessages: r("dashboard.websiteMessages"),
+    hiringAnalytics: r("dashboard.hiringAnalytics"),
+    activityFeed: r("dashboard.activityFeed"),
+    tenureCheckins: r("dashboard.tenureCheckins"),
+    financialSnapshot: r("dashboard.financialSnapshot"),
   };
 }
 

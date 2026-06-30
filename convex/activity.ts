@@ -1,12 +1,25 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
+import { getTier, resolvePermission } from "../lib/permissions";
 
 // Get recent activity
 export const getRecentActivity = query({
   args: {
     limit: v.optional(v.number()),
+    requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    // Gate by the caller's resolved Activity Feed permission (tier default + any
+    // per-user override). Denied users get nothing, even if the widget somehow renders.
+    const u = await ctx.db.get(args.requestingUserId);
+    if (!u) return [];
+    const allowed = resolvePermission(
+      "dashboard.activityFeed",
+      { "dashboard.activityFeed": getTier(u.role) >= 2 },
+      u.permissionOverrides
+    );
+    if (!allowed) return [];
+
     const limit = args.limit || 50;
 
     // For now, we'll construct activity from existing data
