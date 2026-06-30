@@ -65,20 +65,16 @@ export async function printAgreementPdf(info: AgreementInfo): Promise<void> {
 
   const url = doc.output("bloburl") as unknown as string;
   const iframe = document.createElement("iframe");
-  iframe.style.position = "fixed";
-  iframe.style.right = "0";
-  iframe.style.bottom = "0";
-  iframe.style.width = "0";
-  iframe.style.height = "0";
-  iframe.style.border = "0";
+  Object.assign(iframe.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0" });
   iframe.src = url;
-  document.body.appendChild(iframe);
+  // Attach onload BEFORE appending, and delay print() ~400ms so the PDF viewer has
+  // actually rendered — printing immediately on load prints blank pages.
+  // (Mirrors the working print path in app/safety-reports + app/bin-labels.)
   iframe.onload = () => {
-    try {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-    } catch {
-      /* ignore */
-    }
+    setTimeout(() => {
+      try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch { /* ignore */ }
+    }, 400);
   };
+  document.body.appendChild(iframe);
+  setTimeout(() => { try { document.body.removeChild(iframe); } catch { /* ignore */ } }, 120000);
 }
