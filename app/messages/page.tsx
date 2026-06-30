@@ -1149,7 +1149,10 @@ function MessagesContent() {
               )}
 
               {/* Message Input */}
-              <div className={`p-2 sm:p-4 border-t relative safe-area-bottom ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+              {/* Bottom padding is base + safe-area inset (additive) so desktop keeps its
+                  normal padding while notched phones still clear the home indicator.
+                  (Plain `safe-area-bottom` overrode the padding to 0 on desktop.) */}
+              <div className={`p-2 sm:p-4 border-t relative pb-[calc(0.5rem_+_env(safe-area-inset-bottom))] sm:pb-[calc(1rem_+_env(safe-area-inset-bottom))] ${isDark ? "border-slate-700" : "border-gray-200"}`}>
                 {/* Emoji Picker */}
                 {showEmojiPicker && (
                   <div
