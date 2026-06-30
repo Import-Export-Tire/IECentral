@@ -10,6 +10,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import SignaturePad from "@/components/SignaturePad";
+import { buildAgreementText, printAgreementPdf } from "@/lib/equipmentAgreementPdf";
 import ScannerStatusDot, { getScannerHealth } from "../components/ScannerStatusDot";
 import ScannerBatteryBar from "../components/ScannerBatteryBar";
 import WifiSignalIcon from "../components/WifiSignalIcon";
@@ -38,6 +39,12 @@ function ScannerDetailContent() {
   const [assignStep, setAssignStep] = useState<1 | 2>(1);
   const [selectedPersonnelId, setSelectedPersonnelId] = useState<Id<"personnel"> | "">("");
   const [signatureData, setSignatureData] = useState("");
+  // Paper-signing path: draw on screen, or print + upload a signed copy
+  const [assignMethod, setAssignMethod] = useState<"draw" | "upload">("draw");
+  const [uploadedDocId, setUploadedDocId] = useState<Id<"_storage"> | null>(null);
+  const [uploadedDocType, setUploadedDocType] = useState("");
+  const [uploadedFileName, setUploadedFileName] = useState("");
+  const [uploadingDoc, setUploadingDoc] = useState(false);
 
   // Return state
   const [showReturnModal, setShowReturnModal] = useState(false);
@@ -75,6 +82,13 @@ function ScannerDetailContent() {
   const unassignScanner = useMutation(api.equipment.unassignScanner);
   const storePendingProvision = useMutation(api.scannerMdm.storePendingProvision);
   const updateScanner = useMutation(api.equipment.updateScanner);
+  const generateAgreementUploadUrl = useMutation(api.equipment.generateAgreementUploadUrl);
+  const attachSignedAgreement = useMutation(api.equipment.attachSignedAgreement);
+  const agreement = useQuery(api.equipment.getEquipmentAgreement, { equipmentType: "scanner", equipmentId: scannerId });
+  const signedDocUrl = useQuery(
+    api.equipment.getSignedAgreementUrl,
+    agreement?.signedDocumentStorageId ? { storageId: agreement.signedDocumentStorageId } : "skip"
+  );
 
   const canEdit = user?.role === "super_admin" || user?.role === "admin" || user?.role === "warehouse_director" || user?.role === "warehouse_manager";
   const isSuperAdmin = user?.role === "super_admin";
@@ -158,29 +172,86 @@ function ScannerDetailContent() {
   };
 
   // Assignment handlers
+  const selectedPerson = personnel?.find((p) => p._id === selectedPersonnelId);
+
   const getAgreementText = () => {
-    if (!scanner || !selectedPersonnelId || !personnel) return "";
-    const person = personnel.find((p) => p._id === selectedPersonnelId);
-    if (!person) return "";
-    return `EQUIPMENT RESPONSIBILITY AGREEMENT\n\nI, ${person.name}, acknowledge receipt of the following company equipment:\n\nType: Scanner\nIdentifier: ${scanner.number}\nSerial Number: ${scanner.serialNumber ?? "N/A"}\n\nI understand that:\n1. This equipment remains the property of IE Tires.\n2. I am responsible for its care and safekeeping.\n3. I will report any damage, loss, or malfunction immediately.\n4. I may be held financially responsible for damage due to negligence (up to $${EQUIPMENT_VALUE}).\n5. I will return this equipment upon request or upon separation from the company.\n\nBy signing below, I acknowledge and agree to these terms.`;
+    if (!scanner || !selectedPerson) return "";
+    return buildAgreementText({
+      personName: selectedPerson.name,
+      equipmentNumber: scanner.number,
+      serialNumber: scanner.serialNumber,
+      equipmentValue: EQUIPMENT_VALUE,
+    });
   };
 
   const handleAssign = async () => {
-    if (!scanner || !user || !selectedPersonnelId || !signatureData) return;
+    if (!scanner || !user || !selectedPersonnelId) return;
+    const hasProof = assignMethod === "draw" ? !!signatureData : !!uploadedDocId;
+    if (!hasProof) return;
     setSending(true);
     try {
       await assignWithAgreement({
         equipmentType: "scanner", equipmentId: scannerId,
         personnelId: selectedPersonnelId as Id<"personnel">,
-        signatureData, userId: user._id, userName: user.name ?? user.email,
+        ...(assignMethod === "draw"
+          ? { signatureData }
+          : { signedDocumentStorageId: uploadedDocId as Id<"_storage">, signedDocumentType: uploadedDocType }),
+        userId: user._id, userName: user.name ?? user.email,
         equipmentValue: EQUIPMENT_VALUE,
       });
       setShowAssignModal(false);
       setAssignStep(1);
       setSelectedPersonnelId("");
       setSignatureData("");
+      setAssignMethod("draw");
+      setUploadedDocId(null); setUploadedDocType(""); setUploadedFileName("");
     } catch (err) { console.error("Assign failed:", err); }
     finally { setSending(false); }
+  };
+
+  // Upload a signed agreement file to Convex storage; returns the storage id + mime.
+  const uploadSignedFile = async (file: File): Promise<{ storageId: Id<"_storage">; type: string }> => {
+    if (!user) throw new Error("Not signed in");
+    const url = await generateAgreementUploadUrl({ requestingUserId: user._id });
+    const res = await fetch(url, { method: "POST", headers: { "Content-Type": file.type }, body: file });
+    if (!res.ok) throw new Error("Upload failed");
+    const { storageId } = await res.json();
+    return { storageId, type: file.type };
+  };
+
+  // Assign-flow: stash the uploaded signed copy until the user confirms assignment.
+  const handleAssignFilePick = async (file: File) => {
+    setUploadingDoc(true);
+    try {
+      const r = await uploadSignedFile(file);
+      setUploadedDocId(r.storageId); setUploadedDocType(r.type); setUploadedFileName(file.name);
+    } catch (err) { console.error("Signed-copy upload failed:", err); }
+    finally { setUploadingDoc(false); }
+  };
+
+  // Existing assignment: attach a signed copy to the active agreement.
+  const handleAttachSignedToExisting = async (file: File) => {
+    if (!user) return;
+    setUploadingDoc(true);
+    try {
+      const r = await uploadSignedFile(file);
+      await attachSignedAgreement({
+        equipmentType: "scanner", equipmentId: scannerId,
+        signedDocumentStorageId: r.storageId, signedDocumentType: r.type, requestingUserId: user._id,
+      });
+    } catch (err) { console.error("Attach signed copy failed:", err); }
+    finally { setUploadingDoc(false); }
+  };
+
+  // Print the pre-filled agreement (assign flow uses the selected person; existing uses the assignee).
+  const printAgreementFor = (personName: string) => {
+    if (!scanner) return;
+    printAgreementPdf({
+      personName,
+      equipmentNumber: scanner.number,
+      serialNumber: scanner.serialNumber,
+      equipmentValue: agreement?.equipmentValue ?? EQUIPMENT_VALUE,
+    });
   };
 
   const handleReturn = async () => {
@@ -345,6 +416,7 @@ function ScannerDetailContent() {
                 <div className={cardClass}>
                   <h3 className={sectionTitle}>Assignment</h3>
                   {scanner.assignedPersonName ? (
+                    <>
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-600"}`}>
                         {scanner.assignedPersonName.split(" ").map((n: string) => n[0]).join("")}
@@ -354,6 +426,32 @@ function ScannerDetailContent() {
                         <div className={`text-[11px] ${isDark ? "text-slate-500" : "text-gray-400"}`}>Since {scanner.assignedAt ? formatDate(scanner.assignedAt) : "--"}</div>
                       </div>
                     </div>
+                    {/* Agreement: print/reprint, attach a signed paper copy, view uploaded copy */}
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <button type="button" onClick={() => printAgreementFor(scanner.assignedPersonName!)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg border ${isDark ? "border-slate-700 text-slate-200 hover:bg-slate-700" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}>
+                        🖨 Print agreement
+                      </button>
+                      <label className={`px-3 py-1.5 text-xs font-medium rounded-lg border cursor-pointer ${isDark ? "border-slate-700 text-slate-200 hover:bg-slate-700" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}>
+                        {uploadingDoc ? "Uploading…" : "Attach signed copy"}
+                        <input type="file" accept="image/*,application/pdf" className="hidden" disabled={uploadingDoc}
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAttachSignedToExisting(f); }} />
+                      </label>
+                      {agreement?.signedDocumentStorageId && signedDocUrl && (
+                        <a href={signedDocUrl} target="_blank" rel="noopener noreferrer"
+                          className={`px-3 py-1.5 text-xs font-medium rounded-lg ${isDark ? "bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25" : "bg-blue-50 text-blue-600 hover:bg-blue-100"}`}>
+                          View signed copy
+                        </a>
+                      )}
+                    </div>
+                    <p className={`mt-2 text-[11px] ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                      {agreement?.signedDocumentStorageId
+                        ? "Signed copy on file (uploaded)"
+                        : agreement?.signatureData
+                          ? "Signed on screen"
+                          : "No signature on file"}
+                    </p>
+                    </>
                   ) : (
                     <p className={`text-sm ${isDark ? "text-slate-600" : "text-gray-400"}`}>Unassigned</p>
                   )}
@@ -734,18 +832,53 @@ function ScannerDetailContent() {
                 ) : (
                   <>
                     <div className={`p-3 rounded-lg mb-4 text-xs ${isDark ? "bg-cyan-500/10 text-cyan-300" : "bg-blue-50 text-blue-700"}`}>
-                      Assigning to: <span className="font-bold">{personnel?.find((p) => p._id === selectedPersonnelId)?.name}</span>
+                      Assigning to: <span className="font-bold">{selectedPerson?.name}</span>
                     </div>
                     <div className={`p-3 rounded-lg mb-4 font-mono text-[11px] max-h-48 overflow-y-auto whitespace-pre-wrap ${isDark ? "bg-slate-900 text-slate-400 border border-slate-700" : "bg-gray-50 text-gray-600 border border-gray-200"}`}>
                       {getAgreementText()}
                     </div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Employee Signature</label>
-                    <div className={`border rounded-lg overflow-hidden ${isDark ? "border-slate-700" : "border-gray-300"}`}>
-                      <SignaturePad height={150} onSignatureChange={(data: string | null) => setSignatureData(data ?? "")} />
+
+                    {/* Signing method: draw on screen, or print + upload a signed copy */}
+                    <div className={`flex rounded-lg p-0.5 mb-4 ${isDark ? "bg-slate-900" : "bg-gray-100"}`}>
+                      <button type="button" onClick={() => setAssignMethod("draw")}
+                        className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${assignMethod === "draw" ? (isDark ? "bg-cyan-500 text-white" : "bg-blue-500 text-white") : (isDark ? "text-slate-400" : "text-gray-600")}`}>
+                        Sign on screen
+                      </button>
+                      <button type="button" onClick={() => setAssignMethod("upload")}
+                        className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${assignMethod === "upload" ? (isDark ? "bg-cyan-500 text-white" : "bg-blue-500 text-white") : (isDark ? "text-slate-400" : "text-gray-600")}`}>
+                        Print &amp; upload
+                      </button>
                     </div>
+
+                    {assignMethod === "draw" ? (
+                      <>
+                        <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Employee Signature</label>
+                        <div className={`border rounded-lg overflow-hidden ${isDark ? "border-slate-700" : "border-gray-300"}`}>
+                          <SignaturePad height={150} onSignatureChange={(data: string | null) => setSignatureData(data ?? "")} />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-3">
+                        <button type="button" onClick={() => selectedPerson && printAgreementFor(selectedPerson.name)}
+                          className={`w-full px-4 py-2 text-sm font-medium rounded-lg border ${isDark ? "border-slate-700 text-slate-200 hover:bg-slate-700" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}>
+                          🖨 Print agreement to sign
+                        </button>
+                        <div>
+                          <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Upload signed copy (photo or PDF)</label>
+                          <input type="file" accept="image/*,application/pdf" disabled={uploadingDoc}
+                            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAssignFilePick(f); }}
+                            className={`block w-full text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`} />
+                          {uploadingDoc && <p className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Uploading…</p>}
+                          {uploadedFileName && !uploadingDoc && (
+                            <p className={`text-xs mt-1 ${isDark ? "text-cyan-400" : "text-blue-600"}`}>Attached: {uploadedFileName}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex justify-end gap-3 mt-6">
                       <button onClick={() => setAssignStep(1)} className={`px-4 py-2 text-sm rounded-lg ${isDark ? "text-slate-300 hover:bg-slate-700" : "text-gray-600 hover:bg-gray-100"}`}>Back</button>
-                      <button onClick={handleAssign} disabled={sending || !signatureData}
+                      <button onClick={handleAssign} disabled={sending || uploadingDoc || (assignMethod === "draw" ? !signatureData : !uploadedDocId)}
                         className={`px-4 py-2 text-sm font-medium rounded-lg disabled:opacity-50 ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-500 text-white hover:bg-blue-600"}`}>
                         {sending ? "Assigning..." : "Assign Equipment"}
                       </button>

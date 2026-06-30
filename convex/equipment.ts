@@ -798,13 +798,20 @@ export const assignEquipmentWithAgreement = mutation({
     equipmentType: v.string(), // "scanner" | "picker"
     equipmentId: v.union(v.id("scanners"), v.id("pickers")),
     personnelId: v.id("personnel"),
-    signatureData: v.string(), // Base64 encoded signature image
+    // Proof of agreement: a drawn on-screen signature OR an uploaded signed paper
+    // copy. At least one is required (both may be present).
+    signatureData: v.optional(v.string()), // Base64 encoded drawn signature image
+    signedDocumentStorageId: v.optional(v.id("_storage")), // Uploaded signed paper copy
+    signedDocumentType: v.optional(v.string()), // mime of the uploaded copy
     userId: v.id("users"), // Admin/manager witnessing
     userName: v.string(), // Name for display
     equipmentValue: v.optional(v.number()), // Default $100
   },
   handler: async (ctx, args) => {
     await requireManagePersonnel(ctx, args.userId);
+    if (!args.signatureData && !args.signedDocumentStorageId) {
+      throw new Error("A signature or an uploaded signed copy is required.");
+    }
     const now = Date.now();
     const equipmentValue = args.equipmentValue ?? 100;
 
@@ -848,6 +855,8 @@ export const assignEquipmentWithAgreement = mutation({
       equipmentValue: equipmentValue,
       agreementText: agreementText,
       signatureData: args.signatureData,
+      signedDocumentStorageId: args.signedDocumentStorageId,
+      signedDocumentType: args.signedDocumentType,
       signedAt: now,
       witnessedBy: args.userId,
       witnessedByName: args.userName,
@@ -1016,6 +1025,52 @@ export const getEquipmentAgreement = query({
     // Return the active (non-revoked) agreement, or the most recent one
     const active = agreements.find((a) => !a.revokedAt);
     return active ?? agreements[0] ?? null;
+  },
+});
+
+// Generate an upload URL for a signed paper agreement copy (manager-only).
+export const generateAgreementUploadUrl = mutation({
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+// Attach a signed paper copy to the active agreement for a piece of equipment
+// (used when an admin uploads the signed copy after an assignment already exists).
+export const attachSignedAgreement = mutation({
+  args: {
+    equipmentType: v.string(),
+    equipmentId: v.union(v.id("scanners"), v.id("pickers")),
+    signedDocumentStorageId: v.id("_storage"),
+    signedDocumentType: v.string(),
+    requestingUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    const agreements = await ctx.db
+      .query("equipmentAgreements")
+      .withIndex("by_equipment", (q) =>
+        q.eq("equipmentType", args.equipmentType).eq("equipmentId", args.equipmentId)
+      )
+      .order("desc")
+      .collect();
+    const active = agreements.find((a) => !a.revokedAt);
+    if (!active) throw new Error("No active agreement found for this equipment.");
+    await ctx.db.patch(active._id, {
+      signedDocumentStorageId: args.signedDocumentStorageId,
+      signedDocumentType: args.signedDocumentType,
+    });
+    return { success: true };
+  },
+});
+
+// Resolve a viewable URL for an uploaded signed agreement copy.
+export const getSignedAgreementUrl = query({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    return await ctx.storage.getUrl(args.storageId);
   },
 });
 

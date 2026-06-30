@@ -999,7 +999,11 @@ export default defineSchema({
     serialNumber: v.optional(v.string()), // Serial number at time of signing
     equipmentValue: v.number(), // Dollar value (e.g., 100)
     agreementText: v.string(), // Full disclosure text
-    signatureData: v.string(), // Base64 encoded signature image
+    // Proof of agreement: a drawn on-screen signature OR an uploaded signed paper copy
+    // (at least one is required by the assign mutation).
+    signatureData: v.optional(v.string()), // Base64 encoded drawn signature image
+    signedDocumentStorageId: v.optional(v.id("_storage")), // Uploaded signed paper copy
+    signedDocumentType: v.optional(v.string()), // mime of the uploaded copy (image/* or application/pdf)
     signedAt: v.number(), // Timestamp when signed
     witnessedBy: v.id("users"), // Admin/manager who processed assignment
     witnessedByName: v.string(), // Name for display

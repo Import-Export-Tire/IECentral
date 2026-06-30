@@ -2765,18 +2765,22 @@ function PersonnelDetailContent() {
                         <div className={`mt-3 pt-3 border-t flex items-end justify-between ${isDark ? "border-slate-700" : "border-gray-100"}`}>
                           <div>
                             <p className={`text-xs mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Signature:</p>
-                            <div className={`inline-block rounded border p-2 ${isDark ? "bg-white border-slate-600" : "bg-white border-gray-200"}`}>
-                              <img
-                                src={agreement.signatureData}
-                                alt="Employee signature"
-                                className="h-12 max-w-48 object-contain"
-                              />
-                            </div>
+                            {agreement.signatureData ? (
+                              <div className={`inline-block rounded border p-2 ${isDark ? "bg-white border-slate-600" : "bg-white border-gray-200"}`}>
+                                <img
+                                  src={agreement.signatureData}
+                                  alt="Employee signature"
+                                  className="h-12 max-w-48 object-contain"
+                                />
+                              </div>
+                            ) : (
+                              <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Signed copy uploaded</p>
+                            )}
                           </div>
                           <button
                             onClick={() => setViewingAgreement({
                               text: agreement.agreementText,
-                              signatureData: agreement.signatureData,
+                              signatureData: agreement.signatureData ?? "",
                               signedAt: agreement.signedAt,
                               witnessedByName: agreement.witnessedByName,
                             })}
