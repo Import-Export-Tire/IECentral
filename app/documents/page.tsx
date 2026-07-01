@@ -6,7 +6,8 @@ import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useTheme } from "../theme-context";
 import {
   DocHubProvider,
-  DocHubSidebar,
+  DocHubRail,
+  MobileNav,
   FileBrowser,
   ContextMenu,
   PreviewModal,
@@ -14,6 +15,7 @@ import {
   FolderModal,
   ShareAccessModal,
   GroupsModal,
+  ManageDrawer,
 } from "@/components/dochub";
 import { useDocHub } from "@/components/dochub/DocHubContext";
 
@@ -44,11 +46,12 @@ function DocumentsContent() {
 
         <DocHubProvider>
           <DocDeepLink />
+          <MobileNav />
           <div className="flex-1 flex overflow-hidden">
-            {/* Doc Hub Sidebar — folder tree, privacy tiers, storage meter */}
-            <DocHubSidebar />
+            {/* Plain-language rail (desktop) */}
+            <DocHubRail />
 
-            {/* File Browser — breadcrumbs, grid/list, file cards */}
+            {/* File Browser — top bar, rail-driven content, cards */}
             <FileBrowser />
           </div>
 
@@ -59,6 +62,7 @@ function DocumentsContent() {
           <FolderModal />
           <ShareAccessModal />
           <GroupsModal />
+          <ManageDrawer />
         </DocHubProvider>
       </main>
     </div>
