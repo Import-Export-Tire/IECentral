@@ -14,6 +14,9 @@ import { buildAgreementText, printAgreementPdf } from "@/lib/equipmentAgreementP
 import ScannerStatusDot, { getScannerHealth } from "../components/ScannerStatusDot";
 import ScannerBatteryBar from "../components/ScannerBatteryBar";
 import WifiSignalIcon from "../components/WifiSignalIcon";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 type CommandType = "lock" | "unlock" | "wipe" | "install_apk" | "push_config" | "restart" | "update_pin";
 const EQUIPMENT_VALUE = 100;
@@ -301,18 +304,20 @@ function ScannerDetailContent() {
 
   if (!scanner) {
     return (
-      <Protected><div className="flex h-screen"><Sidebar />
-        <main className={`flex-1 flex items-center justify-center ${isDark ? "bg-slate-950" : "bg-gray-50"}`}>
-          <MobileHeader /><div className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Loading scanner...</div>
-        </main></div></Protected>
+      <Protected>
+        <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+          <Sidebar />
+          <main className="flex-1 flex items-center justify-center">
+            <MobileHeader />
+            <div className="text-sm theme-text-tertiary">Loading scanner...</div>
+          </main>
+        </div>
+      </Protected>
     );
   }
 
   const health = getScannerHealth(scanner);
   const isProvisioned = scanner.mdmStatus === "provisioned";
-  const cardClass = `rounded-xl border p-5 ${isDark ? "bg-slate-900/50 border-slate-800" : "bg-white border-gray-200 shadow-sm"}`;
-  const sectionTitle = `text-[11px] font-semibold uppercase tracking-widest mb-4 ${isDark ? "text-slate-500" : "text-gray-400"}`;
-  const inputClass = `w-full px-3 py-2 text-sm border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`;
 
   const commandButtons: { cmd: CommandType; label: string; icon: string; color: string; requiresAdmin?: boolean; requiresDeviceOwner?: boolean }[] = [
     { cmd: "lock", label: "Lock", icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z", color: "amber" },
@@ -320,7 +325,6 @@ function ScannerDetailContent() {
     { cmd: "update_pin", label: "Reset PIN", icon: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z", color: "blue", requiresDeviceOwner: true },
     { cmd: "install_apk", label: "Push Update", icon: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4", color: "cyan" },
     { cmd: "push_config", label: "Push Config", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z", color: "purple" },
-
     { cmd: "restart", label: "Restart", icon: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15", color: "slate" },
     { cmd: "wipe", label: "Factory Reset", icon: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16", color: "red", requiresAdmin: true },
   ];
@@ -332,61 +336,70 @@ function ScannerDetailContent() {
 
   return (
     <Protected>
-      <div className="flex h-screen">
+      <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
         <Sidebar />
-        <main className={`flex-1 overflow-auto ${isDark ? "bg-slate-950" : "bg-gray-50"}`}>
+        <main className="flex-1 overflow-auto">
           <MobileHeader />
 
-          {/* Header */}
-          <div className={`border-b ${isDark ? "border-slate-800" : "border-gray-200"}`}>
-            <div className={`h-1 ${isDark ? "bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500" : "bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"}`} />
-            <div className="px-4 sm:px-6 lg:px-8 py-4">
-              <button onClick={() => router.push("/equipment/scanners")} className={`flex items-center gap-1 text-xs mb-3 transition-colors ${isDark ? "text-slate-500 hover:text-slate-300" : "text-gray-400 hover:text-gray-600"}`}>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                Fleet
-              </button>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+          {/* Standard iOS-style sticky page header */}
+          <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <button
+                  onClick={() => router.push("/equipment/scanners")}
+                  className="flex items-center gap-1 text-xs mb-1 theme-text-tertiary hover:theme-text-secondary transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  Fleet
+                </button>
+                <div className="flex items-center gap-2.5">
                   <ScannerStatusDot health={health} size="lg" />
                   <div>
-                    <h1 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Scanner {scanner.number}</h1>
-                    <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                    <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Scanner {scanner.number}</h1>
+                    <p className="text-xs mt-0.5 hidden sm:block theme-text-tertiary">
                       {scanner.locationName} &middot; {scanner.model ?? "Unknown"} &middot; {scanner.serialNumber ?? "No serial"}
                     </p>
                   </div>
                 </div>
-                {/* Assignment actions in header */}
-                {canEdit && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {scanner.status === "available" && (
-                      <button onClick={() => { setShowAssignModal(true); setAssignStep(1); setSelectedPersonnelId(""); setSignatureData(""); }}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg ${isDark ? "bg-cyan-500/15 text-cyan-400 hover:bg-cyan-500/25" : "bg-blue-50 text-blue-600 hover:bg-blue-100"}`}>
-                        Assign
-                      </button>
-                    )}
-                    {scanner.status === "assigned" && (
-                      <>
-                        <button onClick={() => setShowReturnModal(true)}
-                          className={`px-3 py-1.5 text-xs font-medium rounded-lg ${isDark ? "bg-amber-500/15 text-amber-400 hover:bg-amber-500/25" : "bg-amber-50 text-amber-600 hover:bg-amber-100"}`}>
-                          Return
-                        </button>
-                        <button onClick={handleQuickUnassign}
-                          className={`px-3 py-1.5 text-xs font-medium rounded-lg ${isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                          Unassign
-                        </button>
-                      </>
-                    )}
-                    {isSuperAdmin && (
-                      <button onClick={handleDeleteScanner}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg ${isDark ? "bg-red-500/15 text-red-400 hover:bg-red-500/25" : "bg-red-50 text-red-600 hover:bg-red-100"}`}>
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                )}
               </div>
+              {canEdit && (
+                <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+                  {scanner.status === "available" && (
+                    <Button
+                      variant="primary"
+                      onClick={() => { setShowAssignModal(true); setAssignStep(1); setSelectedPersonnelId(""); setSignatureData(""); }}
+                    >
+                      Assign
+                    </Button>
+                  )}
+                  {scanner.status === "assigned" && (
+                    <>
+                      <Button
+                        variant="secondary"
+                        onClick={() => setShowReturnModal(true)}
+                      >
+                        Return
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={handleQuickUnassign}
+                      >
+                        Unassign
+                      </Button>
+                    </>
+                  )}
+                  {isSuperAdmin && (
+                    <Button
+                      variant="danger"
+                      onClick={handleDeleteScanner}
+                    >
+                      Delete
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
+          </header>
 
           <div className="px-4 sm:px-6 lg:px-8 py-5">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -394,16 +407,16 @@ function ScannerDetailContent() {
               {/* Left Column */}
               <div className="space-y-5">
                 {/* Device Info */}
-                <div className={cardClass}>
-                  <h3 className={sectionTitle}>Device</h3>
+                <Card>
+                  <SectionHeader label="Device" />
                   <div className="flex flex-wrap items-center gap-2 mb-4">
                     {scanner.deviceOwner ? (
-                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${isDark ? "bg-emerald-500/15 text-emerald-400" : "bg-green-50 text-green-600"}`}>Device Owner</span>
+                      <span className="ui-badge ui-badge-green">Device Owner</span>
                     ) : (
-                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${isDark ? "bg-slate-800 text-slate-400" : "bg-gray-100 text-gray-500"}`}>Admin only</span>
+                      <span className="ui-badge ui-badge-gray">Admin only</span>
                     )}
                     {scanner.pinManaged && (
-                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${isDark ? "bg-blue-500/15 text-blue-400" : "bg-blue-50 text-blue-600"}`}>PIN managed</span>
+                      <span className="ui-badge ui-badge-blue">PIN managed</span>
                     )}
                   </div>
                   <div className="space-y-2.5">
@@ -416,104 +429,112 @@ function ScannerDetailContent() {
                       { label: "MDM", value: scanner.mdmStatus },
                     ].filter((r) => r.value).map(({ label, value }) => (
                       <div key={label} className="flex items-center justify-between">
-                        <span className={`text-[11px] ${isDark ? "text-slate-600" : "text-gray-400"}`}>{label}</span>
-                        <span className={`text-xs font-medium ${isDark ? "text-slate-300" : "text-gray-700"}`}>{value}</span>
+                        <span className="text-[11px] theme-text-tertiary">{label}</span>
+                        <span className="text-xs font-medium theme-text-secondary">{value}</span>
                       </div>
                     ))}
                     {/* Status — editable for managers/admins */}
                     <div className="flex items-center justify-between">
-                      <span className={`text-[11px] ${isDark ? "text-slate-600" : "text-gray-400"}`}>Status</span>
+                      <span className="text-[11px] theme-text-tertiary">Status</span>
                       {canEdit ? (
                         <select
                           value={scanner.status}
                           onChange={(e) => handleStatusChange(e.target.value)}
-                          className={`text-xs font-medium rounded px-2 py-1 border ${isDark ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-white border-gray-300 text-gray-700"}`}
+                          className="theme-input text-xs font-medium px-2 py-1"
                         >
                           {["available", "assigned", "maintenance", "lost", "retired"].map((s) => (
                             <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
                           ))}
                         </select>
                       ) : (
-                        <span className={`text-xs font-medium ${isDark ? "text-slate-300" : "text-gray-700"}`}>{scanner.status}</span>
+                        <span className="text-xs font-medium theme-text-secondary">{scanner.status}</span>
                       )}
                     </div>
                     {/* PIN with change button */}
                     <div className="flex items-center justify-between">
-                      <span className={`text-[11px] ${isDark ? "text-slate-600" : "text-gray-400"}`}>System PIN</span>
+                      <span className="text-[11px] theme-text-tertiary">System PIN</span>
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs font-mono font-medium ${isDark ? "text-slate-300" : "text-gray-700"}`}>{scanner.pin || "Not set"}</span>
+                        <span className="text-xs font-mono font-medium theme-text-secondary">{scanner.pin || "Not set"}</span>
                         {canEdit && (
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => { setShowPinModal(true); setNewPin(""); setConfirmPin(""); setPinError(""); }}
-                            className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${isDark ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}
                           >
                             Change
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </div>
                   </div>
-                </div>
+                </Card>
 
                 {/* Assignment */}
-                <div className={cardClass}>
-                  <h3 className={sectionTitle}>Assignment</h3>
+                <Card>
+                  <SectionHeader label="Assignment" />
                   {scanner.assignedPersonName ? (
                     <>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-600"}`}>
-                        {scanner.assignedPersonName.split(" ").map((n: string) => n[0]).join("")}
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold bg-blue-500/15 text-blue-500">
+                          {scanner.assignedPersonName.split(" ").map((n: string) => n[0]).join("")}
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium theme-text-primary">{scanner.assignedPersonName}</div>
+                          <div className="text-[11px] theme-text-tertiary">Since {scanner.assignedAt ? formatDate(scanner.assignedAt) : "--"}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{scanner.assignedPersonName}</div>
-                        <div className={`text-[11px] ${isDark ? "text-slate-500" : "text-gray-400"}`}>Since {scanner.assignedAt ? formatDate(scanner.assignedAt) : "--"}</div>
+                      {/* Agreement: print/reprint, attach a signed paper copy, view uploaded copy */}
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => printAgreementFor(scanner.assignedPersonName!)}
+                        >
+                          Print agreement
+                        </Button>
+                        <label className="inline-flex items-center justify-center gap-1.5 rounded-[9px] font-semibold transition-colors px-3 py-1.5 text-[13px] theme-btn-secondary cursor-pointer">
+                          {uploadingDoc ? "Uploading…" : "Attach signed copy"}
+                          <input type="file" accept="image/*,application/pdf" className="hidden" disabled={uploadingDoc}
+                            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAttachSignedToExisting(f); }} />
+                        </label>
+                        {agreement?.signedDocumentStorageId && signedDocUrl && (
+                          <a
+                            href={signedDocUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center gap-1.5 rounded-[9px] font-semibold transition-colors px-3 py-1.5 text-[13px] theme-btn-primary"
+                          >
+                            View signed copy
+                          </a>
+                        )}
                       </div>
-                    </div>
-                    {/* Agreement: print/reprint, attach a signed paper copy, view uploaded copy */}
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <button type="button" onClick={() => printAgreementFor(scanner.assignedPersonName!)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg border ${isDark ? "border-slate-700 text-slate-200 hover:bg-slate-700" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}>
-                        🖨 Print agreement
-                      </button>
-                      <label className={`px-3 py-1.5 text-xs font-medium rounded-lg border cursor-pointer ${isDark ? "border-slate-700 text-slate-200 hover:bg-slate-700" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}>
-                        {uploadingDoc ? "Uploading…" : "Attach signed copy"}
-                        <input type="file" accept="image/*,application/pdf" className="hidden" disabled={uploadingDoc}
-                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAttachSignedToExisting(f); }} />
-                      </label>
-                      {agreement?.signedDocumentStorageId && signedDocUrl && (
-                        <a href={signedDocUrl} target="_blank" rel="noopener noreferrer"
-                          className={`px-3 py-1.5 text-xs font-medium rounded-lg ${isDark ? "bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25" : "bg-blue-50 text-blue-600 hover:bg-blue-100"}`}>
-                          View signed copy
-                        </a>
-                      )}
-                    </div>
-                    <p className={`mt-2 text-[11px] ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                      {agreement?.signedDocumentStorageId
-                        ? "Signed copy on file (uploaded)"
-                        : agreement?.signatureData
-                          ? "Signed on screen"
-                          : "No signature on file"}
-                    </p>
+                      <p className="mt-2 text-[11px] theme-text-tertiary">
+                        {agreement?.signedDocumentStorageId
+                          ? "Signed copy on file (uploaded)"
+                          : agreement?.signatureData
+                            ? "Signed on screen"
+                            : "No signature on file"}
+                      </p>
                     </>
                   ) : (
-                    <p className={`text-sm ${isDark ? "text-slate-600" : "text-gray-400"}`}>Unassigned</p>
+                    <p className="text-sm theme-text-tertiary">Unassigned</p>
                   )}
-                </div>
+                </Card>
 
                 {/* Location / GPS */}
-                <div className={cardClass}>
-                  <h3 className={sectionTitle}>Location</h3>
-                  <div className={`text-sm font-medium mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>{scanner.locationName}</div>
+                <Card>
+                  <SectionHeader label="Location" />
+                  <div className="text-sm font-medium mb-2 theme-text-primary">{scanner.locationName}</div>
                   {scanner.gpsLatitude && scanner.gpsLongitude ? (
                     <div>
-                      <div className={`text-xs font-mono mb-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      <div className="text-xs font-mono mb-2 theme-text-secondary">
                         {scanner.gpsLatitude.toFixed(6)}, {scanner.gpsLongitude.toFixed(6)}
                       </div>
                       <a
                         href={`https://maps.google.com/?q=${scanner.gpsLatitude},${scanner.gpsLongitude}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg ${isDark ? "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20" : "bg-blue-50 text-blue-600 hover:bg-blue-100"}`}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[9px] theme-btn-secondary"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -523,51 +544,57 @@ function ScannerDetailContent() {
                       </a>
                     </div>
                   ) : (
-                    <p className={`text-xs ${isDark ? "text-slate-600" : "text-gray-400"}`}>GPS data not available yet</p>
+                    <p className="text-xs theme-text-tertiary">GPS data not available yet</p>
                   )}
-                </div>
+                </Card>
 
                 {/* Notes */}
                 {(scanner.notes || scanner.conditionNotes) && (
-                  <div className={cardClass}>
-                    <h3 className={sectionTitle}>Notes</h3>
-                    {scanner.notes && <p className={`text-sm mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{scanner.notes}</p>}
-                    {scanner.conditionNotes && <p className={`text-sm px-3 py-2 rounded-lg ${isDark ? "bg-amber-500/10 text-amber-300" : "bg-amber-50 text-amber-700"}`}>{scanner.conditionNotes}</p>}
-                  </div>
+                  <Card>
+                    <SectionHeader label="Notes" />
+                    {scanner.notes && <p className="text-sm mb-2 theme-text-secondary">{scanner.notes}</p>}
+                    {scanner.conditionNotes && (
+                      <p className="text-sm px-3 py-2 rounded-lg ui-callout-amber">{scanner.conditionNotes}</p>
+                    )}
+                  </Card>
                 )}
               </div>
 
               {/* Right Column */}
               <div className="lg:col-span-2 space-y-5">
                 {/* Live Telemetry */}
-                <div className={cardClass}>
-                  <h3 className={sectionTitle}>Telemetry</h3>
+                <Card>
+                  <SectionHeader label="Telemetry" />
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                     <div>
-                      <div className={`text-[10px] uppercase tracking-wider mb-1 ${isDark ? "text-slate-600" : "text-gray-400"}`}>Battery</div>
+                      <div className="ui-section-label mb-1">Battery</div>
                       <ScannerBatteryBar level={scanner.batteryLevel} size="md" showLabel />
                     </div>
                     <div>
-                      <div className={`text-[10px] uppercase tracking-wider mb-1 ${isDark ? "text-slate-600" : "text-gray-400"}`}>WiFi</div>
+                      <div className="ui-section-label mb-1">WiFi</div>
                       <WifiSignalIcon signal={scanner.wifiSignal} showLabel />
                     </div>
                     <div>
-                      <div className={`text-[10px] uppercase tracking-wider mb-1 ${isDark ? "text-slate-600" : "text-gray-400"}`}>Last Seen</div>
-                      <span className={`text-sm font-medium ${isDark ? "text-slate-300" : "text-gray-700"}`}>{timeAgo(scanner.lastSeen)}</span>
+                      <div className="ui-section-label mb-1">Last Seen</div>
+                      <span className="text-sm font-medium theme-text-secondary">{timeAgo(scanner.lastSeen)}</span>
                     </div>
                     <div>
-                      <div className={`text-[10px] uppercase tracking-wider mb-1 ${isDark ? "text-slate-600" : "text-gray-400"}`}>Locked</div>
-                      <span className={`text-sm font-medium ${scanner.isLocked ? "text-amber-400" : isDark ? "text-emerald-400" : "text-emerald-600"}`}>{scanner.isLocked ? "Locked" : "Unlocked"}</span>
+                      <div className="ui-section-label mb-1">Locked</div>
+                      <span className={`text-sm font-medium ${scanner.isLocked ? "text-amber-400" : "text-emerald-500"}`}>
+                        {scanner.isLocked ? "Locked" : "Unlocked"}
+                      </span>
                     </div>
                     <div>
-                      <div className={`text-[10px] uppercase tracking-wider mb-1 ${isDark ? "text-slate-600" : "text-gray-400"}`}>Provisioned</div>
-                      <span className={`text-sm font-medium ${isProvisioned ? (isDark ? "text-emerald-400" : "text-emerald-600") : (isDark ? "text-slate-500" : "text-gray-400")}`}>{isProvisioned ? "Yes" : "No"}</span>
+                      <div className="ui-section-label mb-1">Provisioned</div>
+                      <span className={`text-sm font-medium ${isProvisioned ? "text-emerald-500" : "theme-text-tertiary"}`}>
+                        {isProvisioned ? "Yes" : "No"}
+                      </span>
                     </div>
                   </div>
                   {/* Storage usage */}
                   {scanner.storageTotal != null && scanner.storageFree != null && (
-                    <div className="mt-4 pt-3 border-t" style={{ borderColor: isDark ? "rgba(51,65,85,0.5)" : "rgba(229,231,235,0.8)" }}>
-                      <div className={`text-[10px] uppercase tracking-wider mb-2 ${isDark ? "text-slate-600" : "text-gray-400"}`}>Storage</div>
+                    <div className="mt-4 pt-3 border-t theme-border-secondary">
+                      <div className="ui-section-label mb-2">Storage</div>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
                           <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? "bg-slate-800" : "bg-gray-200"}`}>
@@ -577,13 +604,13 @@ function ScannerDetailContent() {
                                   ? "bg-red-500"
                                   : scanner.storageFree < 2000
                                     ? "bg-amber-500"
-                                    : isDark ? "bg-cyan-500" : "bg-blue-500"
+                                    : "bg-[var(--accent-primary)]"
                               }`}
                               style={{ width: `${Math.max(2, Math.round(((scanner.storageTotal - scanner.storageFree) / scanner.storageTotal) * 100))}%` }}
                             />
                           </div>
                         </div>
-                        <span className={`text-xs font-medium whitespace-nowrap ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                        <span className="text-xs font-medium whitespace-nowrap theme-text-secondary">
                           {scanner.storageFree >= 1024
                             ? `${(scanner.storageFree / 1024).toFixed(1)} GB`
                             : `${scanner.storageFree} MB`} free
@@ -596,26 +623,26 @@ function ScannerDetailContent() {
                     </div>
                   )}
                   {scanner.installedApps && (
-                    <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t" style={{ borderColor: isDark ? "rgba(51,65,85,0.5)" : "rgba(229,231,235,0.8)" }}>
-                      {scanner.installedApps.tireTrack && <span className={`text-[11px] px-2 py-0.5 rounded-full ${isDark ? "bg-cyan-500/10 text-cyan-400" : "bg-blue-50 text-blue-600"}`}>TireTrack v{scanner.installedApps.tireTrack}</span>}
-                      {scanner.installedApps.rtLocator && <span className={`text-[11px] px-2 py-0.5 rounded-full ${isDark ? "bg-purple-500/10 text-purple-400" : "bg-purple-50 text-purple-600"}`}>RT Locator v{scanner.installedApps.rtLocator}</span>}
-                      {scanner.installedApps.scannerAgent && <span className={`text-[11px] px-2 py-0.5 rounded-full ${isDark ? "bg-slate-800 text-slate-400" : "bg-gray-100 text-gray-500"}`}>Agent v{scanner.installedApps.scannerAgent}</span>}
+                    <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t theme-border-secondary">
+                      {scanner.installedApps.tireTrack && <span className="ui-badge ui-badge-blue font-mono">TireTrack v{scanner.installedApps.tireTrack}</span>}
+                      {scanner.installedApps.rtLocator && <span className="ui-badge ui-badge-purple font-mono">RT Locator v{scanner.installedApps.rtLocator}</span>}
+                      {scanner.installedApps.scannerAgent && <span className="ui-badge ui-badge-gray font-mono">Agent v{scanner.installedApps.scannerAgent}</span>}
                     </div>
                   )}
-                </div>
+                </Card>
 
                 {/* Alerts — shown when there are active alerts */}
                 {scanner.scannerAlerts && scanner.scannerAlerts.filter((a: any) => !a.resolved).length > 0 && (
-                  <div className={`${cardClass} !border-amber-500/30`}>
-                    <h3 className={sectionTitle}>Active Alerts</h3>
+                  <Card tone="amber">
+                    <SectionHeader label="Active Alerts" />
                     <div className="space-y-2">
                       {scanner.scannerAlerts
                         .filter((a: any) => !a.resolved)
                         .map((alert: any, i: number) => (
                           <div key={i} className={`flex items-center gap-2 p-2.5 rounded-lg ${
-                            alert.type === "low_battery" ? (isDark ? "bg-red-500/10" : "bg-red-50") :
-                            alert.type === "offline" ? (isDark ? "bg-amber-500/10" : "bg-amber-50") :
-                            (isDark ? "bg-orange-500/10" : "bg-orange-50")
+                            alert.type === "low_battery" ? "bg-red-500/10" :
+                            alert.type === "offline" ? "bg-amber-500/10" :
+                            "bg-orange-500/10"
                           }`}>
                             <svg className={`w-4 h-4 flex-shrink-0 ${
                               alert.type === "low_battery" ? "text-red-400" :
@@ -624,110 +651,59 @@ function ScannerDetailContent() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                             </svg>
                             <div className="flex-1">
-                              <span className={`text-xs font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{alert.message}</span>
-                              <span className={`text-[10px] ml-2 ${isDark ? "text-slate-600" : "text-gray-400"}`}>{timeAgo(alert.createdAt)}</span>
+                              <span className="text-xs font-medium theme-text-primary">{alert.message}</span>
+                              <span className="text-[10px] ml-2 theme-text-tertiary">{timeAgo(alert.createdAt)}</span>
                             </div>
                           </div>
                         ))}
                     </div>
-                  </div>
+                  </Card>
                 )}
 
                 {/* Provision Card — shown for unprovisioned scanners */}
                 {canEdit && !isProvisioned && (
-                  <div className={`${cardClass} border-dashed`}>
-                    <h3 className={sectionTitle}>IoT Management</h3>
-                    <p className={`text-sm mb-3 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <div className="theme-card p-5 border-dashed">
+                    <SectionHeader label="IoT Management" />
+                    <p className="text-sm mb-3 theme-text-tertiary">
                       This scanner is not provisioned for remote management.
                     </p>
-                    <button onClick={() => { setProvisionStep("confirm"); setShowProvisionModal(true); setProvisionError(""); }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-cyan-600 hover:bg-cyan-500 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}>
+                    <Button
+                      variant="primary"
+                      onClick={() => { setProvisionStep("confirm"); setShowProvisionModal(true); setProvisionError(""); }}
+                    >
                       Provision Scanner
-                    </button>
-                  </div>
-                )}
-
-                {/* Provision Modal */}
-                {showProvisionModal && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => provisionStep !== "generating" && setShowProvisionModal(false)}>
-                    <div className={`w-full max-w-md rounded-2xl border p-6 ${isDark ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"}`} onClick={(e) => e.stopPropagation()}>
-                      {provisionStep === "confirm" && (
-                        <>
-                          <h3 className={`text-lg font-bold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>Provision Scanner</h3>
-                          <p className={`text-sm mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                            This will create IoT credentials for <strong>{scanner.number}</strong> and generate a setup code.
-                          </p>
-                          <div className="flex gap-3 justify-end">
-                            <button onClick={() => setShowProvisionModal(false)} className={`px-4 py-2 text-sm rounded-lg ${isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-900"}`}>Cancel</button>
-                            <button onClick={handleProvision} className="px-4 py-2 text-sm font-medium rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white">Provision</button>
-                          </div>
-                        </>
-                      )}
-                      {provisionStep === "generating" && (
-                        <div className="text-center py-8">
-                          <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-                          <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Creating IoT credentials...</p>
-                        </div>
-                      )}
-                      {provisionStep === "code" && provisionCode && (
-                        <>
-                          <h3 className={`text-lg font-bold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>Setup Code Ready</h3>
-                          <p className={`text-sm mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Enter this code on the scanner&apos;s setup screen:</p>
-                          <div className={`text-center py-6 rounded-xl mb-4 ${isDark ? "bg-slate-800" : "bg-gray-50"}`}>
-                            <div className={`text-4xl font-mono font-bold tracking-[0.3em] ${isDark ? "text-cyan-400" : "text-blue-600"}`}>{provisionCode.code}</div>
-                            <div className={`text-xs mt-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                              {provisionCode.claimed ? (
-                                <span className="text-emerald-500 font-medium">Claimed! Scanner is provisioning...</span>
-                              ) : (
-                                <>Expires {new Date(provisionCode.expiresAt).toLocaleTimeString()}</>
-                              )}
-                            </div>
-                          </div>
-                          {provisionCode.claimed ? (
-                            <button onClick={() => setShowProvisionModal(false)} className="w-full px-4 py-2 text-sm font-medium rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white">Done</button>
-                          ) : (
-                            <button onClick={() => { navigator.clipboard.writeText(provisionCode.code); }} className={`w-full px-4 py-2 text-sm rounded-lg border ${isDark ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}>Copy Code</button>
-                          )}
-                        </>
-                      )}
-                      {provisionStep === "error" && (
-                        <>
-                          <h3 className={`text-lg font-bold mb-2 text-red-500`}>Provisioning Failed</h3>
-                          <p className={`text-sm mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>{provisionError}</p>
-                          <div className="flex gap-3 justify-end">
-                            <button onClick={() => setShowProvisionModal(false)} className={`px-4 py-2 text-sm rounded-lg ${isDark ? "text-slate-400" : "text-gray-500"}`}>Close</button>
-                            <button onClick={handleProvision} className="px-4 py-2 text-sm font-medium rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white">Retry</button>
-                          </div>
-                        </>
-                      )}
-                    </div>
+                    </Button>
                   </div>
                 )}
 
                 {/* Remote Actions */}
                 {canEdit && isProvisioned && (
-                  <div className={cardClass}>
-                    <h3 className={sectionTitle}>Remote Control</h3>
+                  <Card>
+                    <SectionHeader label="Remote Control" />
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {commandButtons.filter((b) => !b.requiresAdmin || isSuperAdmin).map((btn) => {
                         const blockedByOwner = btn.requiresDeviceOwner && !scanner.deviceOwner;
                         return (
-                          <button key={btn.cmd} onClick={() => initiateCommand(btn.cmd)} disabled={blockedByOwner}
+                          <button
+                            key={btn.cmd}
+                            onClick={() => initiateCommand(btn.cmd)}
+                            disabled={blockedByOwner}
                             title={blockedByOwner ? "Requires Device Owner" : undefined}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors border disabled:opacity-40 disabled:cursor-not-allowed ${isDark ? `bg-${btn.color}-500/5 text-${btn.color}-400 hover:bg-${btn.color}-500/15 border-${btn.color}-500/15` : `bg-${btn.color}-50/50 text-${btn.color}-600 hover:bg-${btn.color}-50 border-${btn.color}-200/50`}`}>
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors border disabled:opacity-40 disabled:cursor-not-allowed ${isDark ? `bg-${btn.color}-500/5 text-${btn.color}-400 hover:bg-${btn.color}-500/15 border-${btn.color}-500/15` : `bg-${btn.color}-50/50 text-${btn.color}-600 hover:bg-${btn.color}-50 border-${btn.color}-200/50`}`}
+                          >
                             <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={btn.icon} /></svg>
                             {btn.label}
                           </button>
                         );
                       })}
                     </div>
-                  </div>
+                  </Card>
                 )}
 
                 {/* Setup History */}
                 {setupLogs && setupLogs.length > 0 && (
-                  <section className={`rounded-xl border ${isDark ? "border-slate-700 bg-slate-800/50" : "border-gray-200 bg-white"} p-4`}>
-                    <h3 className="text-sm font-semibold mb-3">Setup History</h3>
+                  <Card>
+                    <SectionHeader label="Setup History" />
                     <ul className="space-y-1 text-xs">
                       {setupLogs.map((log) => (
                         <li key={log._id} className="flex items-center gap-3">
@@ -741,15 +717,22 @@ function ScannerDetailContent() {
                         </li>
                       ))}
                     </ul>
-                  </section>
+                  </Card>
                 )}
 
                 {/* Timeline */}
-                <div className={`rounded-xl border ${isDark ? "bg-slate-900/50 border-slate-800" : "bg-white border-gray-200 shadow-sm"}`}>
-                  <div className={`flex border-b ${isDark ? "border-slate-800" : "border-gray-200"}`}>
+                <div className="theme-card overflow-hidden p-0">
+                  <div className="flex border-b theme-border-secondary">
                     {(["commands", "history", "conditions"] as const).map((tab) => (
-                      <button key={tab} onClick={() => setActiveTab(tab)}
-                        className={`flex-1 px-4 py-2.5 text-xs font-medium transition-colors ${activeTab === tab ? (isDark ? "text-cyan-400 border-b-2 border-cyan-400" : "text-blue-600 border-b-2 border-blue-600") : (isDark ? "text-slate-500 hover:text-slate-300" : "text-gray-400 hover:text-gray-700")}`}>
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`flex-1 px-4 py-2.5 text-xs font-medium transition-colors ${
+                          activeTab === tab
+                            ? "theme-accent-primary border-b-2 border-[var(--accent-primary)]"
+                            : "theme-text-tertiary hover:theme-text-secondary"
+                        }`}
+                      >
                         {tab === "commands" ? "Commands" : tab === "history" ? "History" : "Conditions"}
                       </button>
                     ))}
@@ -757,21 +740,21 @@ function ScannerDetailContent() {
                   <div className="p-4 max-h-80 overflow-y-auto">
                     {activeTab === "commands" && (
                       <div className="space-y-2">
-                        {!scanner.commands?.length && <p className={`text-xs ${isDark ? "text-slate-600" : "text-gray-400"}`}>No commands sent yet</p>}
+                        {!scanner.commands?.length && <p className="text-xs theme-text-tertiary">No commands sent yet</p>}
                         {scanner.commands?.map((cmd) => (
                           <div key={cmd._id} className={`flex items-center justify-between p-2.5 rounded-lg ${isDark ? "bg-slate-800/50" : "bg-gray-50"}`}>
                             <div className="flex items-center gap-2">
                               <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${cmdStatusColors[cmd.status] ?? "text-slate-400 bg-slate-500/10"}`}>{cmd.status}</span>
-                              <span className={`text-xs font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{cmd.command}</span>
-                              <span className={`text-[10px] ${isDark ? "text-slate-600" : "text-gray-400"}`}>{cmd.issuedByName}</span>
+                              <span className="text-xs font-medium theme-text-primary">{cmd.command}</span>
+                              <span className="text-[10px] theme-text-tertiary">{cmd.issuedByName}</span>
                             </div>
                             <div className="text-right">
-                              <div className={`text-[10px] ${isDark ? "text-slate-600" : "text-gray-400"}`}>{formatDate(cmd.issuedAt)}</div>
+                              <div className="text-[10px] theme-text-tertiary">{formatDate(cmd.issuedAt)}</div>
                               {cmd.acknowledgedAt && (
-                                <div className={`text-[10px] ${isDark ? "text-cyan-600" : "text-cyan-500"}`}>ACK {timeAgo(cmd.acknowledgedAt)}</div>
+                                <div className="text-[10px] text-cyan-500">{`ACK ${timeAgo(cmd.acknowledgedAt)}`}</div>
                               )}
                               {cmd.completedAt && (
-                                <div className={`text-[10px] ${isDark ? "text-emerald-600" : "text-emerald-500"}`}>Done {timeAgo(cmd.completedAt)}</div>
+                                <div className="text-[10px] text-emerald-500">{`Done ${timeAgo(cmd.completedAt)}`}</div>
                               )}
                               {cmd.errorMessage && (
                                 <div className="text-[10px] text-red-400">{cmd.errorMessage}</div>
@@ -783,24 +766,24 @@ function ScannerDetailContent() {
                     )}
                     {activeTab === "history" && (
                       <div className="space-y-2">
-                        {!scanner.history?.length && <p className={`text-xs ${isDark ? "text-slate-600" : "text-gray-400"}`}>No history yet</p>}
+                        {!scanner.history?.length && <p className="text-xs theme-text-tertiary">No history yet</p>}
                         {scanner.history?.map((h) => (
                           <div key={h._id} className={`flex items-center justify-between p-2.5 rounded-lg ${isDark ? "bg-slate-800/50" : "bg-gray-50"}`}>
                             <div>
-                              <span className={`text-xs font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{h.action.replace(/_/g, " ")}</span>
-                              {h.newAssigneeName && <span className={`text-[10px] ml-1.5 ${isDark ? "text-slate-500" : "text-gray-400"}`}>to {h.newAssigneeName}</span>}
-                              {h.notes && <p className={`text-[10px] mt-0.5 ${isDark ? "text-slate-600" : "text-gray-400"}`}>{h.notes}</p>}
+                              <span className="text-xs font-medium theme-text-primary">{h.action.replace(/_/g, " ")}</span>
+                              {h.newAssigneeName && <span className="text-[10px] ml-1.5 theme-text-tertiary">to {h.newAssigneeName}</span>}
+                              {h.notes && <p className="text-[10px] mt-0.5 theme-text-tertiary">{h.notes}</p>}
                             </div>
                             <div className="text-right">
-                              <div className={`text-[10px] ${isDark ? "text-slate-600" : "text-gray-400"}`}>{formatDate(h.createdAt)}</div>
-                              <div className={`text-[10px] ${isDark ? "text-slate-700" : "text-gray-300"}`}>{h.performedByName}</div>
+                              <div className="text-[10px] theme-text-tertiary">{formatDate(h.createdAt)}</div>
+                              <div className="text-[10px] theme-text-tertiary">{h.performedByName}</div>
                             </div>
                           </div>
                         ))}
                       </div>
                     )}
                     {activeTab === "conditions" && (
-                      <p className={`text-xs ${isDark ? "text-slate-600" : "text-gray-400"}`}>Condition checks appear here after equipment returns.</p>
+                      <p className="text-xs theme-text-tertiary">Condition checks appear here after equipment returns.</p>
                     )}
                   </div>
                 </div>
@@ -813,35 +796,105 @@ function ScannerDetailContent() {
           {/* Command Modal */}
           {showCommandModal && pendingCommand && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className={`border rounded-xl p-6 w-full max-w-md ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-                <h2 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  {pendingCommand === "wipe" ? "Factory Reset" : pendingCommand.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} — {scanner.number}
-                </h2>
-                {pendingCommand === "wipe" ? (
-                  <>
-                    <div className={`p-3 rounded-lg mb-4 ${isDark ? "bg-red-500/10 border border-red-500/30" : "bg-red-50 border border-red-200"}`}>
-                      <p className={`text-sm ${isDark ? "text-red-300" : "text-red-700"}`}>This erases ALL data and restores factory settings. Cannot be undone.</p>
+              <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md">
+                <Card>
+                  <h2 className="text-lg font-semibold mb-2 theme-text-primary">
+                    {pendingCommand === "wipe" ? "Factory Reset" : pendingCommand.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} — {scanner.number}
+                  </h2>
+                  {pendingCommand === "wipe" ? (
+                    <>
+                      <div className="p-3 rounded-lg mb-4 ui-callout-red">
+                        <p className="text-sm">This erases ALL data and restores factory settings. Cannot be undone.</p>
+                      </div>
+                      <label className="block text-sm mb-2 theme-text-secondary">Type <span className="font-bold">{scanner.number}</span> to confirm:</label>
+                      <input
+                        type="text"
+                        value={wipeConfirmText}
+                        onChange={(e) => setWipeConfirmText(e.target.value)}
+                        className="theme-input w-full px-3 py-2 text-sm mb-4"
+                        placeholder={scanner.number}
+                      />
+                    </>
+                  ) : (
+                    <p className="text-sm mb-4 theme-text-secondary">
+                      {pendingCommand === "lock" && "Lock the scanner screen immediately."}
+                      {pendingCommand === "unlock" && "Unlock the scanner screen."}
+                      {pendingCommand === "install_apk" && "Push latest APK updates to the scanner."}
+                      {pendingCommand === "push_config" && "Push latest RT Locator configuration."}
+                      {pendingCommand === "restart" && "Restart the scanner device."}
+                      {pendingCommand === "update_pin" && "Generate a new system PIN on the scanner and apply it."}
+                    </p>
+                  )}
+                  <div className="flex justify-end gap-3">
+                    <Button variant="ghost" onClick={() => { setShowCommandModal(false); setPendingCommand(null); }}>Cancel</Button>
+                    <Button
+                      variant={pendingCommand === "wipe" ? "danger" : "primary"}
+                      onClick={executeCommand}
+                      disabled={sending || (pendingCommand === "wipe" && wipeConfirmText !== scanner.number)}
+                    >
+                      {sending ? "Sending..." : "Confirm"}
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {/* Provision Modal */}
+          {showProvisionModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => provisionStep !== "generating" && setShowProvisionModal(false)}>
+              <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md mx-4">
+                <Card>
+                  {provisionStep === "confirm" && (
+                    <>
+                      <h3 className="text-lg font-bold mb-2 theme-text-primary">Provision Scanner</h3>
+                      <p className="text-sm mb-4 theme-text-tertiary">
+                        This will create IoT credentials for <strong>{scanner.number}</strong> and generate a setup code.
+                      </p>
+                      <div className="flex gap-3 justify-end">
+                        <Button variant="ghost" onClick={() => setShowProvisionModal(false)}>Cancel</Button>
+                        <Button variant="primary" onClick={handleProvision}>Provision</Button>
+                      </div>
+                    </>
+                  )}
+                  {provisionStep === "generating" && (
+                    <div className="text-center py-8">
+                      <div className="animate-spin w-8 h-8 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full mx-auto mb-3"></div>
+                      <p className="text-sm theme-text-tertiary">Creating IoT credentials...</p>
                     </div>
-                    <label className={`block text-sm mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Type <span className="font-bold">{scanner.number}</span> to confirm:</label>
-                    <input type="text" value={wipeConfirmText} onChange={(e) => setWipeConfirmText(e.target.value)} className={`${inputClass} mb-4`} placeholder={scanner.number} />
-                  </>
-                ) : (
-                  <p className={`text-sm mb-4 ${isDark ? "text-slate-300" : "text-gray-600"}`}>
-                    {pendingCommand === "lock" && "Lock the scanner screen immediately."}
-                    {pendingCommand === "unlock" && "Unlock the scanner screen."}
-                    {pendingCommand === "install_apk" && "Push latest APK updates to the scanner."}
-                    {pendingCommand === "push_config" && "Push latest RT Locator configuration."}
-                    {pendingCommand === "restart" && "Restart the scanner device."}
-                    {pendingCommand === "update_pin" && "Generate a new system PIN on the scanner and apply it."}
-                  </p>
-                )}
-                <div className="flex justify-end gap-3">
-                  <button onClick={() => { setShowCommandModal(false); setPendingCommand(null); }} className={`px-4 py-2 text-sm rounded-lg ${isDark ? "text-slate-300 hover:bg-slate-700" : "text-gray-600 hover:bg-gray-100"}`}>Cancel</button>
-                  <button onClick={executeCommand} disabled={sending || (pendingCommand === "wipe" && wipeConfirmText !== scanner.number)}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg disabled:opacity-50 ${pendingCommand === "wipe" ? "bg-red-500 text-white hover:bg-red-600" : isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-500 text-white hover:bg-blue-600"}`}>
-                    {sending ? "Sending..." : "Confirm"}
-                  </button>
-                </div>
+                  )}
+                  {provisionStep === "code" && provisionCode && (
+                    <>
+                      <h3 className="text-lg font-bold mb-2 theme-text-primary">Setup Code Ready</h3>
+                      <p className="text-sm mb-4 theme-text-tertiary">Enter this code on the scanner&apos;s setup screen:</p>
+                      <div className={`text-center py-6 rounded-xl mb-4 ${isDark ? "bg-slate-800" : "bg-gray-50"}`}>
+                        <div className="text-4xl font-mono font-bold tracking-[0.3em] theme-accent-primary">{provisionCode.code}</div>
+                        <div className="text-xs mt-2 theme-text-tertiary">
+                          {provisionCode.claimed ? (
+                            <span className="text-emerald-500 font-medium">Claimed! Scanner is provisioning...</span>
+                          ) : (
+                            <>Expires {new Date(provisionCode.expiresAt).toLocaleTimeString()}</>
+                          )}
+                        </div>
+                      </div>
+                      {provisionCode.claimed ? (
+                        <Button variant="primary" className="w-full" onClick={() => setShowProvisionModal(false)}>Done</Button>
+                      ) : (
+                        <Button variant="secondary" className="w-full" onClick={() => { navigator.clipboard.writeText(provisionCode.code); }}>Copy Code</Button>
+                      )}
+                    </>
+                  )}
+                  {provisionStep === "error" && (
+                    <>
+                      <h3 className="text-lg font-bold mb-2 text-red-500">Provisioning Failed</h3>
+                      <p className="text-sm mb-4 theme-text-tertiary">{provisionError}</p>
+                      <div className="flex gap-3 justify-end">
+                        <Button variant="ghost" onClick={() => setShowProvisionModal(false)}>Close</Button>
+                        <Button variant="primary" onClick={handleProvision}>Retry</Button>
+                      </div>
+                    </>
+                  )}
+                </Card>
               </div>
             </div>
           )}
@@ -849,85 +902,106 @@ function ScannerDetailContent() {
           {/* Assign Modal */}
           {showAssignModal && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className={`border rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-                <h2 className={`text-lg font-semibold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Assign Scanner {scanner.number}
-                </h2>
-                <p className={`text-xs mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Step {assignStep} of 2</p>
+              <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                <Card>
+                  <h2 className="text-lg font-semibold mb-1 theme-text-primary">
+                    Assign Scanner {scanner.number}
+                  </h2>
+                  <p className="text-xs mb-4 theme-text-tertiary">Step {assignStep} of 2</p>
 
-                {assignStep === 1 ? (
-                  <>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Select Employee</label>
-                    <select value={selectedPersonnelId as string} onChange={(e) => setSelectedPersonnelId(e.target.value as any)} className={inputClass}>
-                      <option value="">Choose...</option>
-                      {personnel?.sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
-                        <option key={p._id} value={p._id}>{p.name} — {p.position} ({p.department})</option>
-                      ))}
-                    </select>
-                    <div className="flex justify-end gap-3 mt-6">
-                      <button onClick={() => setShowAssignModal(false)} className={`px-4 py-2 text-sm rounded-lg ${isDark ? "text-slate-300 hover:bg-slate-700" : "text-gray-600 hover:bg-gray-100"}`}>Cancel</button>
-                      <button onClick={() => setAssignStep(2)} disabled={!selectedPersonnelId}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg disabled:opacity-50 ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-500 text-white hover:bg-blue-600"}`}>
-                        Continue to Agreement
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className={`p-3 rounded-lg mb-4 text-xs ${isDark ? "bg-cyan-500/10 text-cyan-300" : "bg-blue-50 text-blue-700"}`}>
-                      Assigning to: <span className="font-bold">{selectedPerson?.name}</span>
-                    </div>
-                    <div className={`p-3 rounded-lg mb-4 font-mono text-[11px] max-h-48 overflow-y-auto whitespace-pre-wrap ${isDark ? "bg-slate-900 text-slate-400 border border-slate-700" : "bg-gray-50 text-gray-600 border border-gray-200"}`}>
-                      {getAgreementText()}
-                    </div>
-
-                    {/* Signing method: draw on screen, or print + upload a signed copy */}
-                    <div className={`flex rounded-lg p-0.5 mb-4 ${isDark ? "bg-slate-900" : "bg-gray-100"}`}>
-                      <button type="button" onClick={() => setAssignMethod("draw")}
-                        className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${assignMethod === "draw" ? (isDark ? "bg-cyan-500 text-white" : "bg-blue-500 text-white") : (isDark ? "text-slate-400" : "text-gray-600")}`}>
-                        Sign on screen
-                      </button>
-                      <button type="button" onClick={() => setAssignMethod("upload")}
-                        className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${assignMethod === "upload" ? (isDark ? "bg-cyan-500 text-white" : "bg-blue-500 text-white") : (isDark ? "text-slate-400" : "text-gray-600")}`}>
-                        Print &amp; upload
-                      </button>
-                    </div>
-
-                    {assignMethod === "draw" ? (
-                      <>
-                        <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Employee Signature</label>
-                        <div className={`border rounded-lg overflow-hidden ${isDark ? "border-slate-700" : "border-gray-300"}`}>
-                          <SignaturePad height={150} onSignatureChange={(data: string | null) => setSignatureData(data ?? "")} />
-                        </div>
-                      </>
-                    ) : (
-                      <div className="space-y-3">
-                        <button type="button" onClick={() => selectedPerson && printAgreementFor(selectedPerson.name)}
-                          className={`w-full px-4 py-2 text-sm font-medium rounded-lg border ${isDark ? "border-slate-700 text-slate-200 hover:bg-slate-700" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}>
-                          🖨 Print agreement to sign
-                        </button>
-                        <div>
-                          <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Upload signed copy (photo or PDF)</label>
-                          <input type="file" accept="image/*,application/pdf" disabled={uploadingDoc}
-                            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAssignFilePick(f); }}
-                            className={`block w-full text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`} />
-                          {uploadingDoc && <p className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Uploading…</p>}
-                          {uploadedFileName && !uploadingDoc && (
-                            <p className={`text-xs mt-1 ${isDark ? "text-cyan-400" : "text-blue-600"}`}>Attached: {uploadedFileName}</p>
-                          )}
-                        </div>
+                  {assignStep === 1 ? (
+                    <>
+                      <label className="block text-sm font-medium mb-2 theme-text-secondary">Select Employee</label>
+                      <select
+                        value={selectedPersonnelId as string}
+                        onChange={(e) => setSelectedPersonnelId(e.target.value as any)}
+                        className="theme-input w-full px-3 py-2 text-sm"
+                      >
+                        <option value="">Choose...</option>
+                        {personnel?.sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
+                          <option key={p._id} value={p._id}>{p.name} — {p.position} ({p.department})</option>
+                        ))}
+                      </select>
+                      <div className="flex justify-end gap-3 mt-6">
+                        <Button variant="ghost" onClick={() => setShowAssignModal(false)}>Cancel</Button>
+                        <Button variant="primary" onClick={() => setAssignStep(2)} disabled={!selectedPersonnelId}>
+                          Continue to Agreement
+                        </Button>
                       </div>
-                    )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-3 rounded-lg mb-4 text-xs bg-blue-500/10 text-blue-500 rounded-lg">
+                        Assigning to: <span className="font-bold">{selectedPerson?.name}</span>
+                      </div>
+                      <div className={`p-3 rounded-lg mb-4 font-mono text-[11px] max-h-48 overflow-y-auto whitespace-pre-wrap theme-border-secondary border ${isDark ? "bg-slate-900 theme-text-tertiary" : "bg-gray-50 text-gray-600"}`}>
+                        {getAgreementText()}
+                      </div>
 
-                    <div className="flex justify-end gap-3 mt-6">
-                      <button onClick={() => setAssignStep(1)} className={`px-4 py-2 text-sm rounded-lg ${isDark ? "text-slate-300 hover:bg-slate-700" : "text-gray-600 hover:bg-gray-100"}`}>Back</button>
-                      <button onClick={handleAssign} disabled={sending || uploadingDoc || (assignMethod === "draw" ? !signatureData : !uploadedDocId)}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg disabled:opacity-50 ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-500 text-white hover:bg-blue-600"}`}>
-                        {sending ? "Assigning..." : "Assign Equipment"}
-                      </button>
-                    </div>
-                  </>
-                )}
+                      {/* Signing method: draw on screen, or print + upload a signed copy */}
+                      <div className={`flex rounded-lg p-0.5 mb-4 ${isDark ? "bg-slate-900" : "bg-gray-100"}`}>
+                        <button
+                          type="button"
+                          onClick={() => setAssignMethod("draw")}
+                          className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${assignMethod === "draw" ? "theme-btn-primary" : "theme-text-tertiary"}`}
+                        >
+                          Sign on screen
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAssignMethod("upload")}
+                          className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${assignMethod === "upload" ? "theme-btn-primary" : "theme-text-tertiary"}`}
+                        >
+                          Print &amp; upload
+                        </button>
+                      </div>
+
+                      {assignMethod === "draw" ? (
+                        <>
+                          <label className="block text-sm font-medium mb-2 theme-text-secondary">Employee Signature</label>
+                          <div className="border rounded-lg overflow-hidden theme-border-secondary">
+                            <SignaturePad height={150} onSignatureChange={(data: string | null) => setSignatureData(data ?? "")} />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="space-y-3">
+                          <Button
+                            variant="secondary"
+                            className="w-full"
+                            onClick={() => selectedPerson && printAgreementFor(selectedPerson.name)}
+                          >
+                            Print agreement to sign
+                          </Button>
+                          <div>
+                            <label className="block text-sm font-medium mb-1 theme-text-secondary">Upload signed copy (photo or PDF)</label>
+                            <input
+                              type="file"
+                              accept="image/*,application/pdf"
+                              disabled={uploadingDoc}
+                              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAssignFilePick(f); }}
+                              className="block w-full text-sm theme-text-secondary"
+                            />
+                            {uploadingDoc && <p className="text-xs mt-1 theme-text-tertiary">Uploading…</p>}
+                            {uploadedFileName && !uploadingDoc && (
+                              <p className="text-xs mt-1 text-[var(--accent-primary)]">Attached: {uploadedFileName}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex justify-end gap-3 mt-6">
+                        <Button variant="ghost" onClick={() => setAssignStep(1)}>Back</Button>
+                        <Button
+                          variant="primary"
+                          onClick={handleAssign}
+                          disabled={sending || uploadingDoc || (assignMethod === "draw" ? !signatureData : !uploadedDocId)}
+                        >
+                          {sending ? "Assigning..." : "Assign Equipment"}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </Card>
               </div>
             </div>
           )}
@@ -935,49 +1009,62 @@ function ScannerDetailContent() {
           {/* Return Modal */}
           {showReturnModal && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className={`border rounded-xl p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-                <h2 className={`text-lg font-semibold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>Return Scanner {scanner.number}</h2>
-                <div className={`p-3 rounded-lg mb-4 text-xs ${isDark ? "bg-amber-500/10 text-amber-300" : "bg-amber-50 text-amber-700"}`}>
-                  Returning from: <span className="font-bold">{scanner.assignedPersonName}</span>
-                </div>
+              <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl max-h-[90vh] overflow-y-auto">
+                <Card>
+                  <h2 className="text-lg font-semibold mb-1 theme-text-primary">Return Scanner {scanner.number}</h2>
+                  <div className="p-3 rounded-lg mb-4 text-xs ui-callout-amber">
+                    Returning from: <span className="font-bold">{scanner.assignedPersonName}</span>
+                  </div>
 
-                {/* Condition Checklist */}
-                <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Condition Checklist</label>
-                <div className="grid grid-cols-2 gap-2 mb-4">
-                  {Object.entries(returnChecklist).map(([key, val]) => (
-                    <label key={key} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer text-xs ${val ? (isDark ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-green-50 border border-green-200") : (isDark ? "bg-red-500/10 border border-red-500/20" : "bg-red-50 border border-red-200")}`}>
-                      <input type="checkbox" checked={val} onChange={() => setReturnChecklist((c) => ({ ...c, [key]: !val }))} className="rounded" />
-                      {key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}
+                  {/* Condition Checklist */}
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">Condition Checklist</label>
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    {Object.entries(returnChecklist).map(([key, val]) => (
+                      <label key={key} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer text-xs border ${val ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" : "bg-red-500/10 border-red-500/20 text-red-400"}`}>
+                        <input type="checkbox" checked={val} onChange={() => setReturnChecklist((c) => ({ ...c, [key]: !val }))} className="rounded" />
+                        {key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}
+                      </label>
+                    ))}
+                  </div>
+
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">Overall Condition</label>
+                  <select
+                    value={overallCondition}
+                    onChange={(e) => setOverallCondition(e.target.value)}
+                    className="theme-input w-full px-3 py-2 text-sm mb-4"
+                  >
+                    {["excellent", "good", "fair", "poor", "damaged"].map((c) => (
+                      <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                    ))}
+                  </select>
+
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">Damage Notes</label>
+                  <textarea
+                    value={damageNotes}
+                    onChange={(e) => setDamageNotes(e.target.value)}
+                    className="theme-input w-full px-3 py-2 text-sm mb-4"
+                    rows={2}
+                    placeholder="Describe any damage..."
+                  />
+
+                  <div className="flex items-center gap-4 mb-4">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={repairRequired} onChange={() => { setRepairRequired(!repairRequired); if (!repairRequired) setReadyForReassignment(false); }} className="rounded" />
+                      <span className="theme-text-secondary">Repair Required</span>
                     </label>
-                  ))}
-                </div>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={readyForReassignment} disabled={repairRequired} onChange={() => setReadyForReassignment(!readyForReassignment)} className="rounded" />
+                      <span className="theme-text-secondary">Ready for Reassignment</span>
+                    </label>
+                  </div>
 
-                <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Overall Condition</label>
-                <select value={overallCondition} onChange={(e) => setOverallCondition(e.target.value)} className={`${inputClass} mb-4`}>
-                  {["excellent", "good", "fair", "poor", "damaged"].map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
-                </select>
-
-                <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Damage Notes</label>
-                <textarea value={damageNotes} onChange={(e) => setDamageNotes(e.target.value)} className={`${inputClass} mb-4`} rows={2} placeholder="Describe any damage..." />
-
-                <div className="flex items-center gap-4 mb-4">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={repairRequired} onChange={() => { setRepairRequired(!repairRequired); if (!repairRequired) setReadyForReassignment(false); }} className="rounded" />
-                    <span className={isDark ? "text-slate-300" : "text-gray-700"}>Repair Required</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={readyForReassignment} disabled={repairRequired} onChange={() => setReadyForReassignment(!readyForReassignment)} className="rounded" />
-                    <span className={isDark ? "text-slate-300" : "text-gray-700"}>Ready for Reassignment</span>
-                  </label>
-                </div>
-
-                <div className="flex justify-end gap-3">
-                  <button onClick={() => setShowReturnModal(false)} className={`px-4 py-2 text-sm rounded-lg ${isDark ? "text-slate-300 hover:bg-slate-700" : "text-gray-600 hover:bg-gray-100"}`}>Cancel</button>
-                  <button onClick={handleReturn} disabled={sending}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg disabled:opacity-50 ${isDark ? "bg-amber-500 text-white hover:bg-amber-600" : "bg-amber-500 text-white hover:bg-amber-600"}`}>
-                    {sending ? "Processing..." : "Complete Return"}
-                  </button>
-                </div>
+                  <div className="flex justify-end gap-3">
+                    <Button variant="ghost" onClick={() => setShowReturnModal(false)}>Cancel</Button>
+                    <Button variant="secondary" onClick={handleReturn} disabled={sending}>
+                      {sending ? "Processing..." : "Complete Return"}
+                    </Button>
+                  </div>
+                </Card>
               </div>
             </div>
           )}
@@ -985,74 +1072,71 @@ function ScannerDetailContent() {
           {/* PIN Change Modal */}
           {showPinModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowPinModal(false)}>
-              <div className={`w-full max-w-sm rounded-xl p-6 mx-4 ${isDark ? "bg-slate-800" : "bg-white"}`} onClick={(e) => e.stopPropagation()}>
-                <h3 className={`text-lg font-semibold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>Change PIN</h3>
-                <p className={`text-xs mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                  {scanner?.iotThingName || scanner?.serialNumber || "Scanner"} — minimum 4 numeric digits
-                </p>
+              <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm mx-4">
+                <Card>
+                  <h3 className="text-lg font-semibold mb-1 theme-text-primary">Change PIN</h3>
+                  <p className="text-xs mb-4 theme-text-tertiary">
+                    {scanner?.iotThingName || scanner?.serialNumber || "Scanner"} — minimum 4 numeric digits
+                  </p>
 
-                <div className="space-y-3">
-                  <div>
-                    <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>New PIN</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={newPin}
-                      onChange={(e) => { setNewPin(e.target.value.replace(/\D/g, "")); setPinError(""); }}
-                      maxLength={8}
-                      className={`w-full px-3 py-2 rounded-lg border text-sm font-mono tracking-widest text-center text-lg ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
-                      placeholder="0000"
-                      autoFocus
-                    />
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium mb-1 theme-text-tertiary">New PIN</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={newPin}
+                        onChange={(e) => { setNewPin(e.target.value.replace(/\D/g, "")); setPinError(""); }}
+                        maxLength={8}
+                        className="theme-input w-full px-3 py-2 text-sm font-mono tracking-widest text-center text-lg"
+                        placeholder="0000"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-1 theme-text-tertiary">Confirm PIN</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={confirmPin}
+                        onChange={(e) => { setConfirmPin(e.target.value.replace(/\D/g, "")); setPinError(""); }}
+                        maxLength={8}
+                        className="theme-input w-full px-3 py-2 text-sm font-mono tracking-widest text-center text-lg"
+                        placeholder="0000"
+                      />
+                    </div>
+
+                    {pinError && (
+                      <p className="text-xs text-red-400">{pinError}</p>
+                    )}
                   </div>
-                  <div>
-                    <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Confirm PIN</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={confirmPin}
-                      onChange={(e) => { setConfirmPin(e.target.value.replace(/\D/g, "")); setPinError(""); }}
-                      maxLength={8}
-                      className={`w-full px-3 py-2 rounded-lg border text-sm font-mono tracking-widest text-center text-lg ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
-                      placeholder="0000"
-                    />
+
+                  <div className="flex justify-end gap-3 mt-5">
+                    <Button variant="ghost" onClick={() => setShowPinModal(false)}>Cancel</Button>
+                    <Button
+                      variant="primary"
+                      disabled={savingPin}
+                      onClick={async () => {
+                        if (newPin.length < 4) { setPinError("PIN must be at least 4 digits"); return; }
+                        if (newPin !== confirmPin) { setPinError("PINs do not match"); return; }
+                        setSavingPin(true);
+                        try {
+                          if (!user) throw new Error("Not signed in");
+                          await updateScanner({ id: scannerId, pin: newPin, userId: user._id, requestingUserId: user._id });
+                          setShowPinModal(false);
+                        } catch (err) {
+                          setPinError(err instanceof Error ? err.message : "Failed to update PIN");
+                        } finally {
+                          setSavingPin(false);
+                        }
+                      }}
+                    >
+                      {savingPin ? "Saving..." : "Update PIN"}
+                    </Button>
                   </div>
-
-                  {pinError && (
-                    <p className="text-xs text-red-400">{pinError}</p>
-                  )}
-                </div>
-
-                <div className="flex justify-end gap-3 mt-5">
-                  <button
-                    onClick={() => setShowPinModal(false)}
-                    className={`px-4 py-2 text-sm rounded-lg ${isDark ? "text-slate-300 hover:bg-slate-700" : "text-gray-600 hover:bg-gray-100"}`}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    disabled={savingPin}
-                    onClick={async () => {
-                      if (newPin.length < 4) { setPinError("PIN must be at least 4 digits"); return; }
-                      if (newPin !== confirmPin) { setPinError("PINs do not match"); return; }
-                      setSavingPin(true);
-                      try {
-                        if (!user) throw new Error("Not signed in");
-                        await updateScanner({ id: scannerId, pin: newPin, userId: user._id, requestingUserId: user._id });
-                        setShowPinModal(false);
-                      } catch (err) {
-                        setPinError(err instanceof Error ? err.message : "Failed to update PIN");
-                      } finally {
-                        setSavingPin(false);
-                      }
-                    }}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg disabled:opacity-50 ${isDark ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-blue-500 text-white hover:bg-blue-600"}`}
-                  >
-                    {savingPin ? "Saving..." : "Update PIN"}
-                  </button>
-                </div>
+                </Card>
               </div>
             </div>
           )}
