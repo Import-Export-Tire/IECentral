@@ -8,6 +8,9 @@ import { useAuth } from "../../../auth-context";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 const DEFAULT_BLOATWARE = [
   { pkg: "com.google.android.apps.docs", label: "Google Docs" },
@@ -243,174 +246,240 @@ function ScannerSettingsContent() {
     }));
   };
 
-  const inputClass = `w-full px-3 py-2 text-sm border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-700 text-white focus:border-cyan-500 placeholder-slate-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500 placeholder-gray-400"}`;
-  const labelClass = `block text-xs font-medium mb-1.5 ${isDark ? "text-slate-400" : "text-gray-600"}`;
-  const sectionClass = `rounded-xl border p-5 ${isDark ? "bg-slate-900/50 border-slate-800" : "bg-white border-gray-200"}`;
-  const sectionTitleClass = `text-sm font-semibold uppercase tracking-wider mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`;
-
   return (
     <Protected>
-      <div className="flex h-screen">
+      <div className="flex h-screen theme-bg">
         <Sidebar />
-        <main className={`flex-1 overflow-auto ${isDark ? "bg-slate-950" : "bg-gray-50"}`}>
+        <main className="flex-1 overflow-auto">
           <MobileHeader />
 
-          {/* Header */}
-          <div className={`sticky top-0 z-10 border-b backdrop-blur-xl ${isDark ? "bg-slate-950/80 border-slate-800" : "bg-gray-50/80 border-gray-200"}`}>
-            <div className="px-4 sm:px-6 lg:px-8 py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Scanner Setup Settings</h1>
-                  <p className={`text-sm mt-0.5 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                    Configure MDM settings per location for the setup tool
-                  </p>
-                </div>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className={`px-5 py-2.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
-                    saved
-                      ? "bg-emerald-500 text-white"
-                      : isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-500 text-white hover:bg-blue-600"
-                  } disabled:opacity-50`}
-                >
-                  {saved ? (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Saved
-                    </>
-                  ) : saving ? "Saving..." : "Save Settings"}
-                </button>
+          {/* Sticky iOS-style page header */}
+          <header className="sticky top-0 z-10 backdrop-blur-sm border-b theme-border-secondary px-4 sm:px-8 py-3 sm:py-4 bg-[var(--surface-primary)]/80">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Scanner Setup Settings</h1>
+                <p className="text-xs sm:text-sm mt-1 hidden sm:block theme-text-tertiary">
+                  Configure MDM settings per location for the setup tool
+                </p>
               </div>
-
-              {/* Location Tabs */}
-              <div className="flex gap-2 overflow-x-auto flex-nowrap pb-1 mt-4">
-                {locations?.map((loc) => (
-                  <button
-                    key={loc._id}
-                    onClick={() => setSelectedLocationId(loc._id)}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      selectedLocationId === loc._id
-                        ? isDark ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-blue-50 text-blue-600 border border-blue-200"
-                        : isDark ? "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700" : "bg-white text-gray-500 hover:bg-gray-100 border border-gray-300"
-                    }`}
-                  >
-                    {loc.name}
-                    {LOCATION_DEFAULTS[loc.name] && (
-                      <span className={`ml-1.5 text-xs ${selectedLocationId === loc._id ? "opacity-70" : "opacity-50"}`}>
-                        ({LOCATION_DEFAULTS[loc.name].code})
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
+              <Button
+                variant={saved ? "primary" : "primary"}
+                onClick={handleSave}
+                disabled={saving}
+                className={saved ? "!theme-btn-primary opacity-100 bg-emerald-500 hover:bg-emerald-500" : ""}
+              >
+                {saved ? (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Saved
+                  </>
+                ) : saving ? "Saving..." : "Save Settings"}
+              </Button>
             </div>
-          </div>
 
-          <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-4xl">
+            {/* Location Tabs */}
+            <div className="flex gap-2 overflow-x-auto flex-nowrap pb-1 mt-4">
+              {locations?.map((loc) => (
+                <button
+                  key={loc._id}
+                  onClick={() => setSelectedLocationId(loc._id)}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap border ${
+                    selectedLocationId === loc._id
+                      ? "theme-accent-primary border-[var(--accent-primary)]/30 bg-[color-mix(in_srgb,var(--accent-primary)_12%,transparent)]"
+                      : "theme-text-secondary theme-border-secondary theme-card hover:theme-text-primary"
+                  }`}
+                >
+                  {loc.name}
+                  {LOCATION_DEFAULTS[loc.name] && (
+                    <span className={`ml-1.5 text-xs ${selectedLocationId === loc._id ? "opacity-70" : "opacity-50"}`}>
+                      ({LOCATION_DEFAULTS[loc.name].code})
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </header>
+
+          <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-5 max-w-4xl">
 
             {/* RT Locator Configuration */}
-            <div className={sectionClass}>
-              <h3 className={sectionTitleClass}>RT Locator Configuration</h3>
+            <Card padding="md">
+              <SectionHeader label="RT LOCATOR CONFIGURATION" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>RT Locator URL</label>
-                  <input type="text" value={form.rtLocatorUrl} onChange={(e) => setForm({ ...form, rtLocatorUrl: e.target.value })} className={inputClass} placeholder="https://..." />
+                  <label className="block ui-section-label mb-1.5">RT Locator URL</label>
+                  <input
+                    type="text"
+                    value={form.rtLocatorUrl}
+                    onChange={(e) => setForm({ ...form, rtLocatorUrl: e.target.value })}
+                    className="theme-input w-full px-3 py-2 text-sm"
+                    placeholder="https://..."
+                  />
                 </div>
                 <div>
-                  <label className={labelClass}>Device ID Prefix</label>
-                  <input type="text" value={form.defaultDeviceIdPrefix} onChange={(e) => setForm({ ...form, defaultDeviceIdPrefix: e.target.value })} className={inputClass} placeholder="W08-" />
+                  <label className="block ui-section-label mb-1.5">Device ID Prefix</label>
+                  <input
+                    type="text"
+                    value={form.defaultDeviceIdPrefix}
+                    onChange={(e) => setForm({ ...form, defaultDeviceIdPrefix: e.target.value })}
+                    className="theme-input w-full px-3 py-2 text-sm"
+                    placeholder="W08-"
+                  />
                 </div>
               </div>
               <div className="mt-4">
-                <label className={labelClass}>RT Config XML Template</label>
-                <textarea value={form.rtConfigXml} onChange={(e) => setForm({ ...form, rtConfigXml: e.target.value })} className={`${inputClass} font-mono text-xs`} rows={6} placeholder="<RT>&#10;  <ORIENTATION>PORTRAIT</ORIENTATION>&#10;  ..." />
+                <label className="block ui-section-label mb-1.5">RT Config XML Template</label>
+                <textarea
+                  value={form.rtConfigXml}
+                  onChange={(e) => setForm({ ...form, rtConfigXml: e.target.value })}
+                  className="theme-input w-full px-3 py-2 text-sm font-mono text-xs"
+                  rows={6}
+                  placeholder={"<RT>\n  <ORIENTATION>PORTRAIT</ORIENTATION>\n  ..."}
+                />
               </div>
-            </div>
+            </Card>
 
             {/* WiFi Configuration */}
-            <div className={sectionClass}>
-              <h3 className={sectionTitleClass}>WiFi Configuration</h3>
+            <Card padding="md">
+              <SectionHeader label="WIFI CONFIGURATION" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>WiFi SSID</label>
-                  <input type="text" value={form.wifiSsid} onChange={(e) => setForm({ ...form, wifiSsid: e.target.value })} className={inputClass} placeholder="Network name" />
+                  <label className="block ui-section-label mb-1.5">WiFi SSID</label>
+                  <input
+                    type="text"
+                    value={form.wifiSsid}
+                    onChange={(e) => setForm({ ...form, wifiSsid: e.target.value })}
+                    className="theme-input w-full px-3 py-2 text-sm"
+                    placeholder="Network name"
+                  />
                 </div>
                 <div>
-                  <label className={labelClass}>WiFi Password</label>
-                  <input type="password" value={form.wifiPassword} onChange={(e) => setForm({ ...form, wifiPassword: e.target.value })} className={inputClass} placeholder="Password" />
+                  <label className="block ui-section-label mb-1.5">WiFi Password</label>
+                  <input
+                    type="password"
+                    value={form.wifiPassword}
+                    onChange={(e) => setForm({ ...form, wifiPassword: e.target.value })}
+                    className="theme-input w-full px-3 py-2 text-sm"
+                    placeholder="Password"
+                  />
                 </div>
               </div>
-            </div>
+            </Card>
 
             {/* APK Management */}
-            <div className={sectionClass}>
-              <h3 className={sectionTitleClass}>APK Management</h3>
-              <div className="space-y-4">
+            <Card padding="md">
+              <SectionHeader label="APK MANAGEMENT" />
+              <div className="space-y-3">
+
                 {/* TireTrack */}
-                <div className={`p-4 rounded-lg ${isDark ? "bg-slate-800/50" : "bg-gray-50"}`}>
+                <div className="theme-card p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <span className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>TireTrack</span>
-                    <select value={form.tireTrackApkSource} onChange={(e) => setForm({ ...form, tireTrackApkSource: e.target.value })} className={`text-xs px-2 py-1 rounded border ${isDark ? "bg-slate-900 border-slate-700 text-slate-300" : "bg-white border-gray-300 text-gray-700"}`}>
+                    <span className="text-sm font-semibold theme-text-primary">TireTrack</span>
+                    <select
+                      value={form.tireTrackApkSource}
+                      onChange={(e) => setForm({ ...form, tireTrackApkSource: e.target.value })}
+                      className="theme-input text-xs px-2 py-1"
+                    >
                       <option value="expo">Auto (Expo)</option>
                       <option value="s3">Manual (S3)</option>
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className={labelClass}>Current Version</label>
-                      <input type="text" value={form.currentTireTrackVersion} onChange={(e) => setForm({ ...form, currentTireTrackVersion: e.target.value })} className={inputClass} placeholder="e.g., 2.4.1" />
+                      <label className="block ui-section-label mb-1.5">Current Version</label>
+                      <input
+                        type="text"
+                        value={form.currentTireTrackVersion}
+                        onChange={(e) => setForm({ ...form, currentTireTrackVersion: e.target.value })}
+                        className="theme-input w-full px-3 py-2 text-sm"
+                        placeholder="e.g., 2.4.1"
+                      />
                     </div>
                     {form.tireTrackApkSource === "s3" && (
                       <div>
-                        <label className={labelClass}>S3 Key</label>
-                        <input type="text" value={form.tireTrackApkS3Key} onChange={(e) => setForm({ ...form, tireTrackApkS3Key: e.target.value })} className={inputClass} placeholder="apks/tiretrack-2.4.1.apk" />
+                        <label className="block ui-section-label mb-1.5">S3 Key</label>
+                        <input
+                          type="text"
+                          value={form.tireTrackApkS3Key}
+                          onChange={(e) => setForm({ ...form, tireTrackApkS3Key: e.target.value })}
+                          className="theme-input w-full px-3 py-2 text-sm"
+                          placeholder="apks/tiretrack-2.4.1.apk"
+                        />
                       </div>
                     )}
                   </div>
                 </div>
 
                 {/* RT Locator */}
-                <div className={`p-4 rounded-lg ${isDark ? "bg-slate-800/50" : "bg-gray-50"}`}>
-                  <span className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>RT Locator</span>
+                <div className="theme-card p-4">
+                  <span className="text-sm font-semibold theme-text-primary">RT Locator</span>
                   <div className="grid grid-cols-2 gap-3 mt-3">
                     <div>
-                      <label className={labelClass}>Current Version</label>
-                      <input type="text" value={form.currentRtLocatorVersion} onChange={(e) => setForm({ ...form, currentRtLocatorVersion: e.target.value })} className={inputClass} placeholder="e.g., 1.2.0" />
+                      <label className="block ui-section-label mb-1.5">Current Version</label>
+                      <input
+                        type="text"
+                        value={form.currentRtLocatorVersion}
+                        onChange={(e) => setForm({ ...form, currentRtLocatorVersion: e.target.value })}
+                        className="theme-input w-full px-3 py-2 text-sm"
+                        placeholder="e.g., 1.2.0"
+                      />
                     </div>
                     <div>
-                      <label className={labelClass}>S3 Key</label>
-                      <input type="text" value={form.rtLocatorApkS3Key} onChange={(e) => setForm({ ...form, rtLocatorApkS3Key: e.target.value })} className={inputClass} placeholder="apks/rtlocator-1.2.0.apk" />
+                      <label className="block ui-section-label mb-1.5">S3 Key</label>
+                      <input
+                        type="text"
+                        value={form.rtLocatorApkS3Key}
+                        onChange={(e) => setForm({ ...form, rtLocatorApkS3Key: e.target.value })}
+                        className="theme-input w-full px-3 py-2 text-sm"
+                        placeholder="apks/rtlocator-1.2.0.apk"
+                      />
                     </div>
                   </div>
                 </div>
 
                 {/* Scanner Agent */}
-                <div className={`p-4 rounded-lg ${isDark ? "bg-slate-800/50" : "bg-gray-50"}`}>
-                  <span className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Scanner Agent</span>
+                <div className="theme-card p-4">
+                  <span className="text-sm font-semibold theme-text-primary">Scanner Agent</span>
                   <div className="grid grid-cols-2 gap-3 mt-3">
                     <div>
-                      <label className={labelClass}>Current Version</label>
-                      <input type="text" value={form.currentAgentVersion} onChange={(e) => setForm({ ...form, currentAgentVersion: e.target.value })} className={inputClass} placeholder="e.g., 1.0.0" />
+                      <label className="block ui-section-label mb-1.5">Current Version</label>
+                      <input
+                        type="text"
+                        value={form.currentAgentVersion}
+                        onChange={(e) => setForm({ ...form, currentAgentVersion: e.target.value })}
+                        className="theme-input w-full px-3 py-2 text-sm"
+                        placeholder="e.g., 1.0.0"
+                      />
                     </div>
                     <div>
-                      <label className={labelClass}>S3 Key</label>
-                      <input type="text" value={form.agentApkS3Key} onChange={(e) => setForm({ ...form, agentApkS3Key: e.target.value })} className={inputClass} placeholder="apks/scanner-agent-1.0.0.apk" />
+                      <label className="block ui-section-label mb-1.5">S3 Key</label>
+                      <input
+                        type="text"
+                        value={form.agentApkS3Key}
+                        onChange={(e) => setForm({ ...form, agentApkS3Key: e.target.value })}
+                        className="theme-input w-full px-3 py-2 text-sm"
+                        placeholder="apks/scanner-agent-1.0.0.apk"
+                      />
                     </div>
                   </div>
                 </div>
+
               </div>
-            </div>
+            </Card>
 
             {/* Device Defaults */}
-            <div className={sectionClass}>
-              <h3 className={sectionTitleClass}>Device Defaults</h3>
+            <Card padding="md">
+              <SectionHeader label="DEVICE DEFAULTS" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>Screen Timeout</label>
-                  <select value={form.screenTimeoutMs} onChange={(e) => setForm({ ...form, screenTimeoutMs: Number(e.target.value) })} className={inputClass}>
+                  <label className="block ui-section-label mb-1.5">Screen Timeout</label>
+                  <select
+                    value={form.screenTimeoutMs}
+                    onChange={(e) => setForm({ ...form, screenTimeoutMs: Number(e.target.value) })}
+                    className="theme-input w-full px-3 py-2 text-sm"
+                  >
                     <option value={60000}>1 minute</option>
                     <option value={120000}>2 minutes</option>
                     <option value={300000}>5 minutes</option>
@@ -420,37 +489,51 @@ function ScannerSettingsContent() {
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>Screen Rotation</label>
-                  <select value={form.screenRotation} onChange={(e) => setForm({ ...form, screenRotation: e.target.value })} className={inputClass}>
+                  <label className="block ui-section-label mb-1.5">Screen Rotation</label>
+                  <select
+                    value={form.screenRotation}
+                    onChange={(e) => setForm({ ...form, screenRotation: e.target.value })}
+                    className="theme-input w-full px-3 py-2 text-sm"
+                  >
                     <option value="portrait">Portrait (locked)</option>
                     <option value="landscape">Landscape (locked)</option>
                     <option value="auto">Auto-rotate</option>
                   </select>
                 </div>
               </div>
-            </div>
+            </Card>
 
             {/* Bloatware List */}
-            <div className={sectionClass}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className={sectionTitleClass + " !mb-0"}>Apps to Disable</h3>
-                <div className="flex gap-2">
-                  <button onClick={() => setForm({ ...form, bloatwarePackages: DEFAULT_BLOATWARE.map((b) => b.pkg) })} className={`text-xs px-2 py-1 rounded ${isDark ? "bg-slate-800 text-slate-400 hover:bg-slate-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
-                    Select All
-                  </button>
-                  <button onClick={() => setForm({ ...form, bloatwarePackages: [] })} className={`text-xs px-2 py-1 rounded ${isDark ? "bg-slate-800 text-slate-400 hover:bg-slate-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
-                    Clear All
-                  </button>
-                </div>
-              </div>
+            <Card padding="md">
+              <SectionHeader
+                label="APPS TO DISABLE"
+                actions={
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setForm({ ...form, bloatwarePackages: DEFAULT_BLOATWARE.map((b) => b.pkg) })}
+                    >
+                      Select All
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setForm({ ...form, bloatwarePackages: [] })}
+                    >
+                      Clear All
+                    </Button>
+                  </>
+                }
+              />
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {DEFAULT_BLOATWARE.map(({ pkg, label }) => (
                   <label
                     key={pkg}
-                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
+                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors border theme-border-secondary ${
                       form.bloatwarePackages.includes(pkg)
-                        ? isDark ? "bg-red-500/10 border border-red-500/30" : "bg-red-50 border border-red-200"
-                        : isDark ? "bg-slate-800/50 border border-slate-700" : "bg-gray-50 border border-gray-200"
+                        ? "ui-callout-red"
+                        : "theme-card"
                     }`}
                   >
                     <input
@@ -459,110 +542,140 @@ function ScannerSettingsContent() {
                       onChange={() => toggleBloatware(pkg)}
                       className="rounded"
                     />
-                    <span className={`text-xs ${isDark ? "text-slate-300" : "text-gray-700"}`}>{label}</span>
+                    <span className="text-xs theme-text-secondary">{label}</span>
                   </label>
                 ))}
               </div>
-            </div>
+            </Card>
 
             {/* Notes */}
-            <div className={sectionClass}>
-              <h3 className={sectionTitleClass}>Notes</h3>
-              <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={inputClass} rows={3} placeholder="Configuration notes for this location..." />
-            </div>
+            <Card padding="md">
+              <SectionHeader label="NOTES" />
+              <textarea
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                className="theme-input w-full px-3 py-2 text-sm"
+                rows={3}
+                placeholder="Configuration notes for this location..."
+              />
+            </Card>
 
             {/* Setup Tool Info */}
-            <div className={sectionClass}>
-              <h3 className={sectionTitleClass}>Setup Tool</h3>
-              <p className={`text-sm mb-3 ${isDark ? "text-slate-300" : "text-gray-600"}`}>
+            <Card padding="md">
+              <SectionHeader label="SETUP TOOL" />
+              <p className="text-sm mb-3 theme-text-secondary">
                 The local setup tool runs on the computer where scanners are plugged in via USB. It pulls these settings automatically.
               </p>
-              <div className={`p-3 rounded-lg font-mono text-xs ${isDark ? "bg-slate-800 text-slate-300" : "bg-gray-100 text-gray-700"}`}>
+              <div className={`p-3 rounded-lg font-mono text-xs theme-border-secondary border ${isDark ? "bg-slate-900/60 theme-text-secondary" : "bg-gray-100 text-gray-700"}`}>
                 <p>cd /path/to/IECentral/tools/scanner-setup</p>
                 <p>npm install</p>
                 <p>npx ts-node src/index.ts --location {LOCATION_DEFAULTS[locations?.find((l) => l._id === selectedLocationId)?.name ?? ""]?.code ?? "W08"}</p>
               </div>
-            </div>
+            </Card>
 
             {/* Lock Policy */}
-            <div className={sectionClass}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className={sectionTitleClass + " !mb-0"}>Lock Policy</h3>
-                <button
-                  onClick={handleSaveLockPolicy}
-                  disabled={lockSaving || !user}
-                  className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
-                    lockSaved
-                      ? "bg-emerald-500 text-white"
-                      : isDark
-                      ? "bg-cyan-500 text-white hover:bg-cyan-600"
-                      : "bg-blue-500 text-white hover:bg-blue-600"
-                  } disabled:opacity-50`}
-                >
-                  {lockSaved ? (
-                    <>
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Saved
-                    </>
-                  ) : lockSaving ? "Saving..." : "Save"}
-                </button>
-              </div>
+            <Card padding="md">
+              <SectionHeader
+                label="LOCK POLICY"
+                actions={
+                  <Button
+                    variant={lockSaved ? "primary" : "primary"}
+                    size="sm"
+                    onClick={handleSaveLockPolicy}
+                    disabled={lockSaving || !user}
+                    className={lockSaved ? "bg-emerald-500 hover:bg-emerald-500" : ""}
+                  >
+                    {lockSaved ? (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Saved
+                      </>
+                    ) : lockSaving ? "Saving..." : "Save"}
+                  </Button>
+                }
+              />
 
-              <p className={`text-xs mb-4 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+              <p className="text-xs mb-4 theme-text-tertiary">
                 Global policy applied during the lockdown + DataWedge steps of the setup wizard.
               </p>
 
               <div className="space-y-4">
-                {/* Toggles */}
+                {/* Lockdown + DataWedge toggles */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <label className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-gray-50 border border-gray-200"}`}>
-                    <input
-                      type="checkbox"
-                      checked={lockForm.lockdownEnabled}
-                      onChange={(e) => setLockForm({ ...lockForm, lockdownEnabled: e.target.checked })}
-                      className="mt-0.5 rounded"
-                    />
-                    <div>
-                      <span className={`text-sm font-medium block ${isDark ? "text-white" : "text-gray-900"}`}>Lockdown Enabled</span>
-                      <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Disable all apps except the allowlist + essentials</span>
-                    </div>
-                  </label>
 
-                  <label className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-gray-50 border border-gray-200"}`}>
-                    <input
-                      type="checkbox"
-                      checked={lockForm.dataWedgeTab}
-                      onChange={(e) => setLockForm({ ...lockForm, dataWedgeTab: e.target.checked })}
-                      className="mt-0.5 rounded"
-                    />
-                    <div>
-                      <span className={`text-sm font-medium block ${isDark ? "text-white" : "text-gray-900"}`}>DataWedge Tab</span>
-                      <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Send a Tab key after each scan</span>
-                    </div>
-                  </label>
+                  {/* Lockdown toggle — destructive, gets amber callout emphasis */}
+                  <Card tone={lockForm.lockdownEnabled ? "amber" : "default"} padding="sm">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={lockForm.lockdownEnabled}
+                        onChange={(e) => setLockForm({ ...lockForm, lockdownEnabled: e.target.checked })}
+                        className="mt-0.5 rounded"
+                      />
+                      <div>
+                        <span className="text-sm font-semibold theme-text-primary block">Lockdown Enabled</span>
+                        <span className="text-xs theme-text-secondary">Disable all apps except the allowlist + essentials</span>
+                        {lockForm.lockdownEnabled && (
+                          <span className="text-xs text-amber-600 dark:text-amber-400 font-medium block mt-1">
+                            Active — scanners will be locked on next provision
+                          </span>
+                        )}
+                      </div>
+                    </label>
+                  </Card>
+
+                  {/* DataWedge toggle */}
+                  <Card tone="default" padding="sm">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={lockForm.dataWedgeTab}
+                        onChange={(e) => setLockForm({ ...lockForm, dataWedgeTab: e.target.checked })}
+                        className="mt-0.5 rounded"
+                      />
+                      <div>
+                        <span className="text-sm font-semibold theme-text-primary block">DataWedge Tab</span>
+                        <span className="text-xs theme-text-secondary">Send a Tab key after each scan</span>
+                      </div>
+                    </label>
+                  </Card>
                 </div>
+
+                {/* Lockdown active warning callout */}
+                {lockForm.lockdownEnabled && (
+                  <Card tone="amber" padding="sm">
+                    <div className="flex items-start gap-2">
+                      <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <p className="text-xs theme-text-primary">
+                        <span className="font-semibold">Lockdown is on.</span> Scanners provisioned with this policy will have all apps outside the allowlist disabled. Ensure the allowlist below is correct before provisioning.
+                      </p>
+                    </div>
+                  </Card>
+                )}
 
                 {/* Screen Timeout + Rotation */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className={labelClass}>Screen Timeout (ms)</label>
+                    <label className="block ui-section-label mb-1.5">Screen Timeout (ms)</label>
                     <input
                       type="number"
                       value={lockForm.screenTimeoutMs}
                       onChange={(e) => setLockForm({ ...lockForm, screenTimeoutMs: Number(e.target.value) })}
-                      className={inputClass}
+                      className="theme-input w-full px-3 py-2 text-sm"
                       placeholder="30000"
                       min={0}
                     />
                   </div>
                   <div>
-                    <label className={labelClass}>Screen Rotation</label>
+                    <label className="block ui-section-label mb-1.5">Screen Rotation</label>
                     <select
                       value={lockForm.screenRotation}
                       onChange={(e) => setLockForm({ ...lockForm, screenRotation: e.target.value })}
-                      className={inputClass}
+                      className="theme-input w-full px-3 py-2 text-sm"
                     >
                       <option value="portrait">Portrait</option>
                       <option value="landscape">Landscape</option>
@@ -572,20 +685,20 @@ function ScannerSettingsContent() {
 
                 {/* Allowed Packages */}
                 <div>
-                  <label className={labelClass}>Allowed Packages</label>
+                  <label className="block ui-section-label mb-1.5">Allowed Packages</label>
                   <textarea
                     value={lockForm.allowedPackagesText}
                     onChange={(e) => setLockForm({ ...lockForm, allowedPackagesText: e.target.value })}
-                    className={`${inputClass} font-mono text-xs`}
+                    className="theme-input w-full px-3 py-2 text-sm font-mono text-xs"
                     rows={5}
                     placeholder={"com.example.myapp\ncom.example.otherapp"}
                   />
-                  <p className={`text-xs mt-1.5 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                  <p className="text-xs mt-1.5 theme-text-tertiary">
                     Extra app package names to keep enabled (one per line). The 3 IET apps + essential system apps are always kept.
                   </p>
                 </div>
               </div>
-            </div>
+            </Card>
 
           </div>
         </main>
