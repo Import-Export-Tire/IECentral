@@ -1,7 +1,7 @@
 import { query, mutation, action } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
-import { requireSelfOrManager } from "./authGuards";
+import { requireSelfOrManager, requireManagePersonnel } from "./authGuards";
 
 // Get all active documents (optionally filter by folder)
 // Respects document visibility: private docs only shown to owner or shared users
@@ -380,8 +380,9 @@ export const getCategoryCounts = query({
 
 // Get archived documents (for admin view)
 export const getArchived = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     return await ctx.db
       .query("documents")
       .withIndex("by_active", (q) => q.eq("isActive", false))
@@ -514,8 +515,9 @@ export const getThumbnailUrl = action({
 
 // Total storage used by active documents (bytes + file count) for the Doc Hub meter.
 export const getStorageUsage = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const docs = await ctx.db
       .query("documents")
       .withIndex("by_active", (q) => q.eq("isActive", true))
@@ -530,8 +532,9 @@ export const getStorageUsage = query({
 
 // Get documents expiring within the next N days
 export const getExpiring = query({
-  args: { days: v.optional(v.number()) },
+  args: { days: v.optional(v.number()), requestingUserId: v.id("users") },
   handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
     const days = args.days ?? 30;
     const now = Date.now();
     const futureLimit = now + days * 24 * 60 * 60 * 1000;

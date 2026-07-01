@@ -221,9 +221,9 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
 
   // Queries
   const documents = useQuery(api.documents.getAll, user ? { rootOnly: true, userId: user._id } : "skip") as DocumentType[] | undefined;
-  const archivedDocuments = useQuery(api.documents.getArchived) as DocumentType[] | undefined;
-  const expiringDocuments = useQuery(api.documents.getExpiring, { days: 90 });
-  const storageUsage = useQuery(api.documents.getStorageUsage, {});
+  const archivedDocuments = useQuery(api.documents.getArchived, isAdmin && user ? { requestingUserId: user._id } : "skip") as DocumentType[] | undefined;
+  const expiringDocuments = useQuery(api.documents.getExpiring, isAdmin && user ? { days: 90, requestingUserId: user._id } : "skip");
+  const storageUsage = useQuery(api.documents.getStorageUsage, isAdmin && user ? { requestingUserId: user._id } : "skip");
   const templatesList = useQuery(api.documentTemplates.list, {});
 
   const myFolders = useQuery(
@@ -260,7 +260,7 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
     shareFolderId ? { folderId: shareFolderId } : "skip"
   );
 
-  const usersForSharing = useQuery(api.documentFolders.getUsersForSharing);
+  const usersForSharing = useQuery(api.documentFolders.getUsersForSharing, user ? { requestingUserId: user._id } : "skip");
 
   // Mutations
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);

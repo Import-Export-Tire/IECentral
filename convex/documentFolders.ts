@@ -1,6 +1,7 @@
 import { query, mutation, action, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
+import { requireMinTier } from "./authGuards";
 
 // Password hashing utilities (same as auth.ts)
 const PBKDF2_ITERATIONS = 100000;
@@ -334,10 +335,11 @@ export const getById = query({
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
 
+    const { passwordHash, ...safeFolder } = folder;
     return {
-      ...folder,
+      ...safeFolder,
       documentCount: docs.length,
-      isProtected: !!folder.passwordHash,
+      isProtected: !!passwordHash,
     };
   },
 });
@@ -1043,19 +1045,14 @@ export const getSharedFolders = query({
 
 // Get all users for sharing dropdown
 export const getUsersForSharing = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireMinTier(ctx, args.requestingUserId, 0); // must be a real, active user
     const users = await ctx.db
       .query("users")
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
-
-    return users.map((u) => ({
-      _id: u._id,
-      name: u.name,
-      email: u.email,
-      role: u.role,
-    }));
+    return users.map((u) => ({ _id: u._id, name: u.name, email: u.email, role: u.role }));
   },
 });
 
