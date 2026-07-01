@@ -846,6 +846,7 @@ export const rehire = mutation({
       rehiredAt: now,
       rehiredBy: args.userId,
       updatedAt: now,
+      searchText: personnelSearchText({ firstName: existing.firstName, lastName: existing.lastName, email: existing.email, position: args.position }),
     });
 
     // Reactivate user account if they had one
@@ -1339,6 +1340,12 @@ export const bulkUpsert = mutation({
         if (e.terminationReason !== undefined) patch.terminationReason = e.terminationReason.trim();
         if (e.notes !== undefined) patch.notes = e.notes.trim();
         if (locationId !== undefined) patch.locationId = locationId;
+        patch.searchText = personnelSearchText({
+          firstName: e.firstName ?? existing.firstName,
+          lastName: e.lastName ?? existing.lastName,
+          email: e.email ?? existing.email,
+          position: e.position ?? existing.position,
+        });
         await ctx.db.patch(existing._id, patch);
         results.updated++;
       } else {
