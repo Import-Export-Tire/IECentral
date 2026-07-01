@@ -11,6 +11,9 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import SignaturePad from "@/components/SignaturePad";
 import QRCodeModal from "@/components/QRCodeModal";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 type EquipmentType = "scanners" | "pickers" | "vehicles" | "computers";
 
@@ -786,25 +789,23 @@ By signing below, the Employee acknowledges that they have read, understand, and
   };
 
   return (
-    <div className={`flex h-screen ${isDark ? "bg-slate-950" : "bg-gray-50"}`}>
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
         {/* Header */}
-        <div className={`border-b ${isDark ? "border-slate-800" : "border-gray-200"}`}>
-          <div className={`h-1 ${isDark ? "bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-500" : "bg-gradient-to-r from-indigo-500 via-blue-500 to-cyan-500"}`} />
-        <header className={`sticky top-0 z-10 backdrop-blur-xl px-4 sm:px-6 lg:px-8 py-4 ${isDark ? "bg-slate-950/80" : "bg-gray-50/80"}`}>
+        <header className="sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? "bg-purple-500/10" : "bg-indigo-50"}`}>
-                <svg className={`w-5 h-5 ${isDark ? "text-purple-400" : "text-indigo-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-purple-500/10">
+                <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                 </svg>
               </div>
               <div>
-                <h1 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Equipment</h1>
-                <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                <h1 className="text-xl font-bold theme-text-primary">Equipment</h1>
+                <p className="text-xs theme-text-tertiary">
                   Pickers, vehicles, and computers
                 </p>
               </div>
@@ -813,7 +814,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
               {/* View Equipment Report Button */}
               <a
                 href={`/reports?type=equipment&equipmentType=${activeTab === "scanners" ? "Scanner" : activeTab === "pickers" ? "Picker" : activeTab === "vehicles" ? "Vehicle" : "all"}`}
-                className={`px-3 sm:px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                className="inline-flex items-center justify-center gap-1.5 rounded-[9px] font-semibold transition-colors theme-btn-secondary px-3.5 py-2 text-[13.5px]"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -821,7 +822,8 @@ By signing below, the Employee acknowledges that they have read, understand, and
                 <span className="hidden sm:inline">View Report</span>
               </a>
               {canEditEquipment && (
-                <button
+                <Button
+                  variant="primary"
                   onClick={() => {
                     if (activeTab === "vehicles") {
                       setShowNewVehicle(true);
@@ -843,13 +845,12 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       resetForm();
                     }
                   }}
-                  className={`px-3 sm:px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   <span className="hidden sm:inline">Add {activeTab === "scanners" ? "Scanner" : activeTab === "pickers" ? "Picker" : activeTab === "computers" ? "Computer" : "Vehicle"}</span>
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -857,10 +858,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
           {/* Tabs and Filters */}
           <div className="flex flex-wrap items-center gap-3 mt-4">
             {/* Scanner Manager Link */}
-            <button
-              onClick={() => router.push("/equipment/scanners")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${isDark ? "bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20" : "bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"}`}
-            >
+            <Button variant="ghost" onClick={() => router.push("/equipment/scanners")}>
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
@@ -868,20 +866,16 @@ By signing below, the Employee acknowledges that they have read, understand, and
               <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
-            </button>
+            </Button>
 
-            <div className={`h-5 w-px ${isDark ? "bg-slate-700" : "bg-gray-300"}`} />
+            <div className="h-5 w-px bg-[var(--border-secondary)]" />
 
             {/* Equipment Type Tabs */}
             {(["pickers", "vehicles", "computers"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                  activeTab === tab
-                    ? isDark ? "bg-purple-500/15 text-purple-400 border border-purple-500/20" : "bg-indigo-50 text-indigo-600 border border-indigo-200"
-                    : isDark ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                }`}
+                className={`${activeTab === tab ? "px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ring-2 ring-[var(--accent-primary)] theme-card" : "px-3 py-1.5 text-xs font-medium rounded-lg transition-colors theme-text-tertiary hover:theme-text-secondary"}`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)} ({tab === "pickers" ? pickers?.length ?? 0 : tab === "vehicles" ? vehicles?.length ?? 0 : computers?.length ?? 0})
               </button>
@@ -891,7 +885,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
             <select
               value={selectedLocation}
               onChange={(e) => setSelectedLocation(e.target.value as Id<"locations"> | "all")}
-              className={`ml-auto px-3 py-1.5 text-xs rounded-lg border focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-700 text-white focus:border-cyan-500" : "bg-white border-gray-200 text-gray-900 focus:border-blue-400"}`}
+              className="theme-input ml-auto px-3 py-1.5 text-xs"
             >
               <option value="all">All Locations</option>
               {locations?.map((loc) => (
@@ -900,63 +894,58 @@ By signing below, the Employee acknowledges that they have read, understand, and
             </select>
           </div>
         </header>
-        </div>
 
         <div className="p-4 sm:p-8">
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm mb-6">
-              {error}
-              <button onClick={() => setError("")} className="ml-4 text-red-300 hover:text-red-100">Dismiss</button>
-            </div>
+            <Card tone="red" padding="sm" className="mb-6">
+              <div className="flex items-center justify-between">
+                <span className="theme-text-primary text-sm">{error}</span>
+                <Button variant="ghost" size="sm" onClick={() => setError("")}>Dismiss</Button>
+              </div>
+            </Card>
           )}
 
           {/* Equipment Grid */}
           {!currentItems ? (
-            <div className={`text-center py-12 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+            <div className="text-center py-12 theme-text-tertiary">
               Loading...
             </div>
           ) : currentItems.length === 0 && activeTab !== "computers" ? (
-            <div className={`text-center py-12 border rounded-xl ${isDark ? "bg-slate-800/50 border-slate-700 text-slate-400" : "bg-white border-gray-200 text-gray-500"}`}>
-              No {activeTab} found. Add your first {activeTab === "scanners" ? "scanner" : activeTab === "pickers" ? "picker" : "vehicle"}.
-            </div>
+            <Card>
+              <div className="text-center py-8 theme-text-tertiary">
+                No {activeTab} found. Add your first {activeTab === "scanners" ? "scanner" : activeTab === "pickers" ? "picker" : "vehicle"}.
+              </div>
+            </Card>
           ) : activeTab === "computers" ? (
             /* Computers Grid with Remote Access */
             <div className="space-y-6">
               {/* Remote Access Computers */}
               <div>
-                <h3 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Remote Access Computers
-                </h3>
+                <SectionHeader title="Remote Access Computers" />
                 {computers?.filter(c => c.remoteAccessEnabled).length === 0 ? (
-                  <div className={`text-center py-8 border rounded-xl ${isDark ? "bg-slate-800/50 border-slate-700 text-slate-400" : "bg-white border-gray-200 text-gray-500"}`}>
-                    No computers with remote access enabled. Add a computer with Chrome Remote Desktop ID.
-                  </div>
+                  <Card><div className="text-center py-8 theme-text-tertiary">No computers with remote access enabled. Add a computer with Chrome Remote Desktop ID.</div></Card>
                 ) : (
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {computers?.filter(c => c.remoteAccessEnabled).map((comp) => (
                       <div
                         key={comp._id}
-                        className={`border rounded-xl p-5 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}
+                        className="theme-card p-5"
                       >
                         <div className="flex items-start justify-between gap-3 mb-4">
                           <div className="min-w-0">
-                            <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <h3 className="font-semibold theme-text-primary">
                               {comp.name}
                             </h3>
-                            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <p className="text-sm theme-text-secondary">
                               {comp.manufacturer} {comp.model}
                             </p>
                           </div>
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            comp.status === "active"
-                              ? isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"
-                              : isDark ? "bg-yellow-500/20 text-yellow-400" : "bg-yellow-100 text-yellow-700"
-                          }`}>
+                          <span className={`ui-badge ${comp.status === "active" ? "ui-badge-green" : "ui-badge-amber"}`}>
                             {comp.status}
                           </span>
                         </div>
 
-                        <div className={`space-y-2 text-sm ${isDark ? "text-slate-300" : "text-gray-600"}`}>
+                        <div className="space-y-2 text-sm theme-text-secondary">
                           {comp.operatingSystem && (
                             <div className="flex items-center gap-2">
                               <span className="text-slate-500">OS:</span> {comp.operatingSystem}
@@ -985,11 +974,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                             href={comp.chromeRemoteUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                              isDark
-                                ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30"
-                                : "bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100"
-                            }`}
+                            className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors theme-btn-secondary"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -1005,18 +990,14 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
               {/* All Computers */}
               <div>
-                <h3 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  All Computers ({computers?.length ?? 0})
-                </h3>
+                <SectionHeader title={`All Computers (${computers?.length ?? 0})`} />
                 {!computers || computers.length === 0 ? (
-                  <div className={`text-center py-8 border rounded-xl ${isDark ? "bg-slate-800/50 border-slate-700 text-slate-400" : "bg-white border-gray-200 text-gray-500"}`}>
-                    No computers found. Add your first computer.
-                  </div>
+                  <Card><div className="text-center py-8 theme-text-tertiary">No computers found. Add your first computer.</div></Card>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className={`w-full text-sm ${isDark ? "text-slate-300" : "text-gray-600"}`}>
+                    <table className="w-full text-sm theme-text-secondary">
                       <thead>
-                        <tr className={isDark ? "border-b border-slate-700" : "border-b border-gray-200"}>
+                        <tr className="border-b theme-border-secondary">
                           <th className="px-4 py-3 text-left font-medium">Name</th>
                           <th className="px-4 py-3 text-left font-medium">Type</th>
                           <th className="px-4 py-3 text-left font-medium">Location</th>
@@ -1028,8 +1009,8 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       </thead>
                       <tbody>
                         {computers.map((comp) => (
-                          <tr key={comp._id} className={isDark ? "border-b border-slate-700/50" : "border-b border-gray-100"}>
-                            <td className={`px-4 py-3 font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                          <tr key={comp._id} className="border-b theme-border-secondary">
+                            <td className="px-4 py-3 font-medium theme-text-primary">
                               {comp.name}
                             </td>
                             <td className="px-4 py-3 capitalize">{comp.type}</td>
@@ -1037,40 +1018,27 @@ By signing below, the Employee acknowledges that they have read, understand, and
                             <td className="px-4 py-3">{comp.ipAddress || "-"}</td>
                             <td className="px-4 py-3">
                               {comp.remoteAccessEnabled ? (
-                                <span className={`px-2 py-1 text-xs rounded-full ${isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"}`}>
-                                  Enabled
-                                </span>
+                                <span className="ui-badge ui-badge-green">Enabled</span>
                               ) : (
-                                <span className={`px-2 py-1 text-xs rounded-full ${isDark ? "bg-slate-500/20 text-slate-400" : "bg-gray-100 text-gray-500"}`}>
-                                  Disabled
-                                </span>
+                                <span className="ui-badge ui-badge-gray">Disabled</span>
                               )}
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                comp.status === "active"
-                                  ? isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"
-                                  : comp.status === "in_repair"
-                                  ? isDark ? "bg-yellow-500/20 text-yellow-400" : "bg-yellow-100 text-yellow-700"
-                                  : isDark ? "bg-slate-500/20 text-slate-400" : "bg-gray-100 text-gray-500"
-                              }`}>
+                              <span className={`ui-badge ${comp.status === "active" ? "ui-badge-green" : comp.status === "in_repair" ? "ui-badge-amber" : "ui-badge-gray"}`}>
                                 {comp.status}
                               </span>
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => handleEditComputer(comp)}
-                                  className={`px-2 py-1 text-xs rounded ${isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
-                                >
+                                <Button variant="secondary" size="sm" onClick={() => handleEditComputer(comp)}>
                                   Edit
-                                </button>
+                                </Button>
                                 {comp.chromeRemoteUrl && (
                                   <a
                                     href={comp.chromeRemoteUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className={`px-2 py-1 text-xs rounded ${isDark ? "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30" : "bg-blue-50 text-blue-600 hover:bg-blue-100"}`}
+                                    className="inline-flex items-center px-2 py-1 text-xs rounded theme-btn-secondary"
                                   >
                                     Connect
                                   </a>
@@ -1104,56 +1072,56 @@ By signing below, the Employee acknowledges that they have read, understand, and
               {(vehicles || []).map((vehicle) => (
                 <div
                   key={vehicle._id}
-                  className={`border rounded-xl p-5 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}
+                  className="theme-card p-5"
                 >
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="min-w-0">
-                      <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                      <h3 className="font-semibold theme-text-primary">
                         {vehicle.year} {vehicle.make} {vehicle.model}
                       </h3>
                       {vehicle.trim && (
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <p className="text-sm theme-text-secondary">
                           {vehicle.trim}
                         </p>
                       )}
                     </div>
-                    <span className={`px-2.5 py-1 text-xs font-medium rounded shrink-0 ${
-                      vehicle.status === "active" ? "bg-green-500/20 text-green-400" :
-                      vehicle.status === "maintenance" ? "bg-yellow-500/20 text-yellow-400" :
-                      vehicle.status === "out_of_service" ? "bg-red-500/20 text-red-400" :
-                      "bg-slate-500/20 text-slate-400"
+                    <span className={`ui-badge shrink-0 ${
+                      vehicle.status === "active" ? "ui-badge-green" :
+                      vehicle.status === "maintenance" ? "ui-badge-amber" :
+                      vehicle.status === "out_of_service" ? "ui-badge-red" :
+                      "ui-badge-gray"
                     }`}>
                       {vehicle.status}
                     </span>
                   </div>
 
                   <div className="space-y-2 text-sm">
-                    <div className={`${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      <span className={`${isDark ? "text-slate-500" : "text-gray-400"}`}>VIN:</span> {vehicle.vin}
+                    <div className="theme-text-secondary">
+                      <span className="theme-text-tertiary">VIN:</span> {vehicle.vin}
                     </div>
                     {vehicle.plateNumber && (
-                      <div className={`${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                        <span className={`${isDark ? "text-slate-500" : "text-gray-400"}`}>Plate:</span> {vehicle.plateNumber}
+                      <div className="theme-text-secondary">
+                        <span className="theme-text-tertiary">Plate:</span> {vehicle.plateNumber}
                       </div>
                     )}
                     {vehicle.color && (
-                      <div className={`${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                        <span className={`${isDark ? "text-slate-500" : "text-gray-400"}`}>Color:</span> {vehicle.color}
+                      <div className="theme-text-secondary">
+                        <span className="theme-text-tertiary">Color:</span> {vehicle.color}
                       </div>
                     )}
                     {vehicle.currentMileage && (
-                      <div className={`${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                        <span className={`${isDark ? "text-slate-500" : "text-gray-400"}`}>Mileage:</span> {vehicle.currentMileage.toLocaleString()} mi
+                      <div className="theme-text-secondary">
+                        <span className="theme-text-tertiary">Mileage:</span> {vehicle.currentMileage.toLocaleString()} mi
                       </div>
                     )}
                     {vehicle.locationName && vehicle.locationName !== "Unassigned" && (
-                      <div className={`${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                        <span className={`${isDark ? "text-slate-500" : "text-gray-400"}`}>Location:</span> {vehicle.locationName}
+                      <div className="theme-text-secondary">
+                        <span className="theme-text-tertiary">Location:</span> {vehicle.locationName}
                       </div>
                     )}
                     {vehicle.assignedPersonName && (
-                      <div className={`${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                        <span className={`${isDark ? "text-slate-500" : "text-gray-400"}`}>Driver:</span> {vehicle.assignedPersonName}
+                      <div className="theme-text-secondary">
+                        <span className="theme-text-tertiary">Driver:</span> {vehicle.assignedPersonName}
                       </div>
                     )}
                   </div>
@@ -1182,7 +1150,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     </div>
                   )}
 
-                  <div className={`flex flex-wrap gap-2 mt-4 pt-4 border-t ${isDark ? "border-slate-700/50" : "border-gray-200"}`}>
+                  <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t theme-border-secondary">
                     <button
                       onClick={() => {
                         setEditingVehicleId(vehicle._id);
@@ -1209,7 +1177,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                           notes: vehicle.notes || "",
                         });
                       }}
-                      className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                      className="px-3 py-1.5 text-xs font-medium rounded transition-colors theme-btn-secondary"
                     >
                       Edit
                     </button>
@@ -1228,7 +1196,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                             }
                           }
                         }}
-                        className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${isDark ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-red-50 text-red-600 hover:bg-red-100"}`}
+                        className="px-3 py-1.5 text-xs font-medium rounded transition-colors ui-btn-danger"
                       >
                         Retire
                       </button>
@@ -1242,18 +1210,18 @@ By signing below, the Employee acknowledges that they have read, understand, and
               {(activeTab === "scanners" ? scanners : pickers)?.map((item) => (
                 <div
                   key={item._id}
-                  className={`border rounded-xl p-5 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}
+                  className="theme-card p-5"
                 >
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex items-center gap-4 min-w-0">
-                      <div className={`min-w-14 h-14 px-3 rounded-lg flex items-center justify-center text-lg font-bold shrink-0 ${isDark ? "bg-slate-700 text-white" : "bg-gray-100 text-gray-900"}`}>
+                      <div className="min-w-14 h-14 px-3 rounded-lg flex items-center justify-center text-lg font-bold shrink-0 theme-card">
                         #{item.number}
                       </div>
                       <div className="min-w-0">
-                        <h3 className={`font-semibold truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                        <h3 className="font-semibold truncate theme-text-primary">
                           {activeTab === "scanners" ? "Scanner" : "Picker"} #{item.number}
                         </h3>
-                        <p className={`text-sm mt-0.5 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <p className="text-sm mt-0.5 theme-text-secondary">
                           {item.locationName}
                         </p>
                       </div>
@@ -1264,45 +1232,45 @@ By signing below, the Employee acknowledges that they have read, understand, and
                   </div>
 
                   {item.pin && (
-                    <div className={`text-sm mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      <span className={`${isDark ? "text-slate-500" : "text-gray-400"}`}>PIN:</span> {item.pin}
+                    <div className="text-sm mb-2 theme-text-secondary">
+                      <span className="theme-text-tertiary">PIN:</span> {item.pin}
                     </div>
                   )}
 
                   {item.assignedPersonName && (
-                    <div className={`text-sm mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      <span className={`${isDark ? "text-slate-500" : "text-gray-400"}`}>Assigned to:</span> {item.assignedPersonName}
+                    <div className="text-sm mb-2 theme-text-secondary">
+                      <span className="theme-text-tertiary">Assigned to:</span> {item.assignedPersonName}
                     </div>
                   )}
 
                   {item.model && (
-                    <div className={`text-sm mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      <span className={`${isDark ? "text-slate-500" : "text-gray-400"}`}>Model:</span> {item.model}
+                    <div className="text-sm mb-2 theme-text-secondary">
+                      <span className="theme-text-tertiary">Model:</span> {item.model}
                     </div>
                   )}
 
                   {item.serialNumber && (
-                    <div className={`text-sm mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      <span className={`${isDark ? "text-slate-500" : "text-gray-400"}`}>S/N:</span> {item.serialNumber}
+                    <div className="text-sm mb-2 theme-text-secondary">
+                      <span className="theme-text-tertiary">S/N:</span> {item.serialNumber}
                     </div>
                   )}
 
                   {item.notes && (
-                    <p className={`text-sm mt-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                    <p className="text-sm mt-2 theme-text-tertiary">
                       {item.notes}
                     </p>
                   )}
 
                   {item.conditionNotes && (
-                    <div className={`text-sm mt-2 p-2 rounded ${isDark ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>
+                    <div className="text-sm mt-2 p-2 rounded ui-callout-amber">
                       <span className="font-medium">Condition:</span> {item.conditionNotes}
                     </div>
                   )}
 
-                  <div className={`flex flex-wrap gap-2 mt-4 pt-4 border-t ${isDark ? "border-slate-700/50" : "border-gray-200"}`}>
+                  <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t theme-border-secondary">
                     <button
                       onClick={() => openHistoryModal(item)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center gap-1 ${isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                      className="px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center gap-1 theme-btn-secondary"
                       title="View History"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1313,7 +1281,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     {canEditEquipment && (
                       <button
                         onClick={() => handleEdit(item)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                        className="px-3 py-1.5 text-xs font-medium rounded transition-colors theme-btn-secondary"
                       >
                         Edit
                       </button>
@@ -1321,7 +1289,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     {canEditEquipment && item.status === "available" && (
                       <button
                         onClick={() => openAssignModal(item)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${isDark ? "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30" : "bg-blue-50 text-blue-600 hover:bg-blue-100"}`}
+                        className="px-3 py-1.5 text-xs font-medium rounded transition-colors theme-btn-primary"
                       >
                         Assign
                       </button>
@@ -1330,13 +1298,13 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       <>
                         <button
                           onClick={() => openReassignModal(item)}
-                          className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${isDark ? "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30" : "bg-purple-50 text-purple-600 hover:bg-purple-100"}`}
+                          className="px-3 py-1.5 text-xs font-medium rounded transition-colors theme-accent-primary"
                         >
                           Reassign
                         </button>
                         <button
                           onClick={() => openReturnModal(item)}
-                          className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${isDark ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30" : "bg-amber-50 text-amber-600 hover:bg-amber-100"}`}
+                          className="px-3 py-1.5 text-xs font-medium rounded transition-colors theme-btn-secondary"
                         >
                           Return
                         </button>
@@ -1345,7 +1313,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     {canEditEquipment && item.status !== "retired" && (
                       <button
                         onClick={() => openRetireModal(item._id as Id<"scanners"> | Id<"pickers">)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${isDark ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-red-50 text-red-600 hover:bg-red-100"}`}
+                        className="px-3 py-1.5 text-xs font-medium rounded transition-colors ui-btn-danger"
                       >
                         Retire
                       </button>
@@ -1353,7 +1321,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     {isSuperuser && (
                       <button
                         onClick={() => openDeleteModal(item)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${isDark ? "bg-red-600/30 text-red-300 hover:bg-red-600/50" : "bg-red-100 text-red-700 hover:bg-red-200"}`}
+                        className="px-3 py-1.5 text-xs font-medium rounded transition-colors ui-btn-danger"
                         title="Permanently delete (Superuser only)"
                       >
                         Delete
@@ -1363,7 +1331,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       <>
                         <button
                           onClick={() => openSafetyHistoryModal(item as NonNullable<typeof pickers>[0])}
-                          className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center gap-1 ${isDark ? "bg-green-500/20 text-green-400 hover:bg-green-500/30" : "bg-green-50 text-green-600 hover:bg-green-100"}`}
+                          className="px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center gap-1 theme-btn-secondary"
                           title="Safety Check History"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1373,7 +1341,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                         </button>
                         <button
                           onClick={() => openQRModal(item as NonNullable<typeof pickers>[0])}
-                          className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center gap-1 ${isDark ? "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30" : "bg-purple-50 text-purple-600 hover:bg-purple-100"}`}
+                          className="px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center gap-1 theme-btn-secondary"
                           title="Safety Check QR Code"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1393,47 +1361,47 @@ By signing below, the Employee acknowledges that they have read, understand, and
         {/* Add/Edit Equipment Modal */}
         {showNewEquipment && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`border rounded-xl p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-              <h2 className={`text-xl font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
+            <div className="theme-card p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <h2 className="text-xl font-semibold mb-4 theme-text-primary">
                 {editingId ? `Edit ${activeTab === "scanners" ? "Scanner" : "Picker"}` : `Add New ${activeTab === "scanners" ? "Scanner" : "Picker"}`}
               </h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    <label className="block text-sm font-medium mb-2 theme-text-secondary">
                       Identifier *
                     </label>
                     <input
                       type="text"
                       value={formData.number}
                       onChange={(e) => setFormData({ ...formData, number: e.target.value })}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-4 py-3"
                       required
                       placeholder="e.g., 1, A-12, SC-001"
                     />
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    <label className="block text-sm font-medium mb-2 theme-text-secondary">
                       PIN
                     </label>
                     <input
                       type="text"
                       value={formData.pin}
                       onChange={(e) => setFormData({ ...formData, pin: e.target.value })}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-4 py-3"
                       placeholder="1234"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">
                     Location *
                   </label>
                   <select
                     value={formData.locationId}
                     onChange={(e) => setFormData({ ...formData, locationId: e.target.value })}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-4 py-3"
                     required
                   >
                     <option value="">Select a location</option>
@@ -1444,77 +1412,77 @@ By signing below, the Employee acknowledges that they have read, understand, and
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">
                     Model
                   </label>
                   <input
                     type="text"
                     value={formData.model}
                     onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-4 py-3"
                     placeholder="e.g., Zebra TC52"
                   />
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">
                     Serial Number
                   </label>
                   <input
                     type="text"
                     value={formData.serialNumber}
                     onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-4 py-3"
                   />
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">
                     Purchase Date
                   </label>
                   <input
                     type="date"
                     value={formData.purchaseDate}
                     onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-4 py-3"
                   />
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">
                     Notes
                   </label>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     rows={2}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none resize-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-4 py-3 resize-none"
                     placeholder="General notes about this equipment"
                   />
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">
                     Condition Notes
                   </label>
                   <textarea
                     value={formData.conditionNotes}
                     onChange={(e) => setFormData({ ...formData, conditionNotes: e.target.value })}
                     rows={2}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none resize-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-4 py-3 resize-none"
                     placeholder="Current condition (e.g., screen scratched, battery weak)"
                   />
                 </div>
 
                 {editingId && (
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    <label className="block text-sm font-medium mb-2 theme-text-secondary">
                       Status
                     </label>
                     <select
                       value={formData.status}
                       onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-4 py-3"
                     >
                       {EQUIPMENT_STATUS_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -1531,13 +1499,13 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       setEditingId(null);
                       resetForm();
                     }}
-                    className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                    className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors theme-btn-secondary"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
+                    className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors theme-btn-primary"
                   >
                     {editingId ? "Update" : "Create"}
                   </button>
@@ -1550,23 +1518,23 @@ By signing below, the Employee acknowledges that they have read, understand, and
         {/* Retire Equipment Modal */}
         {showRetireModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`border rounded-xl p-4 sm:p-6 w-full max-w-md ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-              <h2 className={`text-xl font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
+            <div className="theme-card p-4 sm:p-6 w-full max-w-md">
+              <h2 className="text-xl font-semibold mb-4 theme-text-primary">
                 Retire {activeTab === "scanners" ? "Scanner" : "Picker"}
               </h2>
-              <p className={`text-sm mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className="text-sm mb-4 theme-text-tertiary">
                 This will mark the equipment as retired and remove any current assignment. This action cannot be undone.
               </p>
               <div className="space-y-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">
                     Reason for Retirement *
                   </label>
                   <textarea
                     value={retireReason}
                     onChange={(e) => setRetireReason(e.target.value)}
                     rows={3}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none resize-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-4 py-3 resize-none"
                     placeholder="e.g., Damaged beyond repair, obsolete model, lost"
                     required
                   />
@@ -1579,7 +1547,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       setRetireId(null);
                       setRetireReason("");
                     }}
-                    className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                    className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors theme-btn-secondary"
                   >
                     Cancel
                   </button>
@@ -1587,7 +1555,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     type="button"
                     onClick={handleRetire}
                     disabled={!retireReason.trim()}
-                    className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-red-500 text-white hover:bg-red-600" : "bg-red-600 text-white hover:bg-red-700"}`}
+                    className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ui-btn-danger"
                   >
                     Retire Equipment
                   </button>
@@ -1600,31 +1568,31 @@ By signing below, the Employee acknowledges that they have read, understand, and
         {/* Delete Equipment Modal (Superuser Only) */}
         {showDeleteModal && isSuperuser && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`border rounded-xl p-4 sm:p-6 w-full max-w-md ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+            <div className="theme-card p-4 sm:p-6 w-full max-w-md">
               <div className="flex items-center gap-3 mb-4">
-                <div className={`p-3 rounded-full ${isDark ? "bg-red-500/20" : "bg-red-100"}`}>
-                  <svg className={`w-6 h-6 ${isDark ? "text-red-400" : "text-red-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-3 rounded-full bg-red-500/20 dark:bg-red-500/20">
+                  <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                 </div>
                 <div>
-                  <h2 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <h2 className="text-xl font-semibold theme-text-primary">
                     Delete {activeTab === "scanners" ? "Scanner" : "Picker"}
                   </h2>
-                  <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <p className="text-sm theme-text-tertiary">
                     #{deleteNumber}
                   </p>
                 </div>
               </div>
 
-              <div className={`p-4 rounded-lg mb-4 ${isDark ? "bg-red-500/10 border border-red-500/30" : "bg-red-50 border border-red-200"}`}>
-                <p className={`text-sm font-medium ${isDark ? "text-red-400" : "text-red-700"}`}>
+              <div className="p-4 rounded-lg mb-4 ui-callout-red">
+                <p className="text-sm font-medium text-red-600 dark:text-red-400">
                   Warning: This action cannot be undone!
                 </p>
-                <p className={`text-sm mt-1 ${isDark ? "text-red-300/80" : "text-red-600"}`}>
+                <p className="text-sm mt-1 text-red-600 dark:text-red-400">
                   This will permanently delete this equipment and all associated records including:
                 </p>
-                <ul className={`text-sm mt-2 ml-4 list-disc ${isDark ? "text-red-300/80" : "text-red-600"}`}>
+                <ul className="text-sm mt-2 ml-4 list-disc text-red-600 dark:text-red-400">
                   <li>Equipment history</li>
                   <li>Signed agreements</li>
                   <li>Condition check records</li>
@@ -1639,7 +1607,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     setDeleteId(null);
                     setDeleteNumber("");
                   }}
-                  className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                  className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors theme-btn-secondary"
                 >
                   Cancel
                 </button>
@@ -1658,9 +1626,9 @@ By signing below, the Employee acknowledges that they have read, understand, and
         {/* Assign Equipment Modal */}
         {showAssignModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`border rounded-xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+            <div className="theme-card p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h2 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h2 className="text-xl font-semibold theme-text-primary">
                   Assign {activeTab === "scanners" ? "Scanner" : "Picker"} #{assignEquipmentData?.number}
                 </h2>
                 <button
@@ -1672,9 +1640,9 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     setSignatureData(null);
                     setAssignStep("select");
                   }}
-                  className={`p-1 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}
+                  className="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/10"
                 >
-                  <svg className={`w-5 h-5 ${isDark ? "text-slate-400" : "text-gray-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -1682,18 +1650,18 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
               {assignStep === "select" ? (
                 <>
-                  <p className={`text-sm mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <p className="text-sm mb-4 theme-text-tertiary">
                     Select an employee to assign this equipment. They will need to sign an equipment responsibility agreement.
                   </p>
                   <div className="space-y-4">
                     <div>
-                      <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                      <label className="block text-sm font-medium mb-2 theme-text-secondary">
                         Assign to Employee *
                       </label>
                       <select
                         value={selectedPersonnelId}
                         onChange={(e) => setSelectedPersonnelId(e.target.value)}
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-4 py-3"
                       >
                         <option value="">Select an employee</option>
                         {activePersonnel
@@ -1716,7 +1684,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                           setAssignEquipmentData(null);
                           setSelectedPersonnelId("");
                         }}
-                        className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                        className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors theme-btn-secondary"
                       >
                         Cancel
                       </button>
@@ -1724,7 +1692,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                         type="button"
                         onClick={() => setAssignStep("sign")}
                         disabled={!selectedPersonnelId}
-                        className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
+                        className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed theme-btn-primary"
                       >
                         Continue to Agreement
                       </button>
@@ -1733,23 +1701,23 @@ By signing below, the Employee acknowledges that they have read, understand, and
                 </>
               ) : (
                 <>
-                  <div className={`mb-4 p-3 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-blue-50"}`}>
-                    <p className={`text-sm font-medium ${isDark ? "text-cyan-400" : "text-blue-700"}`}>
+                  <div className="mb-4 p-3 rounded-lg theme-card">
+                    <p className="text-sm font-medium theme-accent-primary">
                       Assigning to: {activePersonnel?.find(p => p._id === selectedPersonnelId)?.name}
                     </p>
                   </div>
 
-                  <div className={`mb-4 p-4 rounded-lg border max-h-64 overflow-y-auto ${isDark ? "bg-slate-900/50 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
-                    <pre className={`text-xs whitespace-pre-wrap font-mono ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <div className="mb-4 p-4 rounded-lg border max-h-64 overflow-y-auto theme-card">
+                    <pre className="text-xs whitespace-pre-wrap font-mono theme-text-secondary">
                       {getAgreementText()}
                     </pre>
                   </div>
 
                   <div className="mb-4">
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    <label className="block text-sm font-medium mb-2 theme-text-secondary">
                       Employee Signature *
                     </label>
-                    <p className={`text-xs mb-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <p className="text-xs mb-2 theme-text-tertiary">
                       Have the employee sign below to acknowledge the equipment responsibility agreement.
                     </p>
                     <SignaturePad
@@ -1766,7 +1734,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                         setAssignStep("select");
                         setSignatureData(null);
                       }}
-                      className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                      className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors theme-btn-secondary"
                     >
                       Back
                     </button>
@@ -1774,7 +1742,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       type="button"
                       onClick={handleAssign}
                       disabled={!signatureData}
-                      className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
+                      className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed theme-btn-primary"
                     >
                       Assign Equipment
                     </button>
@@ -1788,9 +1756,9 @@ By signing below, the Employee acknowledges that they have read, understand, and
         {/* Return Equipment Modal */}
         {showReturnModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`border rounded-xl p-4 sm:p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+            <div className="theme-card p-4 sm:p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h2 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h2 className="text-xl font-semibold theme-text-primary">
                   Return {activeTab === "scanners" ? "Scanner" : "Picker"} #{returnEquipmentData?.number}
                 </h2>
                 <button
@@ -1799,16 +1767,16 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     setReturnEquipmentId(null);
                     setReturnEquipmentData(null);
                   }}
-                  className={`p-1 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}
+                  className="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/10"
                 >
-                  <svg className={`w-5 h-5 ${isDark ? "text-slate-400" : "text-gray-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
-              <div className={`mb-4 p-3 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-amber-50"}`}>
-                <p className={`text-sm ${isDark ? "text-amber-400" : "text-amber-700"}`}>
+              <div className="mb-4 p-3 rounded-lg ui-callout-amber">
+                <p className="text-sm text-amber-600 dark:text-amber-400">
                   <span className="font-medium">Returning from:</span> {returnEquipmentData?.assignedPersonName || "Unknown"}
                 </p>
               </div>
@@ -1816,7 +1784,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
               <div className="space-y-6">
                 {/* Condition Checklist */}
                 <div>
-                  <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <h3 className="text-sm font-semibold mb-3 theme-text-primary">
                     Condition Checklist
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1833,8 +1801,8 @@ By signing below, the Employee acknowledges that they have read, understand, and
                         key={item.key}
                         className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                           checklist[item.key as keyof typeof checklist]
-                            ? isDark ? "bg-green-500/10 border-green-500/30" : "bg-green-50 border-green-200"
-                            : isDark ? "bg-red-500/10 border-red-500/30" : "bg-red-50 border-red-200"
+                            ? "bg-green-500/10 border-green-500/30"
+                            : "bg-red-500/10 border-red-500/30"
                         }`}
                       >
                         <input
@@ -1843,7 +1811,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                           onChange={(e) => setChecklist({ ...checklist, [item.key]: e.target.checked })}
                           className="w-4 h-4 rounded"
                         />
-                        <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                        <span className="text-sm theme-text-secondary">
                           {item.label}
                         </span>
                       </label>
@@ -1853,13 +1821,13 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                 {/* Overall Condition */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">
                     Overall Condition
                   </label>
                   <select
                     value={overallCondition}
                     onChange={(e) => setOverallCondition(e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-4 py-3"
                   >
                     <option value="excellent">Excellent - Like new</option>
                     <option value="good">Good - Normal wear</option>
@@ -1871,21 +1839,21 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                 {/* Damage Notes */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">
                     Damage Notes (if any)
                   </label>
                   <textarea
                     value={damageNotes}
                     onChange={(e) => setDamageNotes(e.target.value)}
                     rows={2}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none resize-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-4 py-3 resize-none"
                     placeholder="Describe any damage or issues found..."
                   />
                 </div>
 
                 {/* Toggles */}
                 <div className="space-y-3">
-                  <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${isDark ? "border-slate-600" : "border-gray-200"}`}>
+                  <label className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer theme-border-secondary">
                     <input
                       type="checkbox"
                       checked={repairRequired}
@@ -1895,12 +1863,12 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       }}
                       className="w-4 h-4 rounded"
                     />
-                    <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    <span className="text-sm theme-text-secondary">
                       Repair required before next use
                     </span>
                   </label>
 
-                  <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${isDark ? "border-slate-600" : "border-gray-200"}`}>
+                  <label className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer theme-border-secondary">
                     <input
                       type="checkbox"
                       checked={readyForReassignment}
@@ -1908,39 +1876,39 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       disabled={repairRequired}
                       className="w-4 h-4 rounded disabled:opacity-50"
                     />
-                    <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"} ${repairRequired ? "opacity-50" : ""}`}>
+                    <span className={`text-sm theme-text-secondary ${repairRequired ? "opacity-50" : ""}`}>
                       Ready for reassignment
                     </span>
                   </label>
 
-                  <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${isDark ? "border-slate-600" : "border-gray-200"}`}>
+                  <label className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer theme-border-secondary">
                     <input
                       type="checkbox"
                       checked={deductionRequired}
                       onChange={(e) => setDeductionRequired(e.target.checked)}
                       className="w-4 h-4 rounded"
                     />
-                    <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    <span className="text-sm theme-text-secondary">
                       Pay deduction required for damage
                     </span>
                   </label>
 
                   {deductionRequired && (
                     <div className="ml-7">
-                      <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                      <label className="block text-sm font-medium mb-2 theme-text-secondary">
                         Deduction Amount
                       </label>
                       <div className="flex items-center gap-2">
-                        <span className={`${isDark ? "text-slate-400" : "text-gray-500"}`}>$</span>
+                        <span className="theme-text-tertiary">$</span>
                         <input
                           type="number"
                           value={deductionAmount}
                           onChange={(e) => setDeductionAmount(Math.min(EQUIPMENT_VALUE, Math.max(0, Number(e.target.value))))}
                           max={EQUIPMENT_VALUE}
                           min={0}
-                          className={`w-32 px-4 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                          className="theme-input w-32 px-4 py-2"
                         />
-                        <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                        <span className="text-xs theme-text-tertiary">
                           (max ${EQUIPMENT_VALUE})
                         </span>
                       </div>
@@ -1948,7 +1916,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                   )}
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t border-slate-700/50">
+                <div className="flex gap-3 pt-4 border-t theme-border-secondary">
                   <button
                     type="button"
                     onClick={() => {
@@ -1956,14 +1924,14 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       setReturnEquipmentId(null);
                       setReturnEquipmentData(null);
                     }}
-                    className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                    className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors theme-btn-secondary"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={handleReturn}
-                    className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-amber-500 text-white hover:bg-amber-600" : "bg-amber-600 text-white hover:bg-amber-700"}`}
+                    className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors theme-btn-primary"
                   >
                     Complete Return
                   </button>
@@ -1976,13 +1944,13 @@ By signing below, the Employee acknowledges that they have read, understand, and
         {/* Reassign Equipment Modal */}
         {showReassignModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`border rounded-xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+            <div className="theme-card p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <h2 className="text-xl font-semibold theme-text-primary">
                     Reassign {activeTab === "scanners" ? "Scanner" : "Picker"} #{reassignEquipmentData?.number}
                   </h2>
-                  <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <p className="text-sm mt-1 theme-text-tertiary">
                     Step {reassignStep === "condition" ? "1" : "2"} of 2: {reassignStep === "condition" ? "Condition Check & Sign-off" : "New Assignment"}
                   </p>
                 </div>
@@ -1992,17 +1960,17 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     setReassignEquipmentId(null);
                     setReassignEquipmentData(null);
                   }}
-                  className={`p-1 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}
+                  className="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/10"
                 >
-                  <svg className={`w-5 h-5 ${isDark ? "text-slate-400" : "text-gray-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
               {/* Current Assignee Info */}
-              <div className={`mb-4 p-3 rounded-lg ${isDark ? "bg-purple-500/10 border border-purple-500/30" : "bg-purple-50 border border-purple-200"}`}>
-                <p className={`text-sm ${isDark ? "text-purple-400" : "text-purple-700"}`}>
+              <div className="mb-4 p-3 rounded-lg border border-purple-500/30 bg-purple-500/10 dark:bg-purple-500/10">
+                <p className="text-sm text-purple-600 dark:text-purple-400">
                   <span className="font-medium">Currently assigned to:</span> {reassignEquipmentData?.assignedPersonName || "Unknown"}
                 </p>
               </div>
@@ -2011,10 +1979,10 @@ By signing below, the Employee acknowledges that they have read, understand, and
                 <div className="space-y-6">
                   {/* Condition Checklist */}
                   <div>
-                    <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
+                    <h3 className="text-sm font-semibold mb-3 theme-text-primary">
                       Condition Checklist
                     </h3>
-                    <p className={`text-xs mb-3 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <p className="text-xs mb-3 theme-text-tertiary">
                       Verify the condition of the equipment before reassigning to a new user.
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2031,8 +1999,8 @@ By signing below, the Employee acknowledges that they have read, understand, and
                           key={item.key}
                           className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                             reassignChecklist[item.key as keyof typeof reassignChecklist]
-                              ? isDark ? "bg-green-500/10 border-green-500/30" : "bg-green-50 border-green-200"
-                              : isDark ? "bg-red-500/10 border-red-500/30" : "bg-red-50 border-red-200"
+                              ? "bg-green-500/10 border-green-500/30"
+                              : "bg-red-500/10 border-red-500/30"
                           }`}
                         >
                           <input
@@ -2041,7 +2009,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                             onChange={(e) => setReassignChecklist({ ...reassignChecklist, [item.key]: e.target.checked })}
                             className="w-4 h-4 rounded"
                           />
-                          <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                          <span className="text-sm theme-text-secondary">
                             {item.label}
                           </span>
                         </label>
@@ -2051,13 +2019,13 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                   {/* Overall Condition */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    <label className="block text-sm font-medium mb-2 theme-text-secondary">
                       Overall Condition
                     </label>
                     <select
                       value={reassignOverallCondition}
                       onChange={(e) => setReassignOverallCondition(e.target.value)}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-4 py-3"
                     >
                       <option value="excellent">Excellent - Like new</option>
                       <option value="good">Good - Normal wear</option>
@@ -2069,60 +2037,60 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                   {/* Damage Notes */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    <label className="block text-sm font-medium mb-2 theme-text-secondary">
                       Damage Notes (if any)
                     </label>
                     <textarea
                       value={reassignDamageNotes}
                       onChange={(e) => setReassignDamageNotes(e.target.value)}
                       rows={2}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none resize-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-4 py-3 resize-none"
                       placeholder="Describe any damage or issues found..."
                     />
                   </div>
 
                   {/* Toggles */}
                   <div className="space-y-3">
-                    <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${isDark ? "border-slate-600" : "border-gray-200"}`}>
+                    <label className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer theme-border-secondary">
                       <input
                         type="checkbox"
                         checked={reassignRepairRequired}
                         onChange={(e) => setReassignRepairRequired(e.target.checked)}
                         className="w-4 h-4 rounded"
                       />
-                      <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                      <span className="text-sm theme-text-secondary">
                         Repair required (cannot reassign if checked)
                       </span>
                     </label>
 
-                    <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${isDark ? "border-slate-600" : "border-gray-200"}`}>
+                    <label className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer theme-border-secondary">
                       <input
                         type="checkbox"
                         checked={reassignDeductionRequired}
                         onChange={(e) => setReassignDeductionRequired(e.target.checked)}
                         className="w-4 h-4 rounded"
                       />
-                      <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                      <span className="text-sm theme-text-secondary">
                         Pay deduction required for damage
                       </span>
                     </label>
 
                     {reassignDeductionRequired && (
                       <div className="ml-7">
-                        <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                        <label className="block text-sm font-medium mb-2 theme-text-secondary">
                           Deduction Amount
                         </label>
                         <div className="flex items-center gap-2">
-                          <span className={`${isDark ? "text-slate-400" : "text-gray-500"}`}>$</span>
+                          <span className="theme-text-tertiary">$</span>
                           <input
                             type="number"
                             value={reassignDeductionAmount}
                             onChange={(e) => setReassignDeductionAmount(Math.min(EQUIPMENT_VALUE, Math.max(0, Number(e.target.value))))}
                             max={EQUIPMENT_VALUE}
                             min={0}
-                            className={`w-32 px-4 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                            className="theme-input w-32 px-4 py-2"
                           />
-                          <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                          <span className="text-xs theme-text-tertiary">
                             (max ${EQUIPMENT_VALUE})
                           </span>
                         </div>
@@ -2132,10 +2100,10 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                   {/* Manager Sign-off Signature */}
                   <div>
-                    <h3 className={`text-sm font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
+                    <h3 className="text-sm font-semibold mb-2 theme-text-primary">
                       Manager Sign-off
                     </h3>
-                    <p className={`text-xs mb-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <p className="text-xs mb-2 theme-text-tertiary">
                       Sign below to confirm the condition check of this equipment.
                     </p>
                     <SignaturePad
@@ -2146,7 +2114,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     />
                   </div>
 
-                  <div className="flex gap-3 pt-4 border-t border-slate-700/50">
+                  <div className="flex gap-3 pt-4 border-t theme-border-secondary">
                     <button
                       type="button"
                       onClick={() => {
@@ -2154,7 +2122,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                         setReassignEquipmentId(null);
                         setReassignEquipmentData(null);
                       }}
-                      className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                      className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors theme-btn-secondary"
                     >
                       Cancel
                     </button>
@@ -2162,7 +2130,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       type="button"
                       onClick={() => setReassignStep("assign")}
                       disabled={!reassignSignOffSignature || reassignRepairRequired}
-                      className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-purple-500 text-white hover:bg-purple-600" : "bg-purple-600 text-white hover:bg-purple-700"}`}
+                      className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed theme-btn-primary"
                     >
                       {reassignRepairRequired ? "Cannot Reassign (Repair Required)" : "Continue to Assignment"}
                     </button>
@@ -2171,8 +2139,8 @@ By signing below, the Employee acknowledges that they have read, understand, and
               ) : (
                 <div className="space-y-6">
                   {/* Condition Summary */}
-                  <div className={`p-3 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
-                    <p className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <div className="p-3 rounded-lg theme-card">
+                    <p className="text-sm theme-text-secondary">
                       <span className="font-medium">Condition verified:</span> {reassignOverallCondition}
                       {reassignDamageNotes && ` - ${reassignDamageNotes}`}
                     </p>
@@ -2180,7 +2148,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                   {/* Select New Assignee */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    <label className="block text-sm font-medium mb-2 theme-text-secondary">
                       Assign to New Employee *
                     </label>
                     <select
@@ -2189,7 +2157,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                         setReassignNewPersonnelId(e.target.value);
                         setReassignNewPersonnelSignature(null);
                       }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-4 py-3"
                     >
                       <option value="">Select an employee</option>
                       {activePersonnel
@@ -2206,18 +2174,18 @@ By signing below, the Employee acknowledges that they have read, understand, and
                   {reassignNewPersonnelId && (
                     <>
                       {/* Equipment Agreement */}
-                      <div className={`p-4 rounded-lg border max-h-48 overflow-y-auto ${isDark ? "bg-slate-900/50 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
-                        <pre className={`text-xs whitespace-pre-wrap font-mono ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                      <div className="p-4 rounded-lg border max-h-48 overflow-y-auto theme-card">
+                        <pre className="text-xs whitespace-pre-wrap font-mono theme-text-secondary">
                           {getReassignAgreementText()}
                         </pre>
                       </div>
 
                       {/* New Employee Signature */}
                       <div>
-                        <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                        <label className="block text-sm font-medium mb-2 theme-text-secondary">
                           New Employee Signature *
                         </label>
-                        <p className={`text-xs mb-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <p className="text-xs mb-2 theme-text-tertiary">
                           Have the new employee sign below to acknowledge the equipment responsibility agreement.
                         </p>
                         <SignaturePad
@@ -2229,14 +2197,14 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     </>
                   )}
 
-                  <div className="flex gap-3 pt-4 border-t border-slate-700/50">
+                  <div className="flex gap-3 pt-4 border-t theme-border-secondary">
                     <button
                       type="button"
                       onClick={() => {
                         setReassignStep("condition");
                         setReassignNewPersonnelSignature(null);
                       }}
-                      className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                      className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors theme-btn-secondary"
                     >
                       Back
                     </button>
@@ -2244,7 +2212,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       type="button"
                       onClick={handleReassign}
                       disabled={!reassignNewPersonnelId || !reassignNewPersonnelSignature}
-                      className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-purple-500 text-white hover:bg-purple-600" : "bg-purple-600 text-white hover:bg-purple-700"}`}
+                      className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed theme-btn-primary"
                     >
                       Complete Reassignment
                     </button>
@@ -2258,9 +2226,9 @@ By signing below, the Employee acknowledges that they have read, understand, and
         {/* Equipment History Modal */}
         {showHistoryModal && historyEquipmentId && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`border rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+            <div className="theme-card p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h2 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h2 className="text-xl font-semibold theme-text-primary">
                   {activeTab === "scanners" ? "Scanner" : "Picker"} #{historyEquipmentNumber} - History
                 </h2>
                 <button
@@ -2269,20 +2237,20 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     setHistoryEquipmentId(null);
                     setHistoryEquipmentNumber("");
                   }}
-                  className={`p-1 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}
+                  className="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/10"
                 >
-                  <svg className={`w-5 h-5 ${isDark ? "text-slate-400" : "text-gray-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
               {!equipmentHistory ? (
-                <div className={`text-center py-12 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <div className="text-center py-12 theme-text-tertiary">
                   Loading...
                 </div>
               ) : equipmentHistory.length === 0 ? (
-                <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                <div className="text-center py-12 theme-text-tertiary">
                   <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -2293,7 +2261,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                   {equipmentHistory.map((record) => (
                     <div
                       key={record._id}
-                      className={`rounded-lg p-4 ${isDark ? "bg-slate-700/50 border border-slate-600" : "bg-gray-50 border border-gray-200"}`}
+                      className="rounded-lg p-4 theme-card"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3">
@@ -2327,53 +2295,53 @@ By signing below, the Employee acknowledges that they have read, understand, and
                             )}
                           </div>
                           <div>
-                            <p className={`font-medium text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <p className="font-medium text-sm theme-text-primary">
                               {record.action === "assigned" && "Assigned"}
                               {record.action === "unassigned" && "Returned/Unassigned"}
                               {record.action === "status_change" && "Status Changed"}
                               {record.action === "condition_check" && "Condition Check"}
                             </p>
-                            <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <p className="text-xs mt-0.5 theme-text-tertiary">
                               {new Date(record.createdAt).toLocaleDateString()} at {new Date(record.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
                         </div>
-                        <span className={`px-2 py-1 rounded text-xs font-medium shrink-0 ${
+                        <span className={`ui-badge shrink-0 ${
                           record.action === "assigned"
-                            ? isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"
+                            ? "ui-badge-green"
                             : record.action === "unassigned"
-                            ? isDark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-700"
-                            : isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-700"
+                            ? "ui-badge-amber"
+                            : "ui-badge-blue"
                         }`}>
                           {record.action.replace("_", " ")}
                         </span>
                       </div>
 
-                      <div className={`mt-3 text-sm space-y-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                      <div className="mt-3 text-sm space-y-1 theme-text-secondary">
                         {record.previousAssigneeName && (
                           <p>
-                            <span className={`${isDark ? "text-slate-500" : "text-gray-500"}`}>From:</span>{" "}
+                            <span className="theme-text-tertiary">From:</span>{" "}
                             {record.previousAssigneeName}
                           </p>
                         )}
                         {record.newAssigneeName && (
                           <p>
-                            <span className={`${isDark ? "text-slate-500" : "text-gray-500"}`}>To:</span>{" "}
+                            <span className="theme-text-tertiary">To:</span>{" "}
                             {record.newAssigneeName}
                           </p>
                         )}
                         {record.previousStatus && record.newStatus && record.previousStatus !== record.newStatus && (
                           <p>
-                            <span className={`${isDark ? "text-slate-500" : "text-gray-500"}`}>Status:</span>{" "}
+                            <span className="theme-text-tertiary">Status:</span>{" "}
                             {record.previousStatus} → {record.newStatus}
                           </p>
                         )}
                         {record.notes && (
-                          <p className={`${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                          <p className="theme-text-secondary">
                             {record.notes}
                           </p>
                         )}
-                        <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                        <p className="text-xs theme-text-tertiary">
                           By: {record.performedByName}
                         </p>
                       </div>
@@ -2389,7 +2357,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     setHistoryEquipmentId(null);
                     setHistoryEquipmentNumber("");
                   }}
-                  className={`w-full px-4 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                  className="w-full px-4 py-3 font-medium rounded-lg transition-colors theme-btn-secondary"
                 >
                   Close
                 </button>
@@ -2417,9 +2385,9 @@ By signing below, the Employee acknowledges that they have read, understand, and
         {/* Vehicle Form Modal */}
         {showNewVehicle && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`border rounded-xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+            <div className="theme-card p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
-                <h2 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h2 className="text-xl font-semibold theme-text-primary">
                   {editingVehicleId ? "Edit Vehicle" : "Add New Vehicle"}
                 </h2>
                 <button
@@ -2427,9 +2395,9 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     setShowNewVehicle(false);
                     setEditingVehicleId(null);
                   }}
-                  className={`p-1 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}
+                  className="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/10"
                 >
-                  <svg className={`w-5 h-5 ${isDark ? "text-slate-400" : "text-gray-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -2496,27 +2464,27 @@ By signing below, the Employee acknowledges that they have read, understand, and
               }} className="space-y-6">
                 {/* Vehicle Identification */}
                 <div>
-                  <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Vehicle Identification</h3>
+                  <h3 className="text-sm font-semibold mb-3 theme-text-primary">Vehicle Identification</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>VIN *</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">VIN *</label>
                       <input
                         type="text"
                         value={vehicleFormData.vin}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, vin: e.target.value.toUpperCase() })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="17-character VIN"
                         maxLength={17}
                         required
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Plate Number</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Plate Number</label>
                       <input
                         type="text"
                         value={vehicleFormData.plateNumber}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, plateNumber: e.target.value.toUpperCase() })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="License plate"
                       />
                     </div>
@@ -2525,70 +2493,70 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                 {/* Vehicle Details */}
                 <div>
-                  <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Vehicle Details</h3>
+                  <h3 className="text-sm font-semibold mb-3 theme-text-primary">Vehicle Details</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Year</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Year</label>
                       <input
                         type="number"
                         value={vehicleFormData.year}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, year: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="2024"
                         min="1900"
                         max="2100"
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Make *</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Make *</label>
                       <input
                         type="text"
                         value={vehicleFormData.make}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, make: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="Ford"
                         required
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Model *</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Model *</label>
                       <input
                         type="text"
                         value={vehicleFormData.model}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, model: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="F-150"
                         required
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Trim</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Trim</label>
                       <input
                         type="text"
                         value={vehicleFormData.trim}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, trim: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="XLT"
                       />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Color</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Color</label>
                       <input
                         type="text"
                         value={vehicleFormData.color}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, color: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="White"
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Fuel Type</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Fuel Type</label>
                       <select
                         value={vehicleFormData.fuelType}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, fuelType: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                       >
                         <option value="">Select...</option>
                         <option value="gasoline">Gasoline</option>
@@ -2598,12 +2566,12 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       </select>
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Current Mileage</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Current Mileage</label>
                       <input
                         type="number"
                         value={vehicleFormData.currentMileage}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, currentMileage: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="50000"
                       />
                     </div>
@@ -2612,11 +2580,11 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                 {/* Location */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Location</label>
+                  <label className="block text-sm font-medium mb-1 theme-text-secondary">Location</label>
                   <select
                     value={vehicleFormData.locationId}
                     onChange={(e) => setVehicleFormData({ ...vehicleFormData, locationId: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-3 py-2"
                   >
                     <option value="">Select location...</option>
                     {locations?.map((loc) => (
@@ -2627,53 +2595,53 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                 {/* Insurance & Registration */}
                 <div>
-                  <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Insurance & Registration</h3>
+                  <h3 className="text-sm font-semibold mb-3 theme-text-primary">Insurance & Registration</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Insurance Provider</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Insurance Provider</label>
                       <input
                         type="text"
                         value={vehicleFormData.insuranceProvider}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, insuranceProvider: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="State Farm"
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Policy Number</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Policy Number</label>
                       <input
                         type="text"
                         value={vehicleFormData.insurancePolicyNumber}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, insurancePolicyNumber: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="Policy #"
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Insurance Expiration</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Insurance Expiration</label>
                       <input
                         type="date"
                         value={vehicleFormData.insuranceExpirationDate}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, insuranceExpirationDate: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Registration Expiration</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Registration Expiration</label>
                       <input
                         type="date"
                         value={vehicleFormData.registrationExpirationDate}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, registrationExpirationDate: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Registration State</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Registration State</label>
                       <input
                         type="text"
                         value={vehicleFormData.registrationState}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, registrationState: e.target.value.toUpperCase() })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="PA"
                         maxLength={2}
                       />
@@ -2683,34 +2651,34 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                 {/* Purchase Info */}
                 <div>
-                  <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Purchase Info</h3>
+                  <h3 className="text-sm font-semibold mb-3 theme-text-primary">Purchase Info</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Purchase Date</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Purchase Date</label>
                       <input
                         type="date"
                         value={vehicleFormData.purchaseDate}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, purchaseDate: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Purchase Price</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Purchase Price</label>
                       <input
                         type="number"
                         value={vehicleFormData.purchasePrice}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, purchasePrice: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="35000"
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Purchased From</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Purchased From</label>
                       <input
                         type="text"
                         value={vehicleFormData.purchasedFrom}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, purchasedFrom: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="Dealer name"
                       />
                     </div>
@@ -2719,11 +2687,11 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                 {/* Notes */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Notes</label>
+                  <label className="block text-sm font-medium mb-1 theme-text-secondary">Notes</label>
                   <textarea
                     value={vehicleFormData.notes}
                     onChange={(e) => setVehicleFormData({ ...vehicleFormData, notes: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-3 py-2"
                     rows={3}
                     placeholder="Any additional notes..."
                   />
@@ -2737,13 +2705,13 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       setShowNewVehicle(false);
                       setEditingVehicleId(null);
                     }}
-                    className={`px-4 py-2 font-medium rounded-lg transition-colors ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                    className="px-4 py-2 font-medium rounded-lg transition-colors theme-btn-secondary"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className={`px-4 py-2 font-medium rounded-lg transition-colors ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
+                    className="px-4 py-2 font-medium rounded-lg transition-colors theme-btn-primary"
                   >
                     {editingVehicleId ? "Save Changes" : "Add Vehicle"}
                   </button>
@@ -2756,9 +2724,9 @@ By signing below, the Employee acknowledges that they have read, understand, and
         {/* Computer Form Modal */}
         {showNewComputer && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`border rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+            <div className="theme-card p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
-                <h2 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h2 className="text-xl font-semibold theme-text-primary">
                   {editingComputerId ? "Edit Computer" : "Add New Computer"}
                 </h2>
                 <button
@@ -2767,9 +2735,9 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     setEditingComputerId(null);
                     resetComputerForm();
                   }}
-                  className={`p-1 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}
+                  className="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/10"
                 >
-                  <svg className={`w-5 h-5 ${isDark ? "text-slate-400" : "text-gray-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -2784,36 +2752,36 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                 {/* Basic Information */}
                 <div>
-                  <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Basic Information</h3>
+                  <h3 className="text-sm font-semibold mb-3 theme-text-primary">Basic Information</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Identifier *</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Identifier *</label>
                       <input
                         type="text"
                         value={computerFormData.name}
                         onChange={(e) => setComputerFormData({ ...computerFormData, name: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="e.g., OFFICE-PC-01, FRONT-DESK"
                         required
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Type</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Type</label>
                       <select
                         value={computerFormData.type}
                         onChange={(e) => setComputerFormData({ ...computerFormData, type: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                       >
                         <option value="computer">Desktop Computer</option>
                         <option value="laptop">Laptop</option>
                       </select>
                     </div>
                     <div className="sm:col-span-2">
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Location</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Location</label>
                       <select
                         value={computerFormData.locationId}
                         onChange={(e) => setComputerFormData({ ...computerFormData, locationId: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                       >
                         <option value="">Select location...</option>
                         {locations?.map((loc) => (
@@ -2826,25 +2794,25 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                 {/* Passwords */}
                 <div>
-                  <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Passwords</h3>
+                  <h3 className="text-sm font-semibold mb-3 theme-text-primary">Passwords</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Admin Password</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Admin Password</label>
                       <input
                         type="text"
                         value={computerFormData.adminPassword}
                         onChange={(e) => setComputerFormData({ ...computerFormData, adminPassword: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="Admin account password"
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>User Password</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">User Password</label>
                       <input
                         type="text"
                         value={computerFormData.userPassword}
                         onChange={(e) => setComputerFormData({ ...computerFormData, userPassword: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="Standard user password"
                       />
                     </div>
@@ -2853,25 +2821,25 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                 {/* Network */}
                 <div>
-                  <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Network</h3>
+                  <h3 className="text-sm font-semibold mb-3 theme-text-primary">Network</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>IP Address</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">IP Address</label>
                       <input
                         type="text"
                         value={computerFormData.ipAddress}
                         onChange={(e) => setComputerFormData({ ...computerFormData, ipAddress: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="192.168.1.100"
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Ethernet Port (if applicable)</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Ethernet Port (if applicable)</label>
                       <input
                         type="text"
                         value={computerFormData.ethernetPort}
                         onChange={(e) => setComputerFormData({ ...computerFormData, ethernetPort: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="e.g., Port 12, Patch A-5"
                       />
                     </div>
@@ -2880,9 +2848,9 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                 {/* Remote Access */}
                 <div>
-                  <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Remote Access</h3>
-                  <div className={`p-3 rounded-lg mb-4 ${isDark ? "bg-amber-500/10 border border-amber-500/30" : "bg-amber-50 border border-amber-200"}`}>
-                    <p className={`text-sm ${isDark ? "text-amber-400" : "text-amber-700"}`}>
+                  <h3 className="text-sm font-semibold mb-3 theme-text-primary">Remote Access</h3>
+                  <div className="p-3 rounded-lg mb-4 ui-callout-amber">
+                    <p className="text-sm text-amber-600 dark:text-amber-400">
                       Note: Unauthenticated monitoring or remote connections are not allowed. An authentication code is required on the receiving computer to establish a connection.
                     </p>
                   </div>
@@ -2895,38 +2863,38 @@ By signing below, the Employee acknowledges that they have read, understand, and
                         onChange={(e) => setComputerFormData({ ...computerFormData, remoteAccessEnabled: e.target.checked })}
                         className="w-4 h-4 rounded border-gray-300 text-cyan-500 focus:ring-cyan-500"
                       />
-                      <label htmlFor="remoteAccessEnabled" className={`text-sm font-medium ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                      <label htmlFor="remoteAccessEnabled" className="text-sm font-medium theme-text-secondary">
                         Remote Access Enabled
                       </label>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Chrome Remote Desktop ID</label>
+                        <label className="block text-sm font-medium mb-1 theme-text-secondary">Chrome Remote Desktop ID</label>
                         <input
                           type="text"
                           value={computerFormData.chromeRemoteId}
                           onChange={(e) => setComputerFormData({ ...computerFormData, chromeRemoteId: e.target.value })}
-                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                          className="theme-input w-full px-3 py-2"
                           placeholder="Session ID"
                         />
                       </div>
                       <div>
-                        <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Remote Access Code</label>
+                        <label className="block text-sm font-medium mb-1 theme-text-secondary">Remote Access Code</label>
                         <input
                           type="text"
                           value={computerFormData.remoteAccessCode}
                           onChange={(e) => setComputerFormData({ ...computerFormData, remoteAccessCode: e.target.value })}
-                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                          className="theme-input w-full px-3 py-2"
                           placeholder="PIN or access code"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Remote Connection Notes</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Remote Connection Notes</label>
                       <textarea
                         value={computerFormData.remoteAccessNotes}
                         onChange={(e) => setComputerFormData({ ...computerFormData, remoteAccessNotes: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         rows={2}
                         placeholder="Additional info for connecting remotely..."
                       />
@@ -2936,44 +2904,44 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                 {/* Hardware Details (Optional) */}
                 <div>
-                  <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Hardware Details (Optional)</h3>
+                  <h3 className="text-sm font-semibold mb-3 theme-text-primary">Hardware Details (Optional)</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Manufacturer</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Manufacturer</label>
                       <input
                         type="text"
                         value={computerFormData.manufacturer}
                         onChange={(e) => setComputerFormData({ ...computerFormData, manufacturer: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="Dell, HP, Lenovo..."
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Model</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Model</label>
                       <input
                         type="text"
                         value={computerFormData.model}
                         onChange={(e) => setComputerFormData({ ...computerFormData, model: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="OptiPlex 7080"
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Serial Number</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Serial Number</label>
                       <input
                         type="text"
                         value={computerFormData.serialNumber}
                         onChange={(e) => setComputerFormData({ ...computerFormData, serialNumber: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                         placeholder="Service tag / Serial #"
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Operating System</label>
+                      <label className="block text-sm font-medium mb-1 theme-text-secondary">Operating System</label>
                       <select
                         value={computerFormData.operatingSystem}
                         onChange={(e) => setComputerFormData({ ...computerFormData, operatingSystem: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-3 py-2"
                       >
                         <option value="">Select...</option>
                         <option value="Windows 11">Windows 11</option>
@@ -2988,11 +2956,11 @@ By signing below, the Employee acknowledges that they have read, understand, and
 
                 {/* Notes */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Notes</label>
+                  <label className="block text-sm font-medium mb-1 theme-text-secondary">Notes</label>
                   <textarea
                     value={computerFormData.notes}
                     onChange={(e) => setComputerFormData({ ...computerFormData, notes: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-3 py-2"
                     rows={3}
                     placeholder="Any additional notes..."
                   />
@@ -3007,13 +2975,13 @@ By signing below, the Employee acknowledges that they have read, understand, and
                       setEditingComputerId(null);
                       resetComputerForm();
                     }}
-                    className={`px-4 py-2 font-medium rounded-lg transition-colors ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                    className="px-4 py-2 font-medium rounded-lg transition-colors theme-btn-secondary"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className={`px-4 py-2 font-medium rounded-lg transition-colors ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
+                    className="px-4 py-2 font-medium rounded-lg transition-colors theme-btn-primary"
                   >
                     {editingComputerId ? "Save Changes" : "Add Computer"}
                   </button>
@@ -3026,9 +2994,9 @@ By signing below, the Employee acknowledges that they have read, understand, and
         {/* Safety History Modal */}
         {showSafetyHistoryModal && safetyHistoryEquipment && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`border rounded-xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+            <div className="theme-card p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h2 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h2 className="text-xl font-semibold theme-text-primary">
                   Safety Check History - Picker #{safetyHistoryEquipment.number}
                 </h2>
                 <button
@@ -3036,20 +3004,20 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     setShowSafetyHistoryModal(false);
                     setSafetyHistoryEquipment(null);
                   }}
-                  className={`p-1 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}
+                  className="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/10"
                 >
-                  <svg className={`w-5 h-5 ${isDark ? "text-slate-400" : "text-gray-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
               {!safetyCompletions ? (
-                <div className={`text-center py-12 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <div className="text-center py-12 theme-text-tertiary">
                   Loading...
                 </div>
               ) : safetyCompletions.length === 0 ? (
-                <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                <div className="text-center py-12 theme-text-tertiary">
                   <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                   </svg>
@@ -3060,7 +3028,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                   {safetyCompletions.map((completion) => (
                     <div
                       key={completion._id}
-                      className={`rounded-lg p-4 ${isDark ? "bg-slate-700/50 border border-slate-600" : "bg-gray-50 border border-gray-200"}`}
+                      className="rounded-lg p-4 theme-card"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
@@ -3080,34 +3048,34 @@ By signing below, the Employee acknowledges that they have read, understand, and
                             )}
                           </div>
                           <div>
-                            <p className={`font-medium text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <p className="font-medium text-sm theme-text-primary">
                               {completion.personnelName}
                             </p>
-                            <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <p className="text-xs theme-text-tertiary">
                               {new Date(completion.completedAt).toLocaleDateString()} at {new Date(completion.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
                         </div>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        <span className={`ui-badge ${
                           completion.allPassed
-                            ? isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"
-                            : isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700"
+                            ? "ui-badge-green"
+                            : "ui-badge-red"
                         }`}>
                           {completion.allPassed ? "Passed" : "Issues"}
                         </span>
                       </div>
 
-                      <div className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      <div className="text-xs theme-text-tertiary">
                         <span className="font-medium">Duration:</span> {Math.floor(completion.totalTimeSpent / 60)}m {completion.totalTimeSpent % 60}s
                         <span className="mx-2">•</span>
                         <span className="font-medium">Items:</span> {completion.responses.length}
                       </div>
 
                       {completion.issues && completion.issues.length > 0 && (
-                        <div className={`mt-2 pt-2 border-t ${isDark ? "border-slate-600" : "border-gray-200"}`}>
-                          <p className={`text-xs font-medium mb-1 ${isDark ? "text-red-400" : "text-red-600"}`}>Issues:</p>
+                        <div className="mt-2 pt-2 border-t theme-border-secondary">
+                          <p className="text-xs font-medium mb-1 text-red-600 dark:text-red-400">Issues:</p>
                           {completion.issues.map((issue: { itemId: string; description: string }, idx: number) => (
-                            <p key={idx} className={`text-xs ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                            <p key={idx} className="text-xs theme-text-secondary">
                               • {issue.description}
                             </p>
                           ))}
@@ -3124,7 +3092,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                     setShowSafetyHistoryModal(false);
                     setSafetyHistoryEquipment(null);
                   }}
-                  className={`w-full px-4 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                  className="w-full px-4 py-3 font-medium rounded-lg transition-colors theme-btn-secondary"
                 >
                   Close
                 </button>
