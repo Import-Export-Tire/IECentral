@@ -131,7 +131,7 @@ function EquipmentContent() {
     api.equipment.listComputers,
     user ? { requestingUserId: user._id } : "skip",
   );
-  const personnel = useQuery(api.personnel.list, {});
+  const personnel = useQuery(api.personnel.listAll, {});
   const activePersonnel = useQuery(api.equipment.listActivePersonnel);
   const safetyCompletions = useQuery(
     api.safetyChecklist.getEquipmentCompletions,

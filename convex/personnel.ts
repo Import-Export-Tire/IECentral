@@ -72,6 +72,36 @@ export const listOptions = query({
   },
 });
 
+// Full collect (non-paginated) — for reporting/analytics pages that need the
+// entire dataset in memory. New feature pages should prefer the paginated `list`.
+export const listAll = query({
+  args: {
+    status: v.optional(v.string()),
+    locationId: v.optional(v.id("locations")),
+    locationIds: v.optional(v.array(v.id("locations"))),
+  },
+  handler: async (ctx, args) => {
+    let personnel;
+    if (args.status) {
+      personnel = await ctx.db
+        .query("personnel")
+        .withIndex("by_status", (q) => q.eq("status", args.status!))
+        .collect();
+    } else {
+      personnel = await ctx.db.query("personnel").collect();
+    }
+    if (args.locationId) {
+      personnel = personnel.filter((p) => p.locationId === args.locationId);
+    }
+    if (args.locationIds && args.locationIds.length > 0) {
+      personnel = personnel.filter(
+        (p) => p.locationId && args.locationIds!.includes(p.locationId as Id<"locations">)
+      );
+    }
+    return personnel.sort((a, b) => a.lastName.localeCompare(b.lastName));
+  },
+});
+
 // Get single personnel by ID
 export const getById = query({
   args: { personnelId: v.id("personnel") },

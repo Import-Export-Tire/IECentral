@@ -21,7 +21,7 @@ function TempConversionContent() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const personnel = useQuery(api.personnel.list, { status: "active" });
+  const personnel = useQuery(api.personnel.listAll, { status: "active" });
   const locations = useQuery(api.locations.list) || [];
 
   const [daysBefore, setDaysBefore] = useState(30);

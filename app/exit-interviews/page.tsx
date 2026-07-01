@@ -67,7 +67,7 @@ function ExitInterviewsContent() {
   const { user } = useAuth();
 
   const interviews = useQuery(api.exitInterviews.list, {}) as any[] | undefined;
-  const personnel = useQuery(api.personnel.list, {}) as { _id: string; email?: string; phone?: string }[] | undefined;
+  const personnel = useQuery(api.personnel.listAll, {}) as { _id: string; email?: string; phone?: string }[] | undefined;
   // Map personnelId → contact info so we can show email/phone inline + in
   // the conduct modal without an extra round-trip per row.
   const contactByPersonnelId = useMemo(() => {

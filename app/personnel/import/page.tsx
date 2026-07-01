@@ -141,7 +141,7 @@ function PersonnelImportContent() {
   const isDark = theme === "dark";
   const { user } = useAuth();
 
-  const existingPersonnel = useQuery(api.personnel.list, {});
+  const existingPersonnel = useQuery(api.personnel.listAll, {});
   const locations = useQuery(api.locations.list) || [];
   const bulkUpsert = useMutation(api.personnel.bulkUpsert);
 
