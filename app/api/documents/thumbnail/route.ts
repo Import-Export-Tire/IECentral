@@ -131,7 +131,9 @@ export async function POST(request: NextRequest) {
     if (!isImage && !isPdf && !isOffice && !isText) return new Response(null, { status: 204 }); // no body allowed on 204
 
     // Fetch the original file bytes.
-    const srcUrl = await convex.action(api.documents.getFileDownloadUrl, { documentId: docId });
+    const docWithFile = doc as { fileName?: string; name?: string; fileType?: string; fileId?: string } | null;
+    if (!docWithFile?.fileId) return new Response("source unavailable", { status: 404 });
+    const srcUrl = await convex.query(api.documents.getDownloadUrl, { fileId: docWithFile.fileId as Id<"_storage"> });
     if (!srcUrl) return new Response("source unavailable", { status: 404 });
     const srcResp = await fetch(srcUrl);
     if (!srcResp.ok) return new Response("source fetch failed", { status: 502 });

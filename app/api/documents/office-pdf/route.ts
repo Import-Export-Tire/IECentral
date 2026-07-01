@@ -62,7 +62,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Signed download URL for the original Office file (handed to the Lambda).
-    const srcUrl = await convex.action(api.documents.getFileDownloadUrl, { documentId: docId });
+    const docWithFile = doc as { fileName?: string; name?: string; fileType?: string; fileId?: string } | null;
+    if (!docWithFile?.fileId) return new Response("source unavailable", { status: 404 });
+    const srcUrl = await convex.query(api.documents.getDownloadUrl, { fileId: docWithFile.fileId as Id<"_storage"> });
     if (!srcUrl) return new Response("source unavailable", { status: 404 });
 
     // 3) Convert via the private LibreOffice Lambda (direct SDK invoke; IAM is the

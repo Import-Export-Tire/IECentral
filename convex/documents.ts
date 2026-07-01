@@ -1,6 +1,7 @@
-import { query, mutation, action } from "./_generated/server";
+import { query, mutation, action, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { requireSelfOrManager, requireManagePersonnel } from "./authGuards";
 
 // Get all active documents (optionally filter by folder)
@@ -408,16 +409,70 @@ export const restore = mutation({
   },
 });
 
+// Internal access check — mirrors the visibility rules in getAll + folder-access rules
+// in getProtectedDocuments/grantAccess. Called by getFileDownloadUrl before issuing a URL.
+export const canUserDownload = internalQuery({
+  args: { documentId: v.id("documents"), userId: v.id("users") },
+  handler: async (ctx, args): Promise<boolean> => {
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc || !doc.isActive) return false;
+    const user = await ctx.db.get(args.userId);
+    if (!user || user.isActive === false) return false;
+
+    // Owner always has access.
+    if (doc.uploadedBy === args.userId) return true;
+    // Public documents are visible to all authenticated users.
+    if (doc.isPublic) return true;
+    // Community/internal docs visible to all authenticated users.
+    const vis = doc.visibility || "private";
+    if (vis === "community" || vis === "internal") return true;
+    // Directly shared with this user.
+    if ((doc.sharedWith ?? []).some((id) => id === args.userId)) return true;
+    // Shared with a group this user belongs to.
+    const groupIds = (doc.sharedWithGroups ?? []) as Id<"groups">[];
+    if (groupIds.length) {
+      for (const gid of groupIds) {
+        const group = await ctx.db.get(gid);
+        if (group && (group.memberIds ?? []).some((m: Id<"users">) => m === args.userId)) return true;
+      }
+    }
+    // Doc lives in a folder the user can reach (owner, community/internal, group-shared, or per-user grant).
+    if (doc.folderId) {
+      const folder = await ctx.db.get(doc.folderId);
+      if (folder) {
+        if (folder.createdBy === args.userId) return true;
+        const fvis = folder.visibility || "private";
+        if (fvis === "community" || fvis === "internal") return true;
+        const fGroups = (folder.sharedWithGroups ?? []) as Id<"groups">[];
+        for (const gid of fGroups) {
+          const group = await ctx.db.get(gid);
+          if (group && (group.memberIds ?? []).some((m: Id<"users">) => m === args.userId)) return true;
+        }
+        const grants = await ctx.db
+          .query("folderAccessGrants")
+          .withIndex("by_folder", (q) => q.eq("folderId", folder._id))
+          .collect();
+        if (grants.some((g) => g.grantedToUserId === args.userId && !g.isRevoked)) return true;
+      }
+    }
+    return false;
+  },
+});
+
 // Action to get download URL (can be called imperatively)
 export const getFileDownloadUrl = action({
-  args: { documentId: v.id("documents") },
+  args: { documentId: v.id("documents"), requestingUserId: v.id("users") },
   handler: async (ctx, args): Promise<string | null> => {
+    const allowed = await ctx.runQuery(internal.documents.canUserDownload, {
+      documentId: args.documentId,
+      userId: args.requestingUserId,
+    });
+    if (!allowed) return null;
     const doc = await ctx.runQuery(api.documents.getById, { documentId: args.documentId });
     if (!doc || !doc.fileId) return null;
 
     try {
-      const url = await ctx.storage.getUrl(doc.fileId);
-      return url;
+      return await ctx.storage.getUrl(doc.fileId);
     } catch {
       return null;
     }

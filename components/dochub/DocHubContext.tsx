@@ -434,8 +434,9 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
 
   // Document operations
   const handleDownload = useCallback(async (doc: DocumentType) => {
+    if (!user) return;
     try {
-      const url = await getFileDownloadUrl({ documentId: doc._id });
+      const url = await getFileDownloadUrl({ documentId: doc._id, requestingUserId: user._id });
       if (!url) { setError("Could not get download URL"); return; }
       await incrementDownload({ documentId: doc._id });
       // Force download via fetch + blob to avoid browser opening the file
@@ -452,7 +453,7 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Download failed");
     }
-  }, [getFileDownloadUrl, incrementDownload]);
+  }, [getFileDownloadUrl, incrementDownload, user]);
 
   // Keep track of the storage URL separately from the blob URL so we can
   // (a) hand the storage URL to Microsoft's Office Online viewer (which
