@@ -14,6 +14,13 @@ const TIRETRACK_PKG = "com.importexporttire.tiretrack";
 const RTL_PKG = "com.rt_systems.rtlhandsfree";
 const AGENT_PKG = "com.ietires.scanneragent";
 
+const STATUS_ICON: Record<string, string> = {
+  success: "✓",
+  "in-progress": "…",
+  failed: "✗",
+  skipped: "—",
+};
+
 export function InstallStep({ session }: { session: Session }) {
   const { user } = useAuth();
   const getApkUrls = useAction(api.scannerMdm.getApkDownloadUrls);
@@ -338,32 +345,42 @@ export function InstallStep({ session }: { session: Session }) {
   }, [mdmConfig, lockPolicy]);
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-base font-semibold">Installing</h3>
-      <p className="text-xs opacity-70">
-        Provisioning code:{" "}
-        <span className="font-mono text-base text-blue-500">{session.state.provisionCode}</span>
-      </p>
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-[15px] font-semibold theme-text-primary mb-1">Installing</h3>
+        <div className="text-xs theme-text-tertiary">
+          Provisioning code:{" "}
+          <span className="font-mono text-base theme-accent-primary">{session.state.provisionCode}</span>
+        </div>
+      </div>
 
-      <ul className="space-y-1.5 text-sm">
+      <ul className="space-y-1.5">
         {Object.entries(session.state.installProgress).map(([key, p]) => (
-          <li key={key} className="flex items-center gap-2">
-            <span>
-              {p.status === "success" && "✓"}
-              {p.status === "in-progress" && "…"}
-              {p.status === "failed" && "✗"}
-              {p.status === "skipped" && "—"}
+          <li key={key} className="flex items-center gap-2 text-sm">
+            <span className={`w-4 text-center flex-shrink-0 font-mono text-xs ${
+              p.status === "success" ? "text-emerald-500" :
+              p.status === "failed" ? "text-red-500" :
+              p.status === "in-progress" ? "theme-accent-primary" :
+              "theme-text-tertiary"
+            }`}>
+              {p.status === "in-progress" ? (
+                <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                STATUS_ICON[p.status] ?? "·"
+              )}
             </span>
-            <span className={p.status === "failed" ? "text-red-500" : ""}>{p.message ?? key}</span>
+            <span className={p.status === "failed" ? "text-red-500" : "theme-text-secondary"}>
+              {p.message ?? key}
+            </span>
             {p.percent !== undefined && p.status === "in-progress" && (
-              <span className="opacity-60">({p.percent}%)</span>
+              <span className="text-xs theme-text-tertiary tabular-nums ml-auto">{p.percent}%</span>
             )}
           </li>
         ))}
       </ul>
 
       {fatalErr && (
-        <div className="text-red-500 text-sm pt-2">
+        <div className="p-3 rounded-xl ui-callout-red text-sm space-y-1">
           <p className="font-semibold">Install failed</p>
           <p>{fatalErr}</p>
         </div>

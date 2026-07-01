@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useConvex } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSetupSession, ExistingScanner } from "../useSetupSession";
+import Button from "@/components/ui/Button";
 
 type Session = ReturnType<typeof useSetupSession>;
 
@@ -52,67 +53,85 @@ export function DeviceDetectStep({ session }: { session: Session }) {
 
   return (
     <div className="space-y-4">
+      {/* Instructions */}
       <div>
-        <h3 className="text-base font-semibold mb-1">Plug in the scanner</h3>
-        <ol className="text-sm space-y-1 list-decimal list-inside opacity-80">
+        <h3 className="text-[15px] font-semibold mb-2 theme-text-primary">Plug in the scanner</h3>
+        <ol className="text-sm space-y-1 list-decimal list-inside theme-text-secondary">
           <li>Connect the TC51 to this computer via USB.</li>
           <li>On the scanner: enable USB debugging (Developer Options).</li>
           <li>When prompted on the scanner, tap <strong>Allow</strong>.</li>
         </ol>
       </div>
 
-      {err && <p className="text-red-500 text-sm">{err}</p>}
-
-      {!match && (
-        <button
-          onClick={handleConnect}
-          disabled={connecting}
-          className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-medium text-sm"
-        >
-          {connecting ? "Connecting…" : "Detect scanner"}
-        </button>
+      {/* Error */}
+      {err && (
+        <div className="p-3 rounded-xl ui-callout-red text-sm">{err}</div>
       )}
 
+      {/* Connect button */}
+      {!match && (
+        <Button
+          variant="primary"
+          className="w-full"
+          onClick={handleConnect}
+          disabled={connecting}
+        >
+          {connecting ? (
+            <>
+              <span className="inline-block w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              Connecting…
+            </>
+          ) : (
+            "Detect scanner"
+          )}
+        </Button>
+      )}
+
+      {/* Connected device info */}
       {session.state.connection && (
-        <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-sm">
-          <div className="font-medium">✓ Connected</div>
-          <div className="opacity-80">Serial: {session.state.connection.serial}</div>
-          <div className="opacity-80">Model: {session.state.connection.model}</div>
-          <div className="opacity-80">Android: {session.state.connection.androidVersion}</div>
+        <div className="p-3 rounded-xl ui-callout-green text-sm space-y-0.5">
+          <div className="font-semibold text-emerald-600 dark:text-emerald-400">Connected</div>
+          <div className="theme-text-secondary">Serial: <span className="font-mono">{session.state.connection.serial}</span></div>
+          <div className="theme-text-secondary">Model: {session.state.connection.model}</div>
+          <div className="theme-text-secondary">Android: {session.state.connection.androidVersion}</div>
         </div>
       )}
 
       {/* Already-registered → offer update */}
       {match && (
-        <div className="mt-3 p-4 rounded-lg bg-blue-500/10 border border-blue-500/30 text-sm space-y-2">
-          <div className="font-semibold text-base">This is {match.number}</div>
-          <div className="opacity-80">
-            {match.locationName ?? match.locationCode ?? "—"} · status: {match.status} ·{" "}
-            {match.assignedTo ? "assigned" : "unassigned"}
+        <div className="p-4 rounded-xl theme-card space-y-2.5">
+          <div>
+            <div className="text-[15px] font-bold theme-text-primary">{match.number}</div>
+            <div className="text-xs theme-text-tertiary mt-0.5">
+              {match.locationName ?? match.locationCode ?? "—"} &middot; {match.status} &middot;{" "}
+              {match.assignedTo ? "assigned" : "unassigned"}
+            </div>
           </div>
           {alreadyRegistered ? (
-            <p className="text-amber-500 text-xs">{alreadyRegistered}</p>
+            <div className="p-2.5 rounded-lg ui-callout-amber text-xs">{alreadyRegistered}</div>
           ) : (
             <div className="flex gap-2 pt-1">
-              <button
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={() => {
                   session.actions.setUpdateMode(match);
                   session.actions.goToStep("manage");
                 }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold"
               >
                 Update this scanner
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() =>
                   setAlreadyRegistered(
                     `This serial is already registered as ${match.number}. To re-register it under a different number, retire ${match.number} first in Scanner Management.`,
                   )
                 }
-                className="px-4 py-2 rounded-lg border border-current/20 text-sm hover:bg-current/5"
               >
                 Not this one
-              </button>
+              </Button>
             </div>
           )}
         </div>

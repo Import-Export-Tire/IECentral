@@ -12,6 +12,7 @@ import { InstallStep } from "./steps/InstallStep";
 import { VerifyStep } from "./steps/VerifyStep";
 import { DoneStep } from "./steps/DoneStep";
 import { useTheme } from "../../../theme-context";
+import Button from "@/components/ui/Button";
 
 export function SetupWizard({ onClose }: { onClose: () => void }) {
   const { theme } = useTheme();
@@ -46,32 +47,38 @@ export function SetupWizard({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [session.state.step, handleClose]);
 
+  // isDark is consumed only for the breadcrumb; suppress the lint warning
+  void isDark;
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget && session.state.step !== "install" && session.state.step !== "verify") handleClose();
       }}
     >
-      <div
-        className={`w-full max-w-2xl mx-4 rounded-2xl shadow-2xl overflow-hidden ${
-          isDark ? "bg-slate-900 text-white border border-slate-700" : "bg-white text-black border border-gray-200"
-        }`}
-      >
-        <header className={`px-6 py-4 border-b ${isDark ? "border-slate-800" : "border-gray-200"}`}>
+      <div className="w-full max-w-2xl theme-card rounded-2xl shadow-2xl overflow-hidden">
+        {/* Header */}
+        <header className="px-6 py-4 border-b theme-border-secondary">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">{session.state.mode === "update" ? "Update Scanner" : "New Scanner Setup"}</h2>
-            <button
+            <h2 className="text-[17px] font-semibold theme-text-primary">
+              {session.state.mode === "update" ? "Update Scanner" : "New Scanner Setup"}
+            </h2>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleClose}
               disabled={session.state.step === "install" || session.state.step === "verify"}
-              className={`text-sm ${isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-black"} disabled:opacity-30 disabled:cursor-not-allowed`}
             >
-              ✕
-            </button>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </Button>
           </div>
-          <StepBreadcrumb current={session.state.step} mode={session.state.mode} isDark={isDark} />
+          <StepBreadcrumb current={session.state.step} mode={session.state.mode} />
         </header>
 
+        {/* Body */}
         <div className="px-6 py-5">
           {session.state.step === "detect" && <DeviceDetectStep session={session} />}
           {session.state.step === "location" && <LocationStep session={session} />}
@@ -82,18 +89,18 @@ export function SetupWizard({ onClose }: { onClose: () => void }) {
           {session.state.step === "verify" && <VerifyStep session={session} />}
           {session.state.step === "done" && <DoneStep session={session} onClose={handleClose} />}
           {session.state.step === "error" && (
-            <div className="text-red-500">
-              <p className="font-semibold mb-2">Setup failed</p>
-              <p className="text-sm">{session.state.error}</p>
-              <button
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-red-500">Setup failed</p>
+              <p className="text-sm theme-text-secondary">{session.state.error}</p>
+              <Button
+                variant="primary"
                 onClick={() => {
                   clientRef.current?.disconnect().catch(() => {});
                   session.actions.reset();
                 }}
-                className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
               >
                 Start over
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -120,7 +127,7 @@ const UPDATE_STEPS: Array<{ key: string; label: string }> = [
   { key: "done", label: "Done" },
 ];
 
-function StepBreadcrumb({ current, mode, isDark }: { current: string; mode: "new" | "update"; isDark: boolean }) {
+function StepBreadcrumb({ current, mode }: { current: string; mode: "new" | "update" }) {
   const STEP_ORDER = mode === "update" ? UPDATE_STEPS : NEW_STEPS;
   const currentIndex = STEP_ORDER.findIndex((s) => s.key === current);
   return (
@@ -128,13 +135,14 @@ function StepBreadcrumb({ current, mode, isDark }: { current: string; mode: "new
       {STEP_ORDER.map((s, i) => (
         <li
           key={s.key}
-          className={`px-2 py-0.5 rounded-md ${
+          className={`px-2 py-0.5 rounded-md font-medium transition-colors ${
             i === currentIndex
-              ? isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700"
+              ? "theme-accent-primary"
               : i < currentIndex
-              ? isDark ? "text-slate-500" : "text-gray-400"
-              : isDark ? "text-slate-600" : "text-gray-300"
+              ? "theme-text-tertiary"
+              : "theme-text-tertiary opacity-40"
           }`}
+          style={i === currentIndex ? { background: "color-mix(in srgb, var(--accent-primary) 12%, transparent)" } : undefined}
         >
           {s.label}
         </li>
