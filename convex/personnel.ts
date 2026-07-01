@@ -1,8 +1,12 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { requireAdmin, requireManagePersonnel, requireRole } from "./authGuards";
+
+function personnelSearchText(p: { firstName: string; lastName: string; email: string; position: string }) {
+  return `${p.firstName} ${p.lastName} ${p.email} ${p.position}`.toLowerCase();
+}
 
 // ============ QUERIES ============
 
@@ -261,6 +265,7 @@ export const createFromApplication = mutation({
       tempEligibilityValue: args.tempEligibilityValue,
       tempEligibleDateOverride: args.tempEligibleDateOverride,
       defaultScheduleTemplateId: args.defaultScheduleTemplateId,
+      searchText: personnelSearchText({ firstName: application.firstName, lastName: application.lastName, email: application.email, position: args.position }),
       createdAt: now,
       updatedAt: now,
     });
@@ -342,6 +347,7 @@ export const create = mutation({
       tempEligibilityMode: args.tempEligibilityMode,
       tempEligibilityValue: args.tempEligibilityValue,
       tempEligibleDateOverride: args.tempEligibleDateOverride,
+      searchText: personnelSearchText({ firstName: args.firstName, lastName: args.lastName, email: args.email, position: args.position }),
       createdAt: now,
       updatedAt: now,
     });
@@ -425,6 +431,14 @@ export const update = mutation({
         }
       }
     }
+
+    // Recompute searchText from effective (post-patch) values
+    updateData.searchText = personnelSearchText({
+      firstName: (updates.firstName ?? existing.firstName) as string,
+      lastName: (updates.lastName ?? existing.lastName) as string,
+      email: (updates.email ?? existing.email) as string,
+      position: (updates.position ?? existing.position) as string,
+    });
 
     await ctx.db.patch(personnelId, updateData);
 
@@ -1329,12 +1343,16 @@ export const bulkUpsert = mutation({
         results.updated++;
       } else {
         // Insert requires all base fields with reasonable defaults
+        const insertFirstName = e.firstName.trim();
+        const insertLastName = e.lastName.trim();
+        const insertEmail = (e.email || "").toLowerCase().trim();
+        const insertPosition = (e.position || "").trim();
         await ctx.db.insert("personnel", {
-          firstName: e.firstName.trim(),
-          lastName: e.lastName.trim(),
-          email: (e.email || "").toLowerCase().trim(),
+          firstName: insertFirstName,
+          lastName: insertLastName,
+          email: insertEmail,
           phone: (e.phone || "").trim(),
-          position: (e.position || "").trim(),
+          position: insertPosition,
           department: (e.department || "").trim(),
           employeeType: (e.employeeType || "full_time").trim(),
           hireDate: e.hireDate.trim(),
@@ -1345,6 +1363,7 @@ export const bulkUpsert = mutation({
           ...(e.terminationDate ? { terminationDate: e.terminationDate.trim() } : {}),
           ...(e.terminationReason ? { terminationReason: e.terminationReason.trim() } : {}),
           ...(e.notes ? { notes: e.notes.trim() } : {}),
+          searchText: personnelSearchText({ firstName: insertFirstName, lastName: insertLastName, email: insertEmail, position: insertPosition }),
           createdAt: now,
           updatedAt: now,
         });
@@ -1406,6 +1425,7 @@ export const bulkImport = mutation({
         employeeType: employee.employeeType,
         hireDate: employee.hireDate,
         status: "active",
+        searchText: personnelSearchText({ firstName: employee.firstName, lastName: employee.lastName, email: employee.email.toLowerCase(), position: employee.position }),
         createdAt: now,
         updatedAt: now,
       });
@@ -2098,5 +2118,16 @@ export const convertTempToHire = mutation({
       }
     }
     return args.personnelId;
+  },
+});
+
+export const backfillSearchText = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("personnel").collect();
+    for (const p of all) {
+      await ctx.db.patch(p._id, { searchText: personnelSearchText(p) });
+    }
+    return { updated: all.length };
   },
 });

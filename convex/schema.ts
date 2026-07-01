@@ -553,13 +553,19 @@ export default defineSchema({
       authorizedBy: v.optional(v.string()),
       authorizedById: v.optional(v.id("users")),
     }))),
+    searchText: v.optional(v.string()), // lowercased "firstName lastName email position" for full-text search
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_department", ["department"])
     .index("by_status", ["status"])
     .index("by_email", ["email"])
-    .index("by_schedule_template", ["defaultScheduleTemplateId"]),
+    .index("by_schedule_template", ["defaultScheduleTemplateId"])
+    .index("by_lastName", ["lastName"])
+    .searchIndex("search_personnel", {
+      searchField: "searchText",
+      filterFields: ["status", "department", "locationId"],
+    }),
 
   // Phone call logs for personnel
   personnelCallLogs: defineTable({
