@@ -144,6 +144,7 @@ export function visibilityToTier(visibility?: string, isProtected?: boolean): Pr
 }
 
 export type ViewMode = "grid" | "list";
+export type RailSelection = "mine" | "shared" | "company" | "recent";
 
 export interface BreadcrumbItem {
   id: Id<"documentFolders"> | null;

@@ -6,7 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useAuth } from "@/app/auth-context";
 import { useTheme } from "@/app/theme-context";
-import type { ViewMode, BreadcrumbItem, DocumentType, FolderType } from "./types";
+import type { ViewMode, BreadcrumbItem, DocumentType, FolderType, RailSelection } from "./types";
 import { requestThumbnail } from "@/lib/docThumbnail";
 
 interface DocHubContextType {
@@ -54,6 +54,12 @@ interface DocHubContextType {
   setShowFolderModal: (show: boolean) => void;
   showGroupsModal: boolean;
   setShowGroupsModal: (show: boolean) => void;
+  showManageDrawer: boolean;
+  setShowManageDrawer: (show: boolean) => void;
+  // Plain-language rail
+  railSelection: RailSelection;
+  setRailSelection: (sel: RailSelection) => void;
+  recentDocuments: DocumentType[] | undefined;
   // Upload
   handleUpload: (file: File, name: string, description: string, category: string, expirationDate?: string, expirationAlertDays?: number, requiresSignature?: boolean, visibility?: string) => Promise<void>;
   uploading: boolean;
@@ -161,6 +167,8 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [showGroupsModal, setShowGroupsModal] = useState(false);
+  const [showManageDrawer, setShowManageDrawer] = useState(false);
+  const [railSelection, setRailSelection] = useState<RailSelection>("mine");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
@@ -676,6 +684,11 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
         return true;
       });
 
+  // Recent = the user's root documents, most-recently-updated first (client-side; no new query).
+  const recentDocuments = documents
+    ? [...documents].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 24)
+    : undefined;
+
   return (
     <DocHubContext.Provider value={{
       isDark, user, isAdmin, isSuperAdmin,
@@ -685,6 +698,8 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
       unlockedFolders, unlockFolder, handleOpenFolder, loadFolderDocuments, loadingFolderDocs,
       showUploadModal, setShowUploadModal, showFolderModal, setShowFolderModal,
       showGroupsModal, setShowGroupsModal,
+      showManageDrawer, setShowManageDrawer,
+      railSelection, setRailSelection, recentDocuments,
       handleUpload, uploading,
       handleDownload, handlePreview, handleArchive, handleDelete, handleRestore, handleEdit, handleShare, handleTogglePublic,
       handleCreateFolder, handleUpdateFolder, handleArchiveFolder, handleMoveDocument, handleMoveFolder,
