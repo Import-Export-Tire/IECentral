@@ -87,27 +87,27 @@ export const globalSearch = query({
 
     // ── People & HR ──
     if (tier >= 2) {
-      const personnel = await ctx.db.query("personnel").collect();
-      let n = 0;
+      // Personnel: search index on searchText (firstName lastName email position, lowercased).
+      // NOTE: department is NOT in searchText, so department-only matches won't hit here —
+      // this matches the personnel page's own search behavior and is intentional.
+      const personnel = await ctx.db
+        .query("personnel")
+        .withSearchIndex("search_personnel", (s) => s.search("searchText", q))
+        .take(PER);
       for (const p of personnel) {
-        if (n >= PER) break;
-        const full = `${p.firstName} ${p.lastName}`.toLowerCase();
-        if (full.includes(q) || p.position?.toLowerCase().includes(q) || p.department?.toLowerCase().includes(q)) {
-          out.push({ type: "personnel", id: p._id, title: `${p.firstName} ${p.lastName}`, subtitle: `${p.position ?? ""}${p.department ? ` - ${p.department}` : ""}`, href: `/personnel/${p._id}`, icon: "user", category: "People" });
-          n++;
-        }
+        out.push({ type: "personnel", id: p._id, title: `${p.firstName} ${p.lastName}`, subtitle: `${p.position ?? ""}${p.department ? ` - ${p.department}` : ""}`, href: `/personnel/${p._id}`, icon: "user", category: "People" });
       }
-      const apps = await ctx.db.query("applications").collect();
-      let a = 0;
+
+      // Applications: search index on searchText (firstName lastName email, lowercased).
+      const apps = await ctx.db
+        .query("applications")
+        .withSearchIndex("search_applications", (s) => s.search("searchText", q))
+        .take(PER);
       for (const ap of apps) {
-        if (a >= PER) break;
-        const full = `${ap.firstName} ${ap.lastName}`.toLowerCase();
-        if (full.includes(q) || ap.email?.toLowerCase().includes(q)) {
-          out.push({ type: "application", id: ap._id, title: `${ap.firstName} ${ap.lastName}`, subtitle: `Applicant - ${ap.status}`, href: `/applications/${ap._id}`, icon: "document", category: "People" });
-          a++;
-        }
+        out.push({ type: "application", id: ap._id, title: `${ap.firstName} ${ap.lastName}`, subtitle: `Applicant - ${ap.status}`, href: `/applications/${ap._id}`, icon: "document", category: "People" });
       }
     }
+    // TODO(pagination follow-up): remaining tables still scan
     if (tier >= 4) {
       const users = await ctx.db.query("users").collect();
       let n = 0;

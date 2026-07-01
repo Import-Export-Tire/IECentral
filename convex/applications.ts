@@ -2,6 +2,10 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
+function applicationSearchText(a: { firstName: string; lastName: string; email: string }) {
+  return `${a.firstName} ${a.lastName} ${a.email}`.toLowerCase();
+}
+
 // Get all applications (excludes archived by default)
 export const getAll = query({
   args: {
@@ -127,6 +131,7 @@ export const create = mutation({
     const applicationId = await ctx.db.insert("applications", {
       ...args,
       status: "new",
+      searchText: applicationSearchText({ firstName: args.firstName, lastName: args.lastName, email: args.email }),
       createdAt: now,
       updatedAt: now,
     });
@@ -226,10 +231,22 @@ export const updateAIAnalysis = mutation({
   },
   handler: async (ctx, args) => {
     const { applicationId, ...updates } = args;
-    await ctx.db.patch(applicationId, {
+    // Recompute searchText if any name/email fields are being backfilled
+    const patchData: typeof updates & { updatedAt: number; searchText?: string } = {
       ...updates,
       updatedAt: Date.now(),
-    });
+    };
+    if (args.firstName !== undefined || args.lastName !== undefined || args.email !== undefined) {
+      const existing = await ctx.db.get(applicationId);
+      if (existing) {
+        patchData.searchText = applicationSearchText({
+          firstName: args.firstName ?? existing.firstName,
+          lastName: args.lastName ?? existing.lastName,
+          email: args.email ?? existing.email,
+        });
+      }
+    }
+    await ctx.db.patch(applicationId, patchData);
   },
 });
 
@@ -304,6 +321,7 @@ export const submitApplication = mutation({
     return await ctx.db.insert("applications", {
       ...args,
       status: "new",
+      searchText: applicationSearchText({ firstName: args.firstName, lastName: args.lastName, email: args.email }),
       createdAt: now,
       updatedAt: now,
     });
@@ -1893,5 +1911,18 @@ export const autoExpireOldApplications = internalMutation({
 
     console.log(`Auto-expire job completed: ${expired} applications expired`);
     return { expired };
+  },
+});
+
+// One-time backfill: populate searchText on all existing applications.
+// Run once post-deploy: npx convex run applications:backfillApplicationSearchText
+export const backfillApplicationSearchText = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("applications").collect();
+    for (const a of all) {
+      await ctx.db.patch(a._id, { searchText: applicationSearchText(a) });
+    }
+    return { updated: all.length };
   },
 });
