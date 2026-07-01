@@ -1021,23 +1021,17 @@ export const getSharedFolders = query({
       return folder.parentFolderId === args.parentFolderId;
     });
 
-    const sharedFolders = await Promise.all(
-      atLevel.map(async ({ folder, grantedAt, grantedByUserName, expiresAt }) => {
-        const docs = await ctx.db
-          .query("documents")
-          .withIndex("by_folder", (q) => q.eq("folderId", folder._id))
-          .filter((q) => q.eq(q.field("isActive"), true))
-          .collect();
-        return {
-          ...folder,
-          documentCount: docs.length,
-          isProtected: !!folder.passwordHash,
-          grantedAt,
-          grantedByUserName,
-          expiresAt,
-        };
-      })
-    );
+    // Use the SAME recursive count helper as getMyFolders/getCommunityFolders so a
+    // shared CONTAINER folder (0 direct files, but files in subfolders) shows its real
+    // "N folders · M files" instead of reading "Empty". (Previously this counted only
+    // direct files and never set subfolderCount, so containers looked empty.)
+    const { directCount, childrenByParent } = await loadFolderCountMaps(ctx);
+    const sharedFolders = atLevel.map(({ folder, grantedAt, grantedByUserName, expiresAt }) => ({
+      ...getFolderWithCounts(folder, childrenByParent, directCount),
+      grantedAt,
+      grantedByUserName,
+      expiresAt,
+    }));
 
     return sharedFolders.filter(Boolean);
   },
