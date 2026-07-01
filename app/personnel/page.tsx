@@ -410,7 +410,7 @@ function PersonnelContent() {
               {active.status !== "LoadingFirstPage" && visibleResults.length > 0 && (
                 <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200 dark:border-slate-700">
                   <p className="text-xs theme-text-tertiary">
-                    Showing {visibleResults.length}{active.status === "Exhausted" ? "" : "+"}
+                    Showing {visibleResults.length}{(!showTempsOnly && active.status !== "Exhausted") ? "+" : ""}
                   </p>
                   {active.status === "CanLoadMore" && (
                     <button
@@ -429,7 +429,7 @@ function PersonnelContent() {
           </div>
 
           {/* Terminated Employees Section (Collapsible) */}
-          <div className={`rounded-xl overflow-hidden border ${isDark ? "bg-slate-800/20 border-slate-700" : "bg-gray-50/80 border-gray-200"}`}>
+          {(showTerminated || terminatedBrowse.results.length > 0) && <div className={`rounded-xl overflow-hidden border ${isDark ? "bg-slate-800/20 border-slate-700" : "bg-gray-50/80 border-gray-200"}`}>
             <button
               onClick={() => setShowTerminated(!showTerminated)}
               className={`w-full px-6 py-4 flex items-center justify-between ${isDark ? "hover:bg-slate-700/20" : "hover:bg-gray-100"}`}
@@ -510,7 +510,7 @@ function PersonnelContent() {
                 )}
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </main>
     </div>

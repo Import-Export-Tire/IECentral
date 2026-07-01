@@ -79,6 +79,7 @@ export const listAll = query({
     status: v.optional(v.string()),
     locationId: v.optional(v.id("locations")),
     locationIds: v.optional(v.array(v.id("locations"))),
+    department: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     let personnel;
@@ -97,6 +98,9 @@ export const listAll = query({
       personnel = personnel.filter(
         (p) => p.locationId && args.locationIds!.includes(p.locationId as Id<"locations">)
       );
+    }
+    if (args.department) {
+      personnel = personnel.filter((p) => p.department === args.department);
     }
     return personnel.sort((a, b) => a.lastName.localeCompare(b.lastName));
   },
