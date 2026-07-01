@@ -3,6 +3,7 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { requireAdmin, requireManagePersonnel, requireRole } from "./authGuards";
+import { paginationOptsValidator } from "convex/server";
 
 function personnelSearchText(p: { firstName: string; lastName: string; email: string; position: string }) {
   return `${p.firstName} ${p.lastName} ${p.email} ${p.position}`.toLowerCase();
@@ -10,42 +11,64 @@ function personnelSearchText(p: { firstName: string; lastName: string; email: st
 
 // ============ QUERIES ============
 
-// Get all personnel (with optional filters) - Updated with location filtering v2
+// Get all personnel (paginated, ordered by lastName) - with optional status/department/locationIds filters
 export const list = query({
   args: {
-    department: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
     status: v.optional(v.string()),
-    locationId: v.optional(v.id("locations")),
+    department: v.optional(v.string()),
     locationIds: v.optional(v.array(v.id("locations"))),
   },
   handler: async (ctx, args) => {
-    let personnel;
-
-    if (args.department) {
-      personnel = await ctx.db
-        .query("personnel")
-        .withIndex("by_department", (q) => q.eq("department", args.department!))
-        .collect();
-    } else if (args.status) {
-      personnel = await ctx.db
-        .query("personnel")
-        .withIndex("by_status", (q) => q.eq("status", args.status!))
-        .collect();
-    } else {
-      personnel = await ctx.db.query("personnel").collect();
-    }
-
-    // Filter by single locationId
-    if (args.locationId) {
-      personnel = personnel.filter(p => p.locationId === args.locationId);
-    }
-
-    // Filter by multiple locationIds (for managers with multiple locations)
+    // Browse ordered by lastName. Filters that aren't the index key are applied
+    // with .filter() on the index range (correctness preserved; still bounded by paginate).
+    const q = ctx.db.query("personnel").withIndex("by_lastName").order("asc");
+    const result = await q
+      .filter((f) => {
+        const conds = [] as any[];
+        if (args.status) conds.push(f.eq(f.field("status"), args.status));
+        if (args.department) conds.push(f.eq(f.field("department"), args.department));
+        return conds.length ? f.and(...conds) : true;
+      })
+      .paginate(args.paginationOpts);
+    // locationIds is a set-membership filter (no single-eq) — apply in JS on the page.
     if (args.locationIds && args.locationIds.length > 0) {
-      personnel = personnel.filter(p => p.locationId && args.locationIds!.includes(p.locationId as Id<"locations">));
+      const set = new Set(args.locationIds.map(String));
+      result.page = result.page.filter((p) => p.locationId && set.has(String(p.locationId)));
     }
+    return result;
+  },
+});
 
-    return personnel.sort((a, b) => a.lastName.localeCompare(b.lastName));
+// Full-text search over personnel (paginated)
+export const searchPersonnel = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    term: v.string(),
+    status: v.optional(v.string()),
+    department: v.optional(v.string()),
+    locationId: v.optional(v.id("locations")),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("personnel")
+      .withSearchIndex("search_personnel", (s) => {
+        let q = s.search("searchText", args.term.toLowerCase());
+        if (args.status) q = q.eq("status", args.status);
+        if (args.department) q = q.eq("department", args.department);
+        if (args.locationId) q = q.eq("locationId", args.locationId);
+        return q;
+      })
+      .paginate(args.paginationOpts);
+  },
+});
+
+// Minimal id+name projection — for dropdowns that only need people picker data
+export const listOptions = query({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("personnel").withIndex("by_lastName").order("asc").collect();
+    return all.map((p) => ({ _id: p._id, firstName: p.firstName, lastName: p.lastName }));
   },
 });
 
