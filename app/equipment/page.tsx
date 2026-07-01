@@ -1614,7 +1614,7 @@ By signing below, the Employee acknowledges that they have read, understand, and
                 <button
                   type="button"
                   onClick={handleDelete}
-                  className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors bg-red-600 text-white hover:bg-red-700"
+                  className="flex-1 px-4 py-3 font-medium rounded-lg transition-colors ui-btn-danger"
                 >
                   Delete Permanently
                 </button>
