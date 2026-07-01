@@ -1,11 +1,15 @@
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { query, mutation } from "./_generated/server";
 
-// Get audit logs with pagination and filtering
+// Get audit logs with cursor-based pagination and filtering.
+// Filters (actionType, resourceType, userId) are applied via .filter() on the
+// time-ordered index range. This may read extra rows to fill a page when filters
+// are selective, but audit log browsing is admin-facing and low-frequency — the
+// simplicity of keeping consistent time-desc order outweighs the extra reads.
 export const getAll = query({
   args: {
-    limit: v.optional(v.number()),
-    offset: v.optional(v.number()),
+    paginationOpts: paginationOptsValidator,
     actionType: v.optional(v.string()),
     resourceType: v.optional(v.string()),
     userId: v.optional(v.id("users")),
@@ -13,53 +17,40 @@ export const getAll = query({
     endDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const limit = args.limit || 50;
-    const offset = args.offset || 0;
-
-    let logs = await ctx.db
+    // Build a time-bounded index range (desc) then apply field filters.
+    let q = ctx.db
       .query("auditLogs")
-      .withIndex("by_timestamp")
-      .order("desc")
-      .collect();
+      .withIndex("by_timestamp", (idx) => {
+        if (args.startDate && args.endDate) {
+          return idx
+            .gte("timestamp", new Date(args.startDate).getTime())
+            .lte("timestamp", new Date(args.endDate).getTime() + 86400000);
+        } else if (args.startDate) {
+          return idx.gte("timestamp", new Date(args.startDate).getTime());
+        } else if (args.endDate) {
+          return idx.lte("timestamp", new Date(args.endDate).getTime() + 86400000);
+        }
+        return idx;
+      })
+      .order("desc");
 
-    // Filter by action type
+    // Chain .filter() for field-level predicates after the index range.
     if (args.actionType && args.actionType !== "all") {
-      logs = logs.filter((log) => log.actionType === args.actionType);
+      q = q.filter((f) => f.eq(f.field("actionType"), args.actionType));
     }
-
-    // Filter by resource type
     if (args.resourceType && args.resourceType !== "all") {
-      logs = logs.filter((log) => log.resourceType === args.resourceType);
+      q = q.filter((f) => f.eq(f.field("resourceType"), args.resourceType));
     }
-
-    // Filter by user
     if (args.userId) {
-      logs = logs.filter((log) => log.userId === args.userId);
+      q = q.filter((f) => f.eq(f.field("userId"), args.userId));
     }
 
-    // Filter by date range
-    if (args.startDate) {
-      const start = new Date(args.startDate).getTime();
-      logs = logs.filter((log) => log.timestamp >= start);
-    }
-    if (args.endDate) {
-      const end = new Date(args.endDate).getTime() + 86400000;
-      logs = logs.filter((log) => log.timestamp <= end);
-    }
-
-    // Return paginated results
-    const totalCount = logs.length;
-    const paginatedLogs = logs.slice(offset, offset + limit);
-
-    return {
-      logs: paginatedLogs,
-      totalCount,
-      hasMore: offset + limit < totalCount,
-    };
+    return await q.paginate(args.paginationOpts);
   },
 });
 
 // Get distinct action types for filtering
+// TODO(pagination follow-up): distinct-value scan — replace full collect() with a proper distinct index approach
 export const getActionTypes = query({
   args: {},
   handler: async (ctx) => {
@@ -70,6 +61,7 @@ export const getActionTypes = query({
 });
 
 // Get distinct resource types for filtering
+// TODO(pagination follow-up): distinct-value scan — replace full collect() with a proper distinct index approach
 export const getResourceTypes = query({
   args: {},
   handler: async (ctx) => {
@@ -126,6 +118,7 @@ export const log = mutation({
 });
 
 // Get users who have audit entries
+// TODO(pagination follow-up): distinct-value scan — replace full collect() with a proper distinct index approach
 export const getUsers = query({
   args: {},
   handler: async (ctx) => {

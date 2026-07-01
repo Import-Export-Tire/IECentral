@@ -7,6 +7,8 @@ import { useTheme } from "../theme-context";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { usePaginatedList } from "@/components/ui/usePaginatedList";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 const actionTypeColors: Record<string, { bg: string; text: string }> = {
   create: { bg: "bg-green-500/20", text: "text-green-400" },
@@ -37,37 +39,25 @@ function AuditLogContent() {
   const [userFilter, setUserFilter] = useState<Id<"users"> | "">("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [offset, setOffset] = useState(0);
-  const limit = 25;
 
-  // Queries
-  const logsResult = useQuery(api.auditLogs.getAll, {
-    limit,
-    offset,
-    actionType: actionTypeFilter === "all" ? undefined : actionTypeFilter,
-    resourceType: resourceTypeFilter === "all" ? undefined : resourceTypeFilter,
-    userId: userFilter || undefined,
-    startDate: startDate || undefined,
-    endDate: endDate || undefined,
-  });
+  // Cursor-based paginated query; changing any filter arg resets pagination automatically (Convex behavior).
+  const audit = usePaginatedList(
+    api.auditLogs.getAll,
+    {
+      actionType: actionTypeFilter === "all" ? undefined : actionTypeFilter,
+      resourceType: resourceTypeFilter === "all" ? undefined : resourceTypeFilter,
+      userId: userFilter || undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+    },
+    { initialNumItems: 25 }
+  );
 
   const actionTypes = useQuery(api.auditLogs.getActionTypes);
   const resourceTypes = useQuery(api.auditLogs.getResourceTypes);
   const users = useQuery(api.auditLogs.getUsers);
 
-  const logs = logsResult?.logs || [];
-  const totalCount = logsResult?.totalCount || 0;
-  const hasMore = logsResult?.hasMore || false;
-
-  const handlePrevPage = () => {
-    setOffset(Math.max(0, offset - limit));
-  };
-
-  const handleNextPage = () => {
-    if (hasMore) {
-      setOffset(offset + limit);
-    }
-  };
+  const logs = audit.results;
 
   const clearFilters = () => {
     setActionTypeFilter("all");
@@ -75,7 +65,6 @@ function AuditLogContent() {
     setUserFilter("");
     setStartDate("");
     setEndDate("");
-    setOffset(0);
   };
 
   return (
@@ -97,7 +86,9 @@ function AuditLogContent() {
               </p>
             </div>
             <span className={`text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-              {totalCount} entries
+              {audit.status === "LoadingFirstPage"
+                ? "Loading…"
+                : `${logs.length}${audit.status !== "Exhausted" ? "+" : ""} loaded`}
             </span>
           </div>
         </header>
@@ -123,7 +114,7 @@ function AuditLogContent() {
                 </label>
                 <select
                   value={actionTypeFilter}
-                  onChange={(e) => { setActionTypeFilter(e.target.value); setOffset(0); }}
+                  onChange={(e) => setActionTypeFilter(e.target.value)}
                   className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`}
                 >
                   <option value="all">All Actions</option>
@@ -140,7 +131,7 @@ function AuditLogContent() {
                 </label>
                 <select
                   value={resourceTypeFilter}
-                  onChange={(e) => { setResourceTypeFilter(e.target.value); setOffset(0); }}
+                  onChange={(e) => setResourceTypeFilter(e.target.value)}
                   className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`}
                 >
                   <option value="all">All Resources</option>
@@ -157,7 +148,7 @@ function AuditLogContent() {
                 </label>
                 <select
                   value={userFilter}
-                  onChange={(e) => { setUserFilter(e.target.value as Id<"users"> | ""); setOffset(0); }}
+                  onChange={(e) => setUserFilter(e.target.value as Id<"users"> | "")}
                   className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`}
                 >
                   <option value="">All Users</option>
@@ -175,7 +166,7 @@ function AuditLogContent() {
                 <input
                   type="date"
                   value={startDate}
-                  onChange={(e) => { setStartDate(e.target.value); setOffset(0); }}
+                  onChange={(e) => setStartDate(e.target.value)}
                   className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`}
                 />
               </div>
@@ -186,7 +177,7 @@ function AuditLogContent() {
                 <input
                   type="date"
                   value={endDate}
-                  onChange={(e) => { setEndDate(e.target.value); setOffset(0); }}
+                  onChange={(e) => setEndDate(e.target.value)}
                   className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`}
                 />
               </div>
@@ -195,9 +186,13 @@ function AuditLogContent() {
 
           {/* Logs Table */}
           <div className={`border rounded-xl overflow-hidden ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-            {!logsResult ? (
-              <div className="flex justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+            {audit.status === "LoadingFirstPage" ? (
+              <div className="p-4 space-y-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
               </div>
             ) : logs.length === 0 ? (
               <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
@@ -311,38 +306,29 @@ function AuditLogContent() {
                     </tbody>
                   </table>
                 </div>
-
-                {/* Pagination */}
-                <div className={`flex items-center justify-between px-4 py-3 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                  <p className={`text-sm ${isDark ? "text-slate-500" : "text-gray-500"}`}>
-                    Showing {offset + 1} to {Math.min(offset + limit, totalCount)} of {totalCount} entries
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handlePrevPage}
-                      disabled={offset === 0}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                        offset === 0
-                          ? isDark ? "bg-slate-800 text-slate-600 cursor-not-allowed" : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          : isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={handleNextPage}
-                      disabled={!hasMore}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                        !hasMore
-                          ? isDark ? "bg-slate-800 text-slate-600 cursor-not-allowed" : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          : isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"
-                      }`}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
               </>
+            )}
+
+            {/* Load more / spinner — rendered outside table so no invalid DOM nesting */}
+            {audit.status !== "LoadingFirstPage" && logs.length > 0 && (
+              <div className={`flex items-center justify-between px-4 py-3 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                <p className={`text-sm ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                  Showing {logs.length}{audit.status !== "Exhausted" ? "+" : ""}
+                </p>
+                {audit.status === "CanLoadMore" && (
+                  <button
+                    onClick={() => audit.loadMore(25)}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                      isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"
+                    }`}
+                  >
+                    Load more
+                  </button>
+                )}
+                {audit.status === "LoadingMore" && (
+                  <div className="w-6 h-6 border-2 border-t-transparent border-cyan-500 rounded-full animate-spin" />
+                )}
+              </div>
             )}
           </div>
         </div>
