@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSetupSession } from "../useSetupSession";
+import Button from "@/components/ui/Button";
 
 type Session = ReturnType<typeof useSetupSession>;
 
@@ -40,40 +41,58 @@ export function VerifyStep({ session }: { session: Session }) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-base font-semibold">Last step — finish on the scanner</h3>
+      <h3 className="text-[15px] font-semibold theme-text-primary">Last step — finish on the scanner</h3>
+
       <div className="space-y-3 text-sm">
-        <p>
-          The <b>IE Scanner Agent · Setup</b> screen is now open <span className="opacity-70">on the
-          handheld scanner</span>. On the scanner:
+        <p className="theme-text-secondary">
+          The <strong>IE Scanner Agent · Setup</strong> screen is now open{" "}
+          <span className="theme-text-tertiary">on the handheld scanner</span>. On the scanner:
         </p>
-        <ol className="list-decimal pl-5 space-y-1">
-          <li>Type this code into the box and tap <b>Submit</b>:</li>
+        <ol className="list-decimal pl-5 space-y-1 theme-text-secondary">
+          <li>Type this code into the box and tap <strong>Submit</strong>:</li>
         </ol>
-        <div className="text-3xl font-mono font-bold tracking-[0.3em] text-blue-500 text-center py-3 rounded-lg bg-blue-500/10">
+
+        {/* Provision code display */}
+        <div className="text-3xl font-mono font-bold tracking-[0.3em] theme-accent-primary text-center py-4 rounded-xl"
+          style={{ background: "color-mix(in srgb, var(--accent-primary) 10%, transparent)" }}>
           {session.state.provisionCode}
         </div>
-        <p className="opacity-70">
-          The scanner then connects on its own and this screen turns to <b>Online</b> automatically —
+
+        <p className="text-xs theme-text-tertiary">
+          The scanner then connects on its own and this screen turns to <strong>Online</strong> automatically —
           nothing more to do here. Keep this window open.
         </p>
       </div>
 
-      <div className={`text-sm font-medium ${scanner?.isOnline ? "text-green-500" : "text-blue-500"}`}>
-        {scanner?.isOnline
-          ? "✓ Scanner is online — finishing…"
-          : `Waiting for the scanner to connect… (${Math.round(elapsed / 1000)}s)`}
+      {/* Status indicator */}
+      <div className={`flex items-center gap-2 text-sm font-medium ${scanner?.isOnline ? "text-emerald-500" : "theme-accent-primary"}`}>
+        {scanner?.isOnline ? (
+          <>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+            Scanner is online — finishing…
+          </>
+        ) : (
+          <>
+            <span className="inline-block w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            Waiting for the scanner to connect… ({Math.round(elapsed / 1000)}s)
+          </>
+        )}
       </div>
 
+      {/* Timeout fallback */}
       {timedOut && !scanner?.isOnline && (
-        <div className="text-amber-500 text-sm space-y-2">
-          <p>Still waiting after 2 minutes.</p>
-          <p>That's OK — the code stays valid, so you can finish typing it on the scanner. This screen will switch to Online as soon as the scanner connects. You can also close this and provision later from the scanner's detail page.</p>
-          <button
+        <div className="p-3 rounded-xl ui-callout-amber text-sm space-y-2">
+          <p className="font-medium">Still waiting after 2 minutes.</p>
+          <p className="theme-text-secondary text-xs">
+            That&apos;s OK — the code stays valid, so you can finish typing it on the scanner. This screen will switch to Online as soon as the scanner connects. You can also close this and provision later from the scanner&apos;s detail page.
+          </p>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => session.actions.goToStep("done")}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
           >
             Mark setup done anyway
-          </button>
+          </Button>
         </div>
       )}
     </div>

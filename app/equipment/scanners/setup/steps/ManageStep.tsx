@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSetupSession } from "../useSetupSession";
 import { Id } from "@/convex/_generated/dataModel";
+import Button from "@/components/ui/Button";
 
 type Session = ReturnType<typeof useSetupSession>;
 const STATUSES = ["available", "maintenance", "lost", "retired"];
@@ -14,26 +15,28 @@ export function ManageStep({ session }: { session: Session }) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-base font-semibold">Update {existingScanner?.number}</h3>
-      <p className="text-xs opacity-70">
-        Software will be reinstalled/updated. Number, location and identity stay the same.
-      </p>
+      <div>
+        <h3 className="text-[15px] font-semibold theme-text-primary">Update {existingScanner?.number}</h3>
+        <p className="text-xs theme-text-tertiary mt-0.5">
+          Software will be reinstalled/updated. Number, location and identity stay the same.
+        </p>
+      </div>
 
-      <label className="block text-sm">
-        <span className="opacity-70">Status</span>
+      <div>
+        <label className="block text-xs font-medium theme-text-tertiary mb-1">Status</label>
         <select
           value={manage.status}
           onChange={(e) => session.actions.setManage({ status: e.target.value })}
-          className="mt-1 w-full rounded-lg border border-current/20 bg-transparent px-3 py-2 text-sm"
+          className="theme-input w-full px-3 py-2 text-sm"
         >
           {STATUSES.map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
           ))}
         </select>
-      </label>
+      </div>
 
-      <label className="block text-sm">
-        <span className="opacity-70">Assigned to</span>
+      <div>
+        <label className="block text-xs font-medium theme-text-tertiary mb-1">Assigned to</label>
         <select
           value={manage.assignedTo ?? ""}
           onChange={(e) =>
@@ -41,7 +44,7 @@ export function ManageStep({ session }: { session: Session }) {
               assignedTo: e.target.value ? (e.target.value as Id<"personnel">) : null,
             })
           }
-          className="mt-1 w-full rounded-lg border border-current/20 bg-transparent px-3 py-2 text-sm"
+          className="theme-input w-full px-3 py-2 text-sm"
         >
           <option value="">Unassigned</option>
           {personnel.map((p: { _id: Id<"personnel">; firstName: string; lastName: string }) => (
@@ -50,31 +53,39 @@ export function ManageStep({ session }: { session: Session }) {
             </option>
           ))}
         </select>
-      </label>
+      </div>
 
-      <label className="block text-sm">
-        <span className="opacity-70">Condition notes</span>
+      <div>
+        <label className="block text-xs font-medium theme-text-tertiary mb-1">Condition notes</label>
         <textarea
           value={manage.conditionNotes}
           onChange={(e) => session.actions.setManage({ conditionNotes: e.target.value })}
           rows={3}
-          className="mt-1 w-full rounded-lg border border-current/20 bg-transparent px-3 py-2 text-sm"
+          className="theme-input w-full px-3 py-2 text-sm"
+          placeholder="Any notes about device condition…"
         />
-      </label>
+      </div>
 
-      <div className="flex items-center gap-2">
-        <button
+      <div className="flex items-center justify-between pt-1">
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => session.actions.goToStep("detect")}
-          className="text-xs opacity-60 hover:opacity-100"
         >
-          ← Back
-        </button>
-        <button
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back
+        </Button>
+        <Button
+          variant="primary"
           onClick={() => session.actions.goToStep("install")}
-          className="ml-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold"
         >
-          Continue to install →
-        </button>
+          Continue to install
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Button>
       </div>
     </div>
   );

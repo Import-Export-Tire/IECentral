@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "../../../../auth-context";
 import { useSetupSession } from "../useSetupSession";
+import Button from "@/components/ui/Button";
 
 type Session = ReturnType<typeof useSetupSession>;
 
@@ -118,20 +119,23 @@ export function GenerateStep({ session }: { session: Session }) {
   if (err) {
     return (
       <div className="space-y-3">
-        <p className="text-red-500 text-sm">{err}</p>
-        <button
+        <div className="p-3 rounded-xl ui-callout-red text-sm">{err}</div>
+        <Button
+          variant="secondary"
           onClick={() => session.actions.goToStep("identity")}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
         >
-          ← Back to identity
-        </button>
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to identity
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="text-sm opacity-70 flex items-center gap-2">
-      <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+    <div className="flex items-center gap-2.5 text-sm theme-text-tertiary py-4">
+      <span className="inline-block w-4 h-4 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full animate-spin flex-shrink-0" />
       Generating scanner record + provisioning code…
     </div>
   );
