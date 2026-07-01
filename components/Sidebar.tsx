@@ -416,7 +416,7 @@ export default function Sidebar() {
                   (set via permissionOverrides on the user; see Add/Edit User -> Module access) */}
               {([
                 { permKey: "menu.timeClock", href: "/time-clock", label: "Time Clock", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
-                { permKey: "menu.documents", href: "/documents", label: "Documents", icon: "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" },
+                { permKey: "menu.docHub", href: "/documents", label: "Documents", icon: "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" },
                 { permKey: "menu.calendar", href: "/calendar", label: "Calendar", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
                 { permKey: "menu.messages", href: "/messages", label: "Messages", icon: "M8 10h.01M12 10h.01M16 10h.01M21 12a8 8 0 01-11.5 7.2L3 21l1.8-5.5A8 8 0 1121 12z" },
               ]).filter((m) => user?.permissionOverrides?.[m.permKey] === true).map((m) => (

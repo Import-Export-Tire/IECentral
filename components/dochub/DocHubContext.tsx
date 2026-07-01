@@ -6,7 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useAuth } from "@/app/auth-context";
 import { useTheme } from "@/app/theme-context";
-import type { ViewMode, BreadcrumbItem, DocumentType, FolderType } from "./types";
+import type { ViewMode, BreadcrumbItem, DocumentType, FolderType, RailSelection } from "./types";
 import { requestThumbnail } from "@/lib/docThumbnail";
 
 interface DocHubContextType {
@@ -54,6 +54,12 @@ interface DocHubContextType {
   setShowFolderModal: (show: boolean) => void;
   showGroupsModal: boolean;
   setShowGroupsModal: (show: boolean) => void;
+  showManageDrawer: boolean;
+  setShowManageDrawer: (show: boolean) => void;
+  // Plain-language rail
+  railSelection: RailSelection;
+  setRailSelection: (sel: RailSelection) => void;
+  recentDocuments: DocumentType[] | undefined;
   // Upload
   handleUpload: (file: File, name: string, description: string, category: string, expirationDate?: string, expirationAlertDays?: number, requiresSignature?: boolean, visibility?: string) => Promise<void>;
   uploading: boolean;
@@ -161,6 +167,8 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [showGroupsModal, setShowGroupsModal] = useState(false);
+  const [showManageDrawer, setShowManageDrawer] = useState(false);
+  const [railSelection, setRailSelection] = useState<RailSelection>("mine");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
@@ -213,9 +221,9 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
 
   // Queries
   const documents = useQuery(api.documents.getAll, user ? { rootOnly: true, userId: user._id } : "skip") as DocumentType[] | undefined;
-  const archivedDocuments = useQuery(api.documents.getArchived) as DocumentType[] | undefined;
-  const expiringDocuments = useQuery(api.documents.getExpiring, { days: 90 });
-  const storageUsage = useQuery(api.documents.getStorageUsage, {});
+  const archivedDocuments = useQuery(api.documents.getArchived, isAdmin && user ? { requestingUserId: user._id } : "skip") as DocumentType[] | undefined;
+  const expiringDocuments = useQuery(api.documents.getExpiring, isAdmin && user ? { days: 90, requestingUserId: user._id } : "skip");
+  const storageUsage = useQuery(api.documents.getStorageUsage, isAdmin && user ? { requestingUserId: user._id } : "skip");
   const templatesList = useQuery(api.documentTemplates.list, {});
 
   const myFolders = useQuery(
@@ -252,7 +260,7 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
     shareFolderId ? { folderId: shareFolderId } : "skip"
   );
 
-  const usersForSharing = useQuery(api.documentFolders.getUsersForSharing);
+  const usersForSharing = useQuery(api.documentFolders.getUsersForSharing, user ? { requestingUserId: user._id } : "skip");
 
   // Mutations
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
@@ -426,8 +434,9 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
 
   // Document operations
   const handleDownload = useCallback(async (doc: DocumentType) => {
+    if (!user) return;
     try {
-      const url = await getFileDownloadUrl({ documentId: doc._id });
+      const url = await getFileDownloadUrl({ documentId: doc._id, requestingUserId: user._id });
       if (!url) { setError("Could not get download URL"); return; }
       await incrementDownload({ documentId: doc._id });
       // Force download via fetch + blob to avoid browser opening the file
@@ -444,7 +453,7 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Download failed");
     }
-  }, [getFileDownloadUrl, incrementDownload]);
+  }, [getFileDownloadUrl, incrementDownload, user]);
 
   // Keep track of the storage URL separately from the blob URL so we can
   // (a) hand the storage URL to Microsoft's Office Online viewer (which
@@ -676,6 +685,11 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
         return true;
       });
 
+  // Recent = the user's root documents, most-recently-updated first (client-side; no new query).
+  const recentDocuments = documents
+    ? [...documents].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 24)
+    : undefined;
+
   return (
     <DocHubContext.Provider value={{
       isDark, user, isAdmin, isSuperAdmin,
@@ -685,6 +699,8 @@ export function DocHubProvider({ children }: { children: ReactNode }) {
       unlockedFolders, unlockFolder, handleOpenFolder, loadFolderDocuments, loadingFolderDocs,
       showUploadModal, setShowUploadModal, showFolderModal, setShowFolderModal,
       showGroupsModal, setShowGroupsModal,
+      showManageDrawer, setShowManageDrawer,
+      railSelection, setRailSelection, recentDocuments,
       handleUpload, uploading,
       handleDownload, handlePreview, handleArchive, handleDelete, handleRestore, handleEdit, handleShare, handleTogglePublic,
       handleCreateFolder, handleUpdateFolder, handleArchiveFolder, handleMoveDocument, handleMoveFolder,

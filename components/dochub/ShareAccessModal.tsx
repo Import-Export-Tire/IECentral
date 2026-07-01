@@ -103,7 +103,7 @@ export default function ShareAccessModal() {
           {/* Header */}
           <div className={`flex items-center justify-between px-6 py-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
             <div>
-              <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Manage Access</h2>
+              <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Who can see this?</h2>
               {folderData && (
                 <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-gray-500"}`}>{folderData.name}</p>
               )}
@@ -119,7 +119,7 @@ export default function ShareAccessModal() {
             {/* Folder Visibility */}
             <div>
               <label className={`block text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                Folder Visibility {savingVisibility && <span className="ml-1 opacity-60">Saving...</span>}
+                Who can see this folder? {savingVisibility && <span className="ml-1 opacity-60">Saving…</span>}
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <button
@@ -133,7 +133,7 @@ export default function ShareAccessModal() {
                   <svg className="w-4 h-4 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
-                  Private
+                  Only me
                 </button>
                 <button
                   onClick={() => handleVisibilityChange("internal")}
@@ -146,7 +146,7 @@ export default function ShareAccessModal() {
                   <svg className="w-4 h-4 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
-                  Team
+                  Specific people
                 </button>
                 <button
                   onClick={() => handleVisibilityChange("community")}
@@ -163,9 +163,9 @@ export default function ShareAccessModal() {
                 </button>
               </div>
               <p className={`text-xs mt-1.5 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                {folderVisibility === "private" && "Only you can see this folder. Share with specific people below."}
-                {folderVisibility === "internal" && "All team members can see this folder."}
-                {folderVisibility === "community" && "Everyone in the organization can see this folder."}
+                {folderVisibility === "private" && "Only you can see this folder. Add specific people or groups below to share it."}
+                {folderVisibility === "internal" && "Only the specific people and groups you choose below can see this folder."}
+                {folderVisibility === "community" && "Everyone at the company can see this folder."}
               </p>
             </div>
 
@@ -538,7 +538,7 @@ export default function ShareAccessModal() {
               <div>
                 <p className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Public Link</p>
                 <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                  {doc.isPublic ? "Anyone with the link can view" : "Only team members can access"}
+                  {doc.isPublic ? "Anyone with the link can view" : "Only people at the company can access"}
                 </p>
               </div>
               <button

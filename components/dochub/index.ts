@@ -1,5 +1,5 @@
 export { DocHubProvider, useDocHub } from "./DocHubContext";
-export { default as DocHubSidebar } from "./DocHubSidebar";
+export { default as DocHubRail } from "./DocHubRail";
 export { default as FileBrowser } from "./FileBrowser";
 export { default as Breadcrumbs } from "./Breadcrumbs";
 export { default as ContextMenu } from "./ContextMenu";
@@ -9,3 +9,5 @@ export { default as FolderModal } from "./FolderModal";
 export { default as ShareAccessModal } from "./ShareAccessModal";
 export { default as GroupsModal } from "./GroupsModal";
 export { default as HelpModal } from "./HelpModal";
+export { default as ManageDrawer } from "./ManageDrawer";
+export { default as MobileNav } from "./MobileNav";

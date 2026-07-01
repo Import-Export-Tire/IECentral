@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useTheme } from "../theme-context";
 import {
   DocHubProvider,
-  DocHubSidebar,
+  DocHubRail,
+  MobileNav,
   FileBrowser,
   ContextMenu,
   PreviewModal,
@@ -14,8 +16,22 @@ import {
   FolderModal,
   ShareAccessModal,
   GroupsModal,
+  ManageDrawer,
 } from "@/components/dochub";
 import { useDocHub } from "@/components/dochub/DocHubContext";
+import { usePermissions } from "@/lib/usePermissions";
+
+// Route guard: redirect users without Doc Hub access back to home.
+function DocHubGate({ children }: { children: React.ReactNode }) {
+  const permissions = usePermissions();
+  const router = useRouter();
+  useEffect(() => {
+    if (!permissions.isLoading && !permissions.menu.docHub) router.push("/");
+  }, [permissions.isLoading, permissions.menu.docHub, router]);
+  if (permissions.isLoading) return null;
+  if (!permissions.menu.docHub) return null;
+  return <>{children}</>;
+}
 
 // Global-search deep link: ?doc=<id> opens that document's preview once it's loaded.
 function DocDeepLink() {
@@ -44,11 +60,12 @@ function DocumentsContent() {
 
         <DocHubProvider>
           <DocDeepLink />
+          <MobileNav />
           <div className="flex-1 flex overflow-hidden">
-            {/* Doc Hub Sidebar — folder tree, privacy tiers, storage meter */}
-            <DocHubSidebar />
+            {/* Plain-language rail (desktop) */}
+            <DocHubRail />
 
-            {/* File Browser — breadcrumbs, grid/list, file cards */}
+            {/* File Browser — top bar, rail-driven content, cards */}
             <FileBrowser />
           </div>
 
@@ -59,6 +76,7 @@ function DocumentsContent() {
           <FolderModal />
           <ShareAccessModal />
           <GroupsModal />
+          <ManageDrawer />
         </DocHubProvider>
       </main>
     </div>
@@ -68,7 +86,9 @@ function DocumentsContent() {
 export default function DocumentsPage() {
   return (
     <Protected>
-      <DocumentsContent />
+      <DocHubGate>
+        <DocumentsContent />
+      </DocHubGate>
     </Protected>
   );
 }

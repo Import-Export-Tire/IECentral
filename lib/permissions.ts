@@ -21,7 +21,7 @@ export type PermissionOverrides = Record<string, boolean>;
 // checklist and the employee sidebar. Granting sets permissionOverrides[permKey]=true.
 export const GRANTABLE_EMPLOYEE_MODULES: { permKey: string; label: string; href: string }[] = [
   { permKey: "menu.timeClock", label: "Time Clock", href: "/time-clock" },
-  { permKey: "menu.documents", label: "Documents (Doc Hub)", href: "/documents" },
+  { permKey: "menu.docHub", label: "Documents (Doc Hub)", href: "/documents" },
   { permKey: "menu.calendar", label: "Calendar", href: "/calendar" },
   { permKey: "menu.messages", label: "Messages", href: "/messages" },
   { permKey: "menu.announcements", label: "Announcements", href: "/announcements" },

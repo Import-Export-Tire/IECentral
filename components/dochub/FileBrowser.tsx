@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 import { useDocHub } from "./DocHubContext";
 import Breadcrumbs from "./Breadcrumbs";
 import HelpModal from "./HelpModal";
-import FolderUploadModal from "./FolderUploadModal";
 import { FileGridCard, FileListRow, FolderGridCard, FolderListRow } from "./FileCard";
-import { CATEGORIES } from "./types";
+import type { DocumentType, FolderType } from "./types";
 
 function DropZoneOverlay() {
   const { isDark } = useDocHub();
@@ -19,47 +18,41 @@ function DropZoneOverlay() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
         </svg>
         <p className={`text-sm font-medium ${isDark ? "text-cyan-300" : "text-blue-600"}`}>Drop files to upload</p>
-        <p className={`text-xs mt-1 ${isDark ? "text-cyan-400/60" : "text-blue-500/60"}`}>Files will be added to current folder</p>
       </div>
     </div>
   );
 }
 
-function EmptyState() {
-  const { isDark, setShowUploadModal, currentFolderId, showArchived } = useDocHub();
-
-  if (showArchived) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <svg className={`w-16 h-16 mb-4 ${isDark ? "text-slate-700" : "text-gray-200"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-        </svg>
-        <p className={`text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>No archived documents</p>
-      </div>
-    );
-  }
-
+// Friendly, action-oriented empty state per rail section.
+function EmptyState({ section }: { section: string }) {
+  const { isDark, setShowUploadModal, currentFolderId } = useDocHub();
+  const canUpload = section === "mine" || section === "recent" || !!currentFolderId;
+  const message = currentFolderId
+    ? "This folder is empty."
+    : section === "shared"
+      ? "Nothing's been shared with you yet."
+      : section === "company"
+        ? "No company documents yet."
+        : "No documents yet.";
   return (
-    <div className="flex flex-col items-center justify-center py-20">
+    <div className="flex flex-col items-center justify-center py-20 text-center">
       <div className={`p-6 rounded-2xl mb-4 ${isDark ? "bg-slate-800/40" : "bg-gray-50"}`}>
-        <svg className={`w-16 h-16 ${isDark ? "text-slate-600" : "text-gray-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className={`w-14 h-14 ${isDark ? "text-slate-600" : "text-gray-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
         </svg>
       </div>
-      <p className={`text-base font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-        {currentFolderId ? "This folder is empty" : "No documents yet"}
-      </p>
-      <p className={`text-sm mb-4 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-        Drag and drop files here or click upload
-      </p>
-      <button
-        onClick={() => setShowUploadModal(true)}
-        className={`px-4 py-2 text-sm font-medium rounded-xl transition-colors ${
-          isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"
-        }`}
-      >
-        Upload Document
-      </button>
+      <p className={`text-base font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{message}</p>
+      {canUpload && (
+        <>
+          <p className={`text-sm mb-4 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Drop a file here, or click to add your first one.</p>
+          <button
+            onClick={() => setShowUploadModal(true)}
+            className={`px-5 py-2.5 text-sm font-semibold rounded-xl transition-colors ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
+          >
+            Upload a document
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -67,76 +60,85 @@ function EmptyState() {
 function ListHeader() {
   const { isDark } = useDocHub();
   return (
-    <div className={`flex items-center gap-4 px-4 py-2 text-xs font-medium uppercase tracking-wider border-b ${
-      isDark ? "text-slate-500 border-slate-700/50" : "text-gray-400 border-gray-100"
-    }`}>
-      <span className="w-5" /> {/* icon space */}
+    <div className={`flex items-center gap-4 px-4 py-2 text-xs font-medium uppercase tracking-wider border-b ${isDark ? "text-slate-500 border-slate-700/50" : "text-gray-400 border-gray-100"}`}>
+      <span className="w-5" />
       <span className="flex-1">Name</span>
       <span className="hidden md:block w-20">Category</span>
       <span className="hidden sm:block w-20 text-right">Size</span>
       <span className="hidden lg:block w-28 text-right">Modified</span>
-      <span className="w-16" /> {/* actions space */}
+      <span className="w-16" />
     </div>
   );
 }
 
 export default function FileBrowser() {
   const {
-    isDark, viewMode, setViewMode, filteredDocuments, myFolders, communityFolders, sharedFoldersWithMe,
-    showArchived, setShowArchived, setShowUploadModal, setShowFolderModal,
-    selectedCategory, setSelectedCategory, isAdmin, archivedDocuments,
-    isDraggingOver, setIsDraggingOver, handleUpload, currentFolderId,
-    loadingFolderDocs, error, setError, searchQuery, folderSearchResults,
+    isDark, viewMode, filteredDocuments, recentDocuments, railSelection,
+    myFolders, communityFolders, sharedFoldersWithMe, showArchived,
+    setShowUploadModal, setShowFolderModal, isDraggingOver, setIsDraggingOver,
+    handleUpload, currentFolderId, loadingFolderDocs, error, setError,
+    searchQuery, setSearchQuery, folderSearchResults,
   } = useDocHub();
 
   const dropRef = useRef<HTMLDivElement>(null);
-  const [showFolderUpload, setShowFolderUpload] = useState(false);
   const isSearching = !!searchQuery.trim();
+  const atRoot = !currentFolderId;
 
-  // All folders to display at current level (or search results)
-  const allFolders = isSearching
+  // Which folders to show. At root, follow the rail selection. Inside a folder,
+  // show that folder's children (any visibility), matching the server queries which
+  // are already scoped by parentFolderId.
+  const rootFolders: FolderType[] =
+    railSelection === "mine" ? (myFolders || [])
+    : railSelection === "shared" ? ((sharedFoldersWithMe || []).filter(Boolean) as FolderType[])
+    : railSelection === "company" ? (communityFolders || [])
+    : []; // recent → no folders
+
+  const inFolderFolders: FolderType[] = [
+    ...(myFolders || []),
+    ...(communityFolders || []).filter(cf => !myFolders?.find(mf => mf._id === cf._id)),
+    ...((sharedFoldersWithMe || []).filter(
+      sf => sf && !myFolders?.find(mf => mf._id === sf._id) && !communityFolders?.find(cf => cf._id === sf._id)
+    ) as FolderType[]),
+  ];
+
+  const allFolders: FolderType[] = isSearching
     ? (folderSearchResults || [])
-    : [
-        ...(myFolders || []),
-        ...(communityFolders || []).filter(cf => !myFolders?.find(mf => mf._id === cf._id)),
-        // Folders shared with the user via a group/grant (e.g. a subfolder of a
-        // group-shared folder) must also render as cards, deduped against the above.
-        ...(sharedFoldersWithMe || []).filter(
-          sf => sf && !myFolders?.find(mf => mf._id === sf._id) && !communityFolders?.find(cf => cf._id === sf._id)
-        ),
-      ];
+    : showArchived ? []
+    : atRoot ? rootFolders : inFolderFolders;
 
-  // Drag and drop file upload handlers
+  // Which documents to show. At root, only "mine" and "recent" carry loose documents;
+  // "shared"/"company" are folder-oriented at the root level.
+  const docsToShow: DocumentType[] | undefined =
+    isSearching || showArchived || !atRoot
+      ? filteredDocuments
+      : railSelection === "recent"
+        ? recentDocuments
+        : railSelection === "mine"
+          ? filteredDocuments
+          : []; // shared/company root
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer.types.includes("Files")) {
-      setIsDraggingOver(true);
-    }
+    e.preventDefault(); e.stopPropagation();
+    if (e.dataTransfer.types.includes("Files")) setIsDraggingOver(true);
   }, [setIsDraggingOver]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (dropRef.current && !dropRef.current.contains(e.relatedTarget as Node)) {
-      setIsDraggingOver(false);
-    }
+    e.preventDefault(); e.stopPropagation();
+    if (dropRef.current && !dropRef.current.contains(e.relatedTarget as Node)) setIsDraggingOver(false);
   }, [setIsDraggingOver]);
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     setIsDraggingOver(false);
-
-    // Only handle external file drops (from OS), not internal doc/folder drags
-    if (e.dataTransfer.getData("application/dochub-type")) return;
-
+    if (e.dataTransfer.getData("application/dochub-type")) return; // internal drag
     const files = Array.from(e.dataTransfer.files);
     for (const file of files) {
       const name = file.name.replace(/\.[^/.]+$/, "");
       await handleUpload(file, name, "", "other");
     }
   }, [setIsDraggingOver, handleUpload]);
+
+  const showEmpty = !loadingFolderDocs && allFolders.length === 0 && (!docsToShow || docsToShow.length === 0);
 
   return (
     <div
@@ -148,130 +150,57 @@ export default function FileBrowser() {
     >
       {isDraggingOver && <DropZoneOverlay />}
 
-      {/* Toolbar */}
-      <div className={`flex-shrink-0 flex items-center justify-between px-6 py-3 border-b ${
-        isDark ? "border-slate-700/50" : "border-gray-200"
-      }`}>
-        <Breadcrumbs />
-
-        <div className="flex items-center gap-2">
-          {/* Category filter pills */}
-          <div className="hidden md:flex items-center gap-1 mr-2">
-            <button
-              onClick={() => setSelectedCategory(null)}
-              className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
-                !selectedCategory
-                  ? isDark ? "bg-cyan-500/20 text-cyan-400" : "bg-blue-100 text-blue-700"
-                  : isDark ? "text-slate-400 hover:bg-slate-800" : "text-gray-500 hover:bg-gray-100"
+      {/* Top bar */}
+      <div className={`flex-shrink-0 border-b ${isDark ? "border-slate-700/50" : "border-gray-200"}`}>
+        <div className="flex flex-wrap items-center gap-3 px-4 sm:px-6 py-3">
+          <h1 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Documents</h1>
+          <div className="relative flex-1 min-w-[180px] max-w-md order-3 sm:order-2 w-full sm:w-auto">
+            <svg className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? "text-slate-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search documents…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={`w-full text-sm pl-9 pr-3 py-2 rounded-xl border focus:outline-none focus:ring-2 ${
+                isDark ? "bg-slate-800/50 border-slate-700 text-white placeholder-slate-500 focus:ring-cyan-500/50" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-blue-500/40"
               }`}
-            >
-              All
-            </button>
-            {CATEGORIES.map(cat => (
-              <button
-                key={cat.value}
-                onClick={() => setSelectedCategory(selectedCategory === cat.value ? null : cat.value)}
-                className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
-                  selectedCategory === cat.value
-                    ? isDark ? "bg-cyan-500/20 text-cyan-400" : "bg-blue-100 text-blue-700"
-                    : isDark ? "text-slate-400 hover:bg-slate-800" : "text-gray-500 hover:bg-gray-100"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+            />
           </div>
-
-          {/* View mode toggle */}
-          <div className={`flex rounded-lg border ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+          <div className="flex items-center gap-2 ml-auto order-2 sm:order-3">
+            <HelpModal />
             <button
-              onClick={() => setViewMode("grid")}
-              className={`p-1.5 rounded-l-lg transition-colors ${
-                viewMode === "grid"
-                  ? isDark ? "bg-slate-700 text-white" : "bg-gray-100 text-gray-900"
-                  : isDark ? "text-slate-400 hover:text-slate-200" : "text-gray-400 hover:text-gray-600"
-              }`}
-              title="Grid view"
+              onClick={() => setShowFolderModal(true)}
+              className={`hidden sm:flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl transition-colors ${isDark ? "bg-slate-700 text-slate-200 hover:bg-slate-600" : "bg-gray-100 text-gray-800 hover:bg-gray-200"}`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
               </svg>
+              New folder
             </button>
             <button
-              onClick={() => setViewMode("list")}
-              className={`p-1.5 rounded-r-lg transition-colors ${
-                viewMode === "list"
-                  ? isDark ? "bg-slate-700 text-white" : "bg-gray-100 text-gray-900"
-                  : isDark ? "text-slate-400 hover:text-slate-200" : "text-gray-400 hover:text-gray-600"
-              }`}
-              title="List view"
+              onClick={() => setShowUploadModal(true)}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
+              <span>Upload</span>
             </button>
           </div>
-
-          {/* Archived toggle */}
-          {isAdmin && !currentFolderId && (
-            <button
-              onClick={() => setShowArchived(!showArchived)}
-              className={`p-1.5 rounded-lg transition-colors ${
-                showArchived
-                  ? isDark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-600"
-                  : isDark ? "text-slate-400 hover:bg-slate-800" : "text-gray-400 hover:bg-gray-100"
-              }`}
-              title={showArchived ? "View active" : "View archived"}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-              </svg>
-            </button>
-          )}
-
-          {/* Help */}
-          <HelpModal />
-
-          {/* Upload folder button */}
-          <button
-            onClick={() => setShowFolderUpload(true)}
-            className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-xl transition-all ${
-              isDark
-                ? "bg-slate-700 text-slate-200 hover:bg-slate-600"
-                : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-            }`}
-            title="Upload a folder with all its subfolders"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-            </svg>
-            <span className="hidden sm:inline">Upload Folder</span>
-          </button>
-
-          {/* Upload button */}
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-xl transition-all ${
-              isDark
-                ? "bg-cyan-500 text-white hover:bg-cyan-600 shadow-lg shadow-cyan-500/20"
-                : "bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/20"
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span className="hidden sm:inline">Upload</span>
-          </button>
         </div>
+        {/* Breadcrumb only when inside a folder */}
+        {!atRoot && (
+          <div className="px-4 sm:px-6 pb-3">
+            <Breadcrumbs />
+          </div>
+        )}
       </div>
-
-      <FolderUploadModal open={showFolderUpload} onClose={() => setShowFolderUpload(false)} />
 
       {/* Error */}
       {error && (
-        <div className={`mx-6 mt-4 flex items-center gap-3 px-4 py-3 rounded-xl text-sm ${
-          isDark ? "bg-red-500/10 border border-red-500/20 text-red-400" : "bg-red-50 border border-red-200 text-red-600"
-        }`}>
+        <div className={`mx-4 sm:mx-6 mt-4 flex items-center gap-3 px-4 py-3 rounded-xl text-sm ${isDark ? "bg-red-500/10 border border-red-500/20 text-red-400" : "bg-red-50 border border-red-200 text-red-600"}`}>
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -286,19 +215,19 @@ export default function FileBrowser() {
           <div className="flex items-center justify-center py-20">
             <div className={`w-8 h-8 border-2 border-t-transparent rounded-full animate-spin ${isDark ? "border-cyan-500" : "border-blue-500"}`} />
           </div>
+        ) : showEmpty ? (
+          <EmptyState section={railSelection} />
         ) : (
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             {/* Folders */}
-            {!showArchived && allFolders.length > 0 && (
+            {allFolders.length > 0 && (
               <div className="mb-6">
                 <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                  {isSearching ? "Matching Folders" : "Folders"}
+                  {isSearching ? "Matching folders" : "Folders"}
                 </h3>
                 {viewMode === "grid" ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {allFolders.map(folder => (
-                      <FolderGridCard key={folder._id} folder={folder} />
-                    ))}
+                    {allFolders.map(folder => <FolderGridCard key={folder._id} folder={folder} />)}
                   </div>
                 ) : (
                   <div className={`rounded-xl border ${isDark ? "border-slate-700/50" : "border-gray-200"}`}>
@@ -313,24 +242,22 @@ export default function FileBrowser() {
               </div>
             )}
 
-            {/* Documents */}
-            {filteredDocuments && filteredDocuments.length > 0 ? (
+            {/* Files */}
+            {docsToShow && docsToShow.length > 0 && (
               <div>
                 {allFolders.length > 0 && (
                   <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                    {isSearching ? "Matching Files" : "Files"}
+                    {isSearching ? "Matching files" : "Files"}
                   </h3>
                 )}
                 {viewMode === "grid" ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-                    {filteredDocuments.map(doc => (
-                      <FileGridCard key={doc._id} doc={doc} />
-                    ))}
+                    {docsToShow.map(doc => <FileGridCard key={doc._id} doc={doc} />)}
                   </div>
                 ) : (
                   <div className={`rounded-xl border overflow-hidden ${isDark ? "border-slate-700/50" : "border-gray-200"}`}>
                     <ListHeader />
-                    {filteredDocuments.map((doc, i) => (
+                    {docsToShow.map((doc, i) => (
                       <div key={doc._id}>
                         {i > 0 && <div className={`border-t ${isDark ? "border-slate-700/30" : "border-gray-100"}`} />}
                         <FileListRow doc={doc} />
@@ -339,8 +266,19 @@ export default function FileBrowser() {
                   </div>
                 )}
               </div>
-            ) : (
-              !allFolders.length && <EmptyState />
+            )}
+
+            {/* Inline drop-zone hint (desktop only; keeps "store" obvious) */}
+            {atRoot && !isSearching && (railSelection === "mine" || railSelection === "recent") && (
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className={`hidden md:flex mt-6 w-full items-center justify-center gap-2 py-6 rounded-xl border-2 border-dashed text-sm transition-colors ${isDark ? "border-slate-700 text-slate-500 hover:border-cyan-500/40 hover:text-cyan-400" : "border-gray-200 text-gray-400 hover:border-blue-400 hover:text-blue-500"}`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                Drop files here to upload — or click to choose
+              </button>
             )}
           </div>
         )}

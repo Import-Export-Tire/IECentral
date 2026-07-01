@@ -152,3 +152,22 @@ The root cause is structural — guards are opt-in per handler. Suggested order:
 
 This is a multi-session effort (dozens of endpoints, many feeding live UI that needs per-endpoint
 testing). Prioritize 1–2 first; they are the genuinely dangerous, remotely-exploitable items.
+
+---
+
+## Deferred — Doc Hub access control (ctx.auth project)
+
+**Date deferred:** 2026-07-01 · **Context:** Tasks 8–10 of the dochub-redesign branch closed specific
+read-side leaks (download URL, archived/expiring docs, storage access, passwordHash). The items below
+require a full `ctx.auth` migration and are explicitly out of scope for this branch. Logged here for
+tracking; address in the future ctx.auth project.
+
+- `documentFolders.create` / `update` / `archive` — unguarded folder mutations; any client can create, rename, or archive any folder.
+- `documentFolders.grantAccess` / `revokeAccess` — any client can grant themselves or others access to any folder.
+- `documentFolders.setPassword` / `removePassword` — any client can set or clear a folder password without being the owner.
+- `documentFolders.moveDocument` / `moveFolder` — any client can move any document or folder into any destination.
+- `documents.getAll` / `documents.search` — accept an untrusted client-supplied `userId`; server cannot verify the caller is who they claim.
+- `/api/documents/file` proxy route — serves a document storage id without verifying the requester has folder/document access.
+- `/api/documents/office-pdf` proxy route — same as above; converts and serves any document without an access check.
+- `/api/documents/thumbnail` proxy route — same as above; serves thumbnails for any storage id without an access check.
+- Root cause: no `ctx.auth` wiring; all handlers rely on a client-supplied `requestingUserId` that is not cryptographically bound to the session.

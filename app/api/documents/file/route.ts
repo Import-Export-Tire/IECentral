@@ -27,7 +27,9 @@ export async function GET(request: NextRequest) {
       | { fileName?: string; name?: string; fileType?: string }
       | null;
     if (!doc) return new Response("not found", { status: 404 });
-    const url = await convex.action(api.documents.getFileDownloadUrl, { documentId: id as Id<"documents"> });
+    const docWithFile = doc as { fileName?: string; name?: string; fileType?: string; fileId?: string } | null;
+    if (!docWithFile?.fileId) return new Response("file unavailable", { status: 404 });
+    const url = await convex.query(api.documents.getDownloadUrl, { fileId: docWithFile.fileId as Id<"_storage"> });
     if (!url) return new Response("file unavailable", { status: 404 });
 
     const upstream = await fetch(url);
