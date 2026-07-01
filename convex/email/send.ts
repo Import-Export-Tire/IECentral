@@ -524,12 +524,8 @@ export const processScheduledSends = internalAction({
     let failed = 0;
 
     for (const queueEntry of dueEmails) {
-      // Mark as sending
-      await ctx.runMutation(internal.email.sendMutations.updateQueueStatus, {
-        queueId: queueEntry._id,
-        status: "sending",
-      });
-
+      // Already claimed as "sending" (with attempts incremented) atomically inside
+      // getDueScheduledEmails — do not re-mark here or attempts would double-count.
       try {
         // Send the email
         const result = await sendQueuedEmail(ctx, queueEntry);
@@ -577,12 +573,8 @@ export const retryFailedSends = internalAction({
     let failed = 0;
 
     for (const queueEntry of failedEmails) {
-      // Mark as sending
-      await ctx.runMutation(internal.email.sendMutations.updateQueueStatus, {
-        queueId: queueEntry._id,
-        status: "sending",
-      });
-
+      // Already claimed as "sending" (with attempts incremented) atomically inside
+      // getFailedEmailsForRetry — do not re-mark here or attempts would double-count.
       try {
         // Retry sending the email
         const result = await sendQueuedEmail(ctx, queueEntry);

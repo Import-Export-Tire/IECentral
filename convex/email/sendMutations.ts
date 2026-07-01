@@ -111,6 +111,20 @@ export const getDueScheduledEmails = internalMutation({
       .filter((q) => q.lte(q.field("scheduledFor"), now))
       .take(50);
 
+    // Atomically CLAIM these rows (status -> "sending") within this single
+    // serializable mutation before returning them. Without this, an overlapping
+    // cron run (slow SMTP) could read the same still-"pending" rows and send each
+    // email twice. Claiming here means a second run sees them as "sending" and skips.
+    await Promise.all(
+      dueEmails.map((e) =>
+        ctx.db.patch(e._id, {
+          status: "sending",
+          attempts: e.attempts + 1,
+          lastAttemptAt: now,
+        })
+      )
+    );
+
     return dueEmails;
   },
 });
@@ -139,6 +153,20 @@ export const getFailedEmailsForRetry = internalMutation({
       const waitTime = Math.pow(2, email.attempts) * 60 * 1000; // 2^attempts minutes
       return now - email.lastAttemptAt >= waitTime;
     });
+
+    // Atomically CLAIM the eligible rows (status -> "sending") before returning,
+    // so an overlapping retry cron can't grab and resend the same ones. (Same
+    // double-send guard as getDueScheduledEmails; backoff is computed above on the
+    // pre-claim attempts value.)
+    await Promise.all(
+      eligibleForRetry.map((e) =>
+        ctx.db.patch(e._id, {
+          status: "sending",
+          attempts: e.attempts + 1,
+          lastAttemptAt: now,
+        })
+      )
+    );
 
     return eligibleForRetry;
   },
