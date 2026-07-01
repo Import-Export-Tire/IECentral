@@ -433,7 +433,7 @@ export const canUserDownload = internalQuery({
     if (groupIds.length) {
       for (const gid of groupIds) {
         const group = await ctx.db.get(gid);
-        if (group && (group.memberIds ?? []).some((m: Id<"users">) => m === args.userId)) return true;
+        if (group && group.isActive !== false && (group.memberIds ?? []).some((m: Id<"users">) => m === args.userId)) return true;
       }
     }
     // Doc lives in a folder the user can reach (owner, community/internal, group-shared, or per-user grant).
@@ -446,7 +446,7 @@ export const canUserDownload = internalQuery({
         const fGroups = (folder.sharedWithGroups ?? []) as Id<"groups">[];
         for (const gid of fGroups) {
           const group = await ctx.db.get(gid);
-          if (group && (group.memberIds ?? []).some((m: Id<"users">) => m === args.userId)) return true;
+          if (group && group.isActive !== false && (group.memberIds ?? []).some((m: Id<"users">) => m === args.userId)) return true;
         }
         const grants = await ctx.db
           .query("folderAccessGrants")

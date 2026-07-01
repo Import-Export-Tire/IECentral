@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useDocHub } from "./DocHubContext";
 import { CATEGORIES, formatFileSize } from "./types";
+import FolderUploadModal from "./FolderUploadModal";
 
 export default function ManageDrawer() {
   const {
@@ -11,6 +13,8 @@ export default function ManageDrawer() {
     showArchived, setShowArchived, setShowGroupsModal, currentFolderId,
   } = useDocHub();
 
+  const [showFolderUpload, setShowFolderUpload] = useState(false);
+
   if (!isAdmin || !showManageDrawer) return null;
 
   const close = () => setShowManageDrawer(false);
@@ -18,6 +22,7 @@ export default function ManageDrawer() {
   const card = `rounded-xl p-3 ${isDark ? "bg-slate-800/50" : "bg-gray-50"}`;
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex justify-end" onClick={close}>
       <div className={`absolute inset-0 ${isDark ? "bg-black/60" : "bg-black/30"} backdrop-blur-sm`} />
       <div
@@ -118,6 +123,15 @@ export default function ManageDrawer() {
                 </svg>
                 Manage groups
               </button>
+              <button
+                onClick={() => setShowFolderUpload(true)}
+                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${isDark ? "bg-slate-800/50 text-slate-200 hover:bg-slate-800" : "bg-gray-50 text-gray-800 hover:bg-gray-100"}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                </svg>
+                Upload a folder
+              </button>
               {!currentFolderId && (
                 <button
                   onClick={() => setShowArchived(!showArchived)}
@@ -139,5 +153,7 @@ export default function ManageDrawer() {
         </div>
       </div>
     </div>
+    <FolderUploadModal open={showFolderUpload} onClose={() => setShowFolderUpload(false)} />
+    </>
   );
 }
