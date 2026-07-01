@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useTheme } from "../theme-context";
@@ -18,6 +19,19 @@ import {
   ManageDrawer,
 } from "@/components/dochub";
 import { useDocHub } from "@/components/dochub/DocHubContext";
+import { usePermissions } from "@/lib/usePermissions";
+
+// Route guard: redirect users without Doc Hub access back to home.
+function DocHubGate({ children }: { children: React.ReactNode }) {
+  const permissions = usePermissions();
+  const router = useRouter();
+  useEffect(() => {
+    if (!permissions.isLoading && !permissions.menu.docHub) router.push("/");
+  }, [permissions.isLoading, permissions.menu.docHub, router]);
+  if (permissions.isLoading) return null;
+  if (!permissions.menu.docHub) return null;
+  return <>{children}</>;
+}
 
 // Global-search deep link: ?doc=<id> opens that document's preview once it's loaded.
 function DocDeepLink() {
@@ -72,7 +86,9 @@ function DocumentsContent() {
 export default function DocumentsPage() {
   return (
     <Protected>
-      <DocumentsContent />
+      <DocHubGate>
+        <DocumentsContent />
+      </DocHubGate>
     </Protected>
   );
 }
