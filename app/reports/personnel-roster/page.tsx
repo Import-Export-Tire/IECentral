@@ -19,7 +19,7 @@ function PersonnelRosterContent() {
   const [generating, setGenerating] = useState(false);
 
   const personnel = useQuery(
-    api.personnel.list,
+    api.personnel.listAll,
     locationId ? { locationId: locationId as Id<"locations"> } : "skip"
   );
 

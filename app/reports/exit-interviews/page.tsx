@@ -85,7 +85,7 @@ function ExitInterviewsReportContent() {
   const isDark = theme === "dark";
 
   const interviewsRaw = useQuery(api.exitInterviews.list, {}) as InterviewRow[] | undefined;
-  const personnel = useQuery(api.personnel.list, {});
+  const personnel = useQuery(api.personnel.listAll, {});
   const locations = useQuery(api.locations.list);
 
   const [startDate, setStartDate] = useState<string>(isoMonthsAgo(6));

@@ -94,7 +94,7 @@ function ShiftsContent() {
 
   // Query personnel filtered by location on the server
   const activePersonnel = useQuery(
-    api.personnel.list,
+    api.personnel.listAll,
     accessibleLocationIds === "all"
       ? { status: "active" }
       : { status: "active", locationIds: accessibleLocationIds }

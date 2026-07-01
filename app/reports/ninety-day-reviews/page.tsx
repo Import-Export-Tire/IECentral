@@ -105,7 +105,7 @@ function NinetyDayReviewsContent() {
   const isDark = theme === "dark";
   const { user, canManagePersonnel } = useAuth();
 
-  const personnel = useQuery(api.personnel.list, { status: "active" });
+  const personnel = useQuery(api.personnel.listAll, { status: "active" });
   const locations = useQuery(api.locations.list) || [];
   const markReview = useMutation(api.personnel.markNinetyDayReview);
   const markAnnual = useMutation(api.personnel.markAnnualReview);

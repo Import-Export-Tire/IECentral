@@ -90,7 +90,7 @@ function TimeClockContent() {
   const dailySummary = useQuery(api.timeClock.getDailySummary, { date: selectedDate });
   const pendingCorrections = useQuery(api.timeClock.getPendingCorrections);
   const allCorrections = useQuery(api.timeClock.getCorrections, {});
-  const personnel = useQuery(api.personnel.list, { status: "active" });
+  const personnel = useQuery(api.personnel.listAll, { status: "active" });
   const activePersonnel = personnel || [];
   const liveAttendance = useQuery(api.attendance.getTodayLive, {
     userId: user?._id as Id<"users"> | undefined,

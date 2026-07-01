@@ -9,7 +9,7 @@ type Session = ReturnType<typeof useSetupSession>;
 const STATUSES = ["available", "maintenance", "lost", "retired"];
 
 export function ManageStep({ session }: { session: Session }) {
-  const personnel = useQuery(api.personnel.list, { status: "active" }) ?? [];
+  const personnel = useQuery(api.personnel.listAll, { status: "active" }) ?? [];
   const { existingScanner, manage } = session.state;
 
   return (

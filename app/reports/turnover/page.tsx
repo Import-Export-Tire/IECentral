@@ -79,7 +79,7 @@ function TurnoverDashboardContent() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const personnel = useQuery(api.personnel.list, {}) as PersonnelRow[] | undefined;
+  const personnel = useQuery(api.personnel.listAll, {}) as PersonnelRow[] | undefined;
   const locations = useQuery(api.locations.list);
   const interviews = useQuery(api.exitInterviews.list, {}) as ExitInterviewRow[] | undefined;
 

@@ -29,7 +29,7 @@ function CallOffsContent() {
     unacknowledgedCount: 0,
     thisWeekCount: 0,
   };
-  const personnel = useQuery(api.personnel.list, {}) || [];
+  const personnel = useQuery(api.personnel.listAll, {}) || [];
 
   const acknowledgeMutation = useMutation(api.callOffs.acknowledge);
   const addManualMutation = useMutation(api.callOffs.addManual);

@@ -1,28 +1,89 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { requireAdmin, requireManagePersonnel, requireRole } from "./authGuards";
+import { paginationOptsValidator } from "convex/server";
+
+function personnelSearchText(p: { firstName: string; lastName: string; email: string; position: string }) {
+  return `${p.firstName} ${p.lastName} ${p.email} ${p.position}`.toLowerCase();
+}
 
 // ============ QUERIES ============
 
-// Get all personnel (with optional filters) - Updated with location filtering v2
+// Get all personnel (paginated, ordered by lastName) - with optional status/department/locationIds filters
 export const list = query({
   args: {
-    department: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
     status: v.optional(v.string()),
-    locationId: v.optional(v.id("locations")),
+    department: v.optional(v.string()),
     locationIds: v.optional(v.array(v.id("locations"))),
   },
   handler: async (ctx, args) => {
-    let personnel;
+    // Browse ordered by lastName. Filters that aren't the index key are applied
+    // with .filter() on the index range (correctness preserved; still bounded by paginate).
+    const q = ctx.db.query("personnel").withIndex("by_lastName").order("asc");
+    const result = await q
+      .filter((f) => {
+        const conds = [] as any[];
+        if (args.status) conds.push(f.eq(f.field("status"), args.status));
+        if (args.department) conds.push(f.eq(f.field("department"), args.department));
+        return conds.length ? f.and(...conds) : true;
+      })
+      .paginate(args.paginationOpts);
+    // locationIds is a set-membership filter (no single-eq) — apply in JS on the page.
+    if (args.locationIds && args.locationIds.length > 0) {
+      const set = new Set(args.locationIds.map(String));
+      result.page = result.page.filter((p) => p.locationId && set.has(String(p.locationId)));
+    }
+    return result;
+  },
+});
 
-    if (args.department) {
-      personnel = await ctx.db
-        .query("personnel")
-        .withIndex("by_department", (q) => q.eq("department", args.department!))
-        .collect();
-    } else if (args.status) {
+// Full-text search over personnel (paginated)
+export const searchPersonnel = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    term: v.string(),
+    status: v.optional(v.string()),
+    department: v.optional(v.string()),
+    locationId: v.optional(v.id("locations")),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("personnel")
+      .withSearchIndex("search_personnel", (s) => {
+        let q = s.search("searchText", args.term.toLowerCase());
+        if (args.status) q = q.eq("status", args.status);
+        if (args.department) q = q.eq("department", args.department);
+        if (args.locationId) q = q.eq("locationId", args.locationId);
+        return q;
+      })
+      .paginate(args.paginationOpts);
+  },
+});
+
+// Minimal id+name projection — for dropdowns that only need people picker data
+export const listOptions = query({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("personnel").withIndex("by_lastName").order("asc").collect();
+    return all.map((p) => ({ _id: p._id, firstName: p.firstName, lastName: p.lastName }));
+  },
+});
+
+// Full collect (non-paginated) — for reporting/analytics pages that need the
+// entire dataset in memory. New feature pages should prefer the paginated `list`.
+export const listAll = query({
+  args: {
+    status: v.optional(v.string()),
+    locationId: v.optional(v.id("locations")),
+    locationIds: v.optional(v.array(v.id("locations"))),
+    department: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    let personnel;
+    if (args.status) {
       personnel = await ctx.db
         .query("personnel")
         .withIndex("by_status", (q) => q.eq("status", args.status!))
@@ -30,17 +91,17 @@ export const list = query({
     } else {
       personnel = await ctx.db.query("personnel").collect();
     }
-
-    // Filter by single locationId
     if (args.locationId) {
-      personnel = personnel.filter(p => p.locationId === args.locationId);
+      personnel = personnel.filter((p) => p.locationId === args.locationId);
     }
-
-    // Filter by multiple locationIds (for managers with multiple locations)
     if (args.locationIds && args.locationIds.length > 0) {
-      personnel = personnel.filter(p => p.locationId && args.locationIds!.includes(p.locationId as Id<"locations">));
+      personnel = personnel.filter(
+        (p) => p.locationId && args.locationIds!.includes(p.locationId as Id<"locations">)
+      );
     }
-
+    if (args.department) {
+      personnel = personnel.filter((p) => p.department === args.department);
+    }
     return personnel.sort((a, b) => a.lastName.localeCompare(b.lastName));
   },
 });
@@ -261,6 +322,7 @@ export const createFromApplication = mutation({
       tempEligibilityValue: args.tempEligibilityValue,
       tempEligibleDateOverride: args.tempEligibleDateOverride,
       defaultScheduleTemplateId: args.defaultScheduleTemplateId,
+      searchText: personnelSearchText({ firstName: application.firstName, lastName: application.lastName, email: application.email, position: args.position }),
       createdAt: now,
       updatedAt: now,
     });
@@ -342,6 +404,7 @@ export const create = mutation({
       tempEligibilityMode: args.tempEligibilityMode,
       tempEligibilityValue: args.tempEligibilityValue,
       tempEligibleDateOverride: args.tempEligibleDateOverride,
+      searchText: personnelSearchText({ firstName: args.firstName, lastName: args.lastName, email: args.email, position: args.position }),
       createdAt: now,
       updatedAt: now,
     });
@@ -425,6 +488,14 @@ export const update = mutation({
         }
       }
     }
+
+    // Recompute searchText from effective (post-patch) values
+    updateData.searchText = personnelSearchText({
+      firstName: (updates.firstName ?? existing.firstName) as string,
+      lastName: (updates.lastName ?? existing.lastName) as string,
+      email: (updates.email ?? existing.email) as string,
+      position: (updates.position ?? existing.position) as string,
+    });
 
     await ctx.db.patch(personnelId, updateData);
 
@@ -832,6 +903,7 @@ export const rehire = mutation({
       rehiredAt: now,
       rehiredBy: args.userId,
       updatedAt: now,
+      searchText: personnelSearchText({ firstName: existing.firstName, lastName: existing.lastName, email: existing.email, position: args.position }),
     });
 
     // Reactivate user account if they had one
@@ -1325,16 +1397,26 @@ export const bulkUpsert = mutation({
         if (e.terminationReason !== undefined) patch.terminationReason = e.terminationReason.trim();
         if (e.notes !== undefined) patch.notes = e.notes.trim();
         if (locationId !== undefined) patch.locationId = locationId;
+        patch.searchText = personnelSearchText({
+          firstName: e.firstName ?? existing.firstName,
+          lastName: e.lastName ?? existing.lastName,
+          email: e.email ?? existing.email,
+          position: e.position ?? existing.position,
+        });
         await ctx.db.patch(existing._id, patch);
         results.updated++;
       } else {
         // Insert requires all base fields with reasonable defaults
+        const insertFirstName = e.firstName.trim();
+        const insertLastName = e.lastName.trim();
+        const insertEmail = (e.email || "").toLowerCase().trim();
+        const insertPosition = (e.position || "").trim();
         await ctx.db.insert("personnel", {
-          firstName: e.firstName.trim(),
-          lastName: e.lastName.trim(),
-          email: (e.email || "").toLowerCase().trim(),
+          firstName: insertFirstName,
+          lastName: insertLastName,
+          email: insertEmail,
           phone: (e.phone || "").trim(),
-          position: (e.position || "").trim(),
+          position: insertPosition,
           department: (e.department || "").trim(),
           employeeType: (e.employeeType || "full_time").trim(),
           hireDate: e.hireDate.trim(),
@@ -1345,6 +1427,7 @@ export const bulkUpsert = mutation({
           ...(e.terminationDate ? { terminationDate: e.terminationDate.trim() } : {}),
           ...(e.terminationReason ? { terminationReason: e.terminationReason.trim() } : {}),
           ...(e.notes ? { notes: e.notes.trim() } : {}),
+          searchText: personnelSearchText({ firstName: insertFirstName, lastName: insertLastName, email: insertEmail, position: insertPosition }),
           createdAt: now,
           updatedAt: now,
         });
@@ -1406,6 +1489,7 @@ export const bulkImport = mutation({
         employeeType: employee.employeeType,
         hireDate: employee.hireDate,
         status: "active",
+        searchText: personnelSearchText({ firstName: employee.firstName, lastName: employee.lastName, email: employee.email.toLowerCase(), position: employee.position }),
         createdAt: now,
         updatedAt: now,
       });
@@ -2098,5 +2182,16 @@ export const convertTempToHire = mutation({
       }
     }
     return args.personnelId;
+  },
+});
+
+export const backfillSearchText = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("personnel").collect();
+    for (const p of all) {
+      await ctx.db.patch(p._id, { searchText: personnelSearchText(p) });
+    }
+    return { updated: all.length };
   },
 });

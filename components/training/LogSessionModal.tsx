@@ -7,7 +7,7 @@ import { useAuth } from "@/app/auth-context";
 
 export default function LogSessionModal({ segmentId, onClose }: { segmentId: Id<"trainingSegments">; onClose: () => void }) {
   const { user } = useAuth();
-  const personnel = useQuery(api.personnel.list, { status: "active" }) || [];
+  const personnel = useQuery(api.personnel.listOptions) || [];
   const videos = useQuery(api.training.listVideos, user ? { segmentId, requestingUserId: user._id } : "skip") || [];
   const logSession = useMutation(api.training.logSession);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
