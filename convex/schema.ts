@@ -264,13 +264,15 @@ export default defineSchema({
         })
       )
     ),
+    searchText: v.optional(v.string()), // lowercased "firstName lastName email" for full-text search
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_email", ["email"])
     .index("by_status", ["status"])
     .index("by_job", ["appliedJobId"])
-    .index("by_created", ["createdAt"]),
+    .index("by_created", ["createdAt"])
+    .searchIndex("search_applications", { searchField: "searchText", filterFields: ["status"] }),
 
   // Application activity tracking for ATS timeline
   applicationActivity: defineTable({
