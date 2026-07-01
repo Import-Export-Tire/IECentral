@@ -9,6 +9,9 @@ import { usePermissions } from "@/lib/usePermissions";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 // ─── TYPES ──────────────────────────────────────────────────────────────────
 
@@ -153,14 +156,14 @@ export default function WTDCommissionReportPage() {
   if (!canAccess) {
     return (
       <Protected>
-        <div className="flex h-screen theme-bg-primary">
+        <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
           <Sidebar />
           <main className="flex-1 flex items-center justify-center">
             <MobileHeader />
-            <div className={`text-center p-8 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-              <p className="text-lg font-medium">Access Denied</p>
-              <p className="text-sm mt-1">You do not have permission to access WTD Commission Report.</p>
-            </div>
+            <Card padding="md" className="max-w-sm mx-auto text-center">
+              <p className="text-base font-semibold theme-text-primary">Access Denied</p>
+              <p className="text-sm mt-1 theme-text-secondary">You do not have permission to access WTD Commission Report.</p>
+            </Card>
           </main>
         </div>
       </Protected>
@@ -169,34 +172,37 @@ export default function WTDCommissionReportPage() {
 
   return (
     <Protected>
-      <div className="flex h-screen theme-bg-primary">
+      <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
         <Sidebar />
         <main className="flex-1 overflow-y-auto">
           <MobileHeader />
 
-          {/* Header */}
-          <header className={`sticky top-0 z-10 border-b px-6 py-4 print:hidden ${isDark ? "bg-slate-900/95 backdrop-blur border-slate-700" : "bg-white/95 backdrop-blur border-gray-200"}`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Link href="/reports" className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-800 text-slate-400" : "hover:bg-gray-200 text-gray-500"}`}>
+          {/* Sticky iOS-style page header */}
+          <header className={`sticky top-0 z-10 border-b px-4 sm:px-6 py-3 sm:py-4 backdrop-blur-sm print:hidden ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Link
+                  href="/reports"
+                  className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5 flex-shrink-0"
+                >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                   </svg>
                 </Link>
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? "bg-gradient-to-br from-emerald-500/20 to-teal-600/20" : "bg-gradient-to-br from-emerald-100 to-teal-100"}`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isDark ? "bg-gradient-to-br from-emerald-500/20 to-teal-600/20" : "bg-gradient-to-br from-emerald-100 to-teal-100"}`}>
                   <svg className={`w-5 h-5 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <div>
-                  <h1 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>WTD Commission Report</h1>
-                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Daily automated commission reports — runs at 4 AM EST</p>
+                <div className="min-w-0">
+                  <h1 className="text-xl font-bold theme-text-primary">WTD Commission Report</h1>
+                  <p className="text-xs mt-0.5 theme-text-tertiary">Daily automated commission reports — runs at 4 AM EST</p>
                 </div>
               </div>
               {permissions.tier >= 5 && (
                 <Link
                   href="/tools/wtd-commission/setup"
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/40" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-300"}`}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-[9px] font-semibold transition-colors px-3.5 py-2 text-[13.5px] theme-btn-secondary"
                 >
                   Setup
                 </Link>
@@ -204,125 +210,155 @@ export default function WTDCommissionReportPage() {
             </div>
           </header>
 
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
+
             {/* Month selector */}
             {!viewingReportKey && (
-              <div className={`flex flex-wrap items-center gap-3 mb-6 p-4 rounded-xl border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-                <label className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-600"}`} htmlFor="wtd-month">Month:</label>
-                <input
-                  id="wtd-month"
-                  type="month"
-                  value={viewMonth}
-                  onChange={(e) => { if (e.target.value) setViewMonth(e.target.value); }}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${isDark ? "bg-slate-900 text-white border-slate-600 [color-scheme:dark]" : "bg-white text-gray-900 border-gray-300"}`}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    const [y, m] = viewMonth.split("-").map(Number);
-                    const d = new Date(y, m - 2, 1);
-                    setViewMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-                  }}
-                  className={`px-2 py-1.5 rounded-lg text-xs font-medium border ${isDark ? "bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-500" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}
-                  aria-label="Previous month"
-                >‹ Prev</button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const [y, m] = viewMonth.split("-").map(Number);
-                    const d = new Date(y, m, 1);
-                    setViewMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-                  }}
-                  className={`px-2 py-1.5 rounded-lg text-xs font-medium border ${isDark ? "bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-500" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}
-                  aria-label="Next month"
-                >Next ›</button>
-                {availableMonths.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 items-center">
-                    <span className={`text-[10px] uppercase tracking-wide ${isDark ? "text-slate-600" : "text-gray-400"}`}>Has data:</span>
-                    {availableMonths.slice(0, 6).map((m: string) => {
-                      const [y, mo] = m.split("-");
-                      const label = `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(mo) - 1]} ${y.slice(2)}`;
-                      return (
-                        <button key={m} type="button" onClick={() => setViewMonth(m)}
-                          className={`px-2 py-1 rounded text-[11px] font-medium border transition-colors ${
-                            viewMonth === m
-                              ? isDark ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/40" : "bg-blue-100 text-blue-700 border-blue-300"
-                              : isDark ? "bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500" : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-                          }`}>
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                <span className={`ml-auto text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                  {filteredReports.length} report{filteredReports.length !== 1 ? "s" : ""} in {viewMonth}
-                </span>
+              <Card padding="sm">
+                <SectionHeader label="Month" />
+                <div className="flex flex-wrap items-center gap-3">
+                  <input
+                    id="wtd-month"
+                    type="month"
+                    value={viewMonth}
+                    onChange={(e) => { if (e.target.value) setViewMonth(e.target.value); }}
+                    className={`theme-input px-3 py-1.5 text-sm font-medium ${isDark ? "[color-scheme:dark]" : ""}`}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    onClick={() => {
+                      const [y, m] = viewMonth.split("-").map(Number);
+                      const d = new Date(y, m - 2, 1);
+                      setViewMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+                    }}
+                    aria-label="Previous month"
+                  >
+                    ‹ Prev
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    onClick={() => {
+                      const [y, m] = viewMonth.split("-").map(Number);
+                      const d = new Date(y, m, 1);
+                      setViewMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+                    }}
+                    aria-label="Next month"
+                  >
+                    Next ›
+                  </Button>
+                  {availableMonths.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      <span className="ui-section-label">Has data:</span>
+                      {availableMonths.slice(0, 6).map((m: string) => {
+                        const [y, mo] = m.split("-");
+                        const label = `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(mo) - 1]} ${y.slice(2)}`;
+                        return (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setViewMonth(m)}
+                            className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
+                              viewMonth === m
+                                ? "bg-[#007AFF]/15 text-[#007AFF] border-[#007AFF]/30"
+                                : isDark
+                                ? "bg-slate-900/50 text-slate-500 border-slate-700 hover:border-slate-500"
+                                : "bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <span className="ml-auto text-xs theme-text-tertiary">
+                    {filteredReports.length} report{filteredReports.length !== 1 ? "s" : ""} in {viewMonth}
+                  </span>
+                </div>
+              </Card>
+            )}
+
+            {/* Loading detail spinner */}
+            {viewingReportKey && loadingDetail && (
+              <div className="flex items-center justify-center py-16">
+                <div className="w-6 h-6 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin" />
               </div>
             )}
 
             {/* Viewing a specific report */}
             {viewingReportKey && viewingReport ? (
-              <div>
-                <button
-                  onClick={() => setViewingReportKey(null)}
-                  className={`mb-4 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
-                >
-                  &larr; Back to Reports
-                </button>
-
-                {/* Export buttons */}
-                <div className="flex gap-2 mb-4">
-                  <button onClick={() => window.print()} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}>Print</button>
-                  <button onClick={() => handleExportPDF(viewingReport)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}>Export PDF</button>
-                  <button onClick={() => handleExportExcel(viewingReport)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"}`}>Export Excel</button>
+              <div className="space-y-4">
+                {/* Back + export actions */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="ghost" onClick={() => setViewingReportKey(null)}>
+                    ← Back to Reports
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => window.print()}>
+                    Print
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleExportPDF(viewingReport)}>
+                    Export PDF
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => handleExportExcel(viewingReport)}>
+                    Export Excel
+                  </Button>
                 </div>
 
                 {/* Report content */}
-                <div className={`rounded-xl border overflow-hidden print:break-inside-avoid ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-                  <div className={`px-6 py-4 border-b ${isDark ? "bg-slate-800 border-slate-700" : "bg-gray-50 border-gray-200"}`}>
-                    <h2 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{viewingReport.customerName}</h2>
-                    <div className={`text-xs mt-1 space-x-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <div className="theme-card overflow-hidden p-0 print:break-inside-avoid">
+                  <div className={`px-5 py-3 border-b theme-border-secondary ${isDark ? "bg-slate-800" : "bg-gray-50"}`}>
+                    <h2 className="text-base font-bold theme-text-primary">{viewingReport.customerName}</h2>
+                    <div className="text-xs mt-1 flex flex-wrap gap-x-4 gap-y-0.5 theme-text-tertiary">
                       <span>Account: {viewingReport.customerNumber}</span>
                       <span>Date: {viewingReport.date || viewingReport.startDate}</span>
-                      {viewingReport.commissionType && <span>Commission: {viewingReport.commissionType === "percentage" ? `${viewingReport.commissionValue}% of product cost` : `$${viewingReport.commissionValue?.toFixed(2)} per unit`}</span>}
+                      {viewingReport.commissionType && (
+                        <span>Commission: {viewingReport.commissionType === "percentage" ? `${viewingReport.commissionValue}% of product cost` : `$${viewingReport.commissionValue?.toFixed(2)} per unit`}</span>
+                      )}
                       <span>Generated: {new Date(viewingReport.generatedAt || viewingReport.createdAt).toLocaleString()}</span>
                     </div>
                   </div>
 
                   {viewingReport.lineItems.length === 0 ? (
-                    <div className={`p-8 text-center ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                    <div className="p-8 text-center theme-text-tertiary text-sm">
                       No qualifying transactions for this date.
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className={isDark ? "border-b border-slate-700" : "border-b border-gray-200"}>
-                            <th className={`text-left px-4 py-3 font-semibold ${isDark ? "text-slate-300" : "text-gray-700"}`}>Order #</th>
-                            <th className={`text-left px-4 py-3 font-semibold ${isDark ? "text-slate-300" : "text-gray-700"}`}>Brand</th>
-                            <th className={`text-left px-4 py-3 font-semibold ${isDark ? "text-slate-300" : "text-gray-700"}`}>Mfg Code</th>
-                            <th className={`text-left px-4 py-3 font-semibold ${isDark ? "text-slate-300" : "text-gray-700"}`}>Description</th>
-                            <th className={`text-right px-4 py-3 font-semibold ${isDark ? "text-slate-300" : "text-gray-700"}`}>Qty</th>
-                            <th className={`text-right px-4 py-3 font-semibold ${isDark ? "text-slate-300" : "text-gray-700"}`}>Commission</th>
+                          <tr className={`border-b theme-border-secondary ${isDark ? "bg-slate-800/80" : "bg-gray-50"}`}>
+                            <th className="text-left px-4 py-3 font-semibold text-xs theme-text-tertiary">Order #</th>
+                            <th className="text-left px-4 py-3 font-semibold text-xs theme-text-tertiary">Brand</th>
+                            <th className="text-left px-4 py-3 font-semibold text-xs theme-text-tertiary">Mfg Code</th>
+                            <th className="text-left px-4 py-3 font-semibold text-xs theme-text-tertiary">Description</th>
+                            <th className="text-right px-4 py-3 font-semibold text-xs theme-text-tertiary">Qty</th>
+                            <th className="text-right px-4 py-3 font-semibold text-xs theme-text-tertiary">Commission</th>
                           </tr>
                         </thead>
                         <tbody>
                           {viewingReport.lineItems.map((li: CommissionLineItem, i: number) => (
-                            <tr key={i} className={`border-b ${isDark ? "border-slate-700/50 hover:bg-slate-700/30" : "border-gray-100 hover:bg-gray-50"}`}>
-                              <td className={`px-4 py-2.5 font-mono text-xs ${isDark ? "text-slate-300" : "text-gray-700"}`}>{li.orderNo}</td>
-                              <td className={`px-4 py-2.5 font-mono text-xs font-semibold ${isDark ? "text-slate-300" : "text-gray-700"}`}>{li.brand}</td>
-                              <td className={`px-4 py-2.5 font-mono text-xs ${isDark ? "text-slate-300" : "text-gray-700"}`}>{li.mfgItemId}</td>
-                              <td className={`px-4 py-2.5 ${isDark ? "text-white" : "text-gray-900"}`}>{li.description}</td>
-                              <td className={`px-4 py-2.5 text-right ${isDark ? "text-slate-300" : "text-gray-700"}`}>{li.qty}</td>
-                              <td className={`px-4 py-2.5 text-right font-medium ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>${li.commissionAmount.toFixed(2)}</td>
+                            <tr key={i} className={`border-b theme-border-secondary transition-colors ${isDark ? "hover:bg-slate-700/20" : "hover:bg-gray-50"}`}>
+                              <td className="px-4 py-2.5 font-mono text-xs theme-text-secondary">{li.orderNo}</td>
+                              <td className="px-4 py-2.5 font-mono text-xs font-semibold theme-text-secondary">{li.brand}</td>
+                              <td className="px-4 py-2.5 font-mono text-xs theme-text-secondary">{li.mfgItemId}</td>
+                              <td className="px-4 py-2.5 theme-text-primary">{li.description}</td>
+                              <td className="px-4 py-2.5 text-right theme-text-secondary">{li.qty}</td>
+                              <td className={`px-4 py-2.5 text-right font-medium ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
+                                ${li.commissionAmount.toFixed(2)}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
                           <tr className={isDark ? "bg-slate-800" : "bg-gray-50"}>
-                            <td colSpan={5} className={`px-4 py-3 text-right font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Grand Total</td>
-                            <td className={`px-4 py-3 text-right font-bold text-lg ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>${viewingReport.grandTotal.toFixed(2)}</td>
+                            <td colSpan={5} className="px-4 py-3 text-right font-bold theme-text-primary">Grand Total</td>
+                            <td className={`px-4 py-3 text-right font-bold text-lg ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
+                              ${viewingReport.grandTotal.toFixed(2)}
+                            </td>
                           </tr>
                         </tfoot>
                       </table>
@@ -333,13 +369,17 @@ export default function WTDCommissionReportPage() {
             ) : (
               /* Report list grouped by date */
               <>
-                {!reportHistory || reportHistory.length === 0 ? (
-                  <div className={`rounded-xl border p-8 text-center ${isDark ? "bg-slate-800/30 border-slate-700 text-slate-400" : "bg-gray-50 border-gray-200 text-gray-500"}`}>
-                    <p className="text-lg font-medium mb-2">No reports yet</p>
-                    <p className="text-sm">Reports are generated automatically at 4 AM EST for the prior day.</p>
+                {loadingReports ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-6 h-6 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin" />
                   </div>
+                ) : !reportHistory || reportHistory.length === 0 ? (
+                  <Card padding="md" className="text-center">
+                    <p className="text-base font-semibold theme-text-primary mb-2">No reports yet</p>
+                    <p className="text-sm theme-text-secondary">Reports are generated automatically at 4 AM EST for the prior day.</p>
+                  </Card>
                 ) : (
-                  <div className="space-y-6">
+                  <div className="space-y-5">
                     {sortedDates.map(date => {
                       const dateReports = reportsByDate[date];
                       const formattedDate = new Date(date + "T12:00:00").toLocaleDateString("en-US", {
@@ -348,21 +388,21 @@ export default function WTDCommissionReportPage() {
 
                       return (
                         <div key={date}>
-                          <h2 className={`text-sm font-semibold mb-3 ${isDark ? "text-slate-400" : "text-gray-500"}`}>{formattedDate}</h2>
+                          <div className="ui-section-label mb-2">{formattedDate}</div>
                           <div className="space-y-2">
                             {dateReports.map((r: ReportSummary) => (
                               <div
                                 key={r.key}
-                                className={`rounded-xl border p-4 flex items-center justify-between ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}
+                                className="theme-card p-4 flex items-center justify-between"
                               >
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 min-w-0">
                                   <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${r.lineItemCount > 0 ? "bg-emerald-500" : "bg-slate-500"}`} />
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <span className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{r.customerName}</span>
-                                      <span className={`px-2 py-0.5 rounded text-xs font-mono ${isDark ? "bg-slate-700 text-slate-300" : "bg-gray-100 text-gray-600"}`}>{r.customerNumber}</span>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-semibold theme-text-primary">{r.customerName}</span>
+                                      <span className="px-2 py-0.5 rounded-md text-xs font-mono theme-text-tertiary bg-black/5 dark:bg-white/10">{r.customerNumber}</span>
                                     </div>
-                                    <div className={`text-xs mt-0.5 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                                    <div className="text-xs mt-0.5 theme-text-tertiary">
                                       {r.lineItemCount > 0 ? (
                                         <>
                                           <span>{r.lineItemCount} items</span>
@@ -374,12 +414,13 @@ export default function WTDCommissionReportPage() {
                                     </div>
                                   </div>
                                 </div>
-                                <button
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
                                   onClick={() => setViewingReportKey(r.key)}
-                                  className={`px-4 py-2 sm:px-3 sm:py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}
                                 >
                                   View
-                                </button>
+                                </Button>
                               </div>
                             ))}
                           </div>

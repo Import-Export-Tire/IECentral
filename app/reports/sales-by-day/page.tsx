@@ -5,6 +5,9 @@ import Protected from "@/app/protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useTheme } from "@/app/theme-context";
 import Link from "next/link";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import SectionHeader from "@/components/ui/SectionHeader";
 import {
   ResponsiveContainer,
   LineChart, Line,
@@ -189,14 +192,7 @@ function SalesByDayContent() {
   const avgPerBucketTires = bucketCount ? totalTires / bucketCount : 0;
   const topLoc = data?.perLocation[0];
 
-  const labelClass = `block text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-500"} mb-1`;
-  const cardClass = `rounded-2xl border p-4 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"} shadow-sm`;
-  const inputClass = `w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40 ${
-    isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-gray-300 text-gray-900"
-  }`;
-
   const valueKey = metric === "dollars" ? "dollars_" : "tires_";
-  const totalKey = metric === "dollars" ? "totalDollars" : "totalTires";
   const yFormatter = (v: number) => metric === "dollars" ? formatCurrency(v) : formatNum(v);
 
   const chartTooltipFormatter = (value: unknown, name: unknown): [string, string] => {
@@ -214,7 +210,7 @@ function SalesByDayContent() {
   const renderChart = () => {
     if (!data || data.series.length === 0) {
       return (
-        <div className={`flex items-center justify-center h-80 text-sm ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+        <div className="flex items-center justify-center h-80 text-sm theme-text-tertiary">
           {loading ? "Loading…" : "No sales in this range. Try widening the date range or selecting different locations."}
         </div>
       );
@@ -283,79 +279,107 @@ function SalesByDayContent() {
   };
 
   return (
-    <div className="flex h-screen theme-bg-primary">
+    <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
-        <header className={`sticky top-0 z-10 backdrop-blur-md border-b px-6 sm:px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/85 border-gray-200"}`}>
+
+        {/* Sticky iOS-style page header */}
+        <header className={`sticky top-0 z-10 border-b px-4 sm:px-6 py-3 sm:py-4 backdrop-blur-sm ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <Link href="/reports" className={`p-2 rounded-lg ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}>
+              <Link
+                href="/reports"
+                className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5 flex-shrink-0"
+              >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
               </Link>
               <div className="min-w-0">
-                <h1 className="text-xl font-semibold theme-text-primary tracking-tight truncate">Sales by Day &amp; Location</h1>
-                <p className="text-xs theme-text-tertiary truncate">Customer sales totals by store, bucketed by day, week, or month</p>
+                <h1 className="text-xl font-bold theme-text-primary truncate">Sales by Day &amp; Location</h1>
+                <p className="text-xs mt-0.5 theme-text-tertiary truncate">Customer sales totals by store, bucketed by day, week, or month</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => fetchData()}
                 disabled={loading}
-                className="px-3 py-1.5 rounded-full text-xs font-medium theme-bg-card theme-text-primary border theme-border-primary theme-bg-hover disabled:opacity-50"
               >
                 {loading ? "Loading…" : "Refresh"}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={downloadCSV}
                 disabled={!data || data.series.length === 0}
-                className="px-3 py-1.5 rounded-full text-xs font-medium text-white bg-[#007AFF] hover:bg-[#0063CC] shadow-sm disabled:opacity-50"
               >
                 Export CSV
-              </button>
+              </Button>
             </div>
           </div>
         </header>
 
-        <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-5">
+        <div className="px-4 sm:px-6 py-5 max-w-7xl mx-auto space-y-4">
+
+          {/* Error banner */}
           {error && (
-            <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm p-3">{error}</div>
+            <Card tone="red" padding="sm">
+              <p className="text-sm theme-text-primary">{error}</p>
+            </Card>
           )}
 
-          {/* Controls */}
-          <div className={cardClass}>
+          {/* Controls panel */}
+          <Card padding="sm">
+            <SectionHeader label="Filters" />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
-                <label className={labelClass}>Start date</label>
-                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputClass} />
+                <label className="block ui-section-label mb-1">Start date</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="theme-input w-full px-3 py-2 text-sm"
+                />
               </div>
               <div>
-                <label className={labelClass}>End date</label>
-                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={inputClass} />
+                <label className="block ui-section-label mb-1">End date</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="theme-input w-full px-3 py-2 text-sm"
+                />
               </div>
               <div>
-                <label className={labelClass}>Granularity</label>
-                <div className="inline-flex items-center gap-1 rounded-full p-1 theme-bg-secondary border theme-border-primary w-full">
+                <label className="block ui-section-label mb-1">Granularity</label>
+                <div className={`inline-flex items-center gap-1 rounded-full p-1 border w-full ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-gray-100 border-gray-200"}`}>
                   {(["day","week","month"] as Granularity[]).map(g => (
-                    <button key={g} onClick={() => setGranularity(g)}
+                    <button
+                      key={g}
+                      onClick={() => setGranularity(g)}
                       className={`flex-1 px-3 py-1 text-xs font-medium rounded-full transition-colors ${
                         granularity === g ? "bg-[#007AFF] text-white" : "theme-text-secondary"
-                      }`}>
+                      }`}
+                    >
                       {g === "day" ? "Day" : g === "week" ? "Week" : "Month"}
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <label className={labelClass}>Metric</label>
-                <div className="inline-flex items-center gap-1 rounded-full p-1 theme-bg-secondary border theme-border-primary w-full">
+                <label className="block ui-section-label mb-1">Metric</label>
+                <div className={`inline-flex items-center gap-1 rounded-full p-1 border w-full ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-gray-100 border-gray-200"}`}>
                   {(["dollars","tires"] as Metric[]).map(m => (
-                    <button key={m} onClick={() => setMetric(m)}
+                    <button
+                      key={m}
+                      onClick={() => setMetric(m)}
                       className={`flex-1 px-3 py-1 text-xs font-medium rounded-full transition-colors ${
                         metric === m ? "bg-[#007AFF] text-white" : "theme-text-secondary"
-                      }`}>
+                      }`}
+                    >
                       {m === "dollars" ? "Dollars" : "Tires"}
                     </button>
                   ))}
@@ -366,40 +390,54 @@ function SalesByDayContent() {
             {/* Preset chips + chart kind + stacking */}
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] theme-text-tertiary">Quick:</span>
+                <span className="ui-section-label">Quick:</span>
                 {presets.map(p => (
-                  <button key={p.label} onClick={() => applyPreset(p)}
-                    className="px-2.5 py-1 text-[11px] font-medium rounded-full theme-bg-secondary theme-text-secondary theme-bg-hover">
+                  <button
+                    key={p.label}
+                    onClick={() => applyPreset(p)}
+                    className={`px-2.5 py-1 text-[11px] font-medium rounded-lg border transition-colors ${
+                      isDark
+                        ? "bg-slate-800/50 text-slate-400 border-slate-700 hover:border-slate-500"
+                        : "bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400"
+                    }`}
+                  >
                     {p.label}
                   </button>
                 ))}
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <div className="inline-flex items-center gap-1 rounded-full p-1 theme-bg-secondary border theme-border-primary">
+                <div className={`inline-flex items-center gap-1 rounded-full p-1 border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-gray-100 border-gray-200"}`}>
                   {(["area","line","bar"] as ChartKind[]).map(k => (
-                    <button key={k} onClick={() => setChartKind(k)}
-                      className={`px-3 py-1 text-[11px] font-medium rounded-full ${
+                    <button
+                      key={k}
+                      onClick={() => setChartKind(k)}
+                      className={`px-3 py-1 text-[11px] font-medium rounded-full transition-colors ${
                         chartKind === k ? "bg-[#007AFF] text-white" : "theme-text-secondary"
-                      }`}>
+                      }`}
+                    >
                       {k.charAt(0).toUpperCase() + k.slice(1)}
                     </button>
                   ))}
                 </div>
                 <label className="flex items-center gap-1.5 text-xs theme-text-secondary">
-                  <input type="checkbox" checked={stacked} onChange={(e) => setStacked(e.target.checked)}
-                    className="rounded text-[#007AFF] focus:ring-[#007AFF]/40" />
+                  <input
+                    type="checkbox"
+                    checked={stacked}
+                    onChange={(e) => setStacked(e.target.checked)}
+                    className="rounded text-[#007AFF] focus:ring-[#007AFF]/40"
+                  />
                   Stacked
                 </label>
               </div>
             </div>
 
             {/* Location chips */}
-            <div className="mt-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <label className={labelClass}>Locations</label>
+            <div className="mt-4 pt-3 border-t theme-border-secondary">
+              <div className="flex items-center justify-between mb-2">
+                <span className="ui-section-label">Locations</span>
                 <div className="flex items-center gap-2">
                   <button onClick={selectAllLocations} className="text-[11px] text-[#007AFF] hover:underline">Select all</button>
-                  <span className="theme-text-muted text-[11px]">·</span>
+                  <span className="theme-text-tertiary text-[11px]">·</span>
                   <button onClick={clearLocations} className="text-[11px] theme-text-tertiary hover:theme-text-primary">Clear</button>
                 </div>
               </div>
@@ -408,77 +446,82 @@ function SalesByDayContent() {
                   const active = selectedLocations.size === 0 || selectedLocations.has(loc);
                   const color = colorByLocation[loc] || "#007AFF";
                   return (
-                    <button key={loc} onClick={() => toggleLocation(loc)}
+                    <button
+                      key={loc}
+                      onClick={() => toggleLocation(loc)}
                       className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
                         active
                           ? "border-transparent text-white"
-                          : "theme-bg-card theme-text-tertiary theme-border-primary"
+                          : "theme-text-tertiary theme-border-secondary"
                       }`}
-                      style={active ? { backgroundColor: color } : {}}>
+                      style={active ? { backgroundColor: color } : {}}
+                    >
                       {loc}
                     </button>
                   );
                 })}
                 {(!data || data.locations.length === 0) && (
-                  <span className="text-xs theme-text-muted">No locations found in this range.</span>
+                  <span className="text-xs theme-text-tertiary">No locations found in this range.</span>
                 )}
               </div>
-              <p className="text-[11px] theme-text-muted mt-1.5">
+              <p className="text-[11px] theme-text-tertiary mt-1.5">
                 {selectedLocations.size === 0 ? "All locations shown" : `${selectedLocations.size} selected`}
               </p>
             </div>
-          </div>
+          </Card>
 
-          {/* Summary cards */}
+          {/* Summary KPI cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className={cardClass}>
-              <p className="text-[11px] theme-text-tertiary uppercase tracking-wider">Total Dollars</p>
-              <p className="text-2xl font-semibold theme-text-primary mt-1">{formatCurrency(totalDollars)}</p>
-              <p className="text-[11px] theme-text-muted mt-0.5">{formatCurrency(avgPerBucketDollars)} / {granularity}</p>
-            </div>
-            <div className={cardClass}>
-              <p className="text-[11px] theme-text-tertiary uppercase tracking-wider">Total Tires</p>
-              <p className="text-2xl font-semibold theme-text-primary mt-1">{formatNum(totalTires)}</p>
-              <p className="text-[11px] theme-text-muted mt-0.5">{formatNum(Math.round(avgPerBucketTires))} / {granularity}</p>
-            </div>
-            <div className={cardClass}>
-              <p className="text-[11px] theme-text-tertiary uppercase tracking-wider">Buckets</p>
-              <p className="text-2xl font-semibold theme-text-primary mt-1">{bucketCount}</p>
-              <p className="text-[11px] theme-text-muted mt-0.5">{granularity} buckets in range</p>
-            </div>
-            <div className={cardClass}>
-              <p className="text-[11px] theme-text-tertiary uppercase tracking-wider">Top Location</p>
-              <p className="text-2xl font-semibold theme-text-primary mt-1">{topLoc?.location || "—"}</p>
-              <p className="text-[11px] theme-text-muted mt-0.5">{topLoc ? formatCurrency(topLoc.dollars) : "—"}</p>
-            </div>
+            <Card padding="sm">
+              <div className="ui-section-label">Total Dollars</div>
+              <div className="text-2xl font-semibold theme-text-primary mt-1">{formatCurrency(totalDollars)}</div>
+              <div className="text-[11px] theme-text-tertiary mt-0.5">{formatCurrency(avgPerBucketDollars)} / {granularity}</div>
+            </Card>
+            <Card padding="sm">
+              <div className="ui-section-label">Total Tires</div>
+              <div className="text-2xl font-semibold theme-text-primary mt-1">{formatNum(totalTires)}</div>
+              <div className="text-[11px] theme-text-tertiary mt-0.5">{formatNum(Math.round(avgPerBucketTires))} / {granularity}</div>
+            </Card>
+            <Card padding="sm">
+              <div className="ui-section-label">Buckets</div>
+              <div className="text-2xl font-semibold theme-text-primary mt-1">{bucketCount}</div>
+              <div className="text-[11px] theme-text-tertiary mt-0.5">{granularity} buckets in range</div>
+            </Card>
+            <Card padding="sm">
+              <div className="ui-section-label">Top Location</div>
+              <div className="text-2xl font-semibold theme-text-primary mt-1">{topLoc?.location || "—"}</div>
+              <div className="text-[11px] theme-text-tertiary mt-0.5">{topLoc ? formatCurrency(topLoc.dollars) : "—"}</div>
+            </Card>
           </div>
 
           {/* Chart */}
-          <div className={cardClass}>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold theme-text-primary">
-                {metric === "dollars" ? "Dollars" : "Tires"} by {granularity === "day" ? "day" : granularity === "week" ? "week" : "month"}, per location
-              </h2>
-              {totalTires < 0 && metric === "tires" && (
-                <span className="text-[11px] text-amber-600">Range is net of returns — negative values mean more returns than sales.</span>
-              )}
-            </div>
+          <Card padding="sm">
+            <SectionHeader
+              title={`${metric === "dollars" ? "Dollars" : "Tires"} by ${granularity === "day" ? "day" : granularity === "week" ? "week" : "month"}, per location`}
+              actions={
+                totalTires < 0 && metric === "tires" ? (
+                  <span className="text-[11px] text-amber-600">Range is net of returns — negative values mean more returns than sales.</span>
+                ) : undefined
+              }
+            />
             {renderChart()}
-          </div>
+          </Card>
 
           {/* Per-location table */}
-          <div className={cardClass}>
-            <h2 className="text-sm font-semibold theme-text-primary mb-3">Totals by location</h2>
+          <div className="theme-card overflow-hidden p-0">
+            <div className="px-5 py-3 border-b theme-border-secondary">
+              <h2 className="text-[15px] font-semibold theme-text-primary">Totals by location</h2>
+            </div>
             {data && data.perLocation.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className={isDark ? "text-slate-400" : "text-gray-600"}>
+                  <thead className={`${isDark ? "bg-slate-800/80" : "bg-gray-50"}`}>
                     <tr className="border-b theme-border-secondary">
-                      <th className="text-left py-2 font-medium">Location</th>
-                      <th className="text-right py-2 font-medium">Tires</th>
-                      <th className="text-right py-2 font-medium">Dollars</th>
-                      <th className="text-right py-2 font-medium">$/tire avg</th>
-                      <th className="text-right py-2 font-medium">% of total $</th>
+                      <th className="text-left py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Location</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Tires</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Dollars</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">$/tire avg</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">% of total $</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -487,37 +530,40 @@ function SalesByDayContent() {
                       const perTire = p.tires !== 0 ? p.dollars / p.tires : 0;
                       return (
                         <tr key={p.location} className="border-b theme-border-secondary">
-                          <td className="py-2">
+                          <td className="py-2.5 px-4">
                             <span className="inline-flex items-center gap-2">
                               <span className="w-2.5 h-2.5 rounded-full" style={{ background: colorByLocation[p.location] || "#007AFF" }} />
                               <span className="theme-text-primary font-medium">{p.location}</span>
                             </span>
                           </td>
-                          <td className="py-2 text-right theme-text-primary tabular-nums">{formatNum(p.tires)}</td>
-                          <td className="py-2 text-right theme-text-primary tabular-nums">${formatNum(p.dollars)}</td>
-                          <td className="py-2 text-right theme-text-secondary tabular-nums">${perTire.toFixed(0)}</td>
-                          <td className="py-2 text-right theme-text-secondary tabular-nums">{pct.toFixed(1)}%</td>
+                          <td className="py-2.5 px-4 text-right theme-text-primary tabular-nums">{formatNum(p.tires)}</td>
+                          <td className="py-2.5 px-4 text-right theme-text-primary tabular-nums">${formatNum(p.dollars)}</td>
+                          <td className="py-2.5 px-4 text-right theme-text-secondary tabular-nums">${perTire.toFixed(0)}</td>
+                          <td className="py-2.5 px-4 text-right theme-text-secondary tabular-nums">{pct.toFixed(1)}%</td>
                         </tr>
                       );
                     })}
                   </tbody>
                   <tfoot>
-                    <tr className="theme-bg-secondary">
-                      <td className="py-2 px-1 font-semibold theme-text-primary">Total</td>
-                      <td className="py-2 text-right font-semibold theme-text-primary tabular-nums">{formatNum(totalTires)}</td>
-                      <td className="py-2 text-right font-semibold theme-text-primary tabular-nums">${formatNum(totalDollars)}</td>
-                      <td className="py-2 text-right font-semibold theme-text-secondary tabular-nums">
+                    <tr className={isDark ? "bg-slate-800/50" : "bg-gray-50"}>
+                      <td className="py-2.5 px-4 font-semibold theme-text-primary">Total</td>
+                      <td className="py-2.5 px-4 text-right font-semibold theme-text-primary tabular-nums">{formatNum(totalTires)}</td>
+                      <td className="py-2.5 px-4 text-right font-semibold theme-text-primary tabular-nums">${formatNum(totalDollars)}</td>
+                      <td className="py-2.5 px-4 text-right font-semibold theme-text-secondary tabular-nums">
                         ${totalTires !== 0 ? (totalDollars / totalTires).toFixed(0) : "—"}
                       </td>
-                      <td className="py-2 text-right font-semibold theme-text-secondary tabular-nums">100%</td>
+                      <td className="py-2.5 px-4 text-right font-semibold theme-text-secondary tabular-nums">100%</td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
             ) : (
-              <p className="text-sm theme-text-muted">No location totals in this range.</p>
+              <div className="p-5">
+                <p className="text-sm theme-text-tertiary">No location totals in this range.</p>
+              </div>
             )}
           </div>
+
         </div>
       </main>
     </div>

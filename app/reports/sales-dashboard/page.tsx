@@ -5,6 +5,8 @@ import Protected from "@/app/protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useTheme } from "@/app/theme-context";
 import Link from "next/link";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -173,10 +175,8 @@ function SalesDashboardContent() {
     }).sort((a, b) => b.thisMonth - a.thisMonth);
   }, [locations, thisMonth, lastMonth, thisWeek, lastWeek, ytd, colorByLoc]);
 
-  const cardClass = `rounded-2xl border p-4 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"} shadow-sm`;
-
   const deltaPill = (pct: number | null) => {
-    if (pct == null) return <span className="text-xs theme-text-muted">—</span>;
+    if (pct == null) return <span className="text-xs theme-text-tertiary">—</span>;
     const positive = pct >= 0;
     const cls = positive ? "text-green-700 bg-green-100" : "text-red-700 bg-red-100";
     const sign = positive ? "+" : "";
@@ -188,124 +188,151 @@ function SalesDashboardContent() {
   };
 
   return (
-    <div className="flex h-screen theme-bg-primary">
+    <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
-        <header className={`sticky top-0 z-10 backdrop-blur-md border-b px-6 sm:px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/85 border-gray-200"}`}>
+
+        {/* Sticky iOS-style page header */}
+        <header className={`sticky top-0 z-10 border-b px-4 sm:px-6 py-3 sm:py-4 backdrop-blur-sm ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Link href="/reports" className={`p-2 rounded-lg ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            <div className="flex items-center gap-3 min-w-0">
+              <Link
+                href="/reports"
+                className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5 flex-shrink-0"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
               </Link>
-              <div>
-                <h1 className="text-xl font-semibold theme-text-primary tracking-tight">Sales Dashboard</h1>
-                <p className="text-xs theme-text-tertiary">Tires sold by location · WoW / MoM / YTD</p>
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold theme-text-primary tracking-tight">Sales Dashboard</h1>
+                <p className="text-xs mt-0.5 theme-text-tertiary">Tires sold by location · WoW / MoM / YTD</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="inline-flex items-center gap-1 rounded-full p-1 theme-bg-card border theme-border-primary">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className={`inline-flex items-center gap-1 rounded-full p-1 border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-gray-100 border-gray-200"}`}>
                 {(["tires", "dollars"] as const).map(m => (
-                  <button key={m} onClick={() => setMetric(m)}
+                  <button
+                    key={m}
+                    onClick={() => setMetric(m)}
                     className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
                       metric === m ? "bg-[#007AFF] text-white" : "theme-text-secondary"
-                    }`}>
+                    }`}
+                  >
                     {m === "tires" ? "Tires" : "Dollars"}
                   </button>
                 ))}
               </div>
-              <button onClick={fetchData} disabled={loading}
-                className="px-3 py-1.5 rounded-full text-xs font-medium theme-bg-card theme-text-primary border theme-border-primary theme-bg-hover disabled:opacity-50">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={fetchData}
+                disabled={loading}
+              >
                 {loading ? "Loading…" : "Refresh"}
-              </button>
+              </Button>
             </div>
           </div>
         </header>
 
-        <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-5">
-          {error && <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm p-3">{error}</div>}
+        <div className="px-4 sm:px-6 py-5 max-w-7xl mx-auto space-y-4">
+
+          {/* Error banner */}
+          {error && (
+            <Card tone="red" padding="sm">
+              <p className="text-sm theme-text-primary">{error}</p>
+            </Card>
+          )}
 
           {/* Big KPI row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className={cardClass}>
-              <p className="text-[11px] theme-text-tertiary uppercase tracking-wider">This Week</p>
-              <p className="text-2xl font-semibold theme-text-primary mt-1">{fmt(thisWeek.total)}</p>
-              <div className="mt-1 flex items-center gap-2 text-[11px] theme-text-muted">
-                <span>vs last week {fmt(lastWeek.total)}</span>{deltaPill(deltaPct(thisWeek.total, lastWeek.total))}
+            <Card padding="sm">
+              <div className="ui-section-label">This Week</div>
+              <div className="text-2xl font-semibold theme-text-primary mt-1">{fmt(thisWeek.total)}</div>
+              <div className="mt-1 flex items-center gap-2 text-[11px] theme-text-tertiary">
+                <span>vs last week {fmt(lastWeek.total)}</span>
+                {deltaPill(deltaPct(thisWeek.total, lastWeek.total))}
               </div>
-            </div>
-            <div className={cardClass}>
-              <p className="text-[11px] theme-text-tertiary uppercase tracking-wider">This Month</p>
-              <p className="text-2xl font-semibold theme-text-primary mt-1">{fmt(thisMonth.total)}</p>
-              <div className="mt-1 flex items-center gap-2 text-[11px] theme-text-muted">
-                <span>vs last month {fmt(lastMonth.total)}</span>{deltaPill(deltaPct(thisMonth.total, lastMonth.total))}
+            </Card>
+            <Card padding="sm">
+              <div className="ui-section-label">This Month</div>
+              <div className="text-2xl font-semibold theme-text-primary mt-1">{fmt(thisMonth.total)}</div>
+              <div className="mt-1 flex items-center gap-2 text-[11px] theme-text-tertiary">
+                <span>vs last month {fmt(lastMonth.total)}</span>
+                {deltaPill(deltaPct(thisMonth.total, lastMonth.total))}
               </div>
-            </div>
-            <div className={cardClass}>
-              <p className="text-[11px] theme-text-tertiary uppercase tracking-wider">YTD</p>
-              <p className="text-2xl font-semibold theme-text-primary mt-1">{fmt(ytd.total)}</p>
-              <div className="mt-1 flex items-center gap-2 text-[11px] theme-text-muted">
-                <span>vs same period last yr {fmt(ytdPrev.total)}</span>{deltaPill(deltaPct(ytd.total, ytdPrev.total))}
+            </Card>
+            <Card padding="sm">
+              <div className="ui-section-label">YTD</div>
+              <div className="text-2xl font-semibold theme-text-primary mt-1">{fmt(ytd.total)}</div>
+              <div className="mt-1 flex items-center gap-2 text-[11px] theme-text-tertiary">
+                <span>vs same period last yr {fmt(ytdPrev.total)}</span>
+                {deltaPill(deltaPct(ytd.total, ytdPrev.total))}
               </div>
-            </div>
-            <div className={cardClass}>
-              <p className="text-[11px] theme-text-tertiary uppercase tracking-wider">Locations</p>
-              <p className="text-2xl font-semibold theme-text-primary mt-1">{locations.length}</p>
-              <p className="text-[11px] theme-text-muted mt-1">selling tires YTD</p>
-            </div>
+            </Card>
+            <Card padding="sm">
+              <div className="ui-section-label">Locations</div>
+              <div className="text-2xl font-semibold theme-text-primary mt-1">{locations.length}</div>
+              <div className="text-[11px] theme-text-tertiary mt-1">selling tires YTD</div>
+            </Card>
           </div>
 
           {/* Per-location table — the headline view */}
-          <div className={cardClass}>
-            <h2 className="text-sm font-semibold theme-text-primary mb-3">
-              This month — by location <span className="theme-text-muted font-normal text-xs ml-1">({metric})</span>
-            </h2>
+          <div className="theme-card overflow-hidden p-0">
+            <div className="px-5 py-3 border-b theme-border-secondary">
+              <h2 className="text-[15px] font-semibold theme-text-primary">
+                This month — by location <span className="theme-text-tertiary font-normal text-xs ml-1">({metric})</span>
+              </h2>
+            </div>
             {locations.length === 0 ? (
-              <p className="text-sm theme-text-muted py-6 text-center">No data in the year-to-date window.</p>
+              <div className="p-8 text-center">
+                <p className="text-sm theme-text-tertiary">No data in the year-to-date window.</p>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className={isDark ? "text-slate-400" : "text-gray-600"}>
+                  <thead className={isDark ? "bg-slate-800/80" : "bg-gray-50"}>
                     <tr className="border-b theme-border-secondary">
-                      <th className="text-left py-2 px-2 font-medium">Location</th>
-                      <th className="text-right py-2 px-2 font-medium">This week</th>
-                      <th className="text-right py-2 px-2 font-medium">Last week</th>
-                      <th className="text-right py-2 px-2 font-medium">WoW</th>
-                      <th className="text-right py-2 px-2 font-medium">This month</th>
-                      <th className="text-right py-2 px-2 font-medium">Last month</th>
-                      <th className="text-right py-2 px-2 font-medium">MoM</th>
-                      <th className="text-right py-2 px-2 font-medium">YTD</th>
+                      <th className="text-left py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Location</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">This week</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Last week</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">WoW</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">This month</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Last month</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">MoM</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">YTD</th>
                     </tr>
                   </thead>
                   <tbody>
                     {perLocationStats.map(s => (
-                      <tr key={s.loc} className="border-b theme-border-secondary">
-                        <td className="py-2 px-2">
+                      <tr key={s.loc} className={`border-b theme-border-secondary transition-colors ${isDark ? "hover:bg-slate-700/20" : "hover:bg-gray-50"}`}>
+                        <td className="py-2.5 px-4">
                           <span className="inline-flex items-center gap-2">
                             <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />
                             <span className="theme-text-primary font-medium">{s.loc}</span>
                           </span>
                         </td>
-                        <td className="py-2 px-2 text-right theme-text-primary tabular-nums">{fmt(s.thisWeek)}</td>
-                        <td className="py-2 px-2 text-right theme-text-secondary tabular-nums">{fmt(s.lastWeek)}</td>
-                        <td className="py-2 px-2 text-right">{deltaPill(s.wow)}</td>
-                        <td className="py-2 px-2 text-right theme-text-primary tabular-nums font-semibold">{fmt(s.thisMonth)}</td>
-                        <td className="py-2 px-2 text-right theme-text-secondary tabular-nums">{fmt(s.lastMonth)}</td>
-                        <td className="py-2 px-2 text-right">{deltaPill(s.mom)}</td>
-                        <td className="py-2 px-2 text-right theme-text-primary tabular-nums">{fmt(s.ytd)}</td>
+                        <td className="py-2.5 px-4 text-right theme-text-primary tabular-nums">{fmt(s.thisWeek)}</td>
+                        <td className="py-2.5 px-4 text-right theme-text-secondary tabular-nums">{fmt(s.lastWeek)}</td>
+                        <td className="py-2.5 px-4 text-right">{deltaPill(s.wow)}</td>
+                        <td className="py-2.5 px-4 text-right theme-text-primary tabular-nums font-semibold">{fmt(s.thisMonth)}</td>
+                        <td className="py-2.5 px-4 text-right theme-text-secondary tabular-nums">{fmt(s.lastMonth)}</td>
+                        <td className="py-2.5 px-4 text-right">{deltaPill(s.mom)}</td>
+                        <td className="py-2.5 px-4 text-right theme-text-primary tabular-nums">{fmt(s.ytd)}</td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr className="theme-bg-secondary">
-                      <td className="py-2 px-2 font-semibold theme-text-primary">Total</td>
-                      <td className="py-2 px-2 text-right font-semibold theme-text-primary tabular-nums">{fmt(thisWeek.total)}</td>
-                      <td className="py-2 px-2 text-right font-semibold theme-text-secondary tabular-nums">{fmt(lastWeek.total)}</td>
-                      <td className="py-2 px-2 text-right">{deltaPill(deltaPct(thisWeek.total, lastWeek.total))}</td>
-                      <td className="py-2 px-2 text-right font-semibold theme-text-primary tabular-nums">{fmt(thisMonth.total)}</td>
-                      <td className="py-2 px-2 text-right font-semibold theme-text-secondary tabular-nums">{fmt(lastMonth.total)}</td>
-                      <td className="py-2 px-2 text-right">{deltaPill(deltaPct(thisMonth.total, lastMonth.total))}</td>
-                      <td className="py-2 px-2 text-right font-semibold theme-text-primary tabular-nums">{fmt(ytd.total)}</td>
+                    <tr className={isDark ? "bg-slate-800/50" : "bg-gray-50"}>
+                      <td className="py-2.5 px-4 font-semibold theme-text-primary">Total</td>
+                      <td className="py-2.5 px-4 text-right font-semibold theme-text-primary tabular-nums">{fmt(thisWeek.total)}</td>
+                      <td className="py-2.5 px-4 text-right font-semibold theme-text-secondary tabular-nums">{fmt(lastWeek.total)}</td>
+                      <td className="py-2.5 px-4 text-right">{deltaPill(deltaPct(thisWeek.total, lastWeek.total))}</td>
+                      <td className="py-2.5 px-4 text-right font-semibold theme-text-primary tabular-nums">{fmt(thisMonth.total)}</td>
+                      <td className="py-2.5 px-4 text-right font-semibold theme-text-secondary tabular-nums">{fmt(lastMonth.total)}</td>
+                      <td className="py-2.5 px-4 text-right">{deltaPill(deltaPct(thisMonth.total, lastMonth.total))}</td>
+                      <td className="py-2.5 px-4 text-right font-semibold theme-text-primary tabular-nums">{fmt(ytd.total)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -314,12 +341,12 @@ function SalesDashboardContent() {
           </div>
 
           {/* YTD by month chart */}
-          <div className={cardClass}>
-            <h2 className="text-sm font-semibold theme-text-primary mb-3">
+          <Card padding="sm">
+            <h2 className="text-[15px] font-semibold theme-text-primary mb-3">
               YTD by month (stacked by location)
             </h2>
             {monthlySeries.length === 0 ? (
-              <p className="text-sm theme-text-muted py-6 text-center">No data.</p>
+              <p className="text-sm theme-text-tertiary py-6 text-center">No data.</p>
             ) : (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={monthlySeries} margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
@@ -337,11 +364,11 @@ function SalesDashboardContent() {
                 </BarChart>
               </ResponsiveContainer>
             )}
-          </div>
+          </Card>
 
           {/* WoW & MoM combined trend */}
-          <div className={cardClass}>
-            <h2 className="text-sm font-semibold theme-text-primary mb-3">
+          <Card padding="sm">
+            <h2 className="text-[15px] font-semibold theme-text-primary mb-3">
               Weekly trend, last 12 weeks
             </h2>
             <ResponsiveContainer width="100%" height={260}>
@@ -369,12 +396,13 @@ function SalesDashboardContent() {
                 <Line type="monotone" dataKey="total" stroke="#007AFF" strokeWidth={2} dot />
               </LineChart>
             </ResponsiveContainer>
-          </div>
+          </Card>
 
-          <p className="text-[11px] theme-text-muted text-center pb-4">
+          <p className="text-[11px] theme-text-tertiary text-center pb-4">
             Source: OEA07V daily uploads. Sales-only rows (Sld + customer returns) counted; warehouse transfers, vendor returns, and adjustments excluded.
             Per-location internal-account sales (bare R20, INVR20, 99-R20) included by default.
           </p>
+
         </div>
       </main>
     </div>
