@@ -11,3 +11,4 @@ export { default as ShareAccessModal } from "./ShareAccessModal";
 export { default as GroupsModal } from "./GroupsModal";
 export { default as HelpModal } from "./HelpModal";
 export { default as ManageDrawer } from "./ManageDrawer";
+export { default as MobileNav } from "./MobileNav";
