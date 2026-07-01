@@ -1073,3 +1073,360 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 **Type consistency:** `RailSelection = "mine" | "shared" | "company" | "recent"` defined in `types.ts` (Task 1) and consumed identically in `DocHubContext`, `DocHubRail`, `MobileNav`, `FileBrowser`. `recentDocuments: DocumentType[] | undefined` produced in Task 1, consumed in Task 4. `showManageDrawer`/`setShowManageDrawer` produced in Task 1, consumed in Tasks 2/3/5. Existing context field names (`filteredDocuments`, `myFolders`, `communityFolders`, `sharedFoldersWithMe`, `setShowFolderModal`, `setShowUploadModal`, `folderSearchResults`, `navigateToRoot`, etc.) verified against the current `DocHubContext.tsx`. ✓
 
 **Note on index.ts sequencing:** Task 2 Step 2 intentionally adds only the `DocHubRail` export (not all three) so each intermediate build stays green; `ManageDrawer` and `MobileNav` exports are added in their own tasks (3 and 5).
+
+---
+
+## Access-control hardening (decoupled scope — added 2026-07-01)
+
+Decision: **full `ctx.auth` wiring is a separate project** (IECentral has no auth provider; identity is a client-supplied `requestingUserId` arg). Tasks 8–10 below close the **practical, high-value Doc Hub gaps** using the app's existing `requestingUserId` trust model — consistent with how mutations are already guarded (`convex/authGuards.ts`). They do NOT attempt server-derived identity.
+
+**Constraints for these tasks:**
+- Use the existing helpers from `convex/authGuards.ts` (verified signatures): `requireAdmin(ctx, requestingUserId)`, `requireManagePersonnel(ctx, requestingUserId)`, `requireMinTier(ctx, requestingUserId, minTier)`, `requireSelfOrManager(ctx, requestingUserId, ownerUserId)`. Import them at the top of the Convex file (other functions in these files already import from `./authGuards`).
+- When a query gains a required `requestingUserId`, every caller in `components/dochub/DocHubContext.tsx` must pass it and use `user ? {…, requestingUserId: user._id} : "skip"` so it never fires without a user.
+- **Explicitly deferred to the ctx.auth project (do NOT attempt here):** folder mutation guards (`create`/`update`/`archive`/`grantAccess`/`revokeAccess`/`setPassword`/`moveDocument`/`moveFolder`), the `getAll`/`search` untrusted-`userId` residual, and the `/api/documents/file` proxy route. These are recorded in `docs/iecentral/SECURITY-FINDINGS.md` as remaining Doc Hub items (Task 10 Step 5).
+
+---
+
+### Task 8: Guard the unguarded Doc Hub read queries
+
+**Files:**
+- Modify: `convex/documents.ts` (`getArchived`, `getExpiring`, `getStorageUsage`)
+- Modify: `convex/documentFolders.ts` (`getById`, `getUsersForSharing`)
+- Modify: `components/dochub/DocHubContext.tsx` (update the callers)
+
+**Interfaces:**
+- `getArchived`, `getExpiring`, `getStorageUsage` gain `requestingUserId: v.id("users")` and require manager+.
+- `getUsersForSharing` gains `requestingUserId: v.id("users")` and requires an active user (min tier 0).
+- `getById` return value no longer includes `passwordHash`.
+
+- [ ] **Step 1: Strip `passwordHash` from `getById` (documentFolders.ts)**
+
+Current return:
+```typescript
+    return {
+      ...folder,
+      documentCount: docs.length,
+      isProtected: !!folder.passwordHash,
+    };
+```
+Replace with (destructure the hash out so it is never sent to the client):
+```typescript
+    const { passwordHash, ...safeFolder } = folder;
+    return {
+      ...safeFolder,
+      documentCount: docs.length,
+      isProtected: !!passwordHash,
+    };
+```
+
+- [ ] **Step 2: Guard `getArchived`, `getExpiring`, `getStorageUsage` (documents.ts)**
+
+At the top of `convex/documents.ts`, ensure `requireManagePersonnel` is imported from `./authGuards` (add it to the existing authGuards import).
+
+`getArchived` — add the arg + guard:
+```typescript
+export const getArchived = query({
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    return await ctx.db
+      .query("documents")
+      .withIndex("by_active", (q) => q.eq("isActive", false))
+      .order("desc")
+      .collect();
+  },
+});
+```
+
+`getExpiring` — add `requestingUserId`, keep `days`:
+```typescript
+export const getExpiring = query({
+  args: { days: v.optional(v.number()), requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    const days = args.days ?? 30;
+    const now = Date.now();
+    const futureLimit = now + days * 24 * 60 * 60 * 1000;
+    const documents = await ctx.db
+      .query("documents")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+    return documents.filter((doc) => {
+      if (!doc.expiresAt) return false;
+      return doc.expiresAt <= futureLimit;
+    });
+  },
+});
+```
+
+`getStorageUsage`:
+```typescript
+export const getStorageUsage = query({
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireManagePersonnel(ctx, args.requestingUserId);
+    const docs = await ctx.db
+      .query("documents")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+    let totalBytes = 0;
+    for (const d of docs) totalBytes += d.fileSize || 0;
+    return { totalBytes, count: docs.length };
+  },
+});
+```
+
+- [ ] **Step 3: Guard `getUsersForSharing` (documentFolders.ts)**
+
+At the top of `convex/documentFolders.ts`, ensure `requireMinTier` is imported from `./authGuards`.
+```typescript
+export const getUsersForSharing = query({
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireMinTier(ctx, args.requestingUserId, 0); // must be a real, active user
+    const users = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+    return users.map((u) => ({ _id: u._id, name: u.name, email: u.email, role: u.role }));
+  },
+});
+```
+
+- [ ] **Step 4: Update the callers in `DocHubContext.tsx`**
+
+`getExpiring`, `getStorageUsage`, `getArchived`, `getUsersForSharing` are queried in the provider. Change them so they only fire for the right users and pass `requestingUserId`:
+
+```typescript
+  const documents = useQuery(api.documents.getAll, user ? { rootOnly: true, userId: user._id } : "skip") as DocumentType[] | undefined;
+  const archivedDocuments = useQuery(api.documents.getArchived, isAdmin && user ? { requestingUserId: user._id } : "skip") as DocumentType[] | undefined;
+  const expiringDocuments = useQuery(api.documents.getExpiring, isAdmin && user ? { days: 90, requestingUserId: user._id } : "skip");
+  const storageUsage = useQuery(api.documents.getStorageUsage, isAdmin && user ? { requestingUserId: user._id } : "skip");
+```
+and
+```typescript
+  const usersForSharing = useQuery(api.documentFolders.getUsersForSharing, user ? { requestingUserId: user._id } : "skip");
+```
+(`isAdmin` is already computed in the provider. `archived`/`expiring`/`storage` feed the admins-only Manage drawer, so gating them to `isAdmin` is correct and prevents the manager guard from throwing for non-admins.)
+
+- [ ] **Step 5: Verify typecheck + build**
+
+Run: `cd /Users/andybarrows/IECentral && npx tsc --noEmit`
+Expected: no errors. (If `requireManagePersonnel`/`requireMinTier` were already imported, don't duplicate the import.)
+Run: `npm run build`
+Expected: build completes.
+
+- [ ] **Step 6: Commit**
+
+```bash
+cd /Users/andybarrows/IECentral
+git add convex/documents.ts convex/documentFolders.ts components/dochub/DocHubContext.tsx
+git commit -m "fix(dochub/security): guard archived/expiring/storage/user-directory reads; stop leaking folder passwordHash
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+### Task 9: Secure `getFileDownloadUrl` with an access check
+
+**Files:**
+- Modify: `convex/documents.ts` (`getFileDownloadUrl` action)
+- Modify: `components/dochub/DocHubContext.tsx` (the `getFileDownloadUrl` caller in `handleDownload`)
+
+**Interfaces:**
+- `getFileDownloadUrl` gains `requestingUserId: v.id("users")` and returns `null` when the caller isn't allowed to see the document.
+
+Problem: today any logged-in caller who knows a `documentId` gets a signed URL, with zero checks. The fix must add an access check that **mirrors the existing visibility rules already implemented in `getAll` (convex/documents.ts, the block that filters by `visibility`/`isPublic`/owner/`sharedWith`/`sharedWithGroups`)** and the folder-access rules in `getProtectedDocuments`/`grantAccess` — so legitimate downloads (owner, community/internal docs, docs shared to the user directly or via a group, docs in folders shared to the user) still work, and only genuinely-unauthorized calls return null.
+
+- [ ] **Step 1: Read the source-of-truth access rules**
+
+Before writing code, read these in `convex/documents.ts` and `convex/documentFolders.ts`:
+- `getAll`'s visibility filter (how it decides a doc is visible to a `userId`: owner, `isPublic`, `visibility === "community"`, `visibility === "internal"`, `sharedWith` includes the user, `sharedWithGroups` intersects the user's groups).
+- `getProtectedDocuments`'s folder-access logic (owner / `folderAccessGrants` / `sharedWithGroups` / correct password).
+
+- [ ] **Step 2: Add an `internalQuery` that returns whether a user may download a document**
+
+Add to `convex/documents.ts` (use `internalQuery` from `./_generated/server` — it's already used elsewhere in the file for the preview cache; import it if not present):
+
+```typescript
+export const canUserDownload = internalQuery({
+  args: { documentId: v.id("documents"), userId: v.id("users") },
+  handler: async (ctx, args): Promise<boolean> => {
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc || !doc.isActive) return false;
+    const user = await ctx.db.get(args.userId);
+    if (!user || user.isActive === false) return false;
+
+    // Owner or public/company-wide docs.
+    if (doc.uploadedBy === args.userId) return true;
+    if (doc.isPublic) return true;
+    if (doc.visibility === "community" || doc.visibility === "internal") return true;
+
+    // Directly shared with this user.
+    if ((doc.sharedWith ?? []).some((id) => id === args.userId)) return true;
+
+    // Shared with a group this user belongs to.
+    const groupIds = (doc.sharedWithGroups ?? []) as Id<"groups">[];
+    if (groupIds.length) {
+      for (const gid of groupIds) {
+        const group = await ctx.db.get(gid);
+        if (group && (group.memberIds ?? []).some((m: Id<"users">) => m === args.userId)) return true;
+      }
+    }
+
+    // Doc lives in a folder the user can reach (owner, grant, community/internal, or group-shared).
+    if (doc.folderId) {
+      const folder = await ctx.db.get(doc.folderId);
+      if (folder) {
+        if (folder.createdBy === args.userId) return true;
+        if (folder.visibility === "community" || folder.visibility === "internal") return true;
+        const fGroups = (folder.sharedWithGroups ?? []) as Id<"groups">[];
+        for (const gid of fGroups) {
+          const group = await ctx.db.get(gid);
+          if (group && (group.memberIds ?? []).some((m: Id<"users">) => m === args.userId)) return true;
+        }
+        const grants = await ctx.db
+          .query("folderAccessGrants")
+          .withIndex("by_folder", (q) => q.eq("folderId", folder._id))
+          .collect();
+        if (grants.some((g) => g.grantedToUserId === args.userId && !g.isRevoked)) return true;
+      }
+    }
+    return false;
+  },
+});
+```
+
+NOTE for the implementer: verify the real field names against the schema/`getAll` while writing this — `doc.sharedWith`, `doc.sharedWithGroups`, `group.memberIds`, `folder.sharedWithGroups`, `folderAccessGrants` index `by_folder`, and `grant.isRevoked`/`grant.grantedToUserId` are used elsewhere in these two files; match them exactly. If `getAll` uses a different mechanism for any rule, mirror `getAll`.
+
+- [ ] **Step 3: Gate the action on it**
+
+```typescript
+export const getFileDownloadUrl = action({
+  args: { documentId: v.id("documents"), requestingUserId: v.id("users") },
+  handler: async (ctx, args): Promise<string | null> => {
+    const allowed = await ctx.runQuery(internal.documents.canUserDownload, {
+      documentId: args.documentId,
+      userId: args.requestingUserId,
+    });
+    if (!allowed) return null;
+    const doc = await ctx.runQuery(api.documents.getById, { documentId: args.documentId });
+    if (!doc || !doc.fileId) return null;
+    try {
+      return await ctx.storage.getUrl(doc.fileId);
+    } catch {
+      return null;
+    }
+  },
+});
+```
+Ensure `internal` is imported (`import { api, internal } from "./_generated/api";` — the file already imports `api`; add `internal` if missing).
+
+- [ ] **Step 4: Update the caller in `DocHubContext.tsx`**
+
+In `handleDownload`, the call `await getFileDownloadUrl({ documentId: doc._id })` becomes:
+```typescript
+      if (!user) return;
+      const url = await getFileDownloadUrl({ documentId: doc._id, requestingUserId: user._id });
+```
+(There is already a `user` in scope via the provider; guard with `if (!user) return;` at the top of `handleDownload` if not already present, and add `user` to its `useCallback` deps.)
+
+- [ ] **Step 5: Verify typecheck + build**
+
+Run: `cd /Users/andybarrows/IECentral && npx tsc --noEmit`
+Expected: no errors.
+Run: `npm run build`
+Expected: build completes.
+
+- [ ] **Step 6: Commit**
+
+```bash
+cd /Users/andybarrows/IECentral
+git add convex/documents.ts components/dochub/DocHubContext.tsx
+git commit -m "fix(dochub/security): access-check getFileDownloadUrl (owner/visibility/share/group/folder)
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+### Task 10: Doc Hub route guard, hidden-by-default staff access, and key unification
+
+**Files:**
+- Modify: `app/documents/page.tsx` (route guard)
+- Modify: `lib/permissions.ts` (unify the Doc Hub permission key; add to `ALL_PERMISSIONS` if needed)
+- Modify: `components/Sidebar.tsx` (employee-section grant key, if it uses the old key)
+- Modify: `docs/iecentral/SECURITY-FINDINGS.md` (log deferred items)
+
+**Interfaces:** No new exported functions. Behavior: a user who lacks Doc Hub permission is redirected away from `/documents`; the employee-grant key and the T1+ menu key are the same key end-to-end.
+
+- [ ] **Step 1: Understand the current key split**
+
+Read in `lib/permissions.ts`: `GRANTABLE_EMPLOYEE_MODULES` (uses `menu.documents`), `getMenuPermissions` (produces `docHub`, i.e. `menu.docHub`), `ALL_PERMISSIONS` (has `menu.docHub`, not `menu.documents`), and `resolvePermission`. Read `lib/usePermissions.ts` to see the shape the client consumes (`permissions.menu.docHub`). Read the employee-nav filter in `components/Sidebar.tsx` (around line 417-422) which filters on `permissionOverrides["menu.documents"] === true`.
+
+Decision (already made): **unify on `menu.docHub`.** The employee grant, the sidebar link (both employee and T1+), the permission editor list, and the route guard all use `menu.docHub`.
+
+- [ ] **Step 2: Unify the key in `lib/permissions.ts`**
+
+- In `GRANTABLE_EMPLOYEE_MODULES`, change the Doc Hub entry's `permKey` from `"menu.documents"` to `"menu.docHub"` (leave its `label`/`href`).
+- Confirm `menu.docHub` exists in `ALL_PERMISSIONS` (it does — keep it). Remove any now-dead `menu.documents` reference if present.
+- Leave `getMenuPermissions`' `docHub: tier >= 2 || isRetailAssociate` default as-is (that is the default access; per-person grants come via `permissionOverrides["menu.docHub"]`).
+
+- [ ] **Step 3: Fix the employee-nav grant key in `components/Sidebar.tsx`**
+
+In the employee (T0) nav section (around line 417-422), the Doc Hub module entry's `permKey` (currently `"menu.documents"`) must become `"menu.docHub"` so a granted employee's override key matches the unified key. Change only that key string.
+
+- [ ] **Step 4: Add the route guard on `/documents`**
+
+In `app/documents/page.tsx`, add a permission gate so a user without Doc Hub access can't reach the page by URL. Use the existing client permission hook the same way the sidebar does. Concretely, add an inner guard component:
+
+```tsx
+import { usePermissions } from "@/lib/usePermissions";
+import { useRouter } from "next/navigation";
+```
+and gate `DocumentsContent` (or wrap its body) so that once permissions have loaded, if `!permissions.menu.docHub` it redirects to `/`:
+
+```tsx
+function DocHubGate({ children }: { children: React.ReactNode }) {
+  const permissions = usePermissions();
+  const router = useRouter();
+  useEffect(() => {
+    if (!permissions.isLoading && !permissions.menu.docHub) router.push("/");
+  }, [permissions.isLoading, permissions.menu.docHub, router]);
+  if (permissions.isLoading) return null;
+  if (!permissions.menu.docHub) return null;
+  return <>{children}</>;
+}
+```
+Wrap the Doc Hub content with `<DocHubGate>` inside the existing `<Protected>` (Protected still handles the not-logged-in case). Verify the exact shape of `usePermissions()` (`.isLoading`, `.menu.docHub`) against `lib/usePermissions.ts` and adjust property access to match.
+
+- [ ] **Step 5: Log the deferred access-control items**
+
+Append a dated section to `docs/iecentral/SECURITY-FINDINGS.md` (create the file if missing) listing the items explicitly deferred to the ctx.auth project: folder mutations unguarded (`create`/`update`/`archive`/`grantAccess`/`revokeAccess`/`setPassword`/`removePassword`/`moveDocument`/`moveFolder`); `getAll`/`search` accept an untrusted `userId`; the `/api/documents/file` proxy route serves any document id without an access check; and the systemic root cause (no `ctx.auth`; client-supplied `requestingUserId`). One line each.
+
+- [ ] **Step 6: Verify typecheck + build**
+
+Run: `cd /Users/andybarrows/IECentral && npx tsc --noEmit`
+Expected: no errors.
+Run: `npm run build`
+Expected: build completes.
+
+- [ ] **Step 7: Commit**
+
+```bash
+cd /Users/andybarrows/IECentral
+git add app/documents/page.tsx lib/permissions.ts components/Sidebar.tsx docs/iecentral/SECURITY-FINDINGS.md
+git commit -m "feat(dochub): route guard + unify menu.docHub key; log deferred backend auth gaps
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+## Self-Review addendum (Tasks 8–10)
+
+- **Fix depth honored:** Tasks 8–9 close the read-side leaks (download URL, archived/expiring/storage, user directory, passwordHash) via the existing `requestingUserId` model; Task 10 adds the route guard + hidden-by-default staff + key unification. Full `ctx.auth` is explicitly a separate project; deferred items logged (Task 10 Step 5). ✓
+- **Manage stays role-based admin** (no new `documents.manage` key) — per decision. ✓
+- **Caller consistency:** every query that gained `requestingUserId` has its `DocHubContext.tsx` caller updated with `"skip"` guards (Task 8 Step 4, Task 9 Step 4). ✓
+- **Type consistency:** helper signatures copied verbatim from `convex/authGuards.ts`. `internalQuery`/`internal` usage flagged for import verification. Field names in Task 9 flagged for schema verification against `getAll`. ✓
