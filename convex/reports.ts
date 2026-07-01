@@ -76,17 +76,22 @@ export const getHiringReport = query({
     endDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    let applications = await ctx.db.query("applications").collect();
+    const start = args.startDate ? new Date(args.startDate).getTime() : undefined;
+    const end = args.endDate ? new Date(args.endDate).getTime() + 86400000 : undefined;
 
-    // Filter by date range
-    if (args.startDate) {
-      const start = new Date(args.startDate).getTime();
-      applications = applications.filter((a) => a.createdAt >= start);
-    }
-    if (args.endDate) {
-      const end = new Date(args.endDate).getTime() + 86400000;
-      applications = applications.filter((a) => a.createdAt <= end);
-    }
+    const applications = await ctx.db
+      .query("applications")
+      .withIndex("by_created", (q) => {
+        if (start !== undefined && end !== undefined) {
+          return q.gte("createdAt", start).lte("createdAt", end);
+        } else if (start !== undefined) {
+          return q.gte("createdAt", start);
+        } else if (end !== undefined) {
+          return q.lte("createdAt", end);
+        }
+        return q;
+      })
+      .collect();
 
     // Group by job title
     const byJob: Record<string, { total: number; hired: number; rejected: number; pending: number }> = {};
@@ -152,17 +157,22 @@ export const getAttendanceReport = query({
     endDate: v.string(),
   },
   handler: async (ctx, args) => {
-    let attendance = await ctx.db.query("attendance").collect();
-
-    // Filter by date range
-    attendance = attendance.filter(
-      (a) => a.date >= args.startDate && a.date <= args.endDate
-    );
-
-    // Filter by personnel if specified
-    if (args.personnelId) {
-      attendance = attendance.filter((a) => a.personnelId === args.personnelId);
-    }
+    const attendance = args.personnelId
+      ? await ctx.db
+          .query("attendance")
+          .withIndex("by_personnel_date", (q) =>
+            q
+              .eq("personnelId", args.personnelId!)
+              .gte("date", args.startDate)
+              .lte("date", args.endDate)
+          )
+          .collect()
+      : await ctx.db
+          .query("attendance")
+          .withIndex("by_date", (q) =>
+            q.gte("date", args.startDate).lte("date", args.endDate)
+          )
+          .collect();
 
     // Get personnel info
     const personnel = await ctx.db.query("personnel").collect();
