@@ -1,4 +1,5 @@
 export { DocHubProvider, useDocHub } from "./DocHubContext";
+export { default as DocHubRail } from "./DocHubRail";
 export { default as DocHubSidebar } from "./DocHubSidebar";
 export { default as FileBrowser } from "./FileBrowser";
 export { default as Breadcrumbs } from "./Breadcrumbs";
