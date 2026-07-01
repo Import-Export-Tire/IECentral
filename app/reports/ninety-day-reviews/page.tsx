@@ -511,7 +511,7 @@ function NinetyDayReviewsContent() {
                         : `in ${r.daysToReview}d`}
                   </td>
                   <td className="px-5 py-2 text-right">
-                    <div className="flex flex-wrap justify-end gap-1">
+                    <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
                     {(() => { const er = reviewByPersonnel.get(r.id as unknown as string); return er && er.averageScore != null ? (
                       <span className={`text-xs self-center ${isDark ? "text-slate-300" : "text-gray-600"}`}>avg {er.averageScore.toFixed(1)}{er.decision !== "pending" ? ` · ${er.decision}` : ""}</span>
                     ) : null; })()}
