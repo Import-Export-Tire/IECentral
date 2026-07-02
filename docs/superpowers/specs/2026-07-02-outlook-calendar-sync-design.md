@@ -1,6 +1,8 @@
 # Outlook / M365 Calendar Sync — Scoping & Design
 
-**Status:** Scoping (pre-implementation). One decision needed from Andy before a plan is written: **sync direction** (see §6).
+**Status:** Scoped. **Decision (2026-07-02): TWO-WAY from the start** (Option C, §6). Build proceeds in dependency-ordered, individually-deployable phases (§7). The code ships **dormant** — the sync engine only acts on rows in `outlookAccounts`, which stays empty until Andy adds the Azure `Calendars.ReadWrite` permission (§2) and a user clicks **Connect Outlook** — so deploying incomplete phases is production-safe.
+
+**Crypto/precedent (locked):** `outlookAccounts` mirrors the existing `zoomAccounts` table and `convex/zoomAccounts.ts` module (`getByUser`/`createOrUpdate`/`disconnect`/`updateTokens`/`getWithCredentials`). Reuse the AES-256-GCM `encryptToken`/`decryptToken` helper pattern from `convex/zoomMeetings.ts` (env `ENCRYPTION_KEY`) for tokens at rest — do NOT invent new crypto. OAuth routes mirror `app/api/zoom/oauth/{route,callback}` and `app/api/email/oauth/microsoft/*`.
 **Goal:** Keep a user's IECentral calendar (`convex/events.ts`) in sync with their Outlook / Microsoft 365 calendar via Microsoft Graph, using per-user OAuth — mirroring the existing Zoom and Microsoft-email OAuth flows already in the app.
 
 ---
