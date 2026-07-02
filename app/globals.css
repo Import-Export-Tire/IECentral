@@ -1446,6 +1446,22 @@ button {
 }
 .dark .ui-callout-red { background: rgba(255,59,48,.14); border-color: rgba(255,59,48,.38); }
 
+/* Theme-aware purple callout */
+.ui-callout-purple {
+  background: rgba(175,82,222,.09);
+  border: 1px solid rgba(175,82,222,.28);
+  color: var(--text-primary);
+}
+.dark .ui-callout-purple { background: rgba(175,82,222,.14); border-color: rgba(175,82,222,.38); }
+
+/* Theme-aware blue callout */
+.ui-callout-blue {
+  background: rgba(0,122,255,.09);
+  border: 1px solid rgba(0,122,255,.28);
+  color: var(--text-primary);
+}
+.dark .ui-callout-blue { background: rgba(0,122,255,.14); border-color: rgba(0,122,255,.38); }
+
 /* Button variants not already covered by theme-btn-primary/secondary */
 .ui-btn-ghost {
   background: transparent; color: var(--text-secondary);

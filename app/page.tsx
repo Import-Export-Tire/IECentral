@@ -34,6 +34,9 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 // Combined type for website messages
 interface WebsiteMessage {
@@ -95,17 +98,17 @@ function SortableCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-3 p-4 rounded-lg border cursor-default transition-colors ${
+      className={`flex items-center gap-3 p-4 rounded-xl border cursor-default transition-colors ${
         enabled
-          ? isDark ? "bg-cyan-500/10 border-cyan-500/30" : "bg-blue-50 border-blue-200"
-          : isDark ? "bg-slate-900/50 border-slate-700" : "bg-gray-50 border-gray-200"
+          ? "bg-blue-50 border-blue-200 dark:bg-cyan-500/10 dark:border-cyan-500/30"
+          : "bg-[#f2f2f7] border-transparent dark:bg-slate-900/50 dark:border-slate-700"
       }`}
     >
       {/* Drag handle */}
       <button
         {...attributes}
         {...listeners}
-        className={`cursor-grab active:cursor-grabbing p-1 rounded ${isDark ? "text-slate-500 hover:text-slate-300" : "text-gray-400 hover:text-gray-600"}`}
+        className="cursor-grab active:cursor-grabbing p-1 rounded theme-text-tertiary hover:theme-text-secondary"
         title="Drag to reorder"
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -114,14 +117,14 @@ function SortableCard({
       </button>
 
       <div className="flex-1 min-w-0">
-        <p className={`font-medium text-sm ${isDark ? "text-white" : "text-gray-900"}`}>{card.label}</p>
-        <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>{card.description}</p>
+        <p className="font-medium text-sm theme-text-primary">{card.label}</p>
+        <p className="text-xs theme-text-tertiary">{card.description}</p>
       </div>
 
       <label className="cursor-pointer">
         <input type="checkbox" checked={enabled} onChange={onToggle} className="sr-only" />
         <div className={`relative w-11 h-6 rounded-full transition-colors ${
-          enabled ? (isDark ? "bg-cyan-500" : "bg-blue-500") : (isDark ? "bg-slate-600" : "bg-gray-300")
+          enabled ? (isDark ? "bg-cyan-500" : "bg-[#007AFF]") : (isDark ? "bg-slate-600" : "bg-gray-300")
         }`}>
           <div className={`absolute w-5 h-5 bg-white rounded-full top-0.5 transition-transform ${
             enabled ? "translate-x-5" : "translate-x-0.5"
@@ -328,10 +331,10 @@ function DashboardContent() {
   // Show loading while redirecting
   if (isDepartmentManager || isEmployee) {
     return (
-      <div className={`flex h-screen items-center justify-center ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+      <div className="flex h-screen items-center justify-center bg-[#f2f2f7] dark:bg-slate-900">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto mb-4"></div>
-          <p className={isDark ? "text-slate-400" : "text-gray-500"}>Redirecting to your portal...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#007AFF] mx-auto mb-4"></div>
+          <p className="theme-text-tertiary">Redirecting to your portal...</p>
         </div>
       </div>
     );
@@ -382,21 +385,21 @@ function DashboardContent() {
   };
 
   return (
-    <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
         {/* Mobile Header */}
         <MobileHeader />
 
-        {/* Header */}
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+        {/* Sticky iOS-style page header */}
+        <header className="sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">
                 Welcome to IECentral, {user?.name?.split(" ")[0] || "User"}
               </h1>
-              <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className="text-xs sm:text-sm mt-1 theme-text-tertiary">
                 {new Date().toLocaleDateString("en-US", {
                   weekday: "long",
                   month: "long",
@@ -404,12 +407,12 @@ function DashboardContent() {
                 })}
               </p>
             </div>
-            <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
               <SearchButton />
               {/* Help Button */}
               <button
                 onClick={() => setShowHelp(true)}
-                className={`p-2 rounded-lg transition-colors ${isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+                className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5"
                 title="Dashboard Help"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -419,7 +422,7 @@ function DashboardContent() {
               {/* Settings Button */}
               <button
                 onClick={() => setShowSettings(true)}
-                className={`p-2 rounded-lg transition-colors ${isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+                className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5"
                 title="Customize Dashboard"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -429,15 +432,17 @@ function DashboardContent() {
               </button>
               {/* Create Broadcast Button (Super Admin only) */}
               {isSuperAdmin && (
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setShowBroadcastModal(true)}
-                  className={`hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${isDark ? "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30" : "bg-blue-100 text-blue-600 hover:bg-blue-200"}`}
+                  className="hidden sm:flex"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
                   </svg>
-                  <span className="text-sm font-medium">Broadcast</span>
-                </button>
+                  Broadcast
+                </Button>
               )}
             </div>
           </div>
@@ -448,23 +453,25 @@ function DashboardContent() {
           {broadcastMessages && broadcastMessages.length > 0 && (
             <div className="space-y-3">
               {broadcastMessages.map((msg) => (
-                <div
+                <Card
                   key={msg._id}
-                  className={`relative rounded-xl p-4 border ${
-                    msg.type === "warning"
-                      ? isDark ? "bg-amber-500/10 border-amber-500/30" : "bg-amber-50 border-amber-200"
-                      : msg.type === "success"
-                        ? isDark ? "bg-green-500/10 border-green-500/30" : "bg-green-50 border-green-200"
-                        : msg.type === "update"
-                          ? isDark ? "bg-purple-500/10 border-purple-500/30" : "bg-purple-50 border-purple-200"
-                          : isDark ? "bg-cyan-500/10 border-cyan-500/30" : "bg-blue-50 border-blue-200"
+                  padding="sm"
+                  tone={
+                    msg.type === "warning" ? "amber"
+                    : msg.type === "success" ? "green"
+                    : "default"
+                  }
+                  className={`relative ${
+                    msg.type === "update"
+                      ? "ui-callout-purple rounded-2xl"
+                      : msg.type !== "warning" && msg.type !== "success"
+                        ? "ui-callout-blue rounded-2xl"
+                        : ""
                   }`}
                 >
                   <button
                     onClick={() => handleDismissBroadcast(msg._id)}
-                    className={`absolute top-3 right-3 p-1 rounded-lg transition-colors ${
-                      isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-gray-400 hover:text-gray-600 hover:bg-gray-200"
-                    }`}
+                    className="absolute top-3 right-3 p-1 rounded-lg transition-colors theme-text-tertiary hover:bg-black/10 dark:hover:bg-white/10"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -514,11 +521,7 @@ function DashboardContent() {
                           {msg.title}
                         </h3>
                         {msg.priority === "high" && (
-                          <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                            isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-600"
-                          }`}>
-                            Important
-                          </span>
+                          <span className="ui-badge ui-badge-red">Important</span>
                         )}
                       </div>
                       <p className={`text-sm ${
@@ -532,12 +535,12 @@ function DashboardContent() {
                       }`}>
                         {msg.content}
                       </p>
-                      <p className={`text-xs mt-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                      <p className="text-xs mt-2 theme-text-tertiary">
                         Posted by {msg.createdByName} on {new Date(msg.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           )}
@@ -545,9 +548,7 @@ function DashboardContent() {
           {/* Daily Log Reminder */}
           {showDailyLogReminder && (
             <Link href="/daily-log">
-              <div className={`rounded-xl p-4 border cursor-pointer transition-all hover:scale-[1.01] ${
-                isDark ? "bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30 hover:border-amber-500/50" : "bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 hover:border-amber-300"
-              }`}>
+              <Card tone="amber" padding="sm" className="cursor-pointer transition-all hover:scale-[1.01]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
@@ -571,50 +572,41 @@ function DashboardContent() {
                     </svg>
                   </div>
                 </div>
-              </div>
+              </Card>
             </Link>
           )}
 
           {/* Day at a Glance - Calendar Events */}
           {isCardEnabled("dayAtGlance") && (
-            <div className={`border rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? "bg-emerald-500/20" : "bg-emerald-100"}`}>
-                    <svg className={`w-5 h-5 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                      Day at a Glance
-                    </h2>
-                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                      {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-                    </p>
-                  </div>
-                </div>
-                <a
-                  href="/calendar"
-                  className={`text-sm transition-colors ${isDark ? "text-emerald-400 hover:text-emerald-300" : "text-emerald-600 hover:text-emerald-700"}`}
-                >
-                  View Calendar
-                </a>
-              </div>
+            <Card>
+              <SectionHeader
+                title="Day at a Glance"
+                actions={
+                  <a
+                    href="/calendar"
+                    className="text-sm theme-text-tertiary hover:theme-text-secondary transition-colors"
+                  >
+                    View Calendar
+                  </a>
+                }
+              />
+              <p className="text-sm theme-text-tertiary -mt-3 mb-4">
+                {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+              </p>
 
               {!todayEvents ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-500"></div>
                 </div>
               ) : todayEvents.length === 0 ? (
-                <div className={`text-center py-8 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                  <svg className={`w-12 h-12 mx-auto mb-3 ${isDark ? "text-slate-600" : "text-gray-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="text-center py-8 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50">
+                  <svg className="w-12 h-12 mx-auto mb-3 theme-text-tertiary opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <p className="text-sm theme-text-tertiary">
                     No events scheduled for today
                   </p>
-                  <a href="/calendar" className={`text-sm mt-2 inline-block ${isDark ? "text-emerald-400 hover:text-emerald-300" : "text-emerald-600 hover:text-emerald-700"}`}>
+                  <a href="/calendar" className="text-sm mt-2 inline-block text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300">
                     + Schedule an event
                   </a>
                 </div>
@@ -630,27 +622,27 @@ function DashboardContent() {
                     return (
                       <div
                         key={event._id}
-                        className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+                        className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${
                           isPast
-                            ? isDark ? "bg-slate-900/30 border-slate-700/30 opacity-60" : "bg-gray-50/50 border-gray-100 opacity-60"
+                            ? "bg-[#f2f2f7]/50 dark:bg-slate-900/30 border-transparent opacity-60"
                             : isOngoing
-                              ? isDark ? "bg-emerald-500/10 border-emerald-500/30" : "bg-emerald-50 border-emerald-200"
-                              : isDark ? "bg-slate-900/50 border-slate-700/50" : "bg-gray-50 border-gray-100"
+                              ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30"
+                              : "bg-[#f2f2f7] dark:bg-slate-900/50 border-transparent"
                         }`}
                       >
-                        <div className={`flex-shrink-0 w-16 text-center py-1 rounded ${
+                        <div className={`flex-shrink-0 w-16 text-center py-1 rounded-lg ${
                           isOngoing
-                            ? isDark ? "bg-emerald-500/20" : "bg-emerald-100"
-                            : isDark ? "bg-slate-800" : "bg-white"
+                            ? "bg-emerald-100 dark:bg-emerald-500/20"
+                            : "bg-white dark:bg-slate-800"
                         }`}>
                           {isAllDay ? (
-                            <span className={`text-xs font-medium ${isDark ? "text-slate-300" : "text-gray-600"}`}>All Day</span>
+                            <span className="text-xs font-medium theme-text-secondary">All Day</span>
                           ) : (
                             <>
-                              <p className={`text-sm font-semibold ${isOngoing ? (isDark ? "text-emerald-400" : "text-emerald-600") : (isDark ? "text-white" : "text-gray-900")}`}>
+                              <p className={`text-sm font-semibold ${isOngoing ? "text-emerald-600 dark:text-emerald-400" : "theme-text-primary"}`}>
                                 {startTime.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                               </p>
-                              <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              <p className="text-xs theme-text-tertiary">
                                 {endTime.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                               </p>
                             </>
@@ -658,17 +650,15 @@ function DashboardContent() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <h4 className={`text-sm font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <h4 className="text-sm font-medium truncate theme-text-primary">
                               {event.title}
                             </h4>
                             {isOngoing && (
-                              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-600"}`}>
-                                Now
-                              </span>
+                              <span className="ui-badge ui-badge-green">Now</span>
                             )}
                           </div>
                           {event.location && (
-                            <p className={`text-xs mt-1 flex items-center gap-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <p className="text-xs mt-1 flex items-center gap-1 theme-text-tertiary">
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -681,7 +671,7 @@ function DashboardContent() {
                               href={event.meetingLink}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className={`text-xs mt-1 flex items-center gap-1 ${isDark ? "text-cyan-400 hover:text-cyan-300" : "text-blue-600 hover:text-blue-700"}`}
+                              className="text-xs mt-1 flex items-center gap-1 text-[#007AFF] dark:text-cyan-400 hover:opacity-80"
                             >
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -696,30 +686,30 @@ function DashboardContent() {
                   {todayEvents.length > 5 && (
                     <a
                       href="/calendar"
-                      className={`block text-center text-sm py-2 ${isDark ? "text-emerald-400 hover:text-emerald-300" : "text-emerald-600 hover:text-emerald-700"}`}
+                      className="block text-center text-sm py-2 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300"
                     >
                       +{todayEvents.length - 5} more events
                     </a>
                   )}
                 </div>
               )}
-            </div>
+            </Card>
           )}
 
           {/* Stats Grid - Only show if projects or applications cards are enabled */}
           {((widgets.activeProjects && isCardEnabled("projects")) || (widgets.recentApplications && isCardEnabled("applications"))) && (
-          <div className={`grid grid-cols-2 md:grid-cols-2 ${!widgets.recentApplications ? "lg:grid-cols-3" : "lg:grid-cols-4"} gap-3 sm:gap-6`}>
+          <div className={`grid grid-cols-2 md:grid-cols-2 ${!widgets.recentApplications ? "lg:grid-cols-3" : "lg:grid-cols-4"} gap-3 sm:gap-4`}>
             {/* Projects Stats - Only show if projects card enabled and permission granted */}
             {widgets.activeProjects && isCardEnabled("projects") && (
             <>
-            <div className={`border rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-              <div className="flex items-center justify-between mb-2 sm:mb-4">
-                <h3 className={`text-xs sm:text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+            <Card padding="sm">
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <h3 className="text-xs sm:text-sm font-medium theme-text-tertiary">
                   Active Projects
                 </h3>
-                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center ${isDark ? "bg-cyan-500/20" : "bg-blue-100"}`}>
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-[#007AFF]/10 dark:bg-cyan-500/20">
                   <svg
-                    className={`w-4 h-4 sm:w-5 sm:h-5 ${isDark ? "text-cyan-400" : "text-blue-600"}`}
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-[#007AFF] dark:text-cyan-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -733,23 +723,23 @@ function DashboardContent() {
                   </svg>
                 </div>
               </div>
-              <p className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <p className="text-2xl sm:text-3xl font-bold theme-text-primary">
                 {projectStats.inProgress}
               </p>
-              <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+              <p className="text-xs sm:text-sm mt-1 theme-text-tertiary">
                 {projectStats.total} total projects
               </p>
-            </div>
+            </Card>
 
             {/* Completed */}
-            <div className={`border rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-              <div className="flex items-center justify-between mb-2 sm:mb-4">
-                <h3 className={`text-xs sm:text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+            <Card padding="sm">
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <h3 className="text-xs sm:text-sm font-medium theme-text-tertiary">
                   Completed
                 </h3>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-green-500/20 flex items-center justify-center">
                   <svg
-                    className="w-4 h-4 sm:w-5 sm:h-5 text-green-400"
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 dark:text-green-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -763,21 +753,21 @@ function DashboardContent() {
                   </svg>
                 </div>
               </div>
-              <p className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <p className="text-2xl sm:text-3xl font-bold theme-text-primary">
                 {projectStats.completed}
               </p>
-              <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>projects done</p>
-            </div>
+              <p className="text-xs sm:text-sm mt-1 theme-text-tertiary">projects done</p>
+            </Card>
 
             {/* Behind Schedule */}
-            <div className={`border rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-              <div className="flex items-center justify-between mb-2 sm:mb-4">
-                <h3 className={`text-xs sm:text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+            <Card padding="sm">
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <h3 className="text-xs sm:text-sm font-medium theme-text-tertiary">
                   Behind Schedule
                 </h3>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-500/20 flex items-center justify-center">
                   <svg
-                    className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400"
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 dark:text-amber-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -791,24 +781,24 @@ function DashboardContent() {
                   </svg>
                 </div>
               </div>
-              <p className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <p className="text-2xl sm:text-3xl font-bold theme-text-primary">
                 {projectStats.behindSchedule}
               </p>
-              <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>need attention</p>
-            </div>
+              <p className="text-xs sm:text-sm mt-1 theme-text-tertiary">need attention</p>
+            </Card>
             </>
             )}
 
             {/* Applications - Hide based on RBAC permissions and check card setting */}
             {widgets.recentApplications && isCardEnabled("applications") && (
-              <div className={`border rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <div className="flex items-center justify-between mb-2 sm:mb-4">
-                  <h3 className={`text-xs sm:text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <Card padding="sm">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <h3 className="text-xs sm:text-sm font-medium theme-text-tertiary">
                     New Applications
                   </h3>
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-purple-500/20 flex items-center justify-center">
                     <svg
-                      className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400"
+                      className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500 dark:text-purple-400"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -822,13 +812,13 @@ function DashboardContent() {
                     </svg>
                   </div>
                 </div>
-                <p className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <p className="text-2xl sm:text-3xl font-bold theme-text-primary">
                   {applicationStats.new}
                 </p>
-                <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                <p className="text-xs sm:text-sm mt-1 theme-text-tertiary">
                   {applicationStats.total} total
                 </p>
-              </div>
+              </Card>
             )}
           </div>
           )}
@@ -838,42 +828,42 @@ function DashboardContent() {
           <div className={`grid grid-cols-1 ${!widgets.recentApplications ? "" : "lg:grid-cols-2"} gap-4 sm:gap-6`}>
             {/* Recent Projects */}
             {widgets.activeProjects && isCardEnabled("projects") && (
-            <div className={`border rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h2 className={`text-base sm:text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Recent Projects
-                </h2>
-                <a
-                  href="/projects"
-                  className={`text-sm transition-colors ${isDark ? "text-cyan-400 hover:text-cyan-300" : "text-blue-600 hover:text-blue-700"}`}
-                >
-                  View all
-                </a>
-              </div>
-              <div className="space-y-3 sm:space-y-4">
+            <Card>
+              <SectionHeader
+                title="Recent Projects"
+                actions={
+                  <a
+                    href="/projects"
+                    className="text-sm theme-text-tertiary hover:theme-text-secondary transition-colors"
+                  >
+                    View all
+                  </a>
+                }
+              />
+              <div className="space-y-2">
                 {projects?.slice(0, 5).map((project) => (
                   <div
                     key={project._id}
-                    className={`flex items-center justify-between p-3 sm:p-4 rounded-lg border ${isDark ? "bg-slate-900/50 border-slate-700/50" : "bg-gray-50 border-gray-100"}`}
+                    className="flex items-center justify-between p-3 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50"
                   >
                     <div className="flex-1 min-w-0">
-                      <h3 className={`text-sm sm:text-base font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                      <h3 className="text-sm font-medium truncate theme-text-primary">
                         {project.name}
                       </h3>
-                      <p className={`text-xs sm:text-sm truncate ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                      <p className="text-xs truncate theme-text-tertiary">
                         {project.description}
                       </p>
                     </div>
-                    <div className="ml-2 sm:ml-4">
+                    <div className="ml-3">
                       <span
                         className={`px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
                           project.status === "done"
-                            ? "bg-green-500/20 text-green-400"
+                            ? "bg-green-500/20 text-green-500 dark:text-green-400"
                             : project.status === "in_progress"
-                              ? isDark ? "bg-cyan-500/20 text-cyan-400" : "bg-blue-100 text-blue-600"
+                              ? "bg-[#007AFF]/10 text-[#007AFF] dark:bg-cyan-500/20 dark:text-cyan-400"
                               : project.status === "review"
-                                ? "bg-amber-500/20 text-amber-400"
-                                : isDark ? "bg-slate-500/20 text-slate-400" : "bg-gray-100 text-gray-600"
+                                ? "bg-amber-500/20 text-amber-500 dark:text-amber-400"
+                                : "bg-gray-100 text-gray-600 dark:bg-slate-500/20 dark:text-slate-400"
                         }`}
                       >
                         {project.status.replace("_", " ")}
@@ -881,63 +871,63 @@ function DashboardContent() {
                     </div>
                   </div>
                 )) || (
-                  <p className={`text-center py-8 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                  <p className="text-center py-8 theme-text-tertiary">
                     No projects yet
                   </p>
                 )}
               </div>
-            </div>
+            </Card>
             )}
 
             {/* Recent Applications - Hide based on RBAC permissions and check card setting */}
             {widgets.recentApplications && isCardEnabled("applications") && (
-              <div className={`border rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <div className="flex items-center justify-between mb-4 sm:mb-6">
-                  <h2 className={`text-base sm:text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                    Recent Applications
-                  </h2>
-                  <a
-                    href="/applications"
-                    className={`text-sm transition-colors ${isDark ? "text-cyan-400 hover:text-cyan-300" : "text-blue-600 hover:text-blue-700"}`}
-                  >
-                    View all
-                  </a>
-                </div>
-                <div className="space-y-3 sm:space-y-4">
+              <Card>
+                <SectionHeader
+                  title="Recent Applications"
+                  actions={
+                    <a
+                      href="/applications"
+                      className="text-sm theme-text-tertiary hover:theme-text-secondary transition-colors"
+                    >
+                      View all
+                    </a>
+                  }
+                />
+                <div className="space-y-2">
                   {applications?.slice(0, 5).map((app) => (
                     <div
                       key={app._id}
-                      className={`flex items-center justify-between p-3 sm:p-4 rounded-lg border ${isDark ? "bg-slate-900/50 border-slate-700/50" : "bg-gray-50 border-gray-100"}`}
+                      className="flex items-center justify-between p-3 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50"
                     >
                       <div className="flex-1 min-w-0">
-                        <h3 className={`text-sm sm:text-base font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                        <h3 className="text-sm font-medium truncate theme-text-primary">
                           {app.firstName} {app.lastName}
                         </h3>
-                        <p className={`text-xs sm:text-sm truncate ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                        <p className="text-xs truncate theme-text-tertiary">
                           {app.appliedJobTitle}
                         </p>
                       </div>
-                      <div className="ml-2 sm:ml-4 flex items-center gap-1 sm:gap-2">
+                      <div className="ml-3 flex items-center gap-1.5">
                         {app.candidateAnalysis && (
                           <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                               app.candidateAnalysis.overallScore >= 70
-                                ? "bg-green-500/20 text-green-400"
+                                ? "bg-green-500/20 text-green-500 dark:text-green-400"
                                 : app.candidateAnalysis.overallScore >= 50
-                                  ? "bg-amber-500/20 text-amber-400"
-                                  : "bg-red-500/20 text-red-400"
+                                  ? "bg-amber-500/20 text-amber-500 dark:text-amber-400"
+                                  : "bg-red-500/20 text-red-500 dark:text-red-400"
                             }`}
                           >
                             {app.candidateAnalysis.overallScore}%
                           </span>
                         )}
                         <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                             app.status === "new"
-                              ? isDark ? "bg-cyan-500/20 text-cyan-400" : "bg-blue-100 text-blue-600"
+                              ? "bg-[#007AFF]/10 text-[#007AFF] dark:bg-cyan-500/20 dark:text-cyan-400"
                               : app.status === "reviewed"
-                                ? "bg-amber-500/20 text-amber-400"
-                                : isDark ? "bg-slate-500/20 text-slate-400" : "bg-gray-100 text-gray-600"
+                                ? "bg-amber-500/20 text-amber-500 dark:text-amber-400"
+                                : "bg-gray-100 text-gray-600 dark:bg-slate-500/20 dark:text-slate-400"
                           }`}
                         >
                           {app.status}
@@ -945,12 +935,12 @@ function DashboardContent() {
                       </div>
                     </div>
                   )) || (
-                    <p className={`text-center py-8 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                    <p className="text-center py-8 theme-text-tertiary">
                       No applications yet
                     </p>
                   )}
                 </div>
-              </div>
+              </Card>
             )}
           </div>
           )}
@@ -960,55 +950,51 @@ function DashboardContent() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Website Messages */}
             {widgets.websiteMessages && isCardEnabled("websiteMessages") && (
-            <div className={`border rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h2 className={`text-base sm:text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Website Messages
-                </h2>
-                <div className="flex items-center gap-2">
-                  {newMessageCount > 0 && (
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${isDark ? "bg-cyan-500/20 text-cyan-400" : "bg-blue-100 text-blue-600"}`}>
-                      {newMessageCount} new
-                    </span>
-                  )}
-                  <Link
-                    href="/website-messages"
-                    className={`text-sm transition-colors ${isDark ? "text-cyan-400 hover:text-cyan-300" : "text-blue-600 hover:text-blue-700"}`}
-                  >
-                    View all
-                  </Link>
-                </div>
-              </div>
-              <div className="space-y-3">
+            <Card>
+              <SectionHeader
+                title="Website Messages"
+                actions={
+                  <div className="flex items-center gap-2">
+                    {newMessageCount > 0 && (
+                      <span className="ui-badge ui-badge-blue">{newMessageCount} new</span>
+                    )}
+                    <Link
+                      href="/website-messages"
+                      className="text-sm theme-text-tertiary hover:theme-text-secondary transition-colors"
+                    >
+                      View all
+                    </Link>
+                  </div>
+                }
+              />
+              <div className="space-y-2">
                 {websiteMessages.length > 0 ? (
                   websiteMessages.map((msg) => (
                     <Link
                       key={`${msg.type}-${msg._id}`}
                       href={`/website-messages?type=${msg.type}&id=${msg._id}`}
-                      className={`block p-4 rounded-lg border transition-colors ${isDark ? "bg-slate-900/50 border-slate-700/50 hover:border-slate-600" : "bg-gray-50 border-gray-100 hover:border-gray-300"}`}
+                      className="block p-3 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className={`font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <h3 className="font-medium truncate theme-text-primary">
                               {msg.type === "dealer" ? msg.businessName : msg.name}
                             </h3>
-                            <span className={`px-2 py-0.5 text-xs rounded-full flex-shrink-0 ${
-                              msg.type === "dealer"
-                                ? isDark ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-600"
-                                : isDark ? "bg-slate-600/50 text-slate-300" : "bg-gray-200 text-gray-600"
+                            <span className={`ui-badge flex-shrink-0 ${
+                              msg.type === "dealer" ? "ui-badge-purple" : "ui-badge-gray"
                             }`}>
                               {msg.type === "dealer" ? "Dealer" : "Contact"}
                             </span>
                             {msg.status === "new" && (
-                              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isDark ? "bg-cyan-400" : "bg-blue-500"}`}></span>
+                              <span className="w-2 h-2 rounded-full flex-shrink-0 bg-[#007AFF] dark:bg-cyan-400"></span>
                             )}
                           </div>
-                          <p className={`text-sm truncate ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                          <p className="text-sm truncate theme-text-tertiary">
                             {msg.type === "dealer" ? msg.name : msg.subject}
                           </p>
                         </div>
-                        <p className={`text-xs ml-4 flex-shrink-0 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                        <p className="text-xs ml-4 flex-shrink-0 theme-text-tertiary">
                           {new Date(msg.createdAt).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
@@ -1018,60 +1004,56 @@ function DashboardContent() {
                     </Link>
                   ))
                 ) : (
-                  <div className={`text-center py-8 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                    <svg className={`w-12 h-12 mx-auto mb-3 ${isDark ? "text-slate-600" : "text-gray-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="text-center py-8 theme-text-tertiary">
+                    <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                     <p>No website messages</p>
                   </div>
                 )}
               </div>
-            </div>
+            </Card>
             )}
 
             {/* Hiring Analytics */}
             {widgets.hiringAnalytics && isCardEnabled("hiringAnalytics") && (
-            <div className={`border rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h2 className={`text-base sm:text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Hiring Analytics
-                </h2>
-                <div className="flex items-center gap-3">
-                  {upcomingInterviews && upcomingInterviews.length > 0 && (
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${isDark ? "bg-orange-500/20 text-orange-400" : "bg-orange-100 text-orange-600"}`}>
-                      {upcomingInterviews.length} interviews
-                    </span>
-                  )}
-                </div>
-              </div>
+            <Card>
+              <SectionHeader
+                title="Hiring Analytics"
+                actions={
+                  upcomingInterviews && upcomingInterviews.length > 0 ? (
+                    <span className="ui-badge ui-badge-amber">{upcomingInterviews.length} interviews</span>
+                  ) : undefined
+                }
+              />
               {hiringAnalytics ? (
                 <div className="space-y-4">
                   {/* Score Comparisons - More compact */}
                   <div className="grid grid-cols-3 gap-3">
                     <div className="text-center">
-                      <p className={`text-xs mb-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Hired Avg</p>
-                      <p className={`text-xl font-bold ${hiringAnalytics.hiredStats.avgOverallScore !== null ? (hiringAnalytics.hiredStats.avgOverallScore >= 70 ? "text-green-400" : hiringAnalytics.hiredStats.avgOverallScore >= 50 ? "text-amber-400" : "text-red-400") : isDark ? "text-slate-500" : "text-gray-400"}`}>
+                      <p className="text-xs mb-1 theme-text-tertiary">Hired Avg</p>
+                      <p className={`text-xl font-bold ${hiringAnalytics.hiredStats.avgOverallScore !== null ? (hiringAnalytics.hiredStats.avgOverallScore >= 70 ? "text-green-500 dark:text-green-400" : hiringAnalytics.hiredStats.avgOverallScore >= 50 ? "text-amber-500 dark:text-amber-400" : "text-red-500 dark:text-red-400") : "theme-text-tertiary"}`}>
                         {hiringAnalytics.hiredStats.avgOverallScore !== null ? `${hiringAnalytics.hiredStats.avgOverallScore}%` : "—"}
                       </p>
-                      <p className={`text-xs ${isDark ? "text-slate-600" : "text-gray-400"}`}>
+                      <p className="text-xs theme-text-tertiary">
                         {hiringAnalytics.hiredStats.count} hired
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className={`text-xs mb-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Interviewed</p>
-                      <p className={`text-xl font-bold ${hiringAnalytics.interviewedStats.avgOverallScore !== null ? (hiringAnalytics.interviewedStats.avgOverallScore >= 70 ? "text-green-400" : hiringAnalytics.interviewedStats.avgOverallScore >= 50 ? "text-amber-400" : "text-red-400") : isDark ? "text-slate-500" : "text-gray-400"}`}>
+                      <p className="text-xs mb-1 theme-text-tertiary">Interviewed</p>
+                      <p className={`text-xl font-bold ${hiringAnalytics.interviewedStats.avgOverallScore !== null ? (hiringAnalytics.interviewedStats.avgOverallScore >= 70 ? "text-green-500 dark:text-green-400" : hiringAnalytics.interviewedStats.avgOverallScore >= 50 ? "text-amber-500 dark:text-amber-400" : "text-red-500 dark:text-red-400") : "theme-text-tertiary"}`}>
                         {hiringAnalytics.interviewedStats.avgOverallScore !== null ? `${hiringAnalytics.interviewedStats.avgOverallScore}%` : "—"}
                       </p>
-                      <p className={`text-xs ${isDark ? "text-slate-600" : "text-gray-400"}`}>
+                      <p className="text-xs theme-text-tertiary">
                         {hiringAnalytics.interviewedStats.count} total
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className={`text-xs mb-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Rejected</p>
-                      <p className={`text-xl font-bold ${hiringAnalytics.rejectedStats.avgOverallScore !== null ? (hiringAnalytics.rejectedStats.avgOverallScore >= 70 ? "text-green-400" : hiringAnalytics.rejectedStats.avgOverallScore >= 50 ? "text-amber-400" : "text-red-400") : isDark ? "text-slate-500" : "text-gray-400"}`}>
+                      <p className="text-xs mb-1 theme-text-tertiary">Rejected</p>
+                      <p className={`text-xl font-bold ${hiringAnalytics.rejectedStats.avgOverallScore !== null ? (hiringAnalytics.rejectedStats.avgOverallScore >= 70 ? "text-green-500 dark:text-green-400" : hiringAnalytics.rejectedStats.avgOverallScore >= 50 ? "text-amber-500 dark:text-amber-400" : "text-red-500 dark:text-red-400") : "theme-text-tertiary"}`}>
                         {hiringAnalytics.rejectedStats.avgOverallScore !== null ? `${hiringAnalytics.rejectedStats.avgOverallScore}%` : "—"}
                       </p>
-                      <p className={`text-xs ${isDark ? "text-slate-600" : "text-gray-400"}`}>
+                      <p className="text-xs theme-text-tertiary">
                         {hiringAnalytics.rejectedStats.count} total
                       </p>
                     </div>
@@ -1079,16 +1061,16 @@ function DashboardContent() {
 
                   {/* Applicant Score Trend Graph */}
                   {scoreHistory && scoreHistory.history.length > 0 && (
-                    <div className={`p-3 rounded-lg border ${isDark ? "bg-slate-900/50 border-slate-700" : "bg-gray-50 border-gray-100"}`}>
+                    <div className="p-3 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50">
                       <div className="flex items-center justify-between mb-2">
-                        <span className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <span className="text-xs font-medium theme-text-tertiary">
                           Applicant Score Trend
                         </span>
                         {scoreHistory.trend !== "stable" && (
                           <span className={`text-xs px-1.5 py-0.5 rounded ${
                             scoreHistory.trend === "up"
-                              ? "bg-green-500/20 text-green-400"
-                              : "bg-red-500/20 text-red-400"
+                              ? "bg-green-500/20 text-green-500 dark:text-green-400"
+                              : "bg-red-500/20 text-red-500 dark:text-red-400"
                           }`}>
                             {scoreHistory.trend === "up" ? "↑ Improving" : "↓ Declining"}
                           </span>
@@ -1150,53 +1132,51 @@ function DashboardContent() {
                       <div className="flex items-center justify-center gap-4 mt-2">
                         <div className="flex items-center gap-1">
                           <div className={`w-3 h-0.5 ${isDark ? "bg-cyan-400" : "bg-sky-500"}`}></div>
-                          <span className={`text-[10px] ${isDark ? "text-slate-500" : "text-gray-400"}`}>All Applicants</span>
+                          <span className="text-[10px] theme-text-tertiary">All Applicants</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <div className={`w-3 h-0.5 ${isDark ? "bg-green-400" : "bg-green-500"}`} style={{ borderTop: "2px dashed" }}></div>
-                          <span className={`text-[10px] ${isDark ? "text-slate-500" : "text-gray-400"}`}>Hired</span>
+                          <span className="text-[10px] theme-text-tertiary">Hired</span>
                         </div>
                       </div>
                     </div>
                   )}
 
                   {/* Conversion Rates - Compact */}
-                  <div className={`p-3 rounded-lg border ${isDark ? "bg-slate-900/50 border-slate-700" : "bg-gray-50 border-gray-100"}`}>
+                  <div className="p-3 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50">
                     <div className="flex items-center justify-between">
-                      <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>App → Interview</span>
-                      <span className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{hiringAnalytics.conversionRates.interviewRate}%</span>
+                      <span className="text-xs theme-text-tertiary">App → Interview</span>
+                      <span className="text-sm font-medium theme-text-primary">{hiringAnalytics.conversionRates.interviewRate}%</span>
                     </div>
                     <div className="flex items-center justify-between mt-1">
-                      <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Interview → Hired</span>
-                      <span className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{hiringAnalytics.conversionRates.hireRate}%</span>
+                      <span className="text-xs theme-text-tertiary">Interview → Hired</span>
+                      <span className="text-sm font-medium theme-text-primary">{hiringAnalytics.conversionRates.hireRate}%</span>
                     </div>
-                    <div className={`flex items-center justify-between mt-2 pt-2 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                      <span className={`text-xs font-medium ${isDark ? "text-slate-300" : "text-gray-600"}`}>Overall Rate</span>
-                      <span className={`text-sm font-bold ${isDark ? "text-cyan-400" : "text-blue-600"}`}>{hiringAnalytics.conversionRates.overallHireRate}%</span>
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t theme-border-secondary">
+                      <span className="text-xs font-medium theme-text-secondary">Overall Rate</span>
+                      <span className="text-sm font-bold text-[#007AFF] dark:text-cyan-400">{hiringAnalytics.conversionRates.overallHireRate}%</span>
                     </div>
                   </div>
 
                   {/* Recent Interviews (Last 2 Weeks) - Show prominently */}
                   {recentInterviews && recentInterviews.length > 0 && (
-                    <div className={`pt-3 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                    <div className="pt-3 border-t theme-border-secondary">
                       <div className="flex items-center justify-between mb-2">
-                        <p className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Recent Interviews (Last 2 Weeks)</p>
-                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-600"}`}>
-                          {recentInterviews.length} total
-                        </span>
+                        <p className="text-xs font-medium theme-text-tertiary">Recent Interviews (Last 2 Weeks)</p>
+                        <span className="ui-badge ui-badge-green">{recentInterviews.length} total</span>
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-1.5">
                         {recentInterviews.slice(0, 5).map((interview) => (
                           <Link
                             key={interview._id}
                             href={`/applications/${interview._id}`}
-                            className={`flex items-center justify-between p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700/50 bg-slate-800/30" : "hover:bg-gray-100 bg-gray-50"}`}
+                            className="flex items-center justify-between p-2 rounded-xl transition-colors hover:bg-black/5 dark:hover:bg-white/5 bg-[#f2f2f7] dark:bg-slate-800/30"
                           >
                             <div className="min-w-0 flex-1">
-                              <p className={`text-sm font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                              <p className="text-sm font-medium truncate theme-text-primary">
                                 {interview.firstName} {interview.lastName}
                               </p>
-                              <p className={`text-xs truncate ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                              <p className="text-xs truncate theme-text-tertiary">
                                 {interview.appliedJobTitle}
                               </p>
                             </div>
@@ -1204,16 +1184,16 @@ function DashboardContent() {
                               {interview.candidateScore && (
                                 <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
                                   interview.candidateScore >= 70
-                                    ? isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-600"
+                                    ? "bg-green-500/20 text-green-500 dark:text-green-400"
                                     : interview.candidateScore >= 50
-                                    ? isDark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-600"
-                                    : isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-600"
+                                    ? "bg-amber-500/20 text-amber-500 dark:text-amber-400"
+                                    : "bg-red-500/20 text-red-500 dark:text-red-400"
                                 }`}>
                                   {interview.candidateScore}%
                                 </span>
                               )}
                               <div className="text-right">
-                                <p className={`text-xs font-medium ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
+                                <p className="text-xs font-medium text-[#007AFF] dark:text-cyan-400">
                                   {new Date(interview.interviewDate).toLocaleDateString("en-US", {
                                     month: "short",
                                     day: "numeric",
@@ -1221,10 +1201,10 @@ function DashboardContent() {
                                 </p>
                                 <p className={`text-[10px] capitalize ${
                                   interview.status === "hired"
-                                    ? isDark ? "text-green-400" : "text-green-600"
+                                    ? "text-green-500 dark:text-green-400"
                                     : interview.status === "rejected"
-                                    ? isDark ? "text-red-400" : "text-red-600"
-                                    : isDark ? "text-slate-500" : "text-gray-500"
+                                    ? "text-red-500 dark:text-red-400"
+                                    : "theme-text-tertiary"
                                 }`}>
                                   {interview.status}
                                 </p>
@@ -1235,7 +1215,7 @@ function DashboardContent() {
                         {recentInterviews.length > 5 && (
                           <Link
                             href="/applications?status=interviewed"
-                            className={`block text-center text-xs py-1 ${isDark ? "text-cyan-400 hover:text-cyan-300" : "text-blue-600 hover:text-blue-700"}`}
+                            className="block text-center text-xs py-1 text-[#007AFF] dark:text-cyan-400 hover:opacity-80"
                           >
                             View all {recentInterviews.length} recent interviews
                           </Link>
@@ -1246,31 +1226,31 @@ function DashboardContent() {
 
                   {/* Upcoming Interviews Section */}
                   {upcomingInterviews && upcomingInterviews.length > 0 && (
-                    <div className={`pt-3 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                      <p className={`text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Upcoming Interviews</p>
-                      <div className="space-y-2">
+                    <div className="pt-3 border-t theme-border-secondary">
+                      <p className="text-xs font-medium mb-2 theme-text-tertiary">Upcoming Interviews</p>
+                      <div className="space-y-1.5">
                         {upcomingInterviews.slice(0, 3).map((interview) => (
                           <Link
                             key={interview._id}
                             href={`/applications/${interview._id}`}
-                            className={`flex items-center justify-between p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700/50" : "hover:bg-gray-100"}`}
+                            className="flex items-center justify-between p-2 rounded-xl transition-colors hover:bg-black/5 dark:hover:bg-white/5"
                           >
                             <div className="min-w-0">
-                              <p className={`text-sm font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                              <p className="text-sm font-medium truncate theme-text-primary">
                                 {interview.firstName} {interview.lastName}
                               </p>
-                              <p className={`text-xs truncate ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                              <p className="text-xs truncate theme-text-tertiary">
                                 {interview.appliedJobTitle}
                               </p>
                             </div>
                             <div className="text-right ml-2 flex-shrink-0">
-                              <p className={`text-xs font-medium ${isDark ? "text-orange-400" : "text-orange-600"}`}>
+                              <p className="text-xs font-medium text-orange-500 dark:text-orange-400">
                                 {interview.scheduledInterviewDate && new Date(interview.scheduledInterviewDate + "T00:00:00").toLocaleDateString("en-US", {
                                   month: "short",
                                   day: "numeric",
                                 })}
                               </p>
-                              <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                              <p className="text-xs theme-text-tertiary">
                                 {interview.scheduledInterviewTime}
                               </p>
                             </div>
@@ -1279,7 +1259,7 @@ function DashboardContent() {
                         {upcomingInterviews.length > 3 && (
                           <Link
                             href="/applications?status=interview_scheduled"
-                            className={`block text-center text-xs py-1 ${isDark ? "text-cyan-400 hover:text-cyan-300" : "text-blue-600 hover:text-blue-700"}`}
+                            className="block text-center text-xs py-1 text-[#007AFF] dark:text-cyan-400 hover:opacity-80"
                           >
                             View all {upcomingInterviews.length} interviews
                           </Link>
@@ -1289,14 +1269,14 @@ function DashboardContent() {
                   )}
                 </div>
               ) : (
-                <div className={`text-center py-8 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                  <svg className={`w-12 h-12 mx-auto mb-3 ${isDark ? "text-slate-600" : "text-gray-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="text-center py-8 theme-text-tertiary">
+                  <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                   <p>Loading analytics...</p>
                 </div>
               )}
-            </div>
+            </Card>
             )}
           </div>
           )}
@@ -1321,81 +1301,79 @@ function DashboardContent() {
 
             {/* Pending Tenure Check-ins - Hide based on RBAC permissions and check card setting */}
             {widgets.tenureCheckins && isCardEnabled("tenureCheckIns") && pendingTenureCheckIns && pendingTenureCheckIns.length > 0 && (
-              <div className={`border rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <div className="flex items-center justify-between mb-4 sm:mb-6">
-                  <h2 className={`text-base sm:text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                    Due Tenure Check-ins
-                  </h2>
-                <div className="flex items-center gap-2">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${isDark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-600"}`}>
-                    {pendingTenureCheckIns.length} pending
-                  </span>
-                  <Link
-                    href="/personnel"
-                    className={`text-sm transition-colors ${isDark ? "text-cyan-400 hover:text-cyan-300" : "text-blue-600 hover:text-blue-700"}`}
-                  >
-                    View all
-                  </Link>
-                </div>
-              </div>
-              <div className="space-y-3">
-                {pendingTenureCheckIns.slice(0, 8).map((item, idx) => (
-                  <Link
-                    key={`${item.personnelId}-${item.milestone}-${idx}`}
-                    href={`/personnel/${item.personnelId}`}
-                    className={`block p-4 rounded-lg border transition-colors ${isDark ? "bg-slate-900/50 border-slate-700/50 hover:border-slate-600" : "bg-gray-50 border-gray-100 hover:border-gray-300"}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className={`font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>
-                            {item.personnelName}
-                          </h3>
-                          <span className={`px-2 py-0.5 text-xs rounded-full flex-shrink-0 ${
-                            item.daysOverdue > 7
-                              ? isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-600"
-                              : item.daysOverdue > 0
-                                ? isDark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-600"
-                                : isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-600"
-                          }`}>
-                            {item.milestoneLabel} Check-in
-                          </span>
-                        </div>
-                        <p className={`text-sm truncate ${isDark ? "text-slate-500" : "text-gray-500"}`}>
-                          {item.department}
-                        </p>
-                      </div>
-                      <div className="text-right ml-4 flex-shrink-0">
-                        <p className={`text-xs font-medium ${
-                          item.daysOverdue > 7
-                            ? isDark ? "text-red-400" : "text-red-600"
-                            : item.daysOverdue > 0
-                              ? isDark ? "text-amber-400" : "text-amber-600"
-                              : isDark ? "text-green-400" : "text-green-600"
-                        }`}>
-                          {item.daysOverdue === 0 ? "Due today" : `${item.daysOverdue} days overdue`}
-                        </p>
-                        <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                          Hired {new Date(item.hireDate).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </p>
-                      </div>
+              <Card>
+                <SectionHeader
+                  title="Due Tenure Check-ins"
+                  actions={
+                    <div className="flex items-center gap-2">
+                      <span className="ui-badge ui-badge-amber">{pendingTenureCheckIns.length} pending</span>
+                      <Link
+                        href="/personnel"
+                        className="text-sm theme-text-tertiary hover:theme-text-secondary transition-colors"
+                      >
+                        View all
+                      </Link>
                     </div>
-                  </Link>
-                ))}
-                {pendingTenureCheckIns.length > 8 && (
-                  <Link
-                    href="/personnel"
-                    className={`block text-center text-sm py-2 ${isDark ? "text-cyan-400 hover:text-cyan-300" : "text-blue-600 hover:text-blue-700"}`}
-                  >
-                    View all {pendingTenureCheckIns.length} pending check-ins
-                  </Link>
-                )}
-              </div>
-            </div>
-          )}
+                  }
+                />
+                <div className="space-y-2">
+                  {pendingTenureCheckIns.slice(0, 8).map((item, idx) => (
+                    <Link
+                      key={`${item.personnelId}-${item.milestone}-${idx}`}
+                      href={`/personnel/${item.personnelId}`}
+                      className="block p-3 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-medium truncate theme-text-primary">
+                              {item.personnelName}
+                            </h3>
+                            <span className={`px-2 py-0.5 text-xs rounded-full flex-shrink-0 ${
+                              item.daysOverdue > 7
+                                ? "bg-red-500/20 text-red-500 dark:text-red-400"
+                                : item.daysOverdue > 0
+                                  ? "bg-amber-500/20 text-amber-500 dark:text-amber-400"
+                                  : "bg-green-500/20 text-green-500 dark:text-green-400"
+                            }`}>
+                              {item.milestoneLabel} Check-in
+                            </span>
+                          </div>
+                          <p className="text-sm truncate theme-text-tertiary">
+                            {item.department}
+                          </p>
+                        </div>
+                        <div className="text-right ml-4 flex-shrink-0">
+                          <p className={`text-xs font-medium ${
+                            item.daysOverdue > 7
+                              ? "text-red-500 dark:text-red-400"
+                              : item.daysOverdue > 0
+                                ? "text-amber-500 dark:text-amber-400"
+                                : "text-green-500 dark:text-green-400"
+                          }`}>
+                            {item.daysOverdue === 0 ? "Due today" : `${item.daysOverdue} days overdue`}
+                          </p>
+                          <p className="text-xs theme-text-tertiary">
+                            Hired {new Date(item.hireDate).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                  {pendingTenureCheckIns.length > 8 && (
+                    <Link
+                      href="/personnel"
+                      className="block text-center text-sm py-2 text-[#007AFF] dark:text-cyan-400 hover:opacity-80"
+                    >
+                      View all {pendingTenureCheckIns.length} pending check-ins
+                    </Link>
+                  )}
+                </div>
+              </Card>
+            )}
           </div>
           )}
 
@@ -1405,14 +1383,14 @@ function DashboardContent() {
       {/* Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={`w-full max-w-lg rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
+          <div className="theme-card w-full max-w-lg p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h2 className="text-lg font-semibold theme-text-primary">
                 Customize Your Dashboard
               </h2>
               <button
                 onClick={() => setShowSettings(false)}
-                className={`p-2 rounded-lg transition-colors ${isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
+                className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1420,7 +1398,7 @@ function DashboardContent() {
               </button>
             </div>
 
-            <p className={`text-sm mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+            <p className="text-sm mb-4 theme-text-tertiary">
               Toggle cards on/off and drag to reorder. Changes are saved automatically.
             </p>
 
@@ -1454,23 +1432,20 @@ function DashboardContent() {
               </SortableContext>
             </DndContext>
 
-            <div className={`flex items-center justify-between pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+            <div className="flex items-center justify-between pt-4 border-t theme-border-secondary">
               <button
                 onClick={async () => {
                   if (user) {
                     await resetSettings({ userId: user._id });
                   }
                 }}
-                className={`text-sm transition-colors ${isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-700"}`}
+                className="text-sm transition-colors theme-text-tertiary hover:theme-text-secondary"
               >
                 Reset to defaults
               </button>
-              <button
-                onClick={() => setShowSettings(false)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-500 text-white hover:bg-blue-600"}`}
-              >
+              <Button variant="primary" onClick={() => setShowSettings(false)}>
                 Done
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1479,14 +1454,14 @@ function DashboardContent() {
       {/* Help Modal */}
       {showHelp && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={`w-full max-w-lg rounded-xl p-6 max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800" : "bg-white"}`}>
+          <div className="theme-card w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h2 className="text-lg font-semibold theme-text-primary">
                 Dashboard Help
               </h2>
               <button
                 onClick={() => setShowHelp(false)}
-                className={`p-2 rounded-lg transition-colors ${isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
+                className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1497,14 +1472,14 @@ function DashboardContent() {
             <div className="space-y-6">
               {/* Customization */}
               <div>
-                <h3 className={`font-medium mb-2 flex items-center gap-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <h3 className="font-medium mb-2 flex items-center gap-2 theme-text-primary">
+                  <svg className="w-5 h-5 text-[#007AFF] dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                   Customize Your Dashboard
                 </h3>
-                <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <p className="text-sm theme-text-tertiary">
                   Click the gear icon in the header to choose which cards appear on your dashboard.
                   Toggle cards on/off based on what&apos;s most relevant to your role. Your preferences
                   are saved automatically and persist across sessions.
@@ -1513,13 +1488,13 @@ function DashboardContent() {
 
               {/* Broadcast Messages */}
               <div>
-                <h3 className={`font-medium mb-2 flex items-center gap-2 ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h3 className="font-medium mb-2 flex items-center gap-2 theme-text-primary">
                   <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
                   </svg>
                   Broadcast Messages
                 </h3>
-                <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <p className="text-sm theme-text-tertiary">
                   Important announcements and updates appear at the top of your dashboard.
                   Click the X to dismiss a message after you&apos;ve read it. Messages may be
                   targeted to specific roles, so you&apos;ll only see what&apos;s relevant to you.
@@ -1528,42 +1503,39 @@ function DashboardContent() {
 
               {/* Available Cards */}
               <div>
-                <h3 className={`font-medium mb-2 flex items-center gap-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <h3 className="font-medium mb-2 flex items-center gap-2 theme-text-primary">
+                  <svg className="w-5 h-5 text-green-500 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                   </svg>
                   Available Dashboard Cards
                 </h3>
-                <ul className={`text-sm space-y-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                  <li><strong>Active Projects</strong> - Your current projects and their status</li>
-                  <li><strong>Recent Applications</strong> - New job applications to review</li>
-                  <li><strong>Website Messages</strong> - Contact forms and dealer inquiries</li>
-                  <li><strong>Hiring Analytics</strong> - Metrics and upcoming interviews</li>
-                  <li><strong>Activity Feed</strong> - Recent system activity</li>
-                  <li><strong>Tenure Check-ins</strong> - Due employee milestone reviews</li>
+                <ul className="text-sm space-y-2 theme-text-tertiary">
+                  <li><strong className="theme-text-secondary">Active Projects</strong> - Your current projects and their status</li>
+                  <li><strong className="theme-text-secondary">Recent Applications</strong> - New job applications to review</li>
+                  <li><strong className="theme-text-secondary">Website Messages</strong> - Contact forms and dealer inquiries</li>
+                  <li><strong className="theme-text-secondary">Hiring Analytics</strong> - Metrics and upcoming interviews</li>
+                  <li><strong className="theme-text-secondary">Activity Feed</strong> - Recent system activity</li>
+                  <li><strong className="theme-text-secondary">Tenure Check-ins</strong> - Due employee milestone reviews</li>
                 </ul>
               </div>
 
               {/* Tips */}
-              <div className={`p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-100"}`}>
-                <p className={`text-sm font-medium mb-2 ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
+              <div className="p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-800/50">
+                <p className="text-sm font-medium mb-2 text-[#007AFF] dark:text-cyan-400">
                   Pro Tips
                 </p>
-                <ul className={`text-sm space-y-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                  <li>• Press <kbd className={`px-1.5 py-0.5 rounded ${isDark ? "bg-slate-600" : "bg-gray-200"}`}>Ctrl+K</kbd> to open global search</li>
+                <ul className="text-sm space-y-1 theme-text-tertiary">
+                  <li>• Press <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 theme-text-secondary text-xs">Ctrl+K</kbd> to open global search</li>
                   <li>• Your dashboard settings are unique to you</li>
                   <li>• Click &quot;Reset to defaults&quot; to restore original layout</li>
                 </ul>
               </div>
             </div>
 
-            <div className={`mt-6 pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-              <button
-                onClick={() => setShowHelp(false)}
-                className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-500 text-white hover:bg-blue-600"}`}
-              >
+            <div className="mt-6 pt-4 border-t theme-border-secondary">
+              <Button variant="primary" className="w-full" onClick={() => setShowHelp(false)}>
                 Got it
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1572,14 +1544,14 @@ function DashboardContent() {
       {/* Broadcast Create Modal (Super Admin) */}
       {showBroadcastModal && isSuperAdmin && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={`w-full max-w-lg rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
+          <div className="theme-card w-full max-w-lg p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h2 className="text-lg font-semibold theme-text-primary">
                 Create Broadcast Message
               </h2>
               <button
                 onClick={() => setShowBroadcastModal(false)}
-                className={`p-2 rounded-lg transition-colors ${isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
+                className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1590,7 +1562,7 @@ function DashboardContent() {
             <div className="space-y-4">
               {/* Title */}
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                <label className="block text-sm font-medium mb-1 theme-text-secondary">
                   Title
                 </label>
                 <input
@@ -1598,13 +1570,13 @@ function DashboardContent() {
                   value={broadcastForm.title}
                   onChange={(e) => setBroadcastForm({ ...broadcastForm, title: e.target.value })}
                   placeholder="e.g., New Feature Released"
-                  className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400" : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"}`}
+                  className="theme-input w-full px-3 py-2"
                 />
               </div>
 
               {/* Content */}
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                <label className="block text-sm font-medium mb-1 theme-text-secondary">
                   Message
                 </label>
                 <textarea
@@ -1612,20 +1584,20 @@ function DashboardContent() {
                   onChange={(e) => setBroadcastForm({ ...broadcastForm, content: e.target.value })}
                   placeholder="Write your message here..."
                   rows={3}
-                  className={`w-full px-3 py-2 rounded-lg border resize-none ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400" : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"}`}
+                  className="theme-input w-full px-3 py-2 resize-none"
                 />
               </div>
 
               {/* Type & Priority */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-sm font-medium mb-1 theme-text-secondary">
                     Type
                   </label>
                   <select
                     value={broadcastForm.type}
                     onChange={(e) => setBroadcastForm({ ...broadcastForm, type: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input w-full px-3 py-2"
                   >
                     <option value="info">Info</option>
                     <option value="update">Update</option>
@@ -1634,13 +1606,13 @@ function DashboardContent() {
                   </select>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-sm font-medium mb-1 theme-text-secondary">
                     Priority
                   </label>
                   <select
                     value={broadcastForm.priority}
                     onChange={(e) => setBroadcastForm({ ...broadcastForm, priority: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input w-full px-3 py-2"
                   >
                     <option value="normal">Normal</option>
                     <option value="high">High (Important)</option>
@@ -1650,8 +1622,8 @@ function DashboardContent() {
 
               {/* Target Roles */}
               <div>
-                <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Target Roles <span className={isDark ? "text-slate-500" : "text-gray-400"}>(leave empty for all)</span>
+                <label className="block text-sm font-medium mb-2 theme-text-secondary">
+                  Target Roles <span className="theme-text-tertiary font-normal">(leave empty for all)</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {["super_admin", "admin", "office_manager", "warehouse_manager"].map((role) => (
@@ -1663,10 +1635,10 @@ function DashboardContent() {
                           : [...broadcastForm.targetRoles, role];
                         setBroadcastForm({ ...broadcastForm, targetRoles: roles });
                       }}
-                      className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                      className={`px-3 py-1.5 text-sm rounded-[9px] border transition-colors ${
                         broadcastForm.targetRoles.includes(role)
-                          ? isDark ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-400" : "bg-blue-100 border-blue-300 text-blue-600"
-                          : isDark ? "bg-slate-700 border-slate-600 text-slate-300" : "bg-gray-100 border-gray-200 text-gray-600"
+                          ? "bg-[#007AFF]/10 border-[#007AFF]/30 text-[#007AFF] dark:bg-cyan-500/20 dark:border-cyan-500/50 dark:text-cyan-400"
+                          : "theme-btn-secondary"
                       }`}
                     >
                       {role.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
@@ -1676,20 +1648,17 @@ function DashboardContent() {
               </div>
             </div>
 
-            <div className={`flex items-center justify-end gap-3 mt-6 pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-              <button
-                onClick={() => setShowBroadcastModal(false)}
-                className={`px-4 py-2 rounded-lg transition-colors ${isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-700"}`}
-              >
+            <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t theme-border-secondary">
+              <Button variant="ghost" onClick={() => setShowBroadcastModal(false)}>
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 onClick={handleCreateBroadcast}
                 disabled={!broadcastForm.title || !broadcastForm.content}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-500 text-white hover:bg-blue-600"}`}
               >
                 Send Broadcast
-              </button>
+              </Button>
             </div>
           </div>
         </div>
