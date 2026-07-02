@@ -3,11 +3,13 @@
 import { useState, useCallback, useEffect } from "react";
 import Protected from "@/app/protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
-import { useTheme } from "@/app/theme-context";
 import { useAuth } from "@/app/auth-context";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 const SOURCE_TYPES = [
   { code: "OEA07V", label: "OEA07V — Sales Activity" },
@@ -96,8 +98,6 @@ const COLUMN_OPTIONS: Record<string, { key: string; name: string; defaultOn: boo
 type RunState = "idle" | "loading" | "success" | "error";
 
 export default function CustomReportPage() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const { user } = useAuth();
   const saveConfig = useMutation(api.savedReports.create);
 
@@ -321,30 +321,34 @@ export default function CustomReportPage() {
 
   return (
     <Protected>
-      <div className="flex h-screen theme-bg-primary">
+      <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
         <Sidebar />
         <main className="flex-1 overflow-y-auto">
           <MobileHeader />
 
-          <header className={`sticky top-0 z-10 border-b px-6 py-4 ${isDark ? "bg-slate-900/95 backdrop-blur border-slate-700" : "bg-white/95 backdrop-blur border-gray-200"}`}>
+          {/* Sticky iOS-style page header */}
+          <header className="sticky top-0 z-10 border-b px-4 sm:px-6 py-3 sm:py-4 backdrop-blur-sm bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
             <div className="flex items-center gap-3">
-              <Link href="/reports" className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-800 text-slate-400" : "hover:bg-gray-200 text-gray-500"}`}>
+              <Link
+                href="/reports"
+                className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5 flex-shrink-0"
+              >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
               </Link>
-              <div>
-                <h1 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Custom Report Builder</h1>
-                <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Build a report from uploaded JMK data</p>
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold theme-text-primary">Custom Report Builder</h1>
+                <p className="text-xs mt-0.5 theme-text-tertiary">Build a report from uploaded JMK data</p>
               </div>
             </div>
           </header>
 
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-            <div className={`rounded-xl border p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-6">
+            <Card>
               {/* Source Type */}
               <div className="mb-5">
-                <label className={`block text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Source Report</label>
+                <div className="ui-section-label mb-2">Source Report</div>
                 <div className="flex flex-wrap gap-2">
                   {SOURCE_TYPES.map((t) => (
                     <button
@@ -352,8 +356,8 @@ export default function CustomReportPage() {
                       onClick={() => handleSourceChange(t.code)}
                       className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
                         sourceType === t.code
-                          ? isDark ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/40" : "bg-blue-100 text-blue-700 border-blue-300"
-                          : isDark ? "bg-slate-900 text-slate-400 border-slate-600 hover:border-slate-500" : "bg-white text-gray-500 border-gray-300 hover:border-gray-400"
+                          ? "bg-blue-50 dark:bg-cyan-500/20 text-[#007AFF] dark:text-cyan-400 border-blue-200 dark:border-cyan-500/40"
+                          : "bg-white dark:bg-slate-900 theme-text-tertiary border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500"
                       }`}
                     >
                       {t.label}
@@ -363,17 +367,17 @@ export default function CustomReportPage() {
 
                 {/* Fusion — join with second source */}
                 <div className="mt-3">
-                  <label className={`flex items-center gap-2 text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className="flex items-center gap-2 text-xs theme-text-tertiary">
                     <span>Fuse with:</span>
                     <div className="relative group">
-                      <svg className={`w-3.5 h-3.5 cursor-help ${isDark ? "text-slate-500 hover:text-slate-300" : "text-gray-400 hover:text-gray-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3.5 h-3.5 cursor-help theme-text-tertiary hover:theme-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <div className={`absolute left-0 bottom-full mb-2 w-[calc(100vw-2rem)] sm:w-72 p-3 rounded-lg border shadow-xl text-xs z-30 hidden group-hover:block ${isDark ? "bg-slate-800 border-slate-600 text-slate-300" : "bg-white border-gray-200 text-gray-700"}`}>
-                        <p className="font-semibold mb-1">What is Fusion?</p>
-                        <p className="mb-2">Combines two data sources by Item ID into one view. Example: fuse Inventory (OEIVAL) with Sales History (OEA07V) to see stock levels alongside sales trends.</p>
-                        <p className="font-medium mb-1">Use cases:</p>
-                        <ul className="space-y-0.5 ml-2">
+                      <div className="absolute left-0 bottom-full mb-2 w-[calc(100vw-2rem)] sm:w-72 p-3 rounded-xl border shadow-xl text-xs z-30 hidden group-hover:block theme-card">
+                        <p className="font-semibold mb-1 theme-text-primary">What is Fusion?</p>
+                        <p className="mb-2 theme-text-secondary">Combines two data sources by Item ID into one view. Example: fuse Inventory (OEIVAL) with Sales History (OEA07V) to see stock levels alongside sales trends.</p>
+                        <p className="font-medium mb-1 theme-text-secondary">Use cases:</p>
+                        <ul className="space-y-0.5 ml-2 theme-text-secondary">
                           <li>Find dead stock (in inventory, zero sales)</li>
                           <li>Identify hot items (high sales, low stock)</li>
                           <li>Reorder decisions (selling fast + low inventory)</li>
@@ -390,14 +394,14 @@ export default function CustomReportPage() {
                       const opts = (COLUMN_OPTIONS[e.target.value] || []).filter((c) => c.key !== fusionJoinKey && !selectedColumns.includes(c.key));
                       setSelectedFusionColumns(opts.filter((c) => c.defaultOn).map((c) => c.key));
                     }}
-                      className={`px-2 py-1 rounded-lg border text-xs ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`}>
+                      className="theme-input px-2 py-1 text-xs">
                       <option value="">None (single source)</option>
                       {SOURCE_TYPES.filter((t) => t.code !== sourceType).map((t) => (
                         <option key={t.code} value={t.code}>{t.label}</option>
                       ))}
                     </select>
                     {secondSource && (
-                      <span className={`text-[10px] ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
+                      <span className="text-[10px] text-[#007AFF]">
                         Joined by MFG Item ID
                       </span>
                     )}
@@ -405,12 +409,12 @@ export default function CustomReportPage() {
                   {secondSource && fusionColumnOptions.length > 0 && (
                     <div className="mt-2 ml-12">
                       <div className="flex items-center justify-between mb-1">
-                        <label className={`text-[10px] font-medium ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                        <label className="text-[10px] font-medium theme-text-tertiary">
                           {secondSource} columns ({selectedFusionColumns.length}/{fusionColumnOptions.length})
                         </label>
                         <div className="flex gap-2">
-                          <button onClick={() => setSelectedFusionColumns(fusionColumnOptions.map((c) => c.key))} className={`text-[10px] px-1.5 py-0.5 rounded ${isDark ? "text-cyan-400 hover:bg-slate-800" : "text-blue-600 hover:bg-gray-100"}`}>All</button>
-                          <button onClick={() => setSelectedFusionColumns([])} className={`text-[10px] px-1.5 py-0.5 rounded ${isDark ? "text-slate-500 hover:bg-slate-800" : "text-gray-400 hover:bg-gray-100"}`}>None</button>
+                          <button onClick={() => setSelectedFusionColumns(fusionColumnOptions.map((c) => c.key))} className="text-[10px] px-1.5 py-0.5 rounded text-[#007AFF] hover:bg-blue-50 dark:hover:bg-slate-800">All</button>
+                          <button onClick={() => setSelectedFusionColumns([])} className="text-[10px] px-1.5 py-0.5 rounded theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5">None</button>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-1">
@@ -420,8 +424,8 @@ export default function CustomReportPage() {
                             onClick={() => setSelectedFusionColumns((prev) => prev.includes(col.key) ? prev.filter((x) => x !== col.key) : [...prev, col.key])}
                             className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors ${
                               selectedFusionColumns.includes(col.key)
-                                ? isDark ? "bg-purple-500/15 text-purple-400 border-purple-500/30" : "bg-purple-50 text-purple-700 border-purple-200"
-                                : isDark ? "bg-slate-900/50 text-slate-600 border-slate-700" : "bg-gray-50 text-gray-400 border-gray-200"
+                                ? "bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-500/30"
+                                : "bg-gray-50 dark:bg-slate-900/50 theme-text-tertiary border-gray-200 dark:border-slate-700"
                             }`}
                           >
                             {col.name}
@@ -435,20 +439,20 @@ export default function CustomReportPage() {
 
               {/* Date Range */}
               <div className="mb-5">
-                <label className={`block text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Date Range</label>
+                <div className="ui-section-label mb-2">Date Range</div>
                 <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className={`px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input px-3 py-2 text-sm"
                   />
-                  <span className={`text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>to</span>
+                  <span className="text-sm theme-text-tertiary">to</span>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className={`px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input px-3 py-2 text-sm"
                   />
                 </div>
               </div>
@@ -456,12 +460,12 @@ export default function CustomReportPage() {
               {/* Column Selection */}
               <div className="mb-5">
                 <div className="flex items-center justify-between mb-2">
-                  <label className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                  <div className="ui-section-label">
                     Columns ({selectedColumns.length}/{columnOptions.length})
-                  </label>
+                  </div>
                   <div className="flex gap-2">
-                    <button onClick={() => setSelectedColumns(columnOptions.map((c) => c.key))} className={`text-[10px] px-2 py-0.5 rounded ${isDark ? "text-cyan-400 hover:bg-slate-800" : "text-blue-600 hover:bg-gray-100"}`}>All</button>
-                    <button onClick={() => setSelectedColumns([])} className={`text-[10px] px-2 py-0.5 rounded ${isDark ? "text-slate-500 hover:bg-slate-800" : "text-gray-400 hover:bg-gray-100"}`}>Clear</button>
+                    <button onClick={() => setSelectedColumns(columnOptions.map((c) => c.key))} className="text-[10px] px-2 py-0.5 rounded text-[#007AFF] hover:bg-blue-50 dark:hover:bg-slate-800">All</button>
+                    <button onClick={() => setSelectedColumns([])} className="text-[10px] px-2 py-0.5 rounded theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5">Clear</button>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -471,8 +475,8 @@ export default function CustomReportPage() {
                       onClick={() => toggleColumn(col.key)}
                       className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
                         selectedColumns.includes(col.key)
-                          ? isDark ? "bg-cyan-500/15 text-cyan-400 border-cyan-500/30" : "bg-blue-50 text-blue-700 border-blue-200"
-                          : isDark ? "bg-slate-900/50 text-slate-600 border-slate-700" : "bg-gray-50 text-gray-400 border-gray-200"
+                          ? "bg-blue-50 dark:bg-cyan-500/15 text-[#007AFF] dark:text-cyan-400 border-blue-200 dark:border-cyan-500/30"
+                          : "bg-gray-50 dark:bg-slate-900/50 theme-text-tertiary border-gray-200 dark:border-slate-700"
                       }`}
                     >
                       {col.name}
@@ -484,17 +488,17 @@ export default function CustomReportPage() {
               {/* Filters */}
               {sourceType === "OEA07V" && (
                 <div className="mb-5">
-                  <label className={`block text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Filters</label>
+                  <div className="ui-section-label mb-2">Filters</div>
                   <div className="flex flex-wrap items-center gap-3">
                     <div>
-                      <label className={`block text-[10px] mb-0.5 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Exclude Transactions</label>
+                      <label className="block text-[10px] mb-0.5 theme-text-tertiary">Exclude Transactions</label>
                       <div className="flex flex-wrap gap-1">
                         {(availableTransactions.length > 0 ? availableTransactions : ["Sld", "Adj/RS", "Rcv", "Trn"]).map((t) => (
                           <button key={t} onClick={() => setExcludeTransactions((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t])}
                             className={`px-2 py-0.5 rounded text-xs font-medium border transition-colors ${
                               excludeTransactions.includes(t)
-                                ? isDark ? "bg-red-500/20 text-red-400 border-red-500/30 line-through" : "bg-red-50 text-red-600 border-red-200 line-through"
-                                : isDark ? "bg-slate-900 text-slate-400 border-slate-700" : "bg-white text-gray-500 border-gray-200"
+                                ? "bg-red-50 dark:bg-red-500/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/30 line-through"
+                                : "bg-white dark:bg-slate-900 theme-text-secondary border-gray-200 dark:border-slate-700"
                             }`}>
                             {t}
                           </button>
@@ -502,26 +506,26 @@ export default function CustomReportPage() {
                       </div>
                     </div>
                     <div className="relative">
-                      <label className={`block text-[10px] mb-0.5 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Brands</label>
+                      <label className="block text-[10px] mb-0.5 theme-text-tertiary">Brands</label>
                       <button onClick={() => { setBrandSearchOpen(!brandSearchOpen); setBrandSearch(""); }}
-                        className={`px-2 py-1 rounded-lg border text-xs text-left min-w-[120px] ${filterBrands.length > 0 ? (isDark ? "border-cyan-500/40 text-cyan-400" : "border-blue-300 text-blue-700") : isDark ? "border-slate-600 text-slate-400" : "border-gray-300 text-gray-500"} ${isDark ? "bg-slate-900" : "bg-white"}`}>
+                        className={`theme-input px-2 py-1 text-xs text-left min-w-[120px] ${filterBrands.length > 0 ? "text-[#007AFF] dark:text-cyan-400" : "theme-text-secondary"}`}>
                         {filterBrands.length === 0 ? "All brands" : `${filterBrands.length} selected`}
                       </button>
                       {brandSearchOpen && (
-                        <div className={`absolute left-0 top-full mt-1 w-[calc(100vw-2rem)] sm:w-56 rounded-lg border shadow-xl z-30 ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}
+                        <div className="absolute left-0 top-full mt-1 w-[calc(100vw-2rem)] sm:w-56 rounded-xl border shadow-xl z-30 theme-card p-0 overflow-hidden"
                           onClick={(e) => e.stopPropagation()}>
-                          <div className={`px-2 pt-2 pb-1 border-b ${isDark ? "border-slate-700" : "border-gray-100"}`}>
+                          <div className="px-2 pt-2 pb-1 border-b theme-border-secondary">
                             <input type="text" value={brandSearch} onChange={(e) => setBrandSearch(e.target.value)}
                               placeholder="Search brands..." autoFocus
-                              className={`w-full px-2 py-1 rounded border text-xs ${isDark ? "bg-slate-900 border-slate-600 text-white placeholder:text-slate-500" : "bg-white border-gray-300"}`} />
+                              className="theme-input w-full px-2 py-1 text-xs" />
                             <div className="flex items-center justify-between mt-1">
-                              <span className={`text-[10px] ${isDark ? "text-slate-500" : "text-gray-400"}`}>{filterBrands.length} selected</span>
-                              <button onClick={() => setFilterBrands([])} className={`text-[10px] px-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Clear</button>
+                              <span className="text-[10px] theme-text-tertiary">{filterBrands.length} selected</span>
+                              <button onClick={() => setFilterBrands([])} className="text-[10px] px-1 theme-text-tertiary">Clear</button>
                             </div>
                           </div>
                           <div className="max-h-52 overflow-y-auto p-1">
                             {(brandSearch ? availableBrands.filter((b) => b.toLowerCase().includes(brandSearch.toLowerCase())) : availableBrands).slice(0, 200).map((b) => (
-                              <label key={b} className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-xs ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-gray-50 text-gray-700"}`}>
+                              <label key={b} className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-xs theme-text-secondary hover:bg-black/5 dark:hover:bg-white/5">
                                 <input type="checkbox" checked={filterBrands.includes(b)} onChange={() => {
                                   setFilterBrands((prev) => prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]);
                                 }} className="rounded w-3 h-3" />
@@ -533,11 +537,11 @@ export default function CustomReportPage() {
                       )}
                     </div>
                     <div>
-                      <label className={`block text-[10px] mb-0.5 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Account ID</label>
+                      <label className="block text-[10px] mb-0.5 theme-text-tertiary">Account ID</label>
                       <input type="text" value={filterAccount} onChange={(e) => setFilterAccount(e.target.value)} placeholder="Filter account..."
-                        className={`px-2 py-1 rounded-lg border text-xs w-28 ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`} />
+                        className="theme-input px-2 py-1 text-xs w-28" />
                     </div>
-                    <label className={`flex items-center gap-1.5 text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <label className="flex items-center gap-1.5 text-xs theme-text-secondary">
                       <input type="checkbox" checked={negateQty} onChange={(e) => setNegateQty(e.target.checked)} className="rounded" />
                       Show sales as positive
                     </label>
@@ -546,34 +550,34 @@ export default function CustomReportPage() {
               )}
 
               {/* Actions */}
-              <div className="flex items-center gap-3">
-                <button
+              <div className="flex items-center gap-3 flex-wrap">
+                <Button
+                  variant="primary"
                   onClick={handleGenerate}
                   disabled={runState === "loading" || !startDate || !endDate || selectedColumns.length === 0}
-                  className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${isDark ? "bg-emerald-600 text-white hover:bg-emerald-500" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}
                 >
                   {runState === "loading" ? "Generating..." : "Generate Report"}
-                </button>
+                </Button>
                 {runState === "success" && (
                   <>
-                    <button onClick={handleExportCSV} className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}>
+                    <Button variant="secondary" onClick={handleExportCSV}>
                       Export CSV
-                    </button>
-                    <button onClick={handleExportExcel} className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"}`}>
+                    </Button>
+                    <Button variant="secondary" onClick={handleExportExcel}>
                       Export Excel
-                    </button>
-                    <button onClick={() => setShowSaveModal(true)} className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30" : "bg-amber-100 text-amber-700 hover:bg-amber-200"}`}>
+                    </Button>
+                    <Button variant="secondary" onClick={() => setShowSaveModal(true)}>
                       Save Config
-                    </button>
+                    </Button>
                   </>
                 )}
               </div>
-            </div>
+            </Card>
 
             {/* Idle hint */}
             {runState === "idle" && rows.length === 0 && (
-              <div className={`rounded-xl border border-dashed p-6 text-center ${isDark ? "border-slate-700" : "border-gray-300"}`}>
-                <p className={`text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+              <div className="rounded-xl border border-dashed p-6 text-center border-gray-300 dark:border-slate-700">
+                <p className="text-sm theme-text-tertiary">
                   Select a source, date range, and columns, then click <strong>Generate Report</strong> to pull data.
                 </p>
               </div>
@@ -581,24 +585,26 @@ export default function CustomReportPage() {
 
             {/* Error */}
             {runState === "error" && (
-              <div className={`rounded-xl border p-4 ${isDark ? "bg-red-500/10 border-red-500/30" : "bg-red-50 border-red-200"}`}>
-                <p className={`text-sm ${isDark ? "text-red-400" : "text-red-700"}`}>{errorMsg}</p>
-              </div>
+              <Card tone="red" padding="sm">
+                <p className="text-sm theme-text-primary">{errorMsg}</p>
+              </Card>
             )}
 
             {/* Empty result */}
             {runState === "success" && rows.length === 0 && (
-              <div className={`rounded-xl border p-8 text-center ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-                <svg className={`w-12 h-12 mx-auto mb-3 ${isDark ? "text-slate-600" : "text-gray-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p className={`text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>No data found</p>
-                <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                  No {sourceType} records match the selected date range ({startDate} to {endDate}).
-                  {secondSource && ` Fusion with ${secondSource} returned no matching rows by Item ID.`}
-                  <br />Make sure files have been uploaded for this period.
-                </p>
-              </div>
+              <Card>
+                <div className="py-8 text-center">
+                  <svg className="w-12 h-12 mx-auto mb-3 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="text-sm font-medium mb-1 theme-text-primary">No data found</p>
+                  <p className="text-xs theme-text-tertiary">
+                    No {sourceType} records match the selected date range ({startDate} to {endDate}).
+                    {secondSource && ` Fusion with ${secondSource} returned no matching rows by Item ID.`}
+                    <br />Make sure files have been uploaded for this period.
+                  </p>
+                </div>
+              </Card>
             )}
 
             {/* Results */}
@@ -614,117 +620,117 @@ export default function CustomReportPage() {
               const activeFilterCount = Object.values(columnFilters).filter((s) => s.size > 0).length;
 
               return (
-              <div className={`rounded-xl border overflow-hidden ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-                <div className={`px-4 py-3 border-b flex items-center justify-between ${isDark ? "bg-slate-800 border-slate-700" : "bg-gray-50 border-gray-200"}`}>
-                  <span className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                    {filteredRows.length.toLocaleString()} rows
-                    {filteredRows.length !== rows.length && <span className={`ml-1 text-xs ${isDark ? "text-cyan-400" : "text-blue-600"}`}>(filtered from {rows.length.toLocaleString()})</span>}
-                    {truncated && <span className={`ml-1 text-xs ${isDark ? "text-amber-400" : "text-amber-600"}`}>(capped at 10,000)</span>}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    {activeFilterCount > 0 && (
-                      <button onClick={() => setColumnFilters({})} className={`text-xs px-2 py-1 rounded ${isDark ? "text-red-400 hover:bg-red-500/10" : "text-red-600 hover:bg-red-50"}`}>
-                        Clear {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""}
-                      </button>
-                    )}
-                    <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                      {startDate} to {endDate} — {sourceType}
+                <div className="theme-card overflow-hidden p-0">
+                  <div className="px-4 py-3 border-b theme-border-secondary flex items-center justify-between bg-gray-50 dark:bg-slate-800">
+                    <span className="text-sm font-semibold theme-text-primary">
+                      {filteredRows.length.toLocaleString()} rows
+                      {filteredRows.length !== rows.length && <span className="ml-1 text-xs text-[#007AFF] dark:text-cyan-400">(filtered from {rows.length.toLocaleString()})</span>}
+                      {truncated && <span className="ml-1 text-xs text-amber-600 dark:text-amber-400">(capped at 10,000)</span>}
                     </span>
+                    <div className="flex items-center gap-2">
+                      {activeFilterCount > 0 && (
+                        <button onClick={() => setColumnFilters({})} className="text-xs px-2 py-1 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10">
+                          Clear {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""}
+                        </button>
+                      )}
+                      <span className="text-xs theme-text-tertiary">
+                        {startDate} to {endDate} — {sourceType}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="overflow-x-auto max-h-[60vh]">
-                  <table className="w-full text-xs">
-                    <thead className={`sticky top-0 z-10 ${isDark ? "bg-slate-800" : "bg-gray-50"}`}>
-                      <tr>
-                        {columns.map((col) => {
-                          const uniqueVals = [...new Set(rows.map((r) => r[col.key] || ""))].sort();
-                          const hasFilter = columnFilters[col.key]?.size > 0;
-                          const isOpen = openFilterCol === col.key;
+                  <div className="overflow-x-auto max-h-[60vh]">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-slate-800">
+                        <tr>
+                          {columns.map((col) => {
+                            const uniqueVals = [...new Set(rows.map((r) => r[col.key] || ""))].sort();
+                            const hasFilter = columnFilters[col.key]?.size > 0;
+                            const isOpen = openFilterCol === col.key;
 
-                          return (
-                            <th key={col.key} className={`relative text-left px-3 py-2 font-semibold whitespace-nowrap ${isDark ? "text-slate-300 border-b border-slate-700" : "text-gray-600 border-b border-gray-200"}`}>
-                              <div className="flex items-center gap-1">
-                                <span>{col.name}</span>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setOpenFilterCol(isOpen ? null : col.key); setFilterSearch(""); }}
-                                  className={`p-0.5 rounded transition-colors ${hasFilter ? (isDark ? "text-cyan-400" : "text-blue-600") : isDark ? "text-slate-600 hover:text-slate-400" : "text-gray-300 hover:text-gray-500"}`}
-                                >
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                  </svg>
-                                </button>
-                              </div>
+                            return (
+                              <th key={col.key} className="relative text-left px-3 py-2 font-semibold whitespace-nowrap theme-text-secondary border-b theme-border-secondary">
+                                <div className="flex items-center gap-1">
+                                  <span>{col.name}</span>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setOpenFilterCol(isOpen ? null : col.key); setFilterSearch(""); }}
+                                    className={`p-0.5 rounded transition-colors ${hasFilter ? "text-[#007AFF]" : "theme-text-tertiary hover:theme-text-secondary"}`}
+                                  >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                    </svg>
+                                  </button>
+                                </div>
 
-                              {/* Filter dropdown */}
-                              {isOpen && (() => {
-                                const searchedVals = filterSearch
-                                  ? uniqueVals.filter((v) => v.toLowerCase().includes(filterSearch.toLowerCase()))
-                                  : uniqueVals;
-                                return (
-                                <div className={`absolute left-0 top-full mt-1 w-[calc(100vw-2rem)] sm:w-56 rounded-lg border shadow-xl z-20 ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}
-                                  onClick={(e) => e.stopPropagation()}>
-                                  <div className={`px-2 pt-2 pb-1 border-b ${isDark ? "border-slate-700" : "border-gray-100"}`}>
-                                    <input type="text" value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)}
-                                      placeholder="Search..." autoFocus
-                                      className={`w-full px-2 py-1 rounded border text-xs ${isDark ? "bg-slate-900 border-slate-600 text-white placeholder:text-slate-500" : "bg-white border-gray-300 placeholder:text-gray-400"}`} />
-                                    <div className="flex items-center justify-between mt-1">
-                                      <span className={`text-[10px] ${isDark ? "text-slate-500" : "text-gray-400"}`}>{searchedVals.length} values</span>
-                                      <div className="flex gap-1">
-                                        <button onClick={() => setColumnFilters((f) => { const n = { ...f }; n[col.key] = new Set(searchedVals); return n; })}
-                                          className={`text-[10px] px-1 ${isDark ? "text-cyan-400" : "text-blue-600"}`}>Select shown</button>
-                                        <button onClick={() => setColumnFilters((f) => { const n = { ...f }; delete n[col.key]; return n; })}
-                                          className={`text-[10px] px-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Clear</button>
+                                {/* Filter dropdown */}
+                                {isOpen && (() => {
+                                  const searchedVals = filterSearch
+                                    ? uniqueVals.filter((v) => v.toLowerCase().includes(filterSearch.toLowerCase()))
+                                    : uniqueVals;
+                                  return (
+                                    <div className="absolute left-0 top-full mt-1 w-[calc(100vw-2rem)] sm:w-56 rounded-xl border shadow-xl z-20 theme-card p-0 overflow-hidden"
+                                      onClick={(e) => e.stopPropagation()}>
+                                      <div className="px-2 pt-2 pb-1 border-b theme-border-secondary">
+                                        <input type="text" value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)}
+                                          placeholder="Search..." autoFocus
+                                          className="theme-input w-full px-2 py-1 text-xs" />
+                                        <div className="flex items-center justify-between mt-1">
+                                          <span className="text-[10px] theme-text-tertiary">{searchedVals.length} values</span>
+                                          <div className="flex gap-1">
+                                            <button onClick={() => setColumnFilters((f) => { const n = { ...f }; n[col.key] = new Set(searchedVals); return n; })}
+                                              className="text-[10px] px-1 text-[#007AFF]">Select shown</button>
+                                            <button onClick={() => setColumnFilters((f) => { const n = { ...f }; delete n[col.key]; return n; })}
+                                              className="text-[10px] px-1 theme-text-tertiary">Clear</button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="max-h-52 overflow-y-auto p-1">
+                                        {searchedVals.slice(0, 200).map((val) => {
+                                          const checked = !columnFilters[col.key] || columnFilters[col.key].size === 0 || columnFilters[col.key].has(val);
+                                          return (
+                                            <label key={val} className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-xs theme-text-secondary hover:bg-black/5 dark:hover:bg-white/5">
+                                              <input type="checkbox" checked={checked} onChange={() => {
+                                                setColumnFilters((prev) => {
+                                                  const current = prev[col.key] ? new Set(prev[col.key]) : new Set(uniqueVals);
+                                                  if (current.has(val)) current.delete(val);
+                                                  else current.add(val);
+                                                  return { ...prev, [col.key]: current };
+                                                });
+                                              }} className="rounded w-3 h-3" />
+                                              <span className="truncate">{val || "(blank)"}</span>
+                                            </label>
+                                          );
+                                        })}
+                                        {searchedVals.length > 200 && (
+                                          <p className="text-center text-[10px] py-1 theme-text-tertiary">+{searchedVals.length - 200} more — refine search</p>
+                                        )}
                                       </div>
                                     </div>
-                                  </div>
-                                  <div className="max-h-52 overflow-y-auto p-1">
-                                    {searchedVals.slice(0, 200).map((val) => {
-                                      const checked = !columnFilters[col.key] || columnFilters[col.key].size === 0 || columnFilters[col.key].has(val);
-                                      return (
-                                        <label key={val} className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-xs ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-gray-50 text-gray-700"}`}>
-                                          <input type="checkbox" checked={checked} onChange={() => {
-                                            setColumnFilters((prev) => {
-                                              const current = prev[col.key] ? new Set(prev[col.key]) : new Set(uniqueVals);
-                                              if (current.has(val)) current.delete(val);
-                                              else current.add(val);
-                                              return { ...prev, [col.key]: current };
-                                            });
-                                          }} className="rounded w-3 h-3" />
-                                          <span className="truncate">{val || "(blank)"}</span>
-                                        </label>
-                                      );
-                                    })}
-                                    {searchedVals.length > 200 && (
-                                      <p className={`text-center text-[10px] py-1 ${isDark ? "text-slate-600" : "text-gray-400"}`}>+{searchedVals.length - 200} more — refine search</p>
-                                    )}
-                                  </div>
-                                </div>
-                                );
-                              })()}
-                            </th>
-                          );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredRows.slice(0, 500).map((row, i) => (
-                        <tr key={i} className={`border-b ${isDark ? "border-slate-700/30 hover:bg-slate-700/20" : "border-gray-50 hover:bg-gray-50"}`}>
-                          {columns.map((col) => (
-                            <td key={col.key} className={`px-3 py-1.5 whitespace-nowrap ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                              {row[col.key] || ""}
-                            </td>
-                          ))}
+                                  );
+                                })()}
+                              </th>
+                            );
+                          })}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {rows.length > 500 && (
-                    <p className={`text-center py-3 text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                      Showing 500 of {rows.length.toLocaleString()} rows — export for full data
-                    </p>
-                  )}
+                      </thead>
+                      <tbody>
+                        {filteredRows.slice(0, 500).map((row, i) => (
+                          <tr key={i} className="border-b border-gray-50 dark:border-slate-700/30 hover:bg-gray-50 dark:hover:bg-slate-700/20">
+                            {columns.map((col) => (
+                              <td key={col.key} className="px-3 py-1.5 whitespace-nowrap theme-text-secondary">
+                                {row[col.key] || ""}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {rows.length > 500 && (
+                      <p className="text-center py-3 text-xs theme-text-tertiary">
+                        Showing 500 of {rows.length.toLocaleString()} rows — export for full data
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
               );
             })()}
           </div>
@@ -734,31 +740,31 @@ export default function CustomReportPage() {
       {/* Save Configuration Modal */}
       {showSaveModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowSaveModal(false)}>
-          <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`} onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md theme-card p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-4">
-              <h3 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Save Report Configuration</h3>
+              <h3 className="text-lg font-semibold theme-text-primary">Save Report Configuration</h3>
               <div className="relative group">
-                <svg className={`w-4 h-4 cursor-help ${isDark ? "text-slate-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 cursor-help theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <div className={`absolute left-0 top-full mt-1 w-64 p-3 rounded-lg border shadow-xl text-xs z-30 hidden group-hover:block ${isDark ? "bg-slate-700 border-slate-600 text-slate-300" : "bg-white border-gray-200 text-gray-600"}`}>
-                  Saved configs appear as cards in the Reports hub under "Saved Configurations". Auto-run configs execute on schedule using relative date ranges (not fixed dates).
+                <div className="absolute left-0 top-full mt-1 w-64 p-3 rounded-xl border shadow-xl text-xs z-30 hidden group-hover:block theme-card">
+                  <span className="theme-text-secondary">Saved configs appear as cards in the Reports hub under "Saved Configurations". Auto-run configs execute on schedule using relative date ranges (not fixed dates).</span>
                 </div>
               </div>
             </div>
             <div className="space-y-4">
               <div>
-                <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Report Name *</label>
+                <label className="block text-xs font-medium mb-1 theme-text-tertiary">Report Name *</label>
                 <input type="text" value={saveName} onChange={(e) => setSaveName(e.target.value)}
-                  placeholder="e.g. Daily Sales Summary" className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`} />
+                  placeholder="e.g. Daily Sales Summary" className="theme-input w-full px-3 py-2 text-sm" />
               </div>
               <div>
-                <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Description</label>
+                <label className="block text-xs font-medium mb-1 theme-text-tertiary">Description</label>
                 <input type="text" value={saveDescription} onChange={(e) => setSaveDescription(e.target.value)}
-                  placeholder="Optional description" className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`} />
+                  placeholder="Optional description" className="theme-input w-full px-3 py-2 text-sm" />
               </div>
-              <div className={`p-3 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <div className="p-3 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50">
+                <p className="text-xs theme-text-secondary">
                   Source: <strong>{sourceType}</strong>{secondSource && ` + ${secondSource} (joined by Item ID)`}
                   <br />Columns: {selectedColumns.length} selected
                   {excludeTransactions.length > 0 && <><br />Excluding: {excludeTransactions.join(", ")}</>}
@@ -767,9 +773,9 @@ export default function CustomReportPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Date Range (for auto-runs)</label>
+                  <label className="block text-xs font-medium mb-1 theme-text-tertiary">Date Range (for auto-runs)</label>
                   <select value={saveDateRange} onChange={(e) => setSaveDateRange(e.target.value)}
-                    className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`}>
+                    className="theme-input w-full px-3 py-2 text-sm">
                     <option value="yesterday">Yesterday</option>
                     <option value="last7">Last 7 days</option>
                     <option value="last30">Last 30 days</option>
@@ -780,9 +786,9 @@ export default function CustomReportPage() {
                   </select>
                 </div>
                 <div>
-                  <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Schedule</label>
+                  <label className="block text-xs font-medium mb-1 theme-text-tertiary">Schedule</label>
                   <select value={saveAutoRun ? "daily" : "manual"} onChange={(e) => setSaveAutoRun(e.target.value !== "manual")}
-                    className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`}>
+                    className="theme-input w-full px-3 py-2 text-sm">
                     <option value="manual">Manual only</option>
                     <option value="daily">Daily (4 AM EST)</option>
                     <option value="weekly">Weekly (Monday)</option>
@@ -792,11 +798,10 @@ export default function CustomReportPage() {
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
-              <button onClick={() => setShowSaveModal(false)} className={`px-4 py-2 rounded-lg text-sm ${isDark ? "text-slate-300 hover:bg-slate-700" : "text-gray-600 hover:bg-gray-100"}`}>Cancel</button>
-              <button onClick={handleSaveConfig} disabled={saving || !saveName}
-                className={`px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 ${isDark ? "bg-emerald-600 text-white hover:bg-emerald-500" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
+              <Button variant="ghost" onClick={() => setShowSaveModal(false)}>Cancel</Button>
+              <Button variant="primary" onClick={handleSaveConfig} disabled={saving || !saveName}>
                 {saving ? "Saving..." : "Save"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
