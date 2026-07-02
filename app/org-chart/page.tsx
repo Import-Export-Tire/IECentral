@@ -4,9 +4,8 @@ import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useTheme } from "../theme-context";
 
-// Tier badge colors
+// Tier badge colors — data-driven, kept as semantic color classes
 const TIER_BADGE_COLORS: Record<number, string> = {
   5: "bg-purple-500/20 text-purple-400 border-purple-500/30",
   4: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
@@ -16,7 +15,7 @@ const TIER_BADGE_COLORS: Record<number, string> = {
   0: "bg-slate-500/20 text-slate-400 border-slate-500/30",
 };
 
-// Tier background gradients for level headers
+// Tier background gradients for level headers — data-driven, kept
 const TIER_GRADIENTS: Record<number, { dark: string; light: string }> = {
   5: { dark: "from-purple-900/30 to-purple-800/10", light: "from-purple-100 to-purple-50" },
   4: { dark: "from-cyan-900/30 to-cyan-800/10", light: "from-cyan-100 to-cyan-50" },
@@ -42,7 +41,7 @@ interface OrgUser {
 }
 
 // Individual user card component
-function OrgCard({ user, isDark }: { user: OrgUser; isDark: boolean }) {
+function OrgCard({ user }: { user: OrgUser }) {
   const initials = user.name
     .split(" ")
     .map((n) => n[0])
@@ -53,43 +52,23 @@ function OrgCard({ user, isDark }: { user: OrgUser; isDark: boolean }) {
   const hasSpecialFlags = user.isFinalTimeApprover || user.isPayrollProcessor || user.requiresDailyLog;
 
   return (
-    <div
-      className={`relative p-4 rounded-xl border min-w-[180px] max-w-[220px] ${
-        isDark
-          ? "bg-slate-800/50 border-slate-700 hover:bg-slate-800"
-          : "bg-white border-gray-200 shadow-sm hover:shadow-md"
-      } transition-all`}
-    >
+    <div className="relative theme-card p-4 min-w-[180px] max-w-[220px] hover:shadow-md transition-all">
       {/* Connector line from above */}
-      <div
-        className={`absolute -top-3 left-1/2 -translate-x-1/2 w-0.5 h-3 ${
-          isDark ? "bg-slate-600" : "bg-gray-300"
-        }`}
-      />
+      <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-0.5 h-3 bg-gray-300 dark:bg-slate-600" />
 
       {/* Avatar */}
       <div className="flex justify-center mb-3">
-        <div
-          className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold ${
-            isDark
-              ? "bg-gradient-to-br from-cyan-400 to-blue-500"
-              : "bg-gradient-to-br from-blue-500 to-blue-600"
-          }`}
-        >
+        <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold bg-gradient-to-br from-blue-500 to-blue-600 dark:from-cyan-400 dark:to-blue-500">
           {initials}
         </div>
       </div>
 
       {/* Name */}
-      <h3
-        className={`text-sm font-semibold text-center truncate ${
-          isDark ? "text-white" : "text-gray-900"
-        }`}
-      >
+      <h3 className="text-sm font-semibold text-center truncate theme-text-primary">
         {user.name}
       </h3>
 
-      {/* Role badge */}
+      {/* Role badge — data-driven tier color kept */}
       <div className="flex justify-center mt-2 gap-1">
         <span
           className={`px-2 py-0.5 text-xs font-medium rounded border ${
@@ -98,16 +77,12 @@ function OrgCard({ user, isDark }: { user: OrgUser; isDark: boolean }) {
         >
           {user.tierBadge}
         </span>
-        <span
-          className={`px-2 py-0.5 text-xs rounded ${
-            isDark ? "bg-slate-700 text-slate-300" : "bg-gray-100 text-gray-600"
-          }`}
-        >
+        <span className="px-2 py-0.5 text-xs rounded bg-gray-100 dark:bg-slate-700 theme-text-secondary">
           {user.roleLabel}
         </span>
       </div>
 
-      {/* Special flags */}
+      {/* Special flags — data-driven semantic colors kept */}
       {hasSpecialFlags && (
         <div className="flex flex-wrap justify-center gap-1 mt-2">
           {user.isFinalTimeApprover && (
@@ -131,43 +106,23 @@ function OrgCard({ user, isDark }: { user: OrgUser; isDark: boolean }) {
       {/* Managed items */}
       {(user.managedDepartments.length > 0 ||
         user.managedLocationNames.length > 0) && (
-        <div
-          className={`mt-3 pt-3 border-t ${
-            isDark ? "border-slate-700" : "border-gray-200"
-          }`}
-        >
+        <div className="mt-3 pt-3 border-t theme-border-secondary">
           {user.managedDepartments.length > 0 && (
             <div className="mb-1">
-              <p
-                className={`text-[10px] uppercase tracking-wide ${
-                  isDark ? "text-slate-500" : "text-gray-400"
-                }`}
-              >
+              <p className="text-[10px] uppercase tracking-wide theme-text-tertiary">
                 Departments
               </p>
-              <p
-                className={`text-xs ${
-                  isDark ? "text-slate-300" : "text-gray-600"
-                }`}
-              >
+              <p className="text-xs theme-text-secondary">
                 {user.managedDepartments.join(", ")}
               </p>
             </div>
           )}
           {user.managedLocationNames.length > 0 && (
             <div>
-              <p
-                className={`text-[10px] uppercase tracking-wide ${
-                  isDark ? "text-slate-500" : "text-gray-400"
-                }`}
-              >
+              <p className="text-[10px] uppercase tracking-wide theme-text-tertiary">
                 Locations
               </p>
-              <p
-                className={`text-xs ${
-                  isDark ? "text-slate-300" : "text-gray-600"
-                }`}
-              >
+              <p className="text-xs theme-text-secondary">
                 {user.managedLocationNames.join(", ")}
               </p>
             </div>
@@ -184,34 +139,31 @@ function TierLevel({
   tierLabel,
   users,
   permissions,
-  isDark,
   isFirst,
 }: {
   tier: number;
   tierLabel: string;
   users: OrgUser[];
   permissions: string[];
-  isDark: boolean;
   isFirst: boolean;
 }) {
   if (users.length === 0) return null;
 
+  // Data-driven gradient — kept
   const gradient = TIER_GRADIENTS[tier] || TIER_GRADIENTS[0];
 
   return (
     <div className="flex flex-col items-center relative w-full">
       {/* Vertical connector from above (except first level) */}
       {!isFirst && (
-        <div
-          className={`w-0.5 h-6 ${isDark ? "bg-slate-600" : "bg-gray-300"}`}
-        />
+        <div className="w-0.5 h-6 bg-gray-300 dark:bg-slate-600" />
       )}
 
-      {/* Tier header with permissions */}
+      {/* Tier header with permissions — data-driven gradient kept */}
       <div
-        className={`rounded-xl px-6 py-4 mb-4 bg-gradient-to-r ${
-          isDark ? gradient.dark + " border border-slate-700" : gradient.light + " border border-gray-200 shadow-sm"
-        }`}
+        className={`rounded-2xl px-6 py-4 mb-4 bg-gradient-to-r border shadow-sm ${
+          gradient.light
+        } border-gray-200 dark:${gradient.dark} dark:border-slate-700`}
       >
         <div className="flex flex-col sm:flex-row items-center gap-3">
           <span
@@ -225,19 +177,13 @@ function TierLevel({
             {permissions.slice(0, 4).map((perm, idx) => (
               <span
                 key={idx}
-                className={`px-2 py-0.5 text-[10px] rounded ${
-                  isDark ? "bg-slate-700/50 text-slate-400" : "bg-white/70 text-gray-500"
-                }`}
+                className="px-2 py-0.5 text-[10px] rounded bg-white/70 dark:bg-slate-700/50 theme-text-tertiary"
               >
                 {perm}
               </span>
             ))}
             {permissions.length > 4 && (
-              <span
-                className={`px-2 py-0.5 text-[10px] rounded ${
-                  isDark ? "bg-slate-700/50 text-slate-400" : "bg-white/70 text-gray-500"
-                }`}
-              >
+              <span className="px-2 py-0.5 text-[10px] rounded bg-white/70 dark:bg-slate-700/50 theme-text-tertiary">
                 +{permissions.length - 4} more
               </span>
             )}
@@ -249,17 +195,13 @@ function TierLevel({
       <div className="relative">
         {/* Horizontal connector line (if multiple cards) — hidden on mobile where cards stack */}
         {users.length > 1 && (
-          <div
-            className={`hidden sm:block absolute top-0 left-[90px] right-[90px] h-0.5 -translate-y-3 ${
-              isDark ? "bg-slate-600" : "bg-gray-300"
-            }`}
-          />
+          <div className="hidden sm:block absolute top-0 left-[90px] right-[90px] h-0.5 -translate-y-3 bg-gray-300 dark:bg-slate-600" />
         )}
 
         {/* Cards */}
         <div className="flex flex-wrap justify-center gap-4">
           {users.map((user) => (
-            <OrgCard key={user._id} user={user} isDark={isDark} />
+            <OrgCard key={user._id} user={user} />
           ))}
         </div>
       </div>
@@ -268,24 +210,15 @@ function TierLevel({
 }
 
 function OrgChartContent() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
-
   const orgData = useQuery(api.orgChart.getOrgChartData);
 
   // Loading state
   if (!orgData) {
     return (
-      <div
-        className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}
-      >
+      <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
         <Sidebar />
         <main className="flex-1 flex items-center justify-center">
-          <div
-            className={`text-center ${
-              isDark ? "text-slate-400" : "text-gray-500"
-            }`}
-          >
+          <div className="theme-text-tertiary text-center">
             Loading org chart...
           </div>
         </main>
@@ -297,44 +230,24 @@ function OrgChartContent() {
   let renderedLevels = 0;
 
   return (
-    <div
-      className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}
-    >
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
 
         {/* Header */}
-        <header
-          className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${
-            isDark
-              ? "bg-slate-900/80 border-slate-700"
-              : "bg-white/80 border-gray-200"
-          }`}
-        >
+        <header className="sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
           <div className="flex items-center justify-between">
             <div>
-              <h1
-                className={`text-xl sm:text-2xl font-bold ${
-                  isDark ? "text-white" : "text-gray-900"
-                }`}
-              >
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">
                 Organization Chart
               </h1>
-              <p
-                className={`text-xs sm:text-sm mt-1 ${
-                  isDark ? "text-slate-400" : "text-gray-500"
-                }`}
-              >
+              <p className="text-xs sm:text-sm mt-1 theme-text-tertiary">
                 RBAC Tier-based hierarchy (T5 - T1)
               </p>
             </div>
-            <div
-              className={`text-sm ${
-                isDark ? "text-slate-400" : "text-gray-500"
-              }`}
-            >
+            <div className="text-sm theme-text-tertiary">
               {orgData.totalUsers} active users
             </div>
           </div>
@@ -357,7 +270,6 @@ function OrgChartContent() {
                   tierLabel={orgData.tierLabels[tier] || `T${tier}`}
                   users={users}
                   permissions={orgData.tierPermissions?.[tier] || []}
-                  isDark={isDark}
                   isFirst={isFirst}
                 />
               );
@@ -367,15 +279,15 @@ function OrgChartContent() {
           {/* Empty state */}
           {orgData.totalUsers === 0 && (
             <div className="text-center py-12">
-              <p className={isDark ? "text-slate-500" : "text-gray-500"}>
+              <p className="theme-text-tertiary">
                 No users found in the organization.
               </p>
             </div>
           )}
 
           {/* Legend */}
-          <div className={`mt-12 pt-8 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-            <h3 className={`text-sm font-semibold mb-4 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+          <div className="mt-12 pt-8 border-t theme-border-secondary">
+            <h3 className="text-sm font-semibold mb-4 theme-text-secondary">
               RBAC Tier Legend
             </h3>
             <div className="flex flex-wrap gap-4">
@@ -384,7 +296,7 @@ function OrgChartContent() {
                   <span className={`px-2 py-1 text-xs font-medium rounded border ${TIER_BADGE_COLORS[tier]}`}>
                     T{tier}
                   </span>
-                  <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <span className="text-xs theme-text-tertiary">
                     {tier === 5 && "Super Admin"}
                     {tier === 4 && "Admin"}
                     {tier === 3 && "Director"}
@@ -399,7 +311,7 @@ function OrgChartContent() {
                 <span className="px-1.5 py-0.5 text-[10px] rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                   Final Approver
                 </span>
-                <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <span className="text-xs theme-text-tertiary">
                   Can give final time approval
                 </span>
               </div>
@@ -407,7 +319,7 @@ function OrgChartContent() {
                 <span className="px-1.5 py-0.5 text-[10px] rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
                   Payroll
                 </span>
-                <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <span className="text-xs theme-text-tertiary">
                   Can process payroll exports
                 </span>
               </div>
@@ -415,7 +327,7 @@ function OrgChartContent() {
                 <span className="px-1.5 py-0.5 text-[10px] rounded bg-orange-500/20 text-orange-400 border border-orange-500/30">
                   Daily Log
                 </span>
-                <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <span className="text-xs theme-text-tertiary">
                   Required to submit daily logs
                 </span>
               </div>
