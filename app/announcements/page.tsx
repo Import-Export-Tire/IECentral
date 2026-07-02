@@ -6,8 +6,9 @@ import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useTheme } from "../theme-context";
 import { useAuth } from "../auth-context";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 
 const PRIORITY_OPTIONS = [
   { value: "normal", label: "Normal", color: "slate" },
@@ -20,14 +21,7 @@ const TARGET_OPTIONS = [
   { value: "location", label: "Specific Locations" },
 ];
 
-const priorityColors: Record<string, string> = {
-  normal: "bg-slate-500/20 text-slate-400 border-slate-500/30",
-  urgent: "bg-red-500/20 text-red-400 border-red-500/30",
-};
-
 function AnnouncementsContent() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const { user, canManageAnnouncements } = useAuth();
 
   const announcements = useQuery(api.announcements.getAll, { includeInactive: true }) || [];
@@ -59,14 +53,14 @@ function AnnouncementsContent() {
   // Redirect if user doesn't have permission
   if (!canManageAnnouncements) {
     return (
-      <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+      <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
         <Sidebar />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+            <h1 className="text-2xl font-bold theme-text-primary">
               Access Denied
             </h1>
-            <p className={`mt-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+            <p className="mt-2 theme-text-secondary">
               You don&apos;t have permission to view this page.
             </p>
           </div>
@@ -209,55 +203,51 @@ function AnnouncementsContent() {
   };
 
   return (
-    <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
 
         {/* Header */}
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+        <header className="sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">
                 Announcements
               </h1>
-              <p className={`text-xs sm:text-sm mt-1 hidden sm:block ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className="text-xs sm:text-sm mt-1 hidden sm:block theme-text-tertiary">
                 Create and manage employee announcements
               </p>
             </div>
-            <button
+            <Button
+              variant="primary"
               onClick={() => {
                 resetForm();
                 setShowForm(true);
               }}
-              className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex-shrink-0 ${
-                isDark
-                  ? "bg-cyan-500 hover:bg-cyan-400 text-white"
-                  : "bg-blue-600 hover:bg-blue-700 text-white"
-              }`}
             >
               <span className="hidden sm:inline">New Announcement</span>
               <span className="sm:hidden">New</span>
-            </button>
+            </Button>
           </div>
         </header>
 
         <div className="p-4 sm:p-8 space-y-4 sm:space-y-6">
           {/* Stats */}
           <div className="grid grid-cols-2 gap-2 sm:gap-4">
-            <div className={`rounded-lg p-2 sm:p-4 text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <p className={`text-lg sm:text-2xl font-bold text-green-400`}>{activeCount}</p>
-              <p className={`text-[10px] sm:text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>Active</p>
-            </div>
-            <div className={`rounded-lg p-2 sm:p-4 text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <p className={`text-lg sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{announcements.length}</p>
-              <p className={`text-[10px] sm:text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>Total</p>
-            </div>
+            <Card padding="sm" className="text-center">
+              <p className="text-lg sm:text-2xl font-bold text-green-500">{activeCount}</p>
+              <p className="text-[10px] sm:text-xs theme-text-tertiary mt-0.5">Active</p>
+            </Card>
+            <Card padding="sm" className="text-center">
+              <p className="text-lg sm:text-2xl font-bold theme-text-primary">{announcements.length}</p>
+              <p className="text-[10px] sm:text-xs theme-text-tertiary mt-0.5">Total</p>
+            </Card>
           </div>
 
           {/* Filters */}
-          <div className={`rounded-lg p-3 sm:p-4 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+          <Card padding="sm">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1">
                 <input
@@ -265,14 +255,10 @@ function AnnouncementsContent() {
                   placeholder="Search announcements..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-                  }`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 />
               </div>
-              <label className={`flex items-center gap-2 cursor-pointer ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+              <label className="flex items-center gap-2 cursor-pointer theme-text-secondary">
                 <input
                   type="checkbox"
                   checked={showInactive}
@@ -282,14 +268,14 @@ function AnnouncementsContent() {
                 <span className="text-sm">Show inactive</span>
               </label>
             </div>
-          </div>
+          </Card>
 
           {/* Announcements List */}
-          <div className={`rounded-lg overflow-hidden ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+          <Card padding="sm" className="overflow-hidden p-0">
             {filteredAnnouncements.length === 0 ? (
               <div className="p-8 text-center">
                 <svg
-                  className={`w-12 h-12 mx-auto mb-3 ${isDark ? "text-slate-600" : "text-gray-300"}`}
+                  className="w-12 h-12 mx-auto mb-3 theme-text-tertiary opacity-40"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -301,16 +287,16 @@ function AnnouncementsContent() {
                     d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
                   />
                 </svg>
-                <p className={isDark ? "text-slate-400" : "text-gray-500"}>
+                <p className="theme-text-tertiary">
                   No announcements found
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-700">
+              <div className="divide-y theme-border-secondary">
                 {filteredAnnouncements.map((announcement) => (
                   <div
                     key={announcement._id}
-                    className={`p-4 ${isDark ? "hover:bg-slate-700/50" : "hover:bg-gray-50"} transition-colors ${
+                    className={`p-4 transition-colors hover:bg-gray-50 dark:hover:bg-slate-700/30 ${
                       !announcement.isActive ? "opacity-60" : ""
                     }`}
                   >
@@ -322,27 +308,24 @@ function AnnouncementsContent() {
                               <path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.381z" />
                             </svg>
                           )}
-                          <h3 className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                          <h3 className="font-medium theme-text-primary">
                             {announcement.title}
                           </h3>
-                          <span className={`text-xs px-2 py-0.5 rounded-full border ${priorityColors[announcement.priority]}`}>
+                          {/* Priority badge — data-driven color kept */}
+                          <span className={`ui-badge ${announcement.priority === "urgent" ? "ui-badge-red" : "ui-badge-gray"}`}>
                             {PRIORITY_OPTIONS.find((p) => p.value === announcement.priority)?.label}
                           </span>
                           {!announcement.isActive && (
-                            <span className="text-xs px-2 py-0.5 rounded-full border bg-gray-500/20 text-gray-400 border-gray-500/30">
-                              Inactive
-                            </span>
+                            <span className="ui-badge ui-badge-gray">Inactive</span>
                           )}
                           {isExpired(announcement) && (
-                            <span className="text-xs px-2 py-0.5 rounded-full border bg-orange-500/20 text-orange-400 border-orange-500/30">
-                              Expired
-                            </span>
+                            <span className="ui-badge ui-badge-amber">Expired</span>
                           )}
                         </div>
-                        <p className={`mt-2 text-sm ${isDark ? "text-slate-300" : "text-gray-700"} line-clamp-2`}>
+                        <p className="mt-2 text-sm theme-text-secondary line-clamp-2">
                           {announcement.content}
                         </p>
-                        <div className={`mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs theme-text-tertiary">
                           <span>
                             Target: {announcement.targetType === "all" ? "All Employees" :
                               announcement.targetType === "department" ? `${announcement.targetDepartments?.length || 0} departments` :
@@ -362,116 +345,91 @@ function AnnouncementsContent() {
                       </div>
 
                       <div className="flex gap-2 flex-shrink-0">
-                        <button
+                        <Button
+                          variant={announcement.isActive ? "secondary" : "ghost"}
+                          size="sm"
                           onClick={() => handleToggleActive(announcement)}
                           disabled={isProcessing}
-                          className={`px-2 py-1.5 rounded-lg text-xs font-medium ${
-                            announcement.isActive
-                              ? isDark
-                                ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
-                                : "bg-amber-100 text-amber-600 hover:bg-amber-200"
-                              : isDark
-                                ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
-                                : "bg-green-100 text-green-600 hover:bg-green-200"
-                          }`}
                         >
                           {announcement.isActive ? "Deactivate" : "Activate"}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleEdit(announcement)}
-                          className={`px-2 py-1.5 rounded-lg text-xs font-medium ${
-                            isDark
-                              ? "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30"
-                              : "bg-blue-100 text-blue-600 hover:bg-blue-200"
-                          }`}
                         >
                           Edit
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
                           onClick={() => handleDelete(announcement._id)}
                           disabled={isProcessing}
-                          className={`px-2 py-1.5 rounded-lg text-xs font-medium ${
-                            isDark
-                              ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                              : "bg-red-100 text-red-600 hover:bg-red-200"
-                          }`}
                         >
                           Delete
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </Card>
         </div>
       </main>
 
       {/* Create/Edit Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
-          <div className={`w-full max-w-lg rounded-xl p-6 my-8 ${isDark ? "bg-slate-800" : "bg-white"}`}>
-            <h2 className={`text-lg font-bold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
+          <div className="w-full max-w-lg theme-card p-6 my-8">
+            <h2 className="text-lg font-bold mb-4 theme-text-primary">
               {editingId ? "Edit Announcement" : "New Announcement"}
             </h2>
 
             <div className="space-y-4 mb-6">
               <div>
-                <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                <label className="block text-sm font-medium mb-2 theme-text-secondary">
                   Title
                 </label>
                 <input
                   type="text"
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-                  }`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                   placeholder="Announcement title..."
                 />
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                <label className="block text-sm font-medium mb-2 theme-text-secondary">
                   Content
                 </label>
                 <textarea
                   value={form.content}
                   onChange={(e) => setForm({ ...form, content: e.target.value })}
                   rows={4}
-                  className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-                  }`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                   placeholder="Announcement content..."
                 />
                 <div className="flex justify-between mt-1">
-                  <span className={`text-xs ${form.content.length > 5000 ? "text-red-400" : isDark ? "text-slate-500" : "text-gray-400"}`}>
+                  <span className={`text-xs ${form.content.length > 5000 ? "text-red-500" : "theme-text-tertiary"}`}>
                     {form.content.length} / 5,000
                   </span>
                 </div>
                 {formError && (
-                  <p className="text-xs text-red-400 mt-1">{formError}</p>
+                  <p className="text-xs text-red-500 mt-1">{formError}</p>
                 )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">
                     Priority
                   </label>
                   <select
                     value={form.priority}
                     onChange={(e) => setForm({ ...form, priority: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                      isDark
-                        ? "bg-slate-700 border-slate-600 text-white"
-                        : "bg-white border-gray-300 text-gray-900"
-                    }`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   >
                     {PRIORITY_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -482,17 +440,13 @@ function AnnouncementsContent() {
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">
                     Target Audience
                   </label>
                   <select
                     value={form.targetType}
                     onChange={(e) => setForm({ ...form, targetType: e.target.value, targetDepartments: [], targetLocationIds: [] })}
-                    className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                      isDark
-                        ? "bg-slate-700 border-slate-600 text-white"
-                        : "bg-white border-gray-300 text-gray-900"
-                    }`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   >
                     {TARGET_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -505,21 +459,17 @@ function AnnouncementsContent() {
 
               {form.targetType === "department" && (
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">
                     Select Departments
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {departments.map((dept) => (
                       <label
                         key={dept}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer text-sm ${
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer text-sm border transition-colors ${
                           form.targetDepartments.includes(dept)
-                            ? isDark
-                              ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                              : "bg-blue-100 text-blue-600 border border-blue-200"
-                            : isDark
-                              ? "bg-slate-700 text-slate-300 border border-slate-600"
-                              : "bg-gray-100 text-gray-700 border border-gray-200"
+                            ? "bg-[#007AFF]/10 text-[#007AFF] border-[#007AFF]/30"
+                            : "theme-card border-transparent theme-text-secondary hover:bg-gray-100 dark:hover:bg-slate-700"
                         }`}
                       >
                         <input
@@ -543,21 +493,17 @@ function AnnouncementsContent() {
 
               {form.targetType === "location" && (
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-sm font-medium mb-2 theme-text-secondary">
                     Select Locations
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {locations.map((loc) => (
                       <label
                         key={loc._id}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer text-sm ${
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer text-sm border transition-colors ${
                           form.targetLocationIds.includes(loc._id)
-                            ? isDark
-                              ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                              : "bg-blue-100 text-blue-600 border border-blue-200"
-                            : isDark
-                              ? "bg-slate-700 text-slate-300 border border-slate-600"
-                              : "bg-gray-100 text-gray-700 border border-gray-200"
+                            ? "bg-[#007AFF]/10 text-[#007AFF] border-[#007AFF]/30"
+                            : "theme-card border-transparent theme-text-secondary hover:bg-gray-100 dark:hover:bg-slate-700"
                         }`}
                       >
                         <input
@@ -580,23 +526,19 @@ function AnnouncementsContent() {
               )}
 
               <div>
-                <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                <label className="block text-sm font-medium mb-2 theme-text-secondary">
                   Expires At (optional)
                 </label>
                 <input
                   type="datetime-local"
                   value={form.expiresAt}
                   onChange={(e) => setForm({ ...form, expiresAt: e.target.value })}
-                  className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white"
-                      : "bg-white border-gray-300 text-gray-900"
-                  }`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 />
               </div>
 
               <div className="flex flex-col gap-3">
-                <label className={`flex items-center gap-2 cursor-pointer ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                <label className="flex items-center gap-2 cursor-pointer theme-text-secondary">
                   <input
                     type="checkbox"
                     checked={form.isPinned}
@@ -607,7 +549,7 @@ function AnnouncementsContent() {
                 </label>
 
                 {!editingId && (
-                  <label className={`flex items-center gap-2 cursor-pointer ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="flex items-center gap-2 cursor-pointer theme-text-secondary">
                     <input
                       type="checkbox"
                       checked={form.sendPush}
@@ -621,30 +563,24 @@ function AnnouncementsContent() {
             </div>
 
             <div className="flex gap-3">
-              <button
+              <Button
+                variant="secondary"
+                className="flex-1"
                 onClick={() => {
                   setShowForm(false);
                   resetForm();
                 }}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isDark
-                    ? "bg-slate-700 hover:bg-slate-600 text-slate-300"
-                    : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                }`}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1"
                 onClick={handleSubmit}
                 disabled={isProcessing || !form.title || !form.content}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isDark
-                    ? "bg-cyan-500 hover:bg-cyan-400 text-white"
-                    : "bg-blue-600 hover:bg-blue-700 text-white"
-                } disabled:opacity-50`}
               >
                 {editingId ? "Save Changes" : "Create Announcement"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

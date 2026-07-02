@@ -3,13 +3,14 @@
 import React, { useState } from "react";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
-import { useTheme } from "../theme-context";
 import { useAuth } from "../auth-context";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
 import { Id } from "@/convex/_generated/dataModel";
 import { useWebPush } from "@/lib/useWebPush";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
 
 const typeIcons: Record<string, React.ReactNode> = {
   tenure_check_in: (
@@ -34,11 +35,12 @@ const typeIcons: Record<string, React.ReactNode> = {
   ),
 };
 
+// Data-driven: type colors are semantic, not theme-only — keep as-is
 const typeColors: Record<string, { bg: string; text: string }> = {
   tenure_check_in: { bg: "bg-amber-500/20", text: "text-amber-400" },
   write_up_follow_up: { bg: "bg-red-500/20", text: "text-red-400" },
   review_due: { bg: "bg-green-500/20", text: "text-green-400" },
-  default: { bg: "bg-cyan-500/20", text: "text-cyan-400" },
+  default: { bg: "bg-[#007AFF]/10", text: "text-[#007AFF]" },
 };
 
 function formatTimeAgo(timestamp: number): string {
@@ -56,9 +58,7 @@ function formatTimeAgo(timestamp: number): string {
 }
 
 function NotificationsContent() {
-  const { theme } = useTheme();
   const { user } = useAuth();
-  const isDark = theme === "dark";
 
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, subscribeToPush, unsubscribeFromPush, isLoading: pushLoading } = useWebPush(user?._id);
@@ -93,35 +93,32 @@ function NotificationsContent() {
   const unreadCount = notifications?.filter((n) => !n.isRead).length || 0;
 
   return (
-    <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
 
         {/* Header */}
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+        <header className="sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">
                 Notifications
               </h1>
-              <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className="text-xs sm:text-sm mt-1 theme-text-tertiary">
                 {unreadCount > 0 ? `${unreadCount} unread` : "All caught up!"}
               </p>
             </div>
             <div className="flex items-center gap-2">
               {unreadCount > 0 && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={handleMarkAllAsRead}
-                  className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
-                    isDark
-                      ? "text-cyan-400 hover:bg-cyan-500/20"
-                      : "text-blue-600 hover:bg-blue-50"
-                  }`}
                 >
                   Mark all as read
-                </button>
+                </Button>
               )}
               {pushSupported && (
                 <button
@@ -129,8 +126,8 @@ function NotificationsContent() {
                   disabled={pushLoading}
                   className={`p-2 rounded-lg transition-colors ${
                     pushSubscribed
-                      ? isDark ? "text-cyan-400 bg-cyan-500/20" : "text-blue-600 bg-blue-50"
-                      : isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                      ? "text-[#007AFF] bg-[#007AFF]/10"
+                      : "theme-text-tertiary hover:theme-text-primary hover:bg-gray-100 dark:hover:bg-slate-700"
                   }`}
                   title={pushSubscribed ? "Push notifications enabled" : "Enable push notifications"}
                 >
@@ -145,38 +142,28 @@ function NotificationsContent() {
 
         <div className="p-4 sm:p-8">
           {/* Filter Tabs */}
-          <div className={`flex gap-2 mb-6 p-1 rounded-lg w-fit ${isDark ? "bg-slate-800" : "bg-gray-100"}`}>
+          <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit bg-gray-100 dark:bg-slate-800">
             <button
               onClick={() => setFilter("all")}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                 filter === "all"
-                  ? isDark
-                    ? "bg-slate-700 text-white"
-                    : "bg-white text-gray-900 shadow-sm"
-                  : isDark
-                    ? "text-slate-400 hover:text-white"
-                    : "text-gray-600 hover:text-gray-900"
+                  ? "bg-white dark:bg-slate-700 theme-text-primary shadow-sm"
+                  : "theme-text-tertiary hover:theme-text-secondary"
               }`}
             >
               All
             </button>
             <button
               onClick={() => setFilter("unread")}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
                 filter === "unread"
-                  ? isDark
-                    ? "bg-slate-700 text-white"
-                    : "bg-white text-gray-900 shadow-sm"
-                  : isDark
-                    ? "text-slate-400 hover:text-white"
-                    : "text-gray-600 hover:text-gray-900"
+                  ? "bg-white dark:bg-slate-700 theme-text-primary shadow-sm"
+                  : "theme-text-tertiary hover:theme-text-secondary"
               }`}
             >
               Unread
               {unreadCount > 0 && (
-                <span className={`px-1.5 py-0.5 text-xs rounded-full ${
-                  isDark ? "bg-cyan-500/20 text-cyan-400" : "bg-blue-100 text-blue-600"
-                }`}>
+                <span className="ui-badge ui-badge-blue px-1.5 py-0.5">
                   {unreadCount}
                 </span>
               )}
@@ -184,13 +171,13 @@ function NotificationsContent() {
           </div>
 
           {/* Notifications List */}
-          <div className={`border rounded-xl overflow-hidden ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
+          <Card padding="sm" className="overflow-hidden p-0">
             {!notifications ? (
               <div className="flex justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#007AFF]"></div>
               </div>
             ) : filteredNotifications && filteredNotifications.length > 0 ? (
-              <div className={`divide-y ${isDark ? "divide-slate-700/50" : "divide-gray-200"}`}>
+              <div className="divide-y theme-border-secondary">
                 {filteredNotifications.map((notification) => {
                   const colors = typeColors[notification.type] || typeColors.default;
                   const icon = typeIcons[notification.type] || typeIcons.default;
@@ -200,25 +187,26 @@ function NotificationsContent() {
                       key={notification._id}
                       className={`p-4 sm:p-5 transition-colors ${
                         !notification.isRead
-                          ? isDark ? "bg-cyan-500/5" : "bg-blue-50/50"
+                          ? "bg-[#007AFF]/5"
                           : ""
                       }`}
                     >
                       <div className="flex items-start gap-4">
-                        <div className={`flex-shrink-0 p-2.5 rounded-lg ${colors.bg} ${colors.text}`}>
+                        {/* Type icon — data-driven color kept */}
+                        <div className={`flex-shrink-0 p-2.5 rounded-xl ${colors.bg} ${colors.text}`}>
                           {icon}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <div>
-                              <h3 className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                              <h3 className="font-medium theme-text-primary">
                                 {notification.title}
                               </h3>
-                              <p className={`text-sm mt-0.5 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                              <p className="text-sm mt-0.5 theme-text-secondary">
                                 {notification.message}
                               </p>
                             </div>
-                            <span className={`flex-shrink-0 text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                            <span className="flex-shrink-0 text-xs theme-text-tertiary">
                               {formatTimeAgo(notification.createdAt)}
                             </span>
                           </div>
@@ -227,9 +215,7 @@ function NotificationsContent() {
                               <Link
                                 href={notification.link}
                                 onClick={() => !notification.isRead && handleMarkAsRead(notification._id)}
-                                className={`text-sm font-medium ${
-                                  isDark ? "text-cyan-400 hover:text-cyan-300" : "text-blue-600 hover:text-blue-700"
-                                }`}
+                                className="text-sm font-medium text-[#007AFF] hover:opacity-80"
                               >
                                 View Details
                               </Link>
@@ -237,21 +223,22 @@ function NotificationsContent() {
                             {!notification.isRead && (
                               <button
                                 onClick={() => handleMarkAsRead(notification._id)}
-                                className={`text-sm ${isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-700"}`}
+                                className="text-sm theme-text-tertiary hover:theme-text-secondary"
                               >
                                 Mark as read
                               </button>
                             )}
                             <button
                               onClick={() => handleDismiss(notification._id)}
-                              className={`text-sm ${isDark ? "text-slate-500 hover:text-red-400" : "text-gray-400 hover:text-red-500"}`}
+                              className="text-sm theme-text-tertiary hover:text-red-500"
                             >
                               Dismiss
                             </button>
                           </div>
                         </div>
+                        {/* Unread indicator dot */}
                         {!notification.isRead && (
-                          <div className="flex-shrink-0 w-2 h-2 rounded-full bg-cyan-400"></div>
+                          <div className="flex-shrink-0 w-2 h-2 rounded-full bg-[#007AFF] mt-1"></div>
                         )}
                       </div>
                     </div>
@@ -259,9 +246,9 @@ function NotificationsContent() {
                 })}
               </div>
             ) : (
-              <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+              <div className="text-center py-12 theme-text-tertiary">
                 <svg
-                  className={`w-16 h-16 mx-auto mb-4 ${isDark ? "text-slate-600" : "text-gray-300"}`}
+                  className="w-16 h-16 mx-auto mb-4 opacity-30"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -273,7 +260,7 @@ function NotificationsContent() {
                     d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
                   />
                 </svg>
-                <p className="text-lg font-medium mb-1">
+                <p className="text-lg font-medium mb-1 theme-text-secondary">
                   {filter === "unread" ? "No unread notifications" : "No notifications"}
                 </p>
                 <p className="text-sm">
@@ -283,7 +270,7 @@ function NotificationsContent() {
                 </p>
               </div>
             )}
-          </div>
+          </Card>
         </div>
       </main>
     </div>
