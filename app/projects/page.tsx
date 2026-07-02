@@ -8,6 +8,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { useAuth } from "../auth-context";
+import Button from "@/components/ui/Button";
 
 type Project = Doc<"projects">;
 type Task = Doc<"tasks">;
@@ -26,17 +27,17 @@ interface ProjectNote {
 }
 
 const PRIORITY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  urgent: { bg: "bg-red-500/20", text: "text-red-400", border: "border-red-500/30" },
-  high: { bg: "bg-orange-500/20", text: "text-orange-400", border: "border-orange-500/30" },
-  medium: { bg: "bg-yellow-500/20", text: "text-yellow-400", border: "border-yellow-500/30" },
-  low: { bg: "bg-green-500/20", text: "text-green-400", border: "border-green-500/30" },
+  urgent: { bg: "bg-red-500/20", text: "text-red-500", border: "border-red-500/30" },
+  high: { bg: "bg-orange-500/20", text: "text-orange-500", border: "border-orange-500/30" },
+  medium: { bg: "bg-yellow-500/20", text: "text-yellow-600 dark:text-yellow-400", border: "border-yellow-500/30" },
+  low: { bg: "bg-green-500/20", text: "text-green-600 dark:text-green-400", border: "border-green-500/30" },
 };
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  backlog: { bg: "bg-slate-500/20", text: "text-slate-400" },
-  in_progress: { bg: "bg-cyan-500/20", text: "text-cyan-400" },
-  review: { bg: "bg-amber-500/20", text: "text-amber-400" },
-  done: { bg: "bg-green-500/20", text: "text-green-400" },
+  backlog: { bg: "bg-slate-500/20", text: "text-slate-500 dark:text-slate-400" },
+  in_progress: { bg: "bg-blue-500/20", text: "text-blue-600 dark:text-blue-400" },
+  review: { bg: "bg-amber-500/20", text: "text-amber-600 dark:text-amber-400" },
+  done: { bg: "bg-green-500/20", text: "text-green-600 dark:text-green-400" },
 };
 
 function ProjectsContent() {
@@ -351,7 +352,7 @@ function ProjectsContent() {
       const regex = new RegExp(`@${mentionedUser.name}`, "gi");
       formattedContent = formattedContent.replace(
         regex,
-        `<span class="text-cyan-400 font-medium">@${mentionedUser.name}</span>`
+        `<span class="theme-accent-primary font-medium">@${mentionedUser.name}</span>`
       );
     });
 
@@ -419,7 +420,7 @@ function ProjectsContent() {
   };
 
   return (
-    <div className="flex h-screen theme-bg-primary">
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 flex flex-col overflow-hidden">
@@ -427,7 +428,7 @@ function ProjectsContent() {
         <MobileHeader />
 
         {/* Header */}
-        <header className="flex-shrink-0 theme-header backdrop-blur-sm border-b border-slate-700 px-4 sm:px-8 py-3 sm:py-4">
+        <header className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b theme-border-secondary px-4 sm:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Projects</h1>
@@ -435,9 +436,10 @@ function ProjectsContent() {
                 Drag and drop to update status
               </p>
             </div>
-            <button
+            <Button
+              variant="primary"
               onClick={() => setIsCreating(true)}
-              className="px-3 sm:px-4 py-2 bg-cyan-500 text-white font-medium rounded-lg hover:bg-cyan-600 transition-colors flex items-center gap-2 flex-shrink-0"
+              className="flex items-center gap-2 flex-shrink-0"
             >
               <svg
                 className="w-5 h-5"
@@ -454,56 +456,56 @@ function ProjectsContent() {
               </svg>
               <span className="hidden sm:inline">New Project</span>
               <span className="sm:hidden">New</span>
-            </button>
+            </Button>
           </div>
 
           {/* Stats Row */}
           {stats && (
             <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
-                <p className="text-slate-400 text-xs font-medium">Active</p>
-                <p className="text-white text-xl font-bold">{stats.activeProjects}</p>
+              <div className="theme-card p-3">
+                <p className="theme-text-secondary text-xs font-medium">Active</p>
+                <p className="theme-text-primary text-xl font-bold">{stats.activeProjects}</p>
               </div>
-              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-                <p className="text-green-400 text-xs font-medium">Done This Week</p>
-                <p className="text-green-400 text-xl font-bold">{stats.completedThisWeek}</p>
+              <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3">
+                <p className="text-green-600 dark:text-green-400 text-xs font-medium">Done This Week</p>
+                <p className="text-green-600 dark:text-green-400 text-xl font-bold">{stats.completedThisWeek}</p>
               </div>
-              <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3">
-                <p className="text-cyan-400 text-xs font-medium">Done This Month</p>
-                <p className="text-cyan-400 text-xl font-bold">{stats.completedThisMonth}</p>
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
+                <p className="text-blue-600 dark:text-blue-400 text-xs font-medium">Done This Month</p>
+                <p className="text-blue-600 dark:text-blue-400 text-xl font-bold">{stats.completedThisMonth}</p>
               </div>
-              <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
-                <p className="text-purple-400 text-xs font-medium">Created This Week</p>
-                <p className="text-purple-400 text-xl font-bold">{stats.createdThisWeek}</p>
+              <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3">
+                <p className="text-purple-600 dark:text-purple-400 text-xs font-medium">Created This Week</p>
+                <p className="text-purple-600 dark:text-purple-400 text-xl font-bold">{stats.createdThisWeek}</p>
               </div>
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-                <p className="text-amber-400 text-xs font-medium">In Progress</p>
-                <p className="text-amber-400 text-xl font-bold">{stats.byStatus.in_progress}</p>
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
+                <p className="text-amber-600 dark:text-amber-400 text-xs font-medium">In Progress</p>
+                <p className="text-amber-600 dark:text-amber-400 text-xl font-bold">{stats.byStatus.in_progress}</p>
               </div>
-              <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-3">
-                <p className="text-slate-400 text-xs font-medium">Archived</p>
-                <p className="text-slate-300 text-xl font-bold">{stats.archivedTotal}</p>
+              <div className="theme-card p-3">
+                <p className="theme-text-secondary text-xs font-medium">Archived</p>
+                <p className="theme-text-primary text-xl font-bold">{stats.archivedTotal}</p>
               </div>
             </div>
           )}
 
           {/* Assigned to Me Section */}
           {assignedToMe.length > 0 && (
-            <div className="mt-4 bg-amber-500/10 border border-amber-500/30 rounded-lg overflow-hidden">
+            <div className="mt-4 bg-amber-500/10 border border-amber-500/30 rounded-xl overflow-hidden">
               <button
                 onClick={() => setShowAssignedTasks(!showAssignedTasks)}
                 className="w-full flex items-center justify-between px-4 py-3 hover:bg-amber-500/5 transition-colors"
               >
                 <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
-                  <span className="text-amber-400 font-medium">
+                  <span className="text-amber-600 dark:text-amber-400 font-medium">
                     Tasks Assigned to You ({assignedToMe.filter(t => t.status !== "done").length} pending)
                   </span>
                 </div>
                 <svg
-                  className={`w-5 h-5 text-amber-400 transform transition-transform ${showAssignedTasks ? "rotate-180" : ""}`}
+                  className={`w-5 h-5 text-amber-600 dark:text-amber-400 transform transition-transform ${showAssignedTasks ? "rotate-180" : ""}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -518,10 +520,10 @@ function ProjectsContent() {
                     .map((task) => (
                     <div
                       key={task._id}
-                      className={`flex items-center gap-3 p-3 rounded-lg bg-slate-800/50 border ${
+                      className={`flex items-center gap-3 p-3 rounded-xl theme-card border-l-4 ${
                         task.status === "in_progress"
-                          ? "border-cyan-500/30"
-                          : "border-slate-700"
+                          ? "border-l-[#007AFF]"
+                          : "border-l-transparent"
                       }`}
                     >
                       <button
@@ -531,21 +533,21 @@ function ProjectsContent() {
                         }}
                         className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
                           task.status === "in_progress"
-                            ? "border-cyan-400 bg-cyan-400/20"
-                            : "border-slate-500 hover:border-amber-400"
+                            ? "border-[#007AFF] bg-[#007AFF]/20"
+                            : "theme-border-secondary hover:border-amber-500"
                         }`}
                         title={`Mark as ${task.status === "todo" ? "in progress" : "done"}`}
                       >
                         {task.status === "in_progress" && (
-                          <div className="w-2 h-2 bg-cyan-400 rounded-full" />
+                          <div className="w-2 h-2 bg-[#007AFF] rounded-full" />
                         )}
                       </button>
                       <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm truncate">{task.title}</p>
-                        <p className="text-slate-500 text-xs">
-                          from <span className="text-slate-400">{task.projectName}</span>
+                        <p className="theme-text-primary text-sm truncate">{task.title}</p>
+                        <p className="theme-text-tertiary text-xs">
+                          from <span className="theme-text-secondary">{task.projectName}</span>
                           {task.dueDate && (
-                            <span className="ml-2 text-amber-400">Due: {task.dueDate}</span>
+                            <span className="ml-2 text-amber-600 dark:text-amber-400">Due: {task.dueDate}</span>
                           )}
                         </p>
                       </div>
@@ -553,17 +555,19 @@ function ProjectsContent() {
                         value={task.status}
                         onChange={(e) => updateTaskStatus({ taskId: task._id, status: e.target.value, userId: user?._id })}
                         className={`text-xs px-2 py-0.5 rounded cursor-pointer border-0 focus:outline-none ${
-                          task.status === "in_progress" ? "bg-cyan-500/20 text-cyan-400" : "bg-slate-700 text-slate-400"
+                          task.status === "in_progress"
+                            ? "bg-blue-500/20 text-blue-600 dark:text-blue-400"
+                            : "bg-[#f2f2f7] dark:bg-slate-800 theme-text-secondary"
                         }`}
                       >
-                        <option value="todo" className="bg-slate-800 text-slate-300">todo</option>
-                        <option value="in_progress" className="bg-slate-800 text-cyan-400">in progress</option>
-                        <option value="done" className="bg-slate-800 text-green-400">done</option>
+                        <option value="todo">todo</option>
+                        <option value="in_progress">in progress</option>
+                        <option value="done">done</option>
                       </select>
                     </div>
                   ))}
                   {assignedToMe.filter(t => t.status !== "done").length === 0 && (
-                    <p className="text-center py-2 text-slate-500 text-sm">All assigned tasks completed!</p>
+                    <p className="text-center py-2 theme-text-tertiary text-sm">All assigned tasks completed!</p>
                   )}
                 </div>
               )}
@@ -585,13 +589,13 @@ function ProjectsContent() {
       {/* Create Project Modal */}
       {isCreating && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-semibold text-white mb-4">
+          <div className="theme-card rounded-2xl p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-semibold theme-text-primary mb-4">
               Create New Project
             </h2>
             <form onSubmit={handleCreateProject} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium theme-text-secondary mb-2">
                   Project Name
                 </label>
                 <input
@@ -600,14 +604,14 @@ function ProjectsContent() {
                   onChange={(e) =>
                     setNewProject({ ...newProject, name: e.target.value })
                   }
-                  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                  className="w-full theme-input"
                   placeholder="Enter project name"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium theme-text-secondary mb-2">
                   Description
                 </label>
                 <textarea
@@ -615,7 +619,7 @@ function ProjectsContent() {
                   onChange={(e) =>
                     setNewProject({ ...newProject, description: e.target.value })
                   }
-                  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 resize-none"
+                  className="w-full theme-input resize-none"
                   placeholder="Describe your project..."
                   rows={3}
                   required
@@ -624,7 +628,7 @@ function ProjectsContent() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium theme-text-secondary mb-2">
                     Priority
                   </label>
                   <select
@@ -632,7 +636,7 @@ function ProjectsContent() {
                     onChange={(e) =>
                       setNewProject({ ...newProject, priority: e.target.value })
                     }
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                    className="w-full theme-input"
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -642,7 +646,7 @@ function ProjectsContent() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium theme-text-secondary mb-2">
                     Est. Hours
                   </label>
                   <input
@@ -654,14 +658,14 @@ function ProjectsContent() {
                         estimatedHours: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                    className="w-full theme-input"
                     placeholder="0"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium theme-text-secondary mb-2">
                   Due Date
                 </label>
                 <input
@@ -670,12 +674,12 @@ function ProjectsContent() {
                   onChange={(e) =>
                     setNewProject({ ...newProject, dueDate: e.target.value })
                   }
-                  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                  className="w-full theme-input"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium theme-text-secondary mb-2">
                   Assign To
                 </label>
                 <select
@@ -683,7 +687,7 @@ function ProjectsContent() {
                   onChange={(e) =>
                     setNewProject({ ...newProject, assignedTo: e.target.value })
                   }
-                  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                  className="w-full theme-input"
                 >
                   <option value="">Unassigned</option>
                   {users.map((u) => (
@@ -693,19 +697,21 @@ function ProjectsContent() {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => setIsCreating(false)}
-                  className="flex-1 px-4 py-3 bg-slate-700 text-white font-medium rounded-lg hover:bg-slate-600 transition-colors"
+                  className="flex-1"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="flex-1 px-4 py-3 bg-cyan-500 text-white font-medium rounded-lg hover:bg-cyan-600 transition-colors"
+                  variant="primary"
+                  className="flex-1"
                 >
                   Create Project
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -715,9 +721,9 @@ function ProjectsContent() {
       {/* Project Detail Modal */}
       {selectedProjectId && projectWithTasks && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-t-xl sm:rounded-xl w-full sm:max-w-4xl max-h-[90vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="theme-card rounded-t-2xl sm:rounded-2xl w-full sm:max-w-4xl max-h-[90vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="p-4 sm:p-6 border-b border-slate-700 flex-shrink-0">
+            <div className="p-4 sm:p-6 border-b theme-border-secondary flex-shrink-0">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   {isEditing ? (
@@ -725,16 +731,16 @@ function ProjectsContent() {
                       type="text"
                       value={editForm.name}
                       onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                      className="text-xl font-semibold text-white bg-transparent border-b border-cyan-500 focus:outline-none w-full"
+                      className="text-xl font-semibold theme-text-primary bg-transparent border-b border-[#007AFF] focus:outline-none w-full"
                     />
                   ) : (
-                    <h2 className="text-xl font-semibold text-white">{projectWithTasks.name}</h2>
+                    <h2 className="text-xl font-semibold theme-text-primary">{projectWithTasks.name}</h2>
                   )}
                   <div className="flex items-center gap-3 mt-2">
-                    <span className={`px-2 py-1 text-xs font-medium rounded border ${STATUS_COLORS[projectWithTasks.status]?.bg} ${STATUS_COLORS[projectWithTasks.status]?.text}`}>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-lg border ${STATUS_COLORS[projectWithTasks.status]?.bg} ${STATUS_COLORS[projectWithTasks.status]?.text}`}>
                       {projectWithTasks.status.replace("_", " ").toUpperCase()}
                     </span>
-                    <span className={`px-2 py-1 text-xs font-medium rounded border ${PRIORITY_COLORS[projectWithTasks.priority]?.bg} ${PRIORITY_COLORS[projectWithTasks.priority]?.text} ${PRIORITY_COLORS[projectWithTasks.priority]?.border}`}>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-lg border ${PRIORITY_COLORS[projectWithTasks.priority]?.bg} ${PRIORITY_COLORS[projectWithTasks.priority]?.text} ${PRIORITY_COLORS[projectWithTasks.priority]?.border}`}>
                       {projectWithTasks.priority.toUpperCase()}
                     </span>
                   </div>
@@ -742,25 +748,27 @@ function ProjectsContent() {
                 <div className="flex items-center gap-2">
                   {isEditing ? (
                     <>
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setIsEditing(false)}
-                        className="px-3 py-1.5 text-sm text-slate-400 hover:text-white"
                       >
                         Cancel
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
                         onClick={handleSaveEdit}
-                        className="px-3 py-1.5 text-sm bg-cyan-500 text-white rounded-lg hover:bg-cyan-600"
                       >
                         Save
-                      </button>
+                      </Button>
                     </>
                   ) : (
                     <>
                       {canManageSharing && (
                         <button
                           onClick={() => setShowShareModal(true)}
-                          className="p-2 text-slate-400 hover:text-green-400 transition-colors"
+                          className="p-2 theme-text-secondary hover:text-green-600 dark:hover:text-green-400 transition-colors"
                           title="Share Project"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -770,7 +778,7 @@ function ProjectsContent() {
                       )}
                       <button
                         onClick={() => setIsEditing(true)}
-                        className="p-2 text-slate-400 hover:text-cyan-400 transition-colors"
+                        className="p-2 theme-text-secondary hover:text-[#007AFF] transition-colors"
                         title="Edit Project"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -779,7 +787,7 @@ function ProjectsContent() {
                       </button>
                       <button
                         onClick={() => setShowDeleteConfirm(true)}
-                        className="p-2 text-slate-400 hover:text-red-400 transition-colors"
+                        className="p-2 theme-text-secondary hover:text-red-500 transition-colors"
                         title="Delete Project"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -790,7 +798,7 @@ function ProjectsContent() {
                   )}
                   <button
                     onClick={handleCloseDetail}
-                    className="p-2 text-slate-400 hover:text-white transition-colors"
+                    className="p-2 theme-text-secondary hover:theme-text-primary transition-colors"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -804,16 +812,16 @@ function ProjectsContent() {
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               {/* Description */}
               <div className="mb-6">
-                <h3 className="text-sm font-medium text-slate-400 mb-2">Description</h3>
+                <h3 className="text-sm font-medium theme-text-secondary mb-2">Description</h3>
                 {isEditing ? (
                   <textarea
                     value={editForm.description}
                     onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white resize-none focus:outline-none focus:border-cyan-500"
+                    className="w-full theme-input resize-none"
                     rows={3}
                   />
                 ) : (
-                  <p className="text-slate-300">{projectWithTasks.description}</p>
+                  <p className="theme-text-primary">{projectWithTasks.description}</p>
                 )}
               </div>
 
@@ -821,99 +829,99 @@ function ProjectsContent() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 {isEditing ? (
                   <>
-                    <div className="p-4 bg-slate-900/50 rounded-lg">
-                      <p className="text-xs text-slate-500 mb-1">Status</p>
+                    <div className="p-4 bg-[#f2f2f7] dark:bg-slate-800/50 rounded-xl">
+                      <p className="text-xs theme-text-tertiary mb-1">Status</p>
                       <select
                         value={editForm.status}
                         onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                        className="w-full bg-transparent text-white text-sm focus:outline-none"
+                        className="w-full bg-transparent theme-text-primary text-sm focus:outline-none"
                       >
-                        <option value="backlog" className="bg-slate-800">Backlog</option>
-                        <option value="in_progress" className="bg-slate-800">In Progress</option>
-                        <option value="review" className="bg-slate-800">Review</option>
-                        <option value="done" className="bg-slate-800">Done</option>
+                        <option value="backlog">Backlog</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="review">Review</option>
+                        <option value="done">Done</option>
                       </select>
                     </div>
-                    <div className="p-4 bg-slate-900/50 rounded-lg">
-                      <p className="text-xs text-slate-500 mb-1">Priority</p>
+                    <div className="p-4 bg-[#f2f2f7] dark:bg-slate-800/50 rounded-xl">
+                      <p className="text-xs theme-text-tertiary mb-1">Priority</p>
                       <select
                         value={editForm.priority}
                         onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })}
-                        className="w-full bg-transparent text-white text-sm focus:outline-none"
+                        className="w-full bg-transparent theme-text-primary text-sm focus:outline-none"
                       >
-                        <option value="low" className="bg-slate-800">Low</option>
-                        <option value="medium" className="bg-slate-800">Medium</option>
-                        <option value="high" className="bg-slate-800">High</option>
-                        <option value="urgent" className="bg-slate-800">Urgent</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="urgent">Urgent</option>
                       </select>
                     </div>
-                    <div className="p-4 bg-slate-900/50 rounded-lg">
-                      <p className="text-xs text-slate-500 mb-1">Est. Hours</p>
+                    <div className="p-4 bg-[#f2f2f7] dark:bg-slate-800/50 rounded-xl">
+                      <p className="text-xs theme-text-tertiary mb-1">Est. Hours</p>
                       <input
                         type="number"
                         value={editForm.estimatedHours}
                         onChange={(e) => setEditForm({ ...editForm, estimatedHours: e.target.value })}
-                        className="w-full bg-transparent text-white text-sm focus:outline-none"
+                        className="w-full bg-transparent theme-text-primary text-sm focus:outline-none"
                         placeholder="0"
                       />
                     </div>
-                    <div className="p-4 bg-slate-900/50 rounded-lg">
-                      <p className="text-xs text-slate-500 mb-1">Due Date</p>
+                    <div className="p-4 bg-[#f2f2f7] dark:bg-slate-800/50 rounded-xl">
+                      <p className="text-xs theme-text-tertiary mb-1">Due Date</p>
                       <input
                         type="date"
                         value={editForm.dueDate}
                         onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
-                        className="w-full bg-transparent text-white text-sm focus:outline-none"
+                        className="w-full bg-transparent theme-text-primary text-sm focus:outline-none"
                       />
                     </div>
-                    <div className="p-4 bg-slate-900/50 rounded-lg">
-                      <p className="text-xs text-slate-500 mb-1">Assigned To</p>
+                    <div className="p-4 bg-[#f2f2f7] dark:bg-slate-800/50 rounded-xl">
+                      <p className="text-xs theme-text-tertiary mb-1">Assigned To</p>
                       <select
                         value={editForm.assignedTo}
                         onChange={(e) => setEditForm({ ...editForm, assignedTo: e.target.value })}
-                        className="w-full bg-transparent text-white text-sm focus:outline-none"
+                        className="w-full bg-transparent theme-text-primary text-sm focus:outline-none"
                       >
-                        <option value="" className="bg-slate-800">Unassigned</option>
+                        <option value="">Unassigned</option>
                         {users.map((u) => (
-                          <option key={u._id} value={u._id} className="bg-slate-800">{u.name}</option>
+                          <option key={u._id} value={u._id}>{u.name}</option>
                         ))}
                       </select>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="p-4 bg-slate-900/50 rounded-lg">
-                      <p className="text-xs text-slate-500 mb-1">Created</p>
-                      <p className="text-white text-sm font-medium">
+                    <div className="p-4 bg-[#f2f2f7] dark:bg-slate-800/50 rounded-xl">
+                      <p className="text-xs theme-text-tertiary mb-1">Created</p>
+                      <p className="theme-text-primary text-sm font-medium">
                         {new Date(projectWithTasks.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                     {projectWithTasks.dueDate && (
-                      <div className="p-4 bg-slate-900/50 rounded-lg">
-                        <p className="text-xs text-slate-500 mb-1">Due Date</p>
-                        <p className="text-white text-sm font-medium">
+                      <div className="p-4 bg-[#f2f2f7] dark:bg-slate-800/50 rounded-xl">
+                        <p className="text-xs theme-text-tertiary mb-1">Due Date</p>
+                        <p className="theme-text-primary text-sm font-medium">
                           {new Date(projectWithTasks.dueDate).toLocaleDateString()}
                         </p>
                       </div>
                     )}
                     {projectWithTasks.estimatedHours && (
-                      <div className="p-4 bg-slate-900/50 rounded-lg">
-                        <p className="text-xs text-slate-500 mb-1">Est. Hours</p>
-                        <p className="text-white text-sm font-medium">{projectWithTasks.estimatedHours}h</p>
+                      <div className="p-4 bg-[#f2f2f7] dark:bg-slate-800/50 rounded-xl">
+                        <p className="text-xs theme-text-tertiary mb-1">Est. Hours</p>
+                        <p className="theme-text-primary text-sm font-medium">{projectWithTasks.estimatedHours}h</p>
                       </div>
                     )}
                     {projectWithTasks.actualHours && (
-                      <div className="p-4 bg-slate-900/50 rounded-lg">
-                        <p className="text-xs text-slate-500 mb-1">Actual Hours</p>
-                        <p className="text-white text-sm font-medium">{projectWithTasks.actualHours}h</p>
+                      <div className="p-4 bg-[#f2f2f7] dark:bg-slate-800/50 rounded-xl">
+                        <p className="text-xs theme-text-tertiary mb-1">Actual Hours</p>
+                        <p className="theme-text-primary text-sm font-medium">{projectWithTasks.actualHours}h</p>
                       </div>
                     )}
                     {(() => {
                       const assignedUser = users.find(u => u._id === projectWithTasks.assignedTo);
                       return assignedUser ? (
-                        <div className="p-4 bg-slate-900/50 rounded-lg">
-                          <p className="text-xs text-slate-500 mb-1">Assigned To</p>
-                          <p className="text-white text-sm font-medium">{assignedUser.name}</p>
+                        <div className="p-4 bg-[#f2f2f7] dark:bg-slate-800/50 rounded-xl">
+                          <p className="text-xs theme-text-tertiary mb-1">Assigned To</p>
+                          <p className="theme-text-primary text-sm font-medium">{assignedUser.name}</p>
                         </div>
                       ) : null;
                     })()}
@@ -924,25 +932,27 @@ function ProjectsContent() {
               {/* AI Timeline Analysis */}
               {projectWithTasks.aiTimelineAnalysis && (
                 <div className="mb-6">
-                  <h3 className="text-sm font-medium text-slate-400 mb-2">AI Timeline Analysis</h3>
-                  <div className={`p-4 rounded-lg border ${
+                  <h3 className="text-sm font-medium theme-text-secondary mb-2">AI Timeline Analysis</h3>
+                  <div className={`p-4 rounded-xl border ${
                     projectWithTasks.aiTimelineAnalysis.isOnSchedule
                       ? "bg-green-500/10 border-green-500/30"
                       : "bg-red-500/10 border-red-500/30"
                   }`}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className={`text-sm font-medium ${
-                        projectWithTasks.aiTimelineAnalysis.isOnSchedule ? "text-green-400" : "text-red-400"
+                        projectWithTasks.aiTimelineAnalysis.isOnSchedule
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400"
                       }`}>
                         {projectWithTasks.aiTimelineAnalysis.isOnSchedule
                           ? "On Schedule"
                           : `${projectWithTasks.aiTimelineAnalysis.behindByDays} days behind`}
                       </span>
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs theme-text-secondary">
                         ({projectWithTasks.aiTimelineAnalysis.confidence}% confidence)
                       </span>
                     </div>
-                    <p className="text-sm text-slate-300">{projectWithTasks.aiTimelineAnalysis.reasoning}</p>
+                    <p className="text-sm theme-text-primary">{projectWithTasks.aiTimelineAnalysis.reasoning}</p>
                   </div>
                 </div>
               )}
@@ -951,28 +961,28 @@ function ProjectsContent() {
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-4">
-                    <h3 className="text-sm font-medium text-slate-400">
+                    <h3 className="text-sm font-medium theme-text-secondary">
                       Tasks ({filteredTasks.length}{taskFilter === "mine" ? ` of ${projectWithTasks.tasks?.length || 0}` : ""})
                     </h3>
                     {/* Task Filter Toggle */}
                     {isAdmin && (
-                      <div className="flex items-center gap-1 bg-slate-900/50 rounded-lg p-1">
+                      <div className="flex items-center gap-1 bg-[#f2f2f7] dark:bg-slate-800/50 rounded-lg p-1">
                         <button
                           onClick={() => setTaskFilter("all")}
-                          className={`px-2 py-1 text-xs rounded ${
+                          className={`px-2 py-1 text-xs rounded-md transition-colors ${
                             taskFilter === "all"
-                              ? "bg-cyan-500/20 text-cyan-400"
-                              : "text-slate-400 hover:text-white"
+                              ? "bg-white dark:bg-slate-700 theme-text-primary shadow-sm"
+                              : "theme-text-secondary hover:theme-text-primary"
                           }`}
                         >
                           All Tasks
                         </button>
                         <button
                           onClick={() => setTaskFilter("mine")}
-                          className={`px-2 py-1 text-xs rounded ${
+                          className={`px-2 py-1 text-xs rounded-md transition-colors ${
                             taskFilter === "mine"
-                              ? "bg-cyan-500/20 text-cyan-400"
-                              : "text-slate-400 hover:text-white"
+                              ? "bg-white dark:bg-slate-700 theme-text-primary shadow-sm"
+                              : "theme-text-secondary hover:theme-text-primary"
                           }`}
                         >
                           My Tasks
@@ -984,7 +994,7 @@ function ProjectsContent() {
                     <button
                       onClick={handleGenerateTasks}
                       disabled={isGeneratingTasks}
-                      className="px-3 py-1.5 text-xs bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-50 flex items-center gap-1"
+                      className="px-3 py-1.5 text-xs bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-50 flex items-center gap-1"
                     >
                       {isGeneratingTasks ? (
                         <>
@@ -1005,7 +1015,7 @@ function ProjectsContent() {
                     </button>
                     <button
                       onClick={() => setShowAddTask(true)}
-                      className="px-3 py-1.5 text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/30 transition-colors flex items-center gap-1"
+                      className="px-3 py-1.5 text-xs bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/30 rounded-lg hover:bg-[#007AFF]/20 transition-colors flex items-center gap-1"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1024,13 +1034,13 @@ function ProjectsContent() {
                         value={newTaskTitle}
                         onChange={(e) => setNewTaskTitle(e.target.value)}
                         placeholder="Enter task title..."
-                        className="flex-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-500"
+                        className="flex-1 theme-input text-sm"
                         autoFocus
                       />
                       <select
                         value={newTaskAssignee}
                         onChange={(e) => setNewTaskAssignee(e.target.value)}
-                        className="px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500"
+                        className="theme-input text-sm"
                       >
                         <option value="">Unassigned</option>
                         {users.map((u) => (
@@ -1039,23 +1049,25 @@ function ProjectsContent() {
                       </select>
                     </div>
                     <div className="flex gap-2 justify-end">
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => {
                           setShowAddTask(false);
                           setNewTaskTitle("");
                           setNewTaskAssignee("");
                         }}
-                        className="px-4 py-2 bg-slate-700 text-white text-sm rounded-lg hover:bg-slate-600"
                       >
                         Cancel
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="submit"
-                        className="px-4 py-2 bg-cyan-500 text-white text-sm rounded-lg hover:bg-cyan-600"
+                        variant="primary"
+                        size="sm"
                       >
                         Add Task
-                      </button>
+                      </Button>
                     </div>
                   </form>
                 )}
@@ -1065,12 +1077,12 @@ function ProjectsContent() {
                     {filteredTasks.sort((a: Task, b: Task) => a.order - b.order).map((task: Task) => (
                       <div
                         key={task._id}
-                        className={`flex items-center gap-3 p-3 rounded-lg border group ${
+                        className={`flex items-center gap-3 p-3 rounded-xl border group ${
                           task.status === "done"
                             ? "bg-green-500/10 border-green-500/20"
                             : task.status === "in_progress"
-                            ? "bg-cyan-500/10 border-cyan-500/20"
-                            : "bg-slate-900/50 border-slate-700"
+                            ? "bg-[#007AFF]/10 border-[#007AFF]/20"
+                            : "bg-[#f2f2f7] dark:bg-slate-800/50 theme-border-secondary"
                         }`}
                       >
                         {/* Clickable status indicator */}
@@ -1078,10 +1090,10 @@ function ProjectsContent() {
                           onClick={() => handleToggleTaskStatus(task._id, task.status)}
                           className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
                             task.status === "done"
-                              ? "bg-green-400 border-green-400"
+                              ? "bg-green-500 border-green-500"
                               : task.status === "in_progress"
-                              ? "border-cyan-400 bg-cyan-400/20"
-                              : "border-slate-500 hover:border-cyan-400"
+                              ? "border-[#007AFF] bg-[#007AFF]/20"
+                              : "theme-border-secondary hover:border-[#007AFF]"
                           }`}
                           title={`Click to change status (${task.status} → ${task.status === "todo" ? "in_progress" : task.status === "in_progress" ? "done" : "todo"})`}
                         >
@@ -1091,22 +1103,22 @@ function ProjectsContent() {
                             </svg>
                           )}
                           {task.status === "in_progress" && (
-                            <div className="w-2 h-2 bg-cyan-400 rounded-full" />
+                            <div className="w-2 h-2 bg-[#007AFF] rounded-full" />
                           )}
                         </button>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className={`text-sm ${task.status === "done" ? "text-slate-400 line-through" : "text-white"}`}>
+                            <span className={`text-sm ${task.status === "done" ? "theme-text-tertiary line-through" : "theme-text-primary"}`}>
                               {task.title}
                             </span>
                             {task.estimatedMinutes && (
-                              <span className="text-xs text-slate-500">
+                              <span className="text-xs theme-text-tertiary">
                                 ~{task.estimatedMinutes < 60 ? `${task.estimatedMinutes}m` : `${Math.round(task.estimatedMinutes / 60)}h`}
                               </span>
                             )}
                           </div>
                           {task.assignedTo && (
-                            <span className="text-xs text-slate-500">
+                            <span className="text-xs theme-text-tertiary">
                               Assigned: {users.find((u) => u._id === task.assignedTo)?.name || "Unknown"}
                             </span>
                           )}
@@ -1114,19 +1126,21 @@ function ProjectsContent() {
                         <select
                           value={task.status}
                           onChange={(e) => handleSetTaskStatus(task._id, e.target.value)}
-                          className={`text-xs px-2 py-0.5 rounded cursor-pointer border-0 focus:outline-none focus:ring-1 focus:ring-cyan-500 ${
-                            task.status === "done" ? "bg-green-500/20 text-green-400" :
-                            task.status === "in_progress" ? "bg-cyan-500/20 text-cyan-400" :
-                            "bg-slate-700 text-slate-400"
+                          className={`text-xs px-2 py-0.5 rounded cursor-pointer border-0 focus:outline-none focus:ring-1 focus:ring-[#007AFF] ${
+                            task.status === "done"
+                              ? "bg-green-500/20 text-green-600 dark:text-green-400"
+                              : task.status === "in_progress"
+                              ? "bg-[#007AFF]/20 text-[#007AFF]"
+                              : "bg-[#f2f2f7] dark:bg-slate-700 theme-text-secondary"
                           }`}
                         >
-                          <option value="todo" className="bg-slate-800 text-slate-300">todo</option>
-                          <option value="in_progress" className="bg-slate-800 text-cyan-400">in progress</option>
-                          <option value="done" className="bg-slate-800 text-green-400">done</option>
+                          <option value="todo">todo</option>
+                          <option value="in_progress">in progress</option>
+                          <option value="done">done</option>
                         </select>
                         <button
                           onClick={() => handleDeleteTask(task._id)}
-                          className="p-1 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="p-1 theme-text-tertiary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                           title="Delete task"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1137,7 +1151,7 @@ function ProjectsContent() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-slate-500 text-sm">
+                  <div className="text-center py-8 theme-text-tertiary text-sm">
                     {taskFilter === "mine" && projectWithTasks.tasks?.length > 0
                       ? "No tasks assigned to you. Switch to 'All Tasks' to see other tasks."
                       : "No tasks yet. Click 'AI Generate' to create tasks from the project description or 'Add Task' to add manually."}
@@ -1148,14 +1162,14 @@ function ProjectsContent() {
               {/* AI Generated Steps */}
               {projectWithTasks.aiGeneratedSteps && (
                 <div className="mb-6">
-                  <h3 className="text-sm font-medium text-slate-400 mb-3">AI Generated Steps</h3>
+                  <h3 className="text-sm font-medium theme-text-secondary mb-3">AI Generated Steps</h3>
                   <div className="space-y-2">
                     {JSON.parse(projectWithTasks.aiGeneratedSteps).map((step: string, index: number) => (
-                      <div key={index} className="flex items-start gap-3 p-3 bg-slate-900/50 rounded-lg">
-                        <span className="w-6 h-6 flex items-center justify-center bg-cyan-500/20 text-cyan-400 text-xs font-medium rounded flex-shrink-0">
+                      <div key={index} className="flex items-start gap-3 p-3 bg-[#f2f2f7] dark:bg-slate-800/50 rounded-xl">
+                        <span className="w-6 h-6 flex items-center justify-center bg-[#007AFF]/10 text-[#007AFF] text-xs font-medium rounded-full flex-shrink-0">
                           {index + 1}
                         </span>
-                        <span className="text-sm text-slate-300">{step}</span>
+                        <span className="text-sm theme-text-primary">{step}</span>
                       </div>
                     ))}
                   </div>
@@ -1164,7 +1178,7 @@ function ProjectsContent() {
 
               {/* Progress Notes Section */}
               <div>
-                <h3 className="text-sm font-medium text-slate-400 mb-3 flex items-center gap-2">
+                <h3 className="text-sm font-medium theme-text-secondary mb-3 flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                   </svg>
@@ -1178,46 +1192,48 @@ function ProjectsContent() {
                     value={newNoteContent}
                     onChange={handleNoteInputChange}
                     placeholder="Add a progress note... Use @ to mention someone"
-                    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-500 resize-none"
+                    className="w-full theme-input resize-none text-sm"
                     rows={2}
                   />
 
                   {/* Mention Picker */}
                   {showMentionPicker && (
-                    <div className="absolute left-0 bottom-full mb-1 w-64 max-h-48 overflow-y-auto bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-10">
+                    <div className="absolute left-0 bottom-full mb-1 w-64 max-h-48 overflow-y-auto theme-card border theme-border-secondary rounded-xl shadow-xl z-10">
                       {filteredMentionUsers.length > 0 ? (
                         filteredMentionUsers.slice(0, 5).map((u) => (
                           <button
                             key={u._id}
                             onClick={() => handleMentionSelect(u)}
-                            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-700/50 text-left"
+                            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 text-left"
                           >
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-xs font-medium">
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#007AFF] to-blue-600 flex items-center justify-center text-white text-xs font-medium">
                               {u.name.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <p className="text-sm text-white">{u.name}</p>
-                              <p className="text-xs text-slate-400">{u.email}</p>
+                              <p className="text-sm theme-text-primary">{u.name}</p>
+                              <p className="text-xs theme-text-tertiary">{u.email}</p>
                             </div>
                           </button>
                         ))
                       ) : (
-                        <p className="px-3 py-2 text-slate-400 text-sm">No users found</p>
+                        <p className="px-3 py-2 theme-text-secondary text-sm">No users found</p>
                       )}
                     </div>
                   )}
 
                   {newNoteContent.trim() && (
                     <div className="flex justify-end mt-2">
-                      <button
+                      <Button
+                        variant="primary"
+                        size="sm"
                         onClick={handleAddNote}
-                        className="px-3 py-1.5 text-xs bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors flex items-center gap-1"
+                        className="flex items-center gap-1"
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
                         Add Note
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -1226,15 +1242,15 @@ function ProjectsContent() {
                 {projectNotes && projectNotes.length > 0 ? (
                   <div className="space-y-3">
                     {projectNotes.map((note) => (
-                      <div key={note._id} className="p-3 bg-slate-900/50 border border-slate-700 rounded-lg group">
+                      <div key={note._id} className="p-3 bg-[#f2f2f7] dark:bg-slate-800/50 border theme-border-secondary rounded-xl group">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-xs font-medium">
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#007AFF] to-blue-600 flex items-center justify-center text-white text-xs font-medium">
                               {note.createdByName.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-white">{note.createdByName}</p>
-                              <p className="text-xs text-slate-500">
+                              <p className="text-sm font-medium theme-text-primary">{note.createdByName}</p>
+                              <p className="text-xs theme-text-tertiary">
                                 {new Date(note.createdAt).toLocaleDateString()} at{" "}
                                 {new Date(note.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                               </p>
@@ -1243,7 +1259,7 @@ function ProjectsContent() {
                           {note.createdBy === user?._id && (
                             <button
                               onClick={() => handleDeleteNote(note._id)}
-                              className="p-1 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="p-1 theme-text-tertiary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                               title="Delete note"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1253,7 +1269,7 @@ function ProjectsContent() {
                           )}
                         </div>
                         <p
-                          className="text-sm text-slate-300 whitespace-pre-wrap"
+                          className="text-sm theme-text-primary whitespace-pre-wrap"
                           dangerouslySetInnerHTML={{
                             __html: formatNoteContent(note.content, note.mentionedUsers),
                           }}
@@ -1262,7 +1278,7 @@ function ProjectsContent() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-6 text-slate-500 text-sm">
+                  <div className="text-center py-6 theme-text-tertiary text-sm">
                     No progress notes yet. Add a note to keep track of updates.
                   </div>
                 )}
@@ -1275,24 +1291,24 @@ function ProjectsContent() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-white mb-2">Delete Project</h3>
-            <p className="text-slate-400 mb-6">
+          <div className="theme-card rounded-2xl p-4 sm:p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold theme-text-primary mb-2">Delete Project</h3>
+            <p className="theme-text-secondary mb-6">
               Are you sure you want to delete this project? This will also delete all associated tasks. This action cannot be undone.
             </p>
             <div className="flex justify-end gap-3">
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 text-slate-300 hover:text-white"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="danger"
                 onClick={handleDeleteProject}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
               >
                 Delete Project
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1301,16 +1317,16 @@ function ProjectsContent() {
       {/* Share Project Modal */}
       {showShareModal && projectWithTasks && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6 w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="theme-card rounded-2xl p-4 sm:p-6 w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Share Project</h3>
+              <h3 className="text-lg font-semibold theme-text-primary">Share Project</h3>
               <button
                 onClick={() => {
                   setShowShareModal(false);
                   setSelectedShareUsers([]);
                   setShareSearchQuery("");
                 }}
-                className="p-1 text-slate-400 hover:text-white"
+                className="p-1 theme-text-secondary hover:theme-text-primary"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1320,7 +1336,7 @@ function ProjectsContent() {
 
             {/* Visibility Setting */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-300 mb-2">Visibility</label>
+              <label className="block text-sm font-medium theme-text-secondary mb-2">Visibility</label>
               <div className="flex gap-2">
                 {["private", "public"].map((vis) => (
                   <button
@@ -1328,15 +1344,15 @@ function ProjectsContent() {
                     onClick={() => handleVisibilityChange(vis)}
                     className={`px-3 py-1.5 text-sm rounded-lg border transition-colors capitalize ${
                       projectWithTasks.visibility === vis || (!projectWithTasks.visibility && vis === "private")
-                        ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-400"
-                        : "bg-slate-700/50 border-slate-600 text-slate-400 hover:text-white"
+                        ? "bg-[#007AFF]/10 border-[#007AFF]/40 text-[#007AFF]"
+                        : "bg-[#f2f2f7] dark:bg-slate-700/50 theme-border-secondary theme-text-secondary hover:theme-text-primary"
                     }`}
                   >
                     {vis}
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs theme-text-tertiary mt-1">
                 {projectWithTasks.visibility === "public"
                   ? "Everyone in your team can view this project"
                   : "Only you and shared users can view this project"}
@@ -1346,7 +1362,7 @@ function ProjectsContent() {
             {/* Currently Shared With */}
             {projectWithTasks.sharedWith && projectWithTasks.sharedWith.length > 0 && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-slate-300 mb-2">Shared With</label>
+                <label className="block text-sm font-medium theme-text-secondary mb-2">Shared With</label>
                 <div className="flex flex-wrap gap-2">
                   {projectWithTasks.sharedWith.map((userId) => {
                     const sharedUser = users.find((u) => u._id === userId);
@@ -1354,7 +1370,7 @@ function ProjectsContent() {
                     return (
                       <span
                         key={userId}
-                        className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 border border-green-500/30 rounded-lg text-sm text-green-400"
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 border border-green-500/30 rounded-lg text-sm text-green-600 dark:text-green-400"
                       >
                         {sharedUser.name}
                         <button
@@ -1375,13 +1391,13 @@ function ProjectsContent() {
 
             {/* Search Users to Share */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-300 mb-2">Add People</label>
+              <label className="block text-sm font-medium theme-text-secondary mb-2">Add People</label>
               <input
                 type="text"
                 placeholder="Search users..."
                 value={shareSearchQuery}
                 onChange={(e) => setShareSearchQuery(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-500"
+                className="w-full theme-input text-sm"
               />
             </div>
 
@@ -1399,21 +1415,21 @@ function ProjectsContent() {
                           setSelectedShareUsers([...selectedShareUsers, u._id]);
                         }
                       }}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-colors ${
                         selectedShareUsers.includes(u._id)
-                          ? "bg-cyan-500/20 border border-cyan-500/50"
-                          : "bg-slate-700/50 hover:bg-slate-700"
+                          ? "bg-[#007AFF]/10 border border-[#007AFF]/40"
+                          : "bg-[#f2f2f7] dark:bg-slate-700/50 hover:bg-black/5 dark:hover:bg-white/5"
                       }`}
                     >
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-sm font-medium">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#007AFF] to-blue-600 flex items-center justify-center text-white text-sm font-medium">
                         {u.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-white truncate">{u.name}</p>
-                        <p className="text-xs text-slate-400 truncate">{u.email}</p>
+                        <p className="text-sm theme-text-primary truncate">{u.name}</p>
+                        <p className="text-xs theme-text-tertiary truncate">{u.email}</p>
                       </div>
                       {selectedShareUsers.includes(u._id) && (
-                        <svg className="w-5 h-5 text-cyan-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-[#007AFF] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       )}
@@ -1421,31 +1437,31 @@ function ProjectsContent() {
                   ))}
                 </div>
               ) : (
-                <p className="text-center py-4 text-slate-500 text-sm">
+                <p className="text-center py-4 theme-text-tertiary text-sm">
                   {shareSearchQuery ? "No matching users found" : "No more users to share with"}
                 </p>
               )}
             </div>
 
             {/* Actions */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
-              <button
+            <div className="flex justify-end gap-3 pt-4 border-t theme-border-secondary">
+              <Button
+                variant="ghost"
                 onClick={() => {
                   setShowShareModal(false);
                   setSelectedShareUsers([]);
                   setShareSearchQuery("");
                 }}
-                className="px-4 py-2 text-slate-300 hover:text-white"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 onClick={handleShareProject}
                 disabled={selectedShareUsers.length === 0}
-                className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Share ({selectedShareUsers.length})
-              </button>
+              </Button>
             </div>
           </div>
         </div>
