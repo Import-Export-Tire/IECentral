@@ -9,7 +9,6 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useAuth } from "../auth-context";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import SectionHeader from "@/components/ui/SectionHeader";
 
 const REQUEST_TYPES = [
   { value: "vacation", label: "Vacation", color: "blue" },
