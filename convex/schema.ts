@@ -1889,6 +1889,8 @@ export default defineSchema({
     endTime: v.number(), // Unix timestamp (ms)
     isAllDay: v.boolean(),
     location: v.optional(v.string()), // Physical location or virtual
+    isReminder: v.optional(v.boolean()), // private time-block; never shown on shared calendars
+    isPrivate: v.optional(v.boolean()),  // shown as "Busy" (redacted) on shared calendars
     meetingLink: v.optional(v.string()), // Zoom, Teams, Meet, etc.
     meetingType: v.optional(v.string()), // "zoom" | "teams" | "meet" | "other" | "in_person"
     zoomMeetingId: v.optional(v.number()),

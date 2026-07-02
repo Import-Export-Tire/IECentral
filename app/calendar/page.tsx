@@ -77,6 +77,8 @@ function CalendarContent() {
     inviteeIds: [] as Id<"users">[],
     repeat: "none" as "none" | "daily" | "weekly" | "monthly",
     applyToSeries: false, // when editing a recurring event, also patch siblings
+    isReminder: false, // personal time-block; only on my own calendar
+    isPrivate: false,  // show as "Busy" on shared calendars
   });
   // When set, the modal is editing this event instead of creating a new one
   const [editingEventId, setEditingEventId] = useState<Id<"events"> | null>(null);
@@ -264,6 +266,8 @@ function CalendarContent() {
       inviteeIds: (event.invitees || []).map((inv: any) => inv.userId as Id<"users">),
       repeat: "none", // editing one occurrence, not the series
       applyToSeries: false,
+      isReminder: !!event.isReminder,
+      isPrivate: !!event.isPrivate,
     });
     setShowEventModal(false);
     setShowCreateModal(true);
@@ -287,6 +291,8 @@ function CalendarContent() {
           endTime: endTimestamp,
           isAllDay: formData.isAllDay,
           location: formData.location || undefined,
+          isReminder: formData.isReminder,
+          isPrivate: formData.isReminder ? false : formData.isPrivate,
           meetingLink: formData.meetingLink || undefined,
           meetingType: formData.meetingType || undefined,
           requestingUserId: user._id as Id<"users">,
@@ -320,6 +326,49 @@ function CalendarContent() {
         formData.repeat === "weekly" ? 12 :
         formData.repeat === "monthly" ? 12 : 1;
 
+      // REMINDER SHORT-CIRCUIT — a reminder is a personal time-block: no
+      // meeting room, no Zoom, no invitees. It never reaches the
+      // iecentral/zoom/invite logic below. Reminders may repeat.
+      if (formData.isReminder) {
+        if (isRepeating && repeatCount > 1) {
+          await createRecurring({
+            title: formData.title,
+            description: formData.description || undefined,
+            startTime: startTimestamp,
+            endTime: endTimestamp,
+            isAllDay: formData.isAllDay,
+            location: formData.location || undefined,
+            isReminder: true,
+            isPrivate: false,
+            meetingLink: undefined,
+            meetingType: formData.meetingType || undefined,
+            inviteeIds: [],
+            userId: user._id as Id<"users">,
+            recurrence: formData.repeat,
+            count: repeatCount,
+          });
+        } else {
+          await createEvent({
+            title: formData.title,
+            description: formData.description || undefined,
+            startTime: startTimestamp,
+            endTime: endTimestamp,
+            isAllDay: formData.isAllDay,
+            location: formData.location || undefined,
+            isReminder: true,
+            isPrivate: false,
+            meetingLink: undefined,
+            meetingType: formData.meetingType || undefined,
+            inviteeIds: [],
+            userId: user._id as Id<"users">,
+          });
+        }
+        setShowCreateModal(false);
+        resetForm();
+        setIsCreatingEvent(false);
+        return;
+      }
+
       // If IECentral Meeting is selected, create a meeting room first.
       // For recurring series, every occurrence shares one room.
       if (formData.meetingType === "iecentral") {
@@ -330,6 +379,8 @@ function CalendarContent() {
           endTime: endTimestamp,
           isAllDay: formData.isAllDay,
           location: formData.location || undefined,
+          isReminder: false,
+          isPrivate: formData.isPrivate,
           meetingLink: undefined,
           meetingType: "iecentral",
           inviteeIds: formData.inviteeIds,
@@ -365,6 +416,8 @@ function CalendarContent() {
             endTime: shift(endTimestamp),
             isAllDay: formData.isAllDay,
             location: formData.location || undefined,
+            isReminder: false,
+            isPrivate: formData.isPrivate,
             meetingLink: roomLink,
             meetingType: "iecentral",
             inviteeIds: formData.inviteeIds,
@@ -393,6 +446,8 @@ function CalendarContent() {
           location: formData.location || undefined,
           // When Zoom auto-create runs, every occurrence gets its own link
           // patched in below, so don't seed them with the manual one.
+          isReminder: false,
+          isPrivate: formData.isPrivate,
           meetingLink: wantsZoomAuto ? undefined : meetingLink,
           meetingType,
           inviteeIds: formData.inviteeIds,
@@ -409,6 +464,8 @@ function CalendarContent() {
           endTime: endTimestamp,
           isAllDay: formData.isAllDay,
           location: formData.location || undefined,
+          isReminder: false,
+          isPrivate: formData.isPrivate,
           meetingLink: wantsZoomAuto ? undefined : meetingLink,
           meetingType,
           inviteeIds: formData.inviteeIds,
@@ -502,6 +559,8 @@ function CalendarContent() {
       inviteeIds: [],
       repeat: "none",
       applyToSeries: false,
+      isReminder: false,
+      isPrivate: false,
     });
     setEditingEventId(null);
     setEditingSeriesId(null);
@@ -898,7 +957,7 @@ function CalendarContent() {
                             }}
                             className={`text-[11px] px-1 py-0.5 rounded truncate cursor-pointer flex-shrink-0 font-medium ${eventChipClass(event)}`}
                           >
-                            {formatTime(event.startTime)} {event.title}
+                            {(event as any).isReminder ? "⏰ " : (event as any).isPrivate ? "🔒 " : ""}{formatTime(event.startTime)} {event.title}
                           </div>
                         ))}
                         {hasMore && (
@@ -969,7 +1028,43 @@ function CalendarContent() {
                   </div>
                 </div>
 
-                {/* Meeting Type */}
+                {/* Visibility — Reminder / Private */}
+                <div className="space-y-2">
+                  <label className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer ${isDark ? "bg-slate-900/60 border-slate-700" : "bg-gray-50 border-gray-200"}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.isReminder}
+                      onChange={(e) => setFormData({ ...formData, isReminder: e.target.checked })}
+                      className="mt-0.5 rounded"
+                    />
+                    <span className="text-sm theme-text-primary">
+                      ⏰ Reminder (only on my calendar)
+                      <span className="block text-xs mt-0.5 theme-text-tertiary">
+                        A personal time-block — no attendees or meeting, and never shown on calendars shared with you.
+                      </span>
+                    </span>
+                  </label>
+
+                  {!formData.isReminder && (
+                    <label className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer ${isDark ? "bg-slate-900/60 border-slate-700" : "bg-gray-50 border-gray-200"}`}>
+                      <input
+                        type="checkbox"
+                        checked={formData.isPrivate}
+                        onChange={(e) => setFormData({ ...formData, isPrivate: e.target.checked })}
+                        className="mt-0.5 rounded"
+                      />
+                      <span className="text-sm theme-text-primary">
+                        🔒 Private — show as &quot;Busy&quot; on shared calendars
+                        <span className="block text-xs mt-0.5 theme-text-tertiary">
+                          Others viewing your shared calendar see only a &quot;Busy&quot; block; the title and all details are hidden.
+                        </span>
+                      </span>
+                    </label>
+                  )}
+                </div>
+
+                {/* Meeting Type — a reminder has no meeting */}
+                {!formData.isReminder && (
                 <div>
                   <label className="block text-xs font-medium mb-1 theme-text-tertiary">Meeting Type</label>
                   <select
@@ -984,6 +1079,7 @@ function CalendarContent() {
                     ))}
                   </select>
                 </div>
+                )}
 
                 {/* Apply-to-series toggle — only when editing a recurring event */}
                 {editingEventId && editingSeriesId && (
@@ -1020,8 +1116,8 @@ function CalendarContent() {
                   </div>
                 )}
 
-                {/* Meeting Link / IECentral info / Zoom auto-create */}
-                {formData.meetingType === "iecentral" ? (
+                {/* Meeting Link / IECentral info / Zoom auto-create — hidden for reminders */}
+                {!formData.isReminder && (formData.meetingType === "iecentral" ? (
                   <Card tone="accent" padding="sm" className="!rounded-xl">
                     <div className="flex items-center gap-2 mb-1">
                       <svg className="w-4 h-4 theme-accent-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1076,7 +1172,7 @@ function CalendarContent() {
                       placeholder="https://zoom.us/j/..."
                     />
                   </div>
-                ) : null}
+                ) : null)}
 
                 {/* Location */}
                 <div>
@@ -1102,7 +1198,8 @@ function CalendarContent() {
                   />
                 </div>
 
-                {/* Invite Users */}
+                {/* Invite Users — a reminder is personal, no attendees */}
+                {!formData.isReminder && (
                 <div>
                   <label className="block text-xs font-medium mb-1 theme-text-tertiary">Invite Users</label>
                   <div className={`border rounded-xl max-h-40 overflow-y-auto ${isDark ? "border-slate-600" : "border-gray-200"}`}>
@@ -1136,6 +1233,7 @@ function CalendarContent() {
                     </p>
                   )}
                 </div>
+                )}
               </div>
 
               <div className={`px-5 py-4 border-t flex gap-3 ${isDark ? "border-slate-700" : "border-gray-200"}`}>
