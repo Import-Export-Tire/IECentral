@@ -4,11 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import Protected from "@/app/protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
-import { useTheme } from "@/app/theme-context";
 import { useAuth } from "@/app/auth-context";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 interface Holiday {
   _id: Id<"holidays">;
@@ -24,8 +26,6 @@ interface Holiday {
 }
 
 function HolidaysContent() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const { user } = useAuth();
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -121,76 +121,62 @@ function HolidaysContent() {
     });
   };
 
-  const getTypeColor = (type: string) => {
+  const getTypeBadgeClass = (type: string) => {
     switch (type) {
-      case "holiday":
-        return isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700";
-      case "closure":
-        return isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700";
-      case "override":
-        return isDark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-700";
-      default:
-        return isDark ? "bg-slate-500/20 text-slate-400" : "bg-slate-100 text-slate-600";
+      case "holiday": return "ui-badge ui-badge-green";
+      case "closure": return "ui-badge ui-badge-red";
+      case "override": return "ui-badge ui-badge-amber";
+      default: return "ui-badge ui-badge-gray";
     }
   };
 
+  void locations;
+
   return (
-    <div className="flex min-h-screen theme-bg-primary">
+    <div className="flex h-screen theme-bg">
       <Sidebar />
 
-      <main className="flex-1 p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 overflow-y-auto">
         <MobileHeader />
-        <div className="max-w-5xl mx-auto">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+
+        {/* Sticky iOS-style page header */}
+        <header className="sticky top-0 z-10 backdrop-blur-sm border-b theme-border-secondary px-4 sm:px-8 py-3 sm:py-4 bg-[var(--surface-primary)]/80">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <Link
                 href="/settings"
-                className={`p-2 -ml-2 rounded-lg transition-colors ${isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+                className="p-2 -ml-2 rounded-lg theme-text-secondary hover:theme-text-primary transition-colors hover:bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)]"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </Link>
               <div>
-              <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                Holidays & Schedule Overrides
-              </h1>
-              <p className={`mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                Manage company holidays to prevent false no-call-no-show triggers
-              </p>
+                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Holidays &amp; Schedule Overrides</h1>
+                <p className="text-xs sm:text-sm mt-0.5 theme-text-tertiary">
+                  Manage company holidays to prevent false no-call-no-show triggers
+                </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
-                className={`px-3 py-2 rounded-lg border ${
-                  isDark
-                    ? "bg-slate-800 border-slate-700 text-white"
-                    : "bg-white border-gray-300 text-gray-900"
-                }`}
+                className="theme-input px-3 py-2 text-sm"
               >
                 {[currentYear - 1, currentYear, currentYear + 1].map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
+                  <option key={year} value={year}>{year}</option>
                 ))}
               </select>
 
-              <button
-                onClick={handleAddStandardHolidays}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isDark
-                    ? "bg-slate-700 text-white hover:bg-slate-600"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-              >
+              <Button variant="secondary" size="sm" onClick={handleAddStandardHolidays}>
                 + Add US Holidays
-              </button>
+              </Button>
 
-              <button
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={() => {
                   setEditingHoliday(null);
                   setFormData({
@@ -203,68 +189,52 @@ function HolidaysContent() {
                   });
                   setShowAddModal(true);
                 }}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isDark
-                    ? "bg-cyan-500 text-white hover:bg-cyan-600"
-                    : "bg-blue-600 text-white hover:bg-blue-700"
-                }`}
               >
                 + Add Custom
-              </button>
+              </Button>
             </div>
           </div>
+        </header>
 
+        <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-5 max-w-4xl">
           {/* Holiday List */}
-          <div className={`rounded-xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+          <Card padding="md">
+            <SectionHeader label="HOLIDAY CALENDAR" title={`${selectedYear} Holidays`} />
             {!holidays || holidays.length === 0 ? (
-              <div className="p-8 text-center">
-                <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${isDark ? "bg-slate-700" : "bg-gray-100"}`}>
-                  <svg className={`w-8 h-8 ${isDark ? "text-slate-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="py-8 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center bg-[#f2f2f7] dark:bg-slate-900/60">
+                  <svg className="w-8 h-8 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h3 className={`text-lg font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                  No holidays for {selectedYear}
-                </h3>
-                <p className={`mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                  Add standard US holidays or create custom ones
-                </p>
+                <h3 className="text-base font-semibold theme-text-primary">No holidays for {selectedYear}</h3>
+                <p className="mt-1 text-sm theme-text-secondary">Add standard US holidays or create custom ones</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-700">
+              <div className="space-y-0 divide-y theme-border-secondary">
                 {holidays.map((holiday) => (
                   <div
                     key={holiday._id}
-                    className={`p-4 flex items-center justify-between ${isDark ? "hover:bg-slate-700/50" : "hover:bg-gray-50"}`}
+                    className="flex items-center justify-between py-3 hover:bg-[color-mix(in_srgb,var(--accent-primary)_4%,transparent)] -mx-1 px-1 rounded-lg transition-colors"
                   >
                     <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${isDark ? "bg-slate-700" : "bg-gray-100"}`}>
-                        <span className="text-xl">
-                          {holiday.type === "holiday" ? "🎉" : holiday.type === "closure" ? "🚫" : "📅"}
-                        </span>
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#f2f2f7] dark:bg-slate-900/60 text-xl">
+                        {holiday.type === "holiday" ? "🎉" : holiday.type === "closure" ? "🚫" : "📅"}
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                            {holiday.name}
-                          </h3>
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${getTypeColor(holiday.type)}`}>
-                            {holiday.type}
-                          </span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium theme-text-primary">{holiday.name}</span>
+                          <span className={getTypeBadgeClass(holiday.type)}>{holiday.type}</span>
                           {holiday.isPaidHoliday && (
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${isDark ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-700"}`}>
-                              Paid
-                            </span>
+                            <span className="ui-badge ui-badge-purple">Paid</span>
                           )}
                           {holiday.isRecurring && (
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-700"}`}>
-                              Recurring
-                            </span>
+                            <span className="ui-badge ui-badge-blue">Recurring</span>
                           )}
                         </div>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <p className="text-sm theme-text-secondary mt-0.5">
                           {formatDate(holiday.date)}
-                          {holiday.notes && ` - ${holiday.notes}`}
+                          {holiday.notes && ` — ${holiday.notes}`}
                         </p>
                       </div>
                     </div>
@@ -272,15 +242,15 @@ function HolidaysContent() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleEdit(holiday)}
-                        className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-600" : "hover:bg-gray-200"}`}
+                        className="p-2 rounded-lg theme-text-secondary hover:theme-text-primary hover:bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)] transition-colors"
                       >
-                        <svg className={`w-4 h-4 ${isDark ? "text-slate-400" : "text-gray-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                         </svg>
                       </button>
                       <button
                         onClick={() => handleDelete(holiday._id)}
-                        className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-red-500/20 text-red-400" : "hover:bg-red-100 text-red-600"}`}
+                        className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -291,17 +261,17 @@ function HolidaysContent() {
                 ))}
               </div>
             )}
-          </div>
+          </Card>
 
-          {/* Info Box */}
-          <div className={`mt-6 p-4 rounded-xl border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-blue-50 border-blue-200"}`}>
+          {/* Info callout */}
+          <Card tone="accent" padding="sm">
             <div className="flex gap-3">
-              <svg className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isDark ? "text-cyan-400" : "text-blue-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 flex-shrink-0 mt-0.5 theme-accent-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
-                <h4 className={`font-medium ${isDark ? "text-white" : "text-blue-900"}`}>How holidays work</h4>
-                <ul className={`mt-1 text-sm space-y-1 ${isDark ? "text-slate-400" : "text-blue-700"}`}>
+                <h4 className="font-medium theme-text-primary">How holidays work</h4>
+                <ul className="mt-1 text-sm space-y-1 theme-text-secondary">
                   <li>- Holidays prevent automatic No-Call-No-Show detection</li>
                   <li>- Employees won&apos;t be flagged as missing on holiday dates</li>
                   <li>- You can restrict holidays to specific locations or departments</li>
@@ -309,68 +279,50 @@ function HolidaysContent() {
                 </ul>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
       </main>
 
       {/* Add/Edit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className={`w-full max-w-md rounded-xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-            <div className={`p-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-              <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+          <div className="theme-card w-full max-w-md">
+            <div className="p-5 border-b theme-border-secondary">
+              <h2 className="text-lg font-semibold theme-text-primary">
                 {editingHoliday ? "Edit Holiday" : "Add Holiday"}
               </h2>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-4 space-y-4">
+            <form onSubmit={handleSubmit} className="p-5 space-y-4">
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Name *
-                </label>
+                <label className="block ui-section-label mb-1.5">Name *</label>
                 <input
                   type="text"
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g., Christmas Day"
-                  className={`w-full px-3 py-2 rounded-lg border ${
-                    isDark
-                      ? "bg-slate-900 border-slate-600 text-white"
-                      : "bg-white border-gray-300 text-gray-900"
-                  }`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 />
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Date *
-                </label>
+                <label className="block ui-section-label mb-1.5">Date *</label>
                 <input
                   type="date"
                   required
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className={`w-full px-3 py-2 rounded-lg border ${
-                    isDark
-                      ? "bg-slate-900 border-slate-600 text-white"
-                      : "bg-white border-gray-300 text-gray-900"
-                  }`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 />
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Type *
-                </label>
+                <label className="block ui-section-label mb-1.5">Type *</label>
                 <select
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  className={`w-full px-3 py-2 rounded-lg border ${
-                    isDark
-                      ? "bg-slate-900 border-slate-600 text-white"
-                      : "bg-white border-gray-300 text-gray-900"
-                  }`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 >
                   <option value="holiday">Holiday</option>
                   <option value="closure">Office Closure</option>
@@ -384,9 +336,9 @@ function HolidaysContent() {
                     type="checkbox"
                     checked={formData.isPaidHoliday}
                     onChange={(e) => setFormData({ ...formData, isPaidHoliday: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-600"
+                    className="w-4 h-4 rounded"
                   />
-                  <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>Paid Holiday</span>
+                  <span className="text-sm theme-text-secondary">Paid Holiday</span>
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -394,54 +346,38 @@ function HolidaysContent() {
                     type="checkbox"
                     checked={formData.isRecurring}
                     onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-600"
+                    className="w-4 h-4 rounded"
                   />
-                  <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>Recurring Annually</span>
+                  <span className="text-sm theme-text-secondary">Recurring Annually</span>
                 </label>
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Notes
-                </label>
+                <label className="block ui-section-label mb-1.5">Notes</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   placeholder="Optional notes..."
                   rows={2}
-                  className={`w-full px-3 py-2 rounded-lg border ${
-                    isDark
-                      ? "bg-slate-900 border-slate-600 text-white"
-                      : "bg-white border-gray-300 text-gray-900"
-                  }`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 />
               </div>
 
               <div className="flex gap-3 pt-2">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  className="flex-1"
                   onClick={() => {
                     setShowAddModal(false);
                     setEditingHoliday(null);
                   }}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${
-                    isDark
-                      ? "bg-slate-700 text-white hover:bg-slate-600"
-                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
                 >
                   Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${
-                    isDark
-                      ? "bg-cyan-500 text-white hover:bg-cyan-600"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
-                >
+                </Button>
+                <Button type="submit" variant="primary" className="flex-1">
                   {editingHoliday ? "Update" : "Create"}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
