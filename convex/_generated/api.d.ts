@@ -90,6 +90,7 @@ import type * as notifications from "../notifications.js";
 import type * as offerLetters from "../offerLetters.js";
 import type * as onboardingDocuments from "../onboardingDocuments.js";
 import type * as orgChart from "../orgChart.js";
+import type * as outlookAccounts from "../outlookAccounts.js";
 import type * as overtime from "../overtime.js";
 import type * as payrollCompanies from "../payrollCompanies.js";
 import type * as personnel from "../personnel.js";
@@ -210,6 +211,7 @@ declare const fullApi: ApiFromModules<{
   offerLetters: typeof offerLetters;
   onboardingDocuments: typeof onboardingDocuments;
   orgChart: typeof orgChart;
+  outlookAccounts: typeof outlookAccounts;
   overtime: typeof overtime;
   payrollCompanies: typeof payrollCompanies;
   personnel: typeof personnel;

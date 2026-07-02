@@ -130,6 +130,8 @@ function CalendarContent() {
   const allUsers = useQuery(api.auth.getAllUsers);
   // Zoom account query
   const zoomAccount = useQuery(api.zoomAccounts.getByUser, user?._id ? { userId: user._id } : "skip");
+  // Outlook / M365 calendar account query (status only, no tokens)
+  const outlook = useQuery(api.outlookAccounts.getByUser, user?._id ? { userId: user._id } : "skip");
 
   // Mutations
   const createEvent = useMutation(api.events.create);
@@ -137,6 +139,7 @@ function CalendarContent() {
   const cancelSeries = useMutation(api.events.cancelSeries);
   const updateSeries = useMutation(api.events.updateSeries);
   const attachZoomToEvent = useAction(api.zoomMeetings.attachZoomToEvent);
+  const disconnectOutlook = useMutation(api.outlookAccounts.disconnect);
   const updateEvent = useMutation(api.events.update);
   const cancelEvent = useMutation(api.events.cancel);
   const respondToInvite = useMutation(api.events.respondToInvite);
@@ -731,6 +734,35 @@ function CalendarContent() {
                 <span className={`text-xs ${zoomSyncResult.synced > 0 ? (isDark ? "text-emerald-400" : "text-emerald-600") : "theme-text-tertiary"}`}>
                   {zoomSyncResult.message}
                 </span>
+              )}
+
+              {/* Outlook / M365 connect / disconnect */}
+              {user && (
+                outlook?.connected ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="hidden md:inline text-xs theme-text-tertiary" title={outlook.outlookEmail}>
+                      Outlook: {outlook.outlookEmail}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      onClick={() => disconnectOutlook({ userId: user._id as Id<"users"> })}
+                      title="Disconnect Outlook calendar"
+                    >
+                      <span className="hidden sm:inline">Disconnect</span>
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      window.location.href = `/api/calendar/outlook/oauth?userId=${user._id}`;
+                    }}
+                    title="Connect your Outlook / M365 calendar"
+                  >
+                    <span className="hidden sm:inline">Connect Outlook</span>
+                    <span className="sm:hidden">Outlook</span>
+                  </Button>
+                )
               )}
 
               {/* Help Button */}

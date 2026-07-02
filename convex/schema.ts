@@ -3555,6 +3555,24 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_zoom_user", ["zoomUserId"]),
 
+  // ============ OUTLOOK / M365 CALENDAR ACCOUNTS ============
+  outlookAccounts: defineTable({
+    userId: v.id("users"),
+    outlookEmail: v.string(),
+    accessToken: v.string(),   // AES-256-GCM encrypted
+    refreshToken: v.string(),  // AES-256-GCM encrypted
+    tokenExpiresAt: v.number(),
+    scope: v.string(),
+    syncDirection: v.optional(v.string()), // "in" | "out" | "both"; default "both"
+    deltaLink: v.optional(v.string()),     // for Phase 2 incremental pull
+    isActive: v.boolean(),
+    lastSyncAt: v.optional(v.number()),
+    syncError: v.optional(v.string()),
+    connectedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"]),
+
   // ============ WEB PUSH SUBSCRIPTIONS ============
   webPushSubscriptions: defineTable({
     userId: v.id("users"),
