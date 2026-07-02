@@ -6,8 +6,10 @@ import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useTheme } from "../theme-context";
 import { useAuth } from "../auth-context";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 const REPORT_VIA_OPTIONS = [
   { value: "app", label: "App" },
@@ -18,8 +20,6 @@ const REPORT_VIA_OPTIONS = [
 ];
 
 function CallOffsContent() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const { user, canManageCallOffs } = useAuth();
 
   const todayCallOffs = useQuery(api.callOffs.getToday) || [];
@@ -53,14 +53,14 @@ function CallOffsContent() {
   // Redirect if user doesn't have permission
   if (!canManageCallOffs) {
     return (
-      <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+      <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
         <Sidebar />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+            <h1 className="text-2xl font-bold theme-text-primary">
               Access Denied
             </h1>
-            <p className={`mt-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+            <p className="mt-2 theme-text-tertiary">
               You don&apos;t have permission to view this page.
             </p>
           </div>
@@ -147,56 +147,53 @@ function CallOffsContent() {
     .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`));
 
   return (
-    <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
 
         {/* Header */}
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+        <header className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-[var(--theme-border-secondary)] px-4 sm:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">
                 Call-Offs
               </h1>
-              <p className={`text-xs sm:text-sm mt-1 hidden sm:block ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className="text-xs sm:text-sm mt-1 hidden sm:block theme-text-tertiary">
                 Track and manage employee call-offs
               </p>
             </div>
-            <button
+            <Button
+              variant="primary"
               onClick={() => setShowAddForm(true)}
-              className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex-shrink-0 ${
-                isDark
-                  ? "bg-cyan-500 hover:bg-cyan-400 text-white"
-                  : "bg-blue-600 hover:bg-blue-700 text-white"
-              }`}
+              className="flex-shrink-0"
             >
               <span className="hidden sm:inline">Add Call-Off</span>
               <span className="sm:hidden">Add</span>
-            </button>
+            </Button>
           </div>
         </header>
 
         <div className="p-4 sm:p-8 space-y-4 sm:space-y-6">
           {/* Stats */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
-            <div className={`rounded-lg p-2 sm:p-4 text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <p className={`text-lg sm:text-2xl font-bold text-amber-400`}>{stats.todayCount}</p>
-              <p className={`text-[10px] sm:text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>Today</p>
-            </div>
-            <div className={`rounded-lg p-2 sm:p-4 text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <p className={`text-lg sm:text-2xl font-bold text-red-400`}>{stats.unacknowledgedCount}</p>
-              <p className={`text-[10px] sm:text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>Unacknowledged</p>
-            </div>
-            <div className={`rounded-lg p-2 sm:p-4 text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <p className={`text-lg sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{stats.thisWeekCount}</p>
-              <p className={`text-[10px] sm:text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>This Week</p>
-            </div>
+            <Card padding="sm">
+              <p className="text-lg sm:text-2xl font-bold text-amber-500 text-center">{stats.todayCount}</p>
+              <p className="text-[10px] sm:text-xs theme-text-tertiary text-center">Today</p>
+            </Card>
+            <Card padding="sm">
+              <p className="text-lg sm:text-2xl font-bold text-red-500 text-center">{stats.unacknowledgedCount}</p>
+              <p className="text-[10px] sm:text-xs theme-text-tertiary text-center">Unacknowledged</p>
+            </Card>
+            <Card padding="sm">
+              <p className="text-lg sm:text-2xl font-bold theme-text-primary text-center">{stats.thisWeekCount}</p>
+              <p className="text-[10px] sm:text-xs theme-text-tertiary text-center">This Week</p>
+            </Card>
           </div>
 
           {/* Tabs and Search */}
-          <div className={`rounded-lg p-3 sm:p-4 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+          <Card padding="sm">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1">
                 <input
@@ -204,25 +201,15 @@ function CallOffsContent() {
                   placeholder="Search by name or department..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-                  }`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 />
               </div>
               <div className="flex gap-2">
-                <button
+                <Button
+                  variant={activeTab === "today" ? "primary" : "secondary"}
+                  size="sm"
                   onClick={() => setActiveTab("today")}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                    activeTab === "today"
-                      ? isDark
-                        ? "bg-cyan-500 text-white"
-                        : "bg-blue-600 text-white"
-                      : isDark
-                        ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
+                  className="whitespace-nowrap"
                 >
                   Today
                   {stats.todayCount > 0 && (
@@ -230,18 +217,12 @@ function CallOffsContent() {
                       {stats.todayCount}
                     </span>
                   )}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant={activeTab === "unacknowledged" ? "primary" : "secondary"}
+                  size="sm"
                   onClick={() => setActiveTab("unacknowledged")}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                    activeTab === "unacknowledged"
-                      ? isDark
-                        ? "bg-cyan-500 text-white"
-                        : "bg-blue-600 text-white"
-                      : isDark
-                        ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
+                  className="whitespace-nowrap"
                 >
                   Unacknowledged
                   {stats.unacknowledgedCount > 0 && (
@@ -249,17 +230,17 @@ function CallOffsContent() {
                       {stats.unacknowledgedCount}
                     </span>
                   )}
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Call-Offs List */}
-          <div className={`rounded-lg overflow-hidden ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+          <Card padding="sm" className="overflow-hidden p-0">
             {filteredCallOffs.length === 0 ? (
               <div className="p-8 text-center">
                 <svg
-                  className={`w-12 h-12 mx-auto mb-3 ${isDark ? "text-slate-600" : "text-gray-300"}`}
+                  className="w-12 h-12 mx-auto mb-3 theme-text-tertiary"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -271,47 +252,43 @@ function CallOffsContent() {
                     d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
                   />
                 </svg>
-                <p className={isDark ? "text-slate-400" : "text-gray-500"}>
+                <p className="theme-text-tertiary">
                   {activeTab === "today" ? "No call-offs today" : "All call-offs acknowledged"}
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-700">
+              <div className="divide-y divide-[var(--theme-border-secondary)]">
                 {filteredCallOffs.map((callOff) => (
                   <div
                     key={callOff._id}
-                    className={`p-4 ${isDark ? "hover:bg-slate-700/50" : "hover:bg-gray-50"} transition-colors`}
+                    className="p-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                          <h3 className="font-medium theme-text-primary">
                             {callOff.personnelName}
                           </h3>
                           {!callOff.acknowledgedAt && (
-                            <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-400 border-red-500/30">
-                              Unacknowledged
-                            </span>
+                            <span className="ui-badge ui-badge-red">Unacknowledged</span>
                           )}
                           {callOff.acknowledgedAt && (
-                            <span className="text-xs px-2 py-0.5 rounded-full border bg-green-500/20 text-green-400 border-green-500/30">
-                              Acknowledged
-                            </span>
+                            <span className="ui-badge ui-badge-green">Acknowledged</span>
                           )}
                         </div>
-                        <div className={`mt-1 text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <div className="mt-1 text-sm theme-text-tertiary">
                           {callOff.personnelDepartment} &bull; {callOff.personnelPosition}
                         </div>
-                        <div className={`mt-2 text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                        <div className="mt-2 text-sm theme-text-secondary">
                           <span className="font-medium">{formatDate(callOff.date)}</span>
-                          <span className={`ml-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                          <span className="ml-2 theme-text-tertiary">
                             via {REPORT_VIA_OPTIONS.find((r) => r.value === callOff.reportedVia)?.label || callOff.reportedVia}
                           </span>
                         </div>
-                        <p className={`mt-2 text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                        <p className="mt-2 text-sm theme-text-secondary">
                           {callOff.reason}
                         </p>
-                        <p className={`mt-2 text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                        <p className="mt-2 text-xs theme-text-tertiary">
                           Reported at {formatTimestamp(callOff.reportedAt)}
                           {callOff.acknowledgedAt && callOff.acknowledgerName && (
                             <>
@@ -321,7 +298,7 @@ function CallOffsContent() {
                           )}
                         </p>
                         {callOff.managerNotes && (
-                          <p className={`mt-1 text-xs italic ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          <p className="mt-1 text-xs italic theme-text-tertiary">
                             Note: {callOff.managerNotes}
                           </p>
                         )}
@@ -329,19 +306,16 @@ function CallOffsContent() {
 
                       {!callOff.acknowledgedAt && (
                         <div className="flex gap-2 flex-shrink-0">
-                          <button
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => {
                               setSelectedCallOff(callOff._id);
                               setManagerNotes("");
                             }}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
-                              isDark
-                                ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
-                                : "bg-green-100 text-green-600 hover:bg-green-200"
-                            }`}
                           >
                             Acknowledge
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -349,81 +323,73 @@ function CallOffsContent() {
                 ))}
               </div>
             )}
-          </div>
+          </Card>
         </div>
       </main>
 
       {/* Acknowledge Modal */}
       {selectedCallOff && selectedCallOffData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
-            <h2 className={`text-lg font-bold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-              Acknowledge Call-Off
-            </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="theme-card w-full max-w-md">
+            <div className="p-5 border-b border-[var(--theme-border-secondary)]">
+              <h2 className="text-lg font-bold theme-text-primary">
+                Acknowledge Call-Off
+              </h2>
+            </div>
 
-            <div className="space-y-3 mb-6">
+            <div className="p-5 space-y-3">
               <div>
-                <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Employee:</span>
-                <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                <span className="text-sm theme-text-tertiary">Employee:</span>
+                <p className="font-medium theme-text-primary">
                   {selectedCallOffData.personnelName}
                 </p>
               </div>
               <div>
-                <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Date:</span>
-                <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                <span className="text-sm theme-text-tertiary">Date:</span>
+                <p className="font-medium theme-text-primary">
                   {formatDate(selectedCallOffData.date)}
                 </p>
               </div>
               <div>
-                <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Reason:</span>
-                <p className={`${isDark ? "text-white" : "text-gray-900"}`}>
+                <span className="text-sm theme-text-tertiary">Reason:</span>
+                <p className="theme-text-primary">
                   {selectedCallOffData.reason}
                 </p>
               </div>
-            </div>
 
-            <div className="mb-6">
-              <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                Manager Notes (optional)
-              </label>
-              <textarea
-                value={managerNotes}
-                onChange={(e) => setManagerNotes(e.target.value)}
-                rows={3}
-                className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                  isDark
-                    ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                    : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-                }`}
-                placeholder="Add notes about this call-off..."
-              />
-            </div>
+              <div className="pt-2">
+                <label className="block ui-section-label mb-1.5">
+                  Manager Notes (optional)
+                </label>
+                <textarea
+                  value={managerNotes}
+                  onChange={(e) => setManagerNotes(e.target.value)}
+                  rows={3}
+                  className="theme-input w-full px-3 py-2 text-sm"
+                  placeholder="Add notes about this call-off..."
+                />
+              </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setSelectedCallOff(null);
-                  setManagerNotes("");
-                }}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isDark
-                    ? "bg-slate-700 hover:bg-slate-600 text-slate-300"
-                    : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                }`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleAcknowledge(selectedCallOff)}
-                disabled={isProcessing}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isDark
-                    ? "bg-green-500 hover:bg-green-400 text-white"
-                    : "bg-green-600 hover:bg-green-700 text-white"
-                } disabled:opacity-50`}
-              >
-                Acknowledge
-              </button>
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => {
+                    setSelectedCallOff(null);
+                    setManagerNotes("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
+                  onClick={() => handleAcknowledge(selectedCallOff)}
+                  disabled={isProcessing}
+                >
+                  Acknowledge
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -431,25 +397,21 @@ function CallOffsContent() {
 
       {/* Add Manual Call-Off Modal */}
       {showAddForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
-            <h2 className={`text-lg font-bold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-              Add Call-Off
-            </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="theme-card w-full max-w-md">
+            <div className="p-5 border-b border-[var(--theme-border-secondary)]">
+              <h2 className="text-lg font-bold theme-text-primary">
+                Add Call-Off
+              </h2>
+            </div>
 
-            <div className="space-y-4 mb-6">
+            <div className="p-5 space-y-4">
               <div>
-                <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Employee
-                </label>
+                <label className="block ui-section-label mb-1.5">Employee</label>
                 <select
                   value={newCallOff.personnelId}
                   onChange={(e) => setNewCallOff({ ...newCallOff, personnelId: e.target.value })}
-                  className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white"
-                      : "bg-white border-gray-300 text-gray-900"
-                  }`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 >
                   <option value="">Select employee...</option>
                   {sortedPersonnel.map((p) => (
@@ -461,33 +423,21 @@ function CallOffsContent() {
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Date
-                </label>
+                <label className="block ui-section-label mb-1.5">Date</label>
                 <input
                   type="date"
                   value={newCallOff.date}
                   onChange={(e) => setNewCallOff({ ...newCallOff, date: e.target.value })}
-                  className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white"
-                      : "bg-white border-gray-300 text-gray-900"
-                  }`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 />
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Reported Via
-                </label>
+                <label className="block ui-section-label mb-1.5">Reported Via</label>
                 <select
                   value={newCallOff.reportedVia}
                   onChange={(e) => setNewCallOff({ ...newCallOff, reportedVia: e.target.value })}
-                  className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white"
-                      : "bg-white border-gray-300 text-gray-900"
-                  }`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 >
                   {REPORT_VIA_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -498,71 +448,53 @@ function CallOffsContent() {
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Reason
-                </label>
+                <label className="block ui-section-label mb-1.5">Reason</label>
                 <textarea
                   value={newCallOff.reason}
                   onChange={(e) => setNewCallOff({ ...newCallOff, reason: e.target.value })}
                   rows={2}
-                  className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-                  }`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                   placeholder="Reason for calling off..."
                 />
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Manager Notes (optional)
-                </label>
+                <label className="block ui-section-label mb-1.5">Manager Notes (optional)</label>
                 <textarea
                   value={newCallOff.managerNotes}
                   onChange={(e) => setNewCallOff({ ...newCallOff, managerNotes: e.target.value })}
                   rows={2}
-                  className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-                  }`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                   placeholder="Additional notes..."
                 />
               </div>
-            </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowAddForm(false);
-                  setNewCallOff({
-                    personnelId: "",
-                    date: new Date().toISOString().split("T")[0],
-                    reason: "",
-                    reportedVia: "phone",
-                    managerNotes: "",
-                  });
-                }}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isDark
-                    ? "bg-slate-700 hover:bg-slate-600 text-slate-300"
-                    : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                }`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddManual}
-                disabled={isProcessing || !newCallOff.personnelId || !newCallOff.reason}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isDark
-                    ? "bg-cyan-500 hover:bg-cyan-400 text-white"
-                    : "bg-blue-600 hover:bg-blue-700 text-white"
-                } disabled:opacity-50`}
-              >
-                Add Call-Off
-              </button>
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setNewCallOff({
+                      personnelId: "",
+                      date: new Date().toISOString().split("T")[0],
+                      reason: "",
+                      reportedVia: "phone",
+                      managerNotes: "",
+                    });
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
+                  onClick={handleAddManual}
+                  disabled={isProcessing || !newCallOff.personnelId || !newCallOff.reason}
+                >
+                  Add Call-Off
+                </Button>
+              </div>
             </div>
           </div>
         </div>

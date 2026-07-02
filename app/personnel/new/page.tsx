@@ -7,8 +7,10 @@ import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useTheme } from "../../theme-context";
 import { useAuth } from "../../auth-context";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 const EMPLOYEE_TYPES = [
   { value: "full_time", label: "Full Time" },
@@ -32,8 +34,6 @@ const DEPARTMENTS = [
 ];
 
 function NewEmployeeContent() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const router = useRouter();
   const { user, canManagePersonnel } = useAuth();
   const createPersonnel = useMutation(api.personnel.create);
@@ -66,14 +66,14 @@ function NewEmployeeContent() {
   // Redirect if user doesn't have permission
   if (!canManagePersonnel) {
     return (
-      <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+      <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
         <Sidebar />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+            <h1 className="text-2xl font-bold theme-text-primary">
               Access Denied
             </h1>
-            <p className={`mt-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+            <p className="mt-2 theme-text-tertiary">
               You don&apos;t have permission to add employees.
             </p>
           </div>
@@ -160,7 +160,7 @@ function NewEmployeeContent() {
   };
 
   return (
-    <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
@@ -168,21 +168,21 @@ function NewEmployeeContent() {
         <MobileHeader />
 
         {/* Header */}
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+        <header className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-[var(--theme-border-secondary)] px-4 sm:px-8 py-3 sm:py-4">
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.back()}
-              className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-800 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}
+              className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-slate-800 theme-text-tertiary"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             <div>
-              <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">
                 Add Employee
               </h1>
-              <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className="text-xs sm:text-sm mt-1 theme-text-tertiary">
                 Create a new personnel record
               </p>
             </div>
@@ -192,82 +192,68 @@ function NewEmployeeContent() {
         <div className="p-4 sm:p-8 max-w-3xl">
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="p-4 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400">
-                {error}
-              </div>
+              <Card tone="red" padding="sm">
+                <span className="text-sm">{error}</span>
+              </Card>
             )}
 
             {/* Basic Information */}
-            <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                Basic Information
-              </h2>
+            <Card padding="md">
+              <SectionHeader label="PERSONAL" title="Basic Information" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    First Name *
-                  </label>
+                  <label className="block ui-section-label mb-1">First Name *</label>
                   <input
                     type="text"
                     name="firstName"
                     value={formData.firstName}
                     onChange={handleChange}
                     required
-                    className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 focus:border-blue-600"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Last Name *
-                  </label>
+                  <label className="block ui-section-label mb-1">Last Name *</label>
                   <input
                     type="text"
                     name="lastName"
                     value={formData.lastName}
                     onChange={handleChange}
                     required
-                    className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 focus:border-blue-600"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Email *
-                  </label>
+                  <label className="block ui-section-label mb-1">Email *</label>
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
                     required
-                    className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 focus:border-blue-600"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Phone *
-                  </label>
+                  <label className="block ui-section-label mb-1">Phone *</label>
                   <input
                     type="tel"
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
                     required
-                    className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 focus:border-blue-600"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   />
                 </div>
               </div>
-            </div>
+            </Card>
 
             {/* Employment Details */}
-            <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                Employment Details
-              </h2>
+            <Card padding="md">
+              <SectionHeader label="EMPLOYMENT" title="Employment Details" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Position *
-                  </label>
+                  <label className="block ui-section-label mb-1">Position *</label>
                   <input
                     type="text"
                     name="position"
@@ -275,19 +261,17 @@ function NewEmployeeContent() {
                     onChange={handleChange}
                     required
                     placeholder="e.g., Warehouse Associate"
-                    className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white placeholder-slate-500 focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-600"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Department *
-                  </label>
+                  <label className="block ui-section-label mb-1">Department *</label>
                   <select
                     name="department"
                     value={formData.department}
                     onChange={handleChange}
                     required
-                    className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 focus:border-blue-600"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   >
                     <option value="">Select Department</option>
                     {DEPARTMENTS.map((dept) => (
@@ -298,15 +282,13 @@ function NewEmployeeContent() {
                   </select>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Employee Type *
-                  </label>
+                  <label className="block ui-section-label mb-1">Employee Type *</label>
                   <select
                     name="employeeType"
                     value={formData.employeeType}
                     onChange={handleChange}
                     required
-                    className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 focus:border-blue-600"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   >
                     {EMPLOYEE_TYPES.map((type) => (
                       <option key={type.value} value={type.value}>
@@ -316,7 +298,7 @@ function NewEmployeeContent() {
                   </select>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block ui-section-label mb-1">
                     {formData.employeeType === "temp" ? "Temp start date *" : "Hire Date *"}
                   </label>
                   <input
@@ -325,15 +307,13 @@ function NewEmployeeContent() {
                     value={formData.hireDate}
                     onChange={handleChange}
                     required
-                    className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 focus:border-blue-600"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Hourly Rate
-                  </label>
+                  <label className="block ui-section-label mb-1">Hourly Rate</label>
                   <div className="relative">
-                    <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 theme-text-tertiary text-sm">$</span>
                     <input
                       type="number"
                       name="hourlyRate"
@@ -342,19 +322,17 @@ function NewEmployeeContent() {
                       step="0.01"
                       min="0"
                       placeholder="0.00"
-                      className={`w-full pl-7 pr-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white placeholder-slate-500 focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-600"}`}
+                      className="theme-input w-full pl-7 pr-3 py-2 text-sm"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Location
-                  </label>
+                  <label className="block ui-section-label mb-1">Location</label>
                   <select
                     name="locationId"
                     value={formData.locationId}
                     onChange={handleChange}
-                    className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 focus:border-blue-600"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   >
                     <option value="">Select Location</option>
                     {locations?.map((location) => (
@@ -367,139 +345,127 @@ function NewEmployeeContent() {
               </div>
 
               {formData.employeeType === "temp" && (
-                <div className={`space-y-4 rounded-lg border p-4 mt-4 ${isDark ? "border-amber-700 bg-amber-900/20" : "border-amber-200 bg-amber-50/50"}`}>
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Staffing Agency</label>
-                    <input
-                      type="text"
-                      name="staffingAgency"
-                      value={formData.staffingAgency}
-                      onChange={handleChange}
-                      placeholder="e.g. Express Employment"
-                      className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white placeholder-slate-500 focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-600"}`}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
+                <Card tone="amber" padding="sm" className="mt-4">
+                  <div className="space-y-4">
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Eligible after</label>
+                      <label className="block ui-section-label mb-1">Staffing Agency</label>
                       <input
-                        type="number"
-                        name="tempEligibilityValue"
-                        min={1}
-                        value={formData.tempEligibilityValue}
+                        type="text"
+                        name="staffingAgency"
+                        value={formData.staffingAgency}
                         onChange={handleChange}
-                        placeholder="e.g. 90"
-                        className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white placeholder-slate-500 focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-600"}`}
+                        placeholder="e.g. Express Employment"
+                        className="theme-input w-full px-3 py-2 text-sm"
                       />
                     </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block ui-section-label mb-1">Eligible after</label>
+                        <input
+                          type="number"
+                          name="tempEligibilityValue"
+                          min={1}
+                          value={formData.tempEligibilityValue}
+                          onChange={handleChange}
+                          placeholder="e.g. 90"
+                          className="theme-input w-full px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block ui-section-label mb-1">Basis</label>
+                        <select
+                          name="tempEligibilityMode"
+                          value={formData.tempEligibilityMode}
+                          onChange={handleChange}
+                          className="theme-input w-full px-3 py-2 text-sm"
+                        >
+                          <option value="days">Days</option>
+                          <option value="hours">Hours (at 40/wk)</option>
+                        </select>
+                      </div>
+                    </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Basis</label>
-                      <select
-                        name="tempEligibilityMode"
-                        value={formData.tempEligibilityMode}
+                      <label className="block ui-section-label mb-1">Override eligible date (optional)</label>
+                      <input
+                        type="date"
+                        name="tempEligibleDateOverride"
+                        value={formData.tempEligibleDateOverride}
                         onChange={handleChange}
-                        className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 focus:border-blue-600"}`}
-                      >
-                        <option value="days">Days</option>
-                        <option value="hours">Hours (at 40/wk)</option>
-                      </select>
+                        className="theme-input w-full px-3 py-2 text-sm"
+                      />
                     </div>
                   </div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Override eligible date (optional)</label>
-                    <input
-                      type="date"
-                      name="tempEligibleDateOverride"
-                      value={formData.tempEligibleDateOverride}
-                      onChange={handleChange}
-                      className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 focus:border-blue-600"}`}
-                    />
-                  </div>
-                </div>
+                </Card>
               )}
-            </div>
+            </Card>
 
             {/* Emergency Contact */}
-            <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                Emergency Contact (Optional)
-              </h2>
+            <Card padding="md">
+              <SectionHeader label="EMERGENCY" title="Emergency Contact (Optional)" />
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Name
-                  </label>
+                  <label className="block ui-section-label mb-1">Name</label>
                   <input
                     type="text"
                     name="emergencyContactName"
                     value={formData.emergencyContactName}
                     onChange={handleChange}
-                    className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 focus:border-blue-600"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Phone
-                  </label>
+                  <label className="block ui-section-label mb-1">Phone</label>
                   <input
                     type="tel"
                     name="emergencyContactPhone"
                     value={formData.emergencyContactPhone}
                     onChange={handleChange}
-                    className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 focus:border-blue-600"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Relationship
-                  </label>
+                  <label className="block ui-section-label mb-1">Relationship</label>
                   <input
                     type="text"
                     name="emergencyContactRelationship"
                     value={formData.emergencyContactRelationship}
                     onChange={handleChange}
                     placeholder="e.g., Spouse, Parent"
-                    className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white placeholder-slate-500 focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-600"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   />
                 </div>
               </div>
-            </div>
+            </Card>
 
             {/* Notes */}
-            <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                Notes (Optional)
-              </h2>
+            <Card padding="md">
+              <SectionHeader label="NOTES" title="Notes (Optional)" />
               <textarea
                 name="notes"
                 value={formData.notes}
                 onChange={handleChange}
                 rows={4}
                 placeholder="Any additional notes about this employee..."
-                className={`w-full px-3 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700/50 border border-slate-600 text-white placeholder-slate-500 focus:border-cyan-500" : "bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-600"}`}
+                className="theme-input w-full px-3 py-2 text-sm"
               />
-            </div>
+            </Card>
 
             {/* Submit Button */}
             <div className="flex justify-end gap-4">
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => router.back()}
-                className={`px-6 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-700"}`}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
+                variant="primary"
                 disabled={isSubmitting}
-                className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                  isDark
-                    ? "bg-cyan-500 hover:bg-cyan-400 text-white disabled:bg-cyan-500/50"
-                    : "bg-blue-600 hover:bg-blue-700 text-white disabled:bg-blue-600/50"
-                }`}
               >
                 {isSubmitting ? "Creating..." : "Create Employee"}
-              </button>
+              </Button>
             </div>
           </form>
         </div>
