@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Protected from "../../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useTheme } from "../../theme-context";
 import { useAuth } from "../../auth-context";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 const BANNER_TYPES = [
   { value: "info", label: "Info", color: "bg-blue-500" },
@@ -19,9 +20,6 @@ const BANNER_TYPES = [
 ];
 
 function BannersContent() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
-  const router = useRouter();
   const { user } = useAuth();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -46,16 +44,12 @@ function BannersContent() {
   // Check if user is super_admin
   if (user?.role !== "super_admin" && user?.role !== "admin") {
     return (
-      <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+      <div className="flex h-screen theme-bg">
         <Sidebar />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-              Access Denied
-            </h1>
-            <p className={`mt-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-              Only super admins can manage system banners.
-            </p>
+            <h1 className="text-2xl font-bold theme-text-primary">Access Denied</h1>
+            <p className="mt-2 theme-text-secondary">Only super admins can manage system banners.</p>
           </div>
         </main>
       </div>
@@ -165,126 +159,110 @@ function BannersContent() {
   };
 
   return (
-    <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+    <div className="flex h-screen theme-bg">
       <Sidebar />
 
       <main className="flex-1 overflow-auto">
         <MobileHeader />
-        {/* Header */}
-        <header className={`sticky top-0 z-10 border-b px-4 sm:px-8 py-4 ${isDark ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"}`}>
+
+        {/* Sticky iOS-style page header */}
+        <header className="sticky top-0 z-10 backdrop-blur-sm border-b theme-border-secondary px-4 sm:px-8 py-3 sm:py-4 bg-[var(--surface-primary)]/80">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <Link
                 href="/settings"
-                className={`p-2 -ml-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}
+                className="p-2 -ml-2 rounded-lg theme-text-secondary hover:theme-text-primary transition-colors hover:bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)]"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </Link>
               <div>
-                <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                  System Banners
-                </h1>
-                <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">System Banners</h1>
+                <p className="text-xs sm:text-sm mt-0.5 theme-text-tertiary">
                   Create notification banners visible across all pages
                 </p>
               </div>
             </div>
-            <button
+            <Button
+              variant="primary"
               onClick={() => {
                 resetForm();
                 setShowCreateModal(true);
               }}
-              className={`px-4 py-2 rounded-lg font-medium text-white ${isDark ? "bg-cyan-500 hover:bg-cyan-600" : "bg-blue-600 hover:bg-blue-700"}`}
             >
               Create Banner
-            </button>
+            </Button>
           </div>
         </header>
 
         {/* Content */}
-        <div className="p-4 sm:p-8">
+        <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-4 max-w-4xl">
           {banners && banners.length > 0 ? (
-            <div className="space-y-4">
-              {banners.map((banner) => (
-                <div
-                  key={banner._id}
-                  className={`rounded-xl p-4 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200"}`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className={`w-3 h-3 rounded-full ${getTypeColor(banner.type)}`} />
-                        <span className={`text-xs font-medium uppercase ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                          {banner.type}
-                        </span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${banner.isActive ? "bg-green-500/20 text-green-400" : "bg-slate-500/20 text-slate-400"}`}>
-                          {banner.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </div>
-                      <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                        {banner.message}
-                      </p>
-                      <div className={`flex flex-wrap gap-3 mt-2 text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                        <span>{banner.showOnMobile ? "Mobile" : ""}{banner.showOnMobile && banner.showOnDesktop ? " + " : ""}{banner.showOnDesktop ? "Desktop" : ""}</span>
-                        <span>{banner.dismissible ? "Dismissible" : "Persistent"}</span>
-                        {banner.expiresAt && (
-                          <span>Expires: {new Date(banner.expiresAt).toLocaleString()}</span>
-                        )}
-                        <span>Created by {banner.createdByName}</span>
-                      </div>
+            banners.map((banner) => (
+              <Card key={banner._id} padding="md">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className={`w-3 h-3 rounded-full ${getTypeColor(banner.type)}`} />
+                      <span className="ui-section-label">{banner.type}</span>
+                      <span className={`ui-badge ${banner.isActive ? "ui-badge-green" : "ui-badge-gray"}`}>
+                        {banner.isActive ? "Active" : "Inactive"}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleToggle(banner._id)}
-                        className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                          banner.isActive
-                            ? isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            : isDark ? "bg-green-500/20 text-green-400 hover:bg-green-500/30" : "bg-green-100 text-green-700 hover:bg-green-200"
-                        }`}
-                      >
-                        {banner.isActive ? "Deactivate" : "Activate"}
-                      </button>
-                      <button
-                        onClick={() => handleEdit(banner)}
-                        className={`p-2 rounded-lg transition-colors ${isDark ? "text-slate-400 hover:bg-slate-700 hover:text-white" : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"}`}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => handleDelete(banner._id)}
-                        className={`p-2 rounded-lg transition-colors ${isDark ? "text-red-400 hover:bg-red-500/20" : "text-red-500 hover:bg-red-50"}`}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                    <p className="font-medium theme-text-primary">{banner.message}</p>
+                    <div className="flex flex-wrap gap-3 mt-2 text-xs theme-text-tertiary">
+                      <span>{banner.showOnMobile ? "Mobile" : ""}{banner.showOnMobile && banner.showOnDesktop ? " + " : ""}{banner.showOnDesktop ? "Desktop" : ""}</span>
+                      <span>{banner.dismissible ? "Dismissible" : "Persistent"}</span>
+                      {banner.expiresAt && (
+                        <span>Expires: {new Date(banner.expiresAt).toLocaleString()}</span>
+                      )}
+                      <span>Created by {banner.createdByName}</span>
                     </div>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant={banner.isActive ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => handleToggle(banner._id)}
+                    >
+                      {banner.isActive ? "Deactivate" : "Activate"}
+                    </Button>
+                    <button
+                      onClick={() => handleEdit(banner)}
+                      className="p-2 rounded-lg theme-text-secondary hover:theme-text-primary hover:bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)] transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleDelete(banner._id)}
+                      className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </div>
+              </Card>
+            ))
           ) : (
-            <div className={`rounded-xl p-12 text-center ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200"}`}>
-              <svg className={`w-16 h-16 mx-auto mb-4 ${isDark ? "text-slate-600" : "text-gray-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-              </svg>
-              <h2 className={`text-xl font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-                No Banners
-              </h2>
-              <p className={`mb-6 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                Create a banner to display important messages to all users.
-              </p>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className={`px-4 py-2 rounded-lg font-medium text-white ${isDark ? "bg-cyan-500 hover:bg-cyan-600" : "bg-blue-600 hover:bg-blue-700"}`}
-              >
-                Create Your First Banner
-              </button>
-            </div>
+            <Card padding="md">
+              <div className="py-8 text-center">
+                <svg className="w-16 h-16 mx-auto mb-4 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                </svg>
+                <h2 className="text-xl font-semibold mb-2 theme-text-primary">No Banners</h2>
+                <p className="mb-6 theme-text-secondary">
+                  Create a banner to display important messages to all users.
+                </p>
+                <Button variant="primary" onClick={() => setShowCreateModal(true)}>
+                  Create Your First Banner
+                </Button>
+              </div>
+            </Card>
           )}
         </div>
       </main>
@@ -292,32 +270,28 @@ function BannersContent() {
       {/* Create/Edit Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className={`w-full max-w-lg rounded-2xl ${isDark ? "bg-slate-800" : "bg-white"}`}>
-            <div className={`p-6 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-              <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+          <div className="theme-card w-full max-w-lg rounded-2xl overflow-hidden">
+            <div className="p-6 border-b theme-border-secondary">
+              <h2 className="text-xl font-bold theme-text-primary">
                 {editingBanner ? "Edit Banner" : "Create Banner"}
               </h2>
             </div>
             <div className="p-6 space-y-4">
               {/* Message */}
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Message *
-                </label>
+                <label className="block ui-section-label mb-1.5">Message *</label>
                 <textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={2}
-                  className={`w-full px-4 py-3 rounded-lg border ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                   placeholder="Enter your banner message..."
                 />
               </div>
 
               {/* Type */}
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Type
-                </label>
+                <label className="block ui-section-label mb-1.5">Type</label>
                 <div className="flex gap-2">
                   {BANNER_TYPES.map((type) => (
                     <button
@@ -326,9 +300,7 @@ function BannersContent() {
                       className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
                         bannerType === type.value
                           ? `${type.color} text-white`
-                          : isDark
-                            ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          : "theme-card theme-text-secondary hover:theme-text-primary border theme-border-secondary"
                       }`}
                     >
                       {type.label}
@@ -339,58 +311,54 @@ function BannersContent() {
 
               {/* Display Options */}
               <div className="flex gap-4">
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={showOnMobile}
                     onChange={(e) => setShowOnMobile(e.target.checked)}
                     className="w-4 h-4 rounded"
                   />
-                  <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>Show on Mobile</span>
+                  <span className="text-sm theme-text-secondary">Show on Mobile</span>
                 </label>
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={showOnDesktop}
                     onChange={(e) => setShowOnDesktop(e.target.checked)}
                     className="w-4 h-4 rounded"
                   />
-                  <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>Show on Desktop</span>
+                  <span className="text-sm theme-text-secondary">Show on Desktop</span>
                 </label>
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={dismissible}
                     onChange={(e) => setDismissible(e.target.checked)}
                     className="w-4 h-4 rounded"
                   />
-                  <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>Dismissible</span>
+                  <span className="text-sm theme-text-secondary">Dismissible</span>
                 </label>
               </div>
 
               {/* Link */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Link URL (optional)
-                  </label>
+                  <label className="block ui-section-label mb-1.5">Link URL (optional)</label>
                   <input
                     type="url"
                     value={linkUrl}
                     onChange={(e) => setLinkUrl(e.target.value)}
-                    className={`w-full px-4 py-2 rounded-lg border ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                     placeholder="https://..."
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Link Text
-                  </label>
+                  <label className="block ui-section-label mb-1.5">Link Text</label>
                   <input
                     type="text"
                     value={linkText}
                     onChange={(e) => setLinkText(e.target.value)}
-                    className={`w-full px-4 py-2 rounded-lg border ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                     placeholder="Learn more"
                   />
                 </div>
@@ -398,36 +366,36 @@ function BannersContent() {
 
               {/* Expiry */}
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Auto-expire in (hours, optional)
-                </label>
+                <label className="block ui-section-label mb-1.5">Auto-expire in (hours, optional)</label>
                 <input
                   type="number"
                   value={expiresIn}
                   onChange={(e) => setExpiresIn(e.target.value)}
                   min="1"
-                  className={`w-full px-4 py-2 rounded-lg border ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                   placeholder="24"
                 />
               </div>
             </div>
-            <div className={`p-6 border-t flex gap-3 ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-              <button
+            <div className="p-6 border-t theme-border-secondary flex gap-3">
+              <Button
+                variant="secondary"
+                className="flex-1"
                 onClick={() => {
                   resetForm();
                   setShowCreateModal(false);
                 }}
-                className={`flex-1 py-3 rounded-lg font-medium ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-100 text-gray-900 hover:bg-gray-200"}`}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1"
                 onClick={editingBanner ? handleUpdate : handleCreate}
                 disabled={!message.trim()}
-                className={`flex-1 py-3 rounded-lg font-medium text-white disabled:opacity-50 ${isDark ? "bg-cyan-500 hover:bg-cyan-600" : "bg-blue-600 hover:bg-blue-700"}`}
               >
                 {editingBanner ? "Update" : "Create"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

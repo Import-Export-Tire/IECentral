@@ -7,8 +7,10 @@ import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useTheme } from "../../theme-context";
 import { useAuth } from "../../auth-context";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 const SERVICES = [
   "Convex",
@@ -45,8 +47,6 @@ const ENVIRONMENTS = [
 import { usePermissions } from "@/lib/usePermissions";
 
 function CredentialsContent() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const { user } = useAuth();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -75,16 +75,12 @@ function CredentialsContent() {
 
   if (!hasAccess) {
     return (
-      <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+      <div className="flex h-screen theme-bg">
         <Sidebar />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-              Access Denied
-            </h1>
-            <p className={`mt-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-              Only the development team can access credentials.
-            </p>
+            <h1 className="text-2xl font-bold theme-text-primary">Access Denied</h1>
+            <p className="mt-2 theme-text-secondary">Only the development team can access credentials.</p>
           </div>
         </main>
       </div>
@@ -189,122 +185,111 @@ function CredentialsContent() {
     return acc;
   }, {} as Record<string, NonNullable<typeof credentials>>);
 
+  const getEnvBadgeClass = (env: string) => {
+    if (env === "production") return "ui-badge ui-badge-red";
+    if (env === "staging") return "ui-badge ui-badge-amber";
+    return "ui-badge ui-badge-green";
+  };
+
   return (
-    <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+    <div className="flex h-screen theme-bg">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
 
-        {/* Header */}
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+        {/* Sticky iOS-style page header */}
+        <header className="sticky top-0 z-10 backdrop-blur-sm border-b theme-border-secondary px-4 sm:px-8 py-3 sm:py-4 bg-[var(--surface-primary)]/80">
           <div className="flex items-center gap-4">
             <Link
               href="/settings"
-              className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}
+              className="p-2 rounded-lg theme-text-secondary hover:theme-text-primary transition-colors hover:bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)]"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </Link>
             <div className="flex-1">
-              <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                Credentials
-              </h1>
-              <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Credentials</h1>
+              <p className="text-xs sm:text-sm mt-0.5 theme-text-tertiary">
                 Manage API keys, deploy keys, and other credentials
               </p>
             </div>
-            <button
+            <Button
+              variant="primary"
               onClick={() => {
                 resetForm();
                 setShowCreateModal(true);
               }}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               Add Credential
-            </button>
+            </Button>
           </div>
         </header>
 
-        <div className="p-4 sm:p-8">
+        <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-5 max-w-4xl">
           {/* Warning Banner */}
-          <div className={`mb-6 p-4 rounded-lg border ${isDark ? "bg-amber-500/10 border-amber-500/30" : "bg-amber-50 border-amber-200"}`}>
+          <Card tone="amber" padding="sm">
             <div className="flex items-start gap-3">
-              <svg className={`w-5 h-5 mt-0.5 ${isDark ? "text-amber-400" : "text-amber-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 mt-0.5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <div>
-                <p className={`font-medium ${isDark ? "text-amber-400" : "text-amber-700"}`}>Security Notice</p>
-                <p className={`text-sm mt-1 ${isDark ? "text-amber-400/80" : "text-amber-600"}`}>
+                <p className="font-medium text-amber-700 dark:text-amber-400">Security Notice</p>
+                <p className="text-sm mt-1 text-amber-600 dark:text-amber-400/80">
                   Credentials are stored in the database. Only development team members can view this page.
                   Never share these credentials outside the team.
                 </p>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Credentials List */}
           {!credentials || credentials.length === 0 ? (
-            <div className={`text-center py-12 border rounded-xl ${isDark ? "bg-slate-800/50 border-slate-700 text-slate-400" : "bg-white border-gray-200 text-gray-500"}`}>
-              No credentials stored yet. Add your first credential.
-            </div>
+            <Card padding="md">
+              <div className="text-center py-8 theme-text-secondary text-sm">
+                No credentials stored yet. Add your first credential.
+              </div>
+            </Card>
           ) : (
             <div className="space-y-6">
               {Object.entries(groupedCredentials).map(([serviceName, creds]) => (
                 <div key={serviceName}>
-                  <h2 className={`text-lg font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
-                    {serviceName}
-                  </h2>
+                  <SectionHeader label="SERVICE" title={serviceName} />
                   <div className="space-y-3">
                     {creds?.map((cred) => (
-                      <div
-                        key={cred._id}
-                        className={`border rounded-xl p-4 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}
-                      >
+                      <Card key={cred._id} padding="md">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                                {cred.name}
-                              </h3>
-                              <span className={`px-2 py-0.5 text-xs rounded ${isDark ? "bg-slate-700 text-slate-300" : "bg-gray-100 text-gray-600"}`}>
+                              <span className="font-semibold theme-text-primary">{cred.name}</span>
+                              <span className="ui-badge ui-badge-gray">
                                 {KEY_TYPES.find((t) => t.value === cred.keyType)?.label || cred.keyType}
                               </span>
                               {cred.environment && (
-                                <span className={`px-2 py-0.5 text-xs rounded ${
-                                  cred.environment === "production"
-                                    ? isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-600"
-                                    : cred.environment === "staging"
-                                    ? isDark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-600"
-                                    : isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-600"
-                                }`}>
+                                <span className={getEnvBadgeClass(cred.environment)}>
                                   {cred.environment}
                                 </span>
                               )}
                               {cred.expiresAt && cred.expiresAt < Date.now() && (
-                                <span className={`px-2 py-0.5 text-xs rounded ${isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-600"}`}>
-                                  Expired
-                                </span>
+                                <span className="ui-badge ui-badge-red">Expired</span>
                               )}
                             </div>
                             {cred.project && (
-                              <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                                Project: {cred.project}
-                              </p>
+                              <p className="text-sm mt-1 theme-text-secondary">Project: {cred.project}</p>
                             )}
 
                             {/* Value field */}
                             <div className="mt-3 flex items-center gap-2">
-                              <div className={`flex-1 font-mono text-sm px-3 py-2 rounded ${isDark ? "bg-slate-900 text-slate-300" : "bg-gray-50 text-gray-700"}`}>
+                              <div className="flex-1 font-mono text-sm px-3 py-2 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/60 theme-text-primary">
                                 {showValue[cred._id] ? cred.value : "••••••••••••••••••••"}
                               </div>
                               <button
                                 onClick={() => toggleShowValue(cred._id)}
-                                className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}
+                                className="p-2 rounded-lg theme-text-secondary hover:theme-text-primary hover:bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)] transition-colors"
                                 title={showValue[cred._id] ? "Hide" : "Show"}
                               >
                                 {showValue[cred._id] ? (
@@ -320,7 +305,7 @@ function CredentialsContent() {
                               </button>
                               <button
                                 onClick={() => copyToClipboard(cred.value, cred._id)}
-                                className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}
+                                className="p-2 rounded-lg theme-text-secondary hover:theme-text-primary hover:bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)] transition-colors"
                                 title="Copy"
                               >
                                 {copiedId === cred._id ? (
@@ -336,16 +321,14 @@ function CredentialsContent() {
                             </div>
 
                             {cred.notes && (
-                              <p className={`text-sm mt-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                                {cred.notes}
-                              </p>
+                              <p className="text-sm mt-2 theme-text-tertiary">{cred.notes}</p>
                             )}
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
                             <button
                               onClick={() => handleEdit(cred)}
-                              className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}
+                              className="p-2 rounded-lg theme-text-secondary hover:theme-text-primary hover:bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)] transition-colors"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -353,7 +336,7 @@ function CredentialsContent() {
                             </button>
                             <button
                               onClick={() => handleDelete(cred._id)}
-                              className={`p-2 rounded-lg transition-colors text-red-400 hover:bg-red-500/10`}
+                              className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -361,7 +344,7 @@ function CredentialsContent() {
                             </button>
                           </div>
                         </div>
-                      </div>
+                      </Card>
                     ))}
                   </div>
                 </div>
@@ -373,9 +356,9 @@ function CredentialsContent() {
         {/* Create/Edit Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`border rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+            <div className="theme-card w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b theme-border-secondary">
+                <h2 className="text-xl font-semibold theme-text-primary">
                   {editingId ? "Edit Credential" : "Add Credential"}
                 </h2>
                 <button
@@ -383,37 +366,33 @@ function CredentialsContent() {
                     setShowCreateModal(false);
                     resetForm();
                   }}
-                  className={`p-1 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}
+                  className="p-1.5 rounded-lg theme-text-secondary hover:theme-text-primary hover:bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)] transition-colors"
                 >
-                  <svg className={`w-5 h-5 ${isDark ? "text-slate-400" : "text-gray-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="p-6 space-y-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Name *
-                  </label>
+                  <label className="block ui-section-label mb-1.5">Name *</label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                     placeholder="e.g., Convex Deploy Key - Production"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Service *
-                    </label>
+                    <label className="block ui-section-label mb-1.5">Service *</label>
                     <select
                       value={service}
                       onChange={(e) => setService(e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                     >
                       {SERVICES.map((s) => (
                         <option key={s} value={s}>{s}</option>
@@ -422,13 +401,11 @@ function CredentialsContent() {
                   </div>
 
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Key Type *
-                    </label>
+                    <label className="block ui-section-label mb-1.5">Key Type *</label>
                     <select
                       value={keyType}
                       onChange={(e) => setKeyType(e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                     >
                       {KEY_TYPES.map((t) => (
                         <option key={t.value} value={t.value}>{t.label}</option>
@@ -439,41 +416,35 @@ function CredentialsContent() {
 
                 {service === "Other" && (
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Custom Service Name *
-                    </label>
+                    <label className="block ui-section-label mb-1.5">Custom Service Name *</label>
                     <input
                       type="text"
                       value={customService}
                       onChange={(e) => setCustomService(e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                       placeholder="Service name"
                     />
                   </div>
                 )}
 
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Value *
-                  </label>
+                  <label className="block ui-section-label mb-1.5">Value *</label>
                   <textarea
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                     rows={3}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none font-mono text-sm ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-3 py-2 text-sm font-mono"
                     placeholder="Paste your key/credential here"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Environment
-                    </label>
+                    <label className="block ui-section-label mb-1.5">Environment</label>
                     <select
                       value={environment}
                       onChange={(e) => setEnvironment(e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                     >
                       <option value="">Select...</option>
                       {ENVIRONMENTS.map((e) => (
@@ -483,61 +454,57 @@ function CredentialsContent() {
                   </div>
 
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Expires
-                    </label>
+                    <label className="block ui-section-label mb-1.5">Expires</label>
                     <input
                       type="date"
                       value={expiresAt}
                       onChange={(e) => setExpiresAt(e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Project
-                  </label>
+                  <label className="block ui-section-label mb-1.5">Project</label>
                   <input
                     type="text"
                     value={project}
                     onChange={(e) => setProject(e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                     placeholder="e.g., ietires-website"
                   />
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Notes
-                  </label>
+                  <label className="block ui-section-label mb-1.5">Notes</label>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={2}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                     placeholder="Additional notes..."
                   />
                 </div>
 
-                <div className="flex gap-3 pt-4">
-                  <button
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
                     onClick={() => {
                       setShowCreateModal(false);
                       resetForm();
                     }}
-                    className={`flex-1 px-4 py-2 font-medium rounded-lg transition-colors ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="primary"
+                    className="flex-1"
                     onClick={handleSubmit}
                     disabled={!name.trim() || !value.trim() || (service === "Other" && !customService.trim())}
-                    className={`flex-1 px-4 py-2 font-medium rounded-lg transition-colors disabled:opacity-50 ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
                   >
                     {editingId ? "Save Changes" : "Add Credential"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
