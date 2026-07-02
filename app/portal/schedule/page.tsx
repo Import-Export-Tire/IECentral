@@ -124,7 +124,7 @@ function ScheduleContent() {
               This Week
             </Button>
           )}
-          <Button variant="secondary" size="sm" onClick={() => setWeekOffset((o) => o + 1)}>
+          <Button variant="secondary" size="sm" disabled={weekOffset >= 0} onClick={() => setWeekOffset((o) => o + 1)}>
             Next
           </Button>
         </div>
