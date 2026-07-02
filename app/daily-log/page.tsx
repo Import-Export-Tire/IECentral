@@ -7,6 +7,9 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "../auth-context";
 import { Id } from "@/convex/_generated/dataModel";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 // Admin View Component - Shows all team logs with live activity
 function AdminDailyLogView() {
@@ -257,19 +260,19 @@ function AdminDailyLogView() {
   const selectedUserStats = selectedPerson !== "all" ? userStats.get(selectedPerson) : null;
 
   return (
-    <div className="flex h-screen bg-slate-900">
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 flex flex-col overflow-hidden">
         <MobileHeader />
 
         {/* Header */}
-        <header className="flex-shrink-0 bg-slate-900/80 backdrop-blur-sm border-b border-slate-700 px-4 sm:px-8 py-3 sm:py-4">
+        <header className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b theme-border-secondary px-4 sm:px-8 py-3 sm:py-4">
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-white">Team Daily Logs</h1>
-                <p className="text-slate-400 text-xs sm:text-sm mt-1">
+                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Team Daily Logs</h1>
+                <p className="theme-text-secondary text-xs sm:text-sm mt-1">
                   View team activity and daily logs in real-time
                 </p>
               </div>
@@ -279,7 +282,7 @@ function AdminDailyLogView() {
                   <select
                     value={selectedPerson}
                     onChange={(e) => setSelectedPerson(e.target.value)}
-                    className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500"
+                    className="theme-input text-sm"
                   >
                     <option value="all">All Team Members</option>
                     {uniqueUsers.map(u => (
@@ -292,9 +295,9 @@ function AdminDailyLogView() {
                       type="checkbox"
                       checked={showDrafts}
                       onChange={(e) => setShowDrafts(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0"
+                      className="w-4 h-4 rounded border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0"
                     />
-                    <span className="text-sm text-slate-300">Drafts</span>
+                    <span className="text-sm theme-text-secondary">Drafts</span>
                   </label>
                 </div>
 
@@ -315,7 +318,7 @@ function AdminDailyLogView() {
                   {/* Export CSV */}
                   <button
                     onClick={exportToCSV}
-                    className="px-3 py-2 bg-slate-700 text-slate-300 font-medium rounded-lg hover:bg-slate-600 hover:text-white transition-colors flex items-center gap-2 text-sm"
+                    className="theme-btn-secondary px-3 py-2 font-medium rounded-lg transition-colors flex items-center gap-2 text-sm"
                     title="Export to CSV"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -326,7 +329,7 @@ function AdminDailyLogView() {
 
                   <a
                     href="/daily-log/report"
-                    className="px-3 py-2 bg-cyan-500 text-white font-medium rounded-lg hover:bg-cyan-600 transition-colors flex items-center gap-2 text-sm"
+                    className="theme-btn-primary px-3 py-2 font-medium rounded-lg transition-colors flex items-center gap-2 text-sm"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -339,27 +342,27 @@ function AdminDailyLogView() {
 
             {/* Stats Bar - Show when filtering by person */}
             {selectedUserStats && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-2 px-4 bg-slate-800/50 rounded-lg">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-2 px-4 theme-card rounded-lg">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center">
-                    <span className="text-cyan-400 text-sm font-bold">{selectedUserStats.currentStreak}</span>
+                    <span className="theme-accent-primary text-sm font-bold">{selectedUserStats.currentStreak}</span>
                   </div>
                   <div>
-                    <p className="text-white text-sm font-medium">Day Streak</p>
-                    <p className="text-slate-500 text-xs">Consecutive submissions</p>
+                    <p className="theme-text-primary text-sm font-medium">Day Streak</p>
+                    <p className="theme-text-tertiary text-xs">Consecutive submissions</p>
                   </div>
                 </div>
                 <div>
-                  <p className="text-white text-sm font-medium">{selectedUserStats.totalLogs} Logs</p>
-                  <p className="text-slate-500 text-xs">Total submitted</p>
+                  <p className="theme-text-primary text-sm font-medium">{selectedUserStats.totalLogs} Logs</p>
+                  <p className="theme-text-tertiary text-xs">Total submitted</p>
                 </div>
                 <div>
-                  <p className="text-white text-sm font-medium">{selectedUserStats.totalHours.toFixed(1)}h</p>
-                  <p className="text-slate-500 text-xs">Hours logged</p>
+                  <p className="theme-text-primary text-sm font-medium">{selectedUserStats.totalHours.toFixed(1)}h</p>
+                  <p className="theme-text-tertiary text-xs">Hours logged</p>
                 </div>
                 <div>
-                  <p className="text-white text-sm font-medium">{selectedUserStats.totalAccomplishments}</p>
-                  <p className="text-slate-500 text-xs">Accomplishments</p>
+                  <p className="theme-text-primary text-sm font-medium">{selectedUserStats.totalAccomplishments}</p>
+                  <p className="theme-text-tertiary text-xs">Accomplishments</p>
                 </div>
               </div>
             )}
@@ -372,16 +375,16 @@ function AdminDailyLogView() {
 
             {/* Today's Live Activity Section */}
             {todayLiveActivity && todayLiveActivity.length > 0 && (
-              <div className="bg-gradient-to-r from-purple-500/10 to-cyan-500/10 border border-purple-500/30 rounded-xl p-4 sm:p-6">
+              <div className="theme-card rounded-xl p-4 sm:p-6 border border-purple-500/30">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <h2 className="text-lg font-semibold text-white">Today&apos;s Live Activity</h2>
-                  <span className="text-slate-400 text-sm">({new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })})</span>
+                  <h2 className="text-lg font-semibold theme-text-primary">Today&apos;s Live Activity</h2>
+                  <span className="theme-text-secondary text-sm">({new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })})</span>
                 </div>
 
                 <div className="space-y-4">
                   {todayLiveActivity.map((userActivity) => (
-                    <div key={userActivity.userId} className="bg-slate-800/50 rounded-lg p-4">
+                    <div key={userActivity.userId} className="theme-card rounded-lg p-4">
                       <div
                         className="flex items-center justify-between cursor-pointer"
                         onClick={() => setExpandedUser(expandedUser === userActivity.userId ? null : userActivity.userId)}
@@ -395,9 +398,9 @@ function AdminDailyLogView() {
                               .slice(0, 2)}
                           </div>
                           <div>
-                            <p className="text-white font-medium">{userActivity.userName}</p>
+                            <p className="theme-text-primary font-medium">{userActivity.userName}</p>
                             <div className="flex items-center gap-3 text-sm">
-                              <span className="text-cyan-400">{userActivity.activity.totalActions} actions today</span>
+                              <span className="theme-accent-primary">{userActivity.activity.totalActions} actions today</span>
                               {userActivity.todayLog ? (
                                 userActivity.todayLog.isSubmitted ? (
                                   <span className="text-green-400 flex items-center gap-1">
@@ -415,7 +418,7 @@ function AdminDailyLogView() {
                                   </span>
                                 )
                               ) : (
-                                <span className="text-slate-500">No log started</span>
+                                <span className="theme-text-tertiary">No log started</span>
                               )}
                             </div>
                           </div>
@@ -423,14 +426,14 @@ function AdminDailyLogView() {
                         <div className="flex items-center gap-4">
                           <div className="hidden sm:flex gap-4 text-sm">
                             {userActivity.activity.projectsCreated > 0 && (
-                              <span className="text-slate-300">{userActivity.activity.projectsCreated} projects</span>
+                              <span className="theme-text-secondary">{userActivity.activity.projectsCreated} projects</span>
                             )}
                             {userActivity.activity.tasksCompleted > 0 && (
-                              <span className="text-slate-300">{userActivity.activity.tasksCompleted} tasks</span>
+                              <span className="theme-text-secondary">{userActivity.activity.tasksCompleted} tasks</span>
                             )}
                           </div>
                           <svg
-                            className={`w-5 h-5 text-slate-400 transition-transform ${expandedUser === userActivity.userId ? 'rotate-180' : ''}`}
+                            className={`w-5 h-5 theme-text-secondary transition-transform ${expandedUser === userActivity.userId ? 'rotate-180' : ''}`}
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -442,24 +445,24 @@ function AdminDailyLogView() {
 
                       {/* Expanded Details */}
                       {expandedUser === userActivity.userId && (
-                        <div className="mt-4 pt-4 border-t border-slate-700 space-y-4">
+                        <div className="mt-4 pt-4 border-t theme-border-secondary space-y-4">
                           {/* Activity Stats */}
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            <div className="bg-slate-900/50 rounded-lg p-3 text-center">
+                            <div className="bg-[#f2f2f7] dark:bg-slate-900/50 rounded-lg p-3 text-center">
                               <p className="text-2xl font-bold text-purple-400">{userActivity.activity.projectsCreated}</p>
-                              <p className="text-xs text-slate-400">Projects Created</p>
+                              <p className="text-xs theme-text-secondary">Projects Created</p>
                             </div>
-                            <div className="bg-slate-900/50 rounded-lg p-3 text-center">
+                            <div className="bg-[#f2f2f7] dark:bg-slate-900/50 rounded-lg p-3 text-center">
                               <p className="text-2xl font-bold text-blue-400">{userActivity.activity.projectsMoved}</p>
-                              <p className="text-xs text-slate-400">Projects Moved</p>
+                              <p className="text-xs theme-text-secondary">Projects Moved</p>
                             </div>
-                            <div className="bg-slate-900/50 rounded-lg p-3 text-center">
+                            <div className="bg-[#f2f2f7] dark:bg-slate-900/50 rounded-lg p-3 text-center">
                               <p className="text-2xl font-bold text-green-400">{userActivity.activity.tasksCompleted}</p>
-                              <p className="text-xs text-slate-400">Tasks Done</p>
+                              <p className="text-xs theme-text-secondary">Tasks Done</p>
                             </div>
-                            <div className="bg-slate-900/50 rounded-lg p-3 text-center">
+                            <div className="bg-[#f2f2f7] dark:bg-slate-900/50 rounded-lg p-3 text-center">
                               <p className="text-2xl font-bold text-cyan-400">{userActivity.activity.totalActions}</p>
-                              <p className="text-xs text-slate-400">Total Actions</p>
+                              <p className="text-xs theme-text-secondary">Total Actions</p>
                             </div>
                           </div>
 
@@ -471,26 +474,26 @@ function AdminDailyLogView() {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
                                 Current Draft
-                                <span className="text-slate-400 font-normal">
+                                <span className="theme-text-secondary font-normal">
                                   (Last updated: {new Date(userActivity.todayLog.updatedAt).toLocaleTimeString()})
                                 </span>
                               </h4>
                               {userActivity.todayLog.summary && (
                                 <div className="mb-2">
-                                  <span className="text-slate-400 text-xs block mb-1">Summary:</span>
-                                  <p className="text-white text-sm whitespace-pre-wrap leading-relaxed">{userActivity.todayLog.summary}</p>
+                                  <span className="theme-text-secondary text-xs block mb-1">Summary:</span>
+                                  <p className="theme-text-primary text-sm whitespace-pre-wrap leading-relaxed">{userActivity.todayLog.summary}</p>
                                 </div>
                               )}
                               {userActivity.todayLog.accomplishments && userActivity.todayLog.accomplishments.length > 0 && (
                                 <div className="mb-2">
-                                  <span className="text-slate-400 text-xs">Accomplishments: </span>
+                                  <span className="theme-text-secondary text-xs">Accomplishments: </span>
                                   <span className="text-green-400 text-sm">{userActivity.todayLog.accomplishments.length} items</span>
                                 </div>
                               )}
                               {userActivity.todayLog.hoursWorked && (
                                 <div>
-                                  <span className="text-slate-400 text-xs">Hours: </span>
-                                  <span className="text-white text-sm">{userActivity.todayLog.hoursWorked}h</span>
+                                  <span className="theme-text-secondary text-xs">Hours: </span>
+                                  <span className="theme-text-primary text-sm">{userActivity.todayLog.hoursWorked}h</span>
                                 </div>
                               )}
                             </div>
@@ -499,14 +502,14 @@ function AdminDailyLogView() {
                           {/* Recent Actions Feed */}
                           {userActivity.recentActions.length > 0 && (
                             <div>
-                              <h4 className="text-slate-300 text-sm font-medium mb-2">Recent Activity</h4>
+                              <h4 className="theme-text-secondary text-sm font-medium mb-2">Recent Activity</h4>
                               <div className="space-y-2 max-h-48 overflow-y-auto">
                                 {userActivity.recentActions.map((action, idx) => (
                                   <div key={idx} className="flex items-start gap-2 text-sm">
-                                    <span className="text-slate-500 text-xs whitespace-nowrap">
+                                    <span className="theme-text-tertiary text-xs whitespace-nowrap">
                                       {new Date(action.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
-                                    <span className="text-slate-400">{action.action || action.details}</span>
+                                    <span className="theme-text-secondary">{action.action || action.details}</span>
                                   </div>
                                 ))}
                               </div>
@@ -522,8 +525,8 @@ function AdminDailyLogView() {
 
             {/* Historical Logs Section */}
             <div>
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <h2 className="text-lg font-semibold theme-text-primary mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 theme-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 Log History
@@ -534,20 +537,20 @@ function AdminDailyLogView() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
                 </div>
               ) : sortedDates.length === 0 ? (
-                <div className="bg-slate-800 border border-slate-700 rounded-xl p-8 text-center">
-                  <svg className="w-12 h-12 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="theme-card rounded-xl p-8 text-center">
+                  <svg className="w-12 h-12 mx-auto theme-text-tertiary mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <p className="text-slate-400">No daily logs yet</p>
-                  <p className="text-slate-500 text-sm mt-2">
+                  <p className="theme-text-secondary">No daily logs yet</p>
+                  <p className="theme-text-tertiary text-sm mt-2">
                     Team members with &quot;Requires Daily Log&quot; enabled can submit logs from their Daily Log page
                   </p>
                 </div>
               ) : (
                 sortedDates.map((date) => (
                   <div key={date} className="space-y-4 mb-6">
-                    <h3 className="text-md font-medium text-slate-300 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <h3 className="text-md font-medium theme-text-secondary flex items-center gap-2">
+                      <svg className="w-4 h-4 theme-accent-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                       {new Date(date + "T12:00:00").toLocaleDateString("en-US", {
@@ -564,13 +567,13 @@ function AdminDailyLogView() {
                       return (
                       <div
                         key={log._id}
-                        className={`bg-slate-800 border rounded-xl overflow-hidden ${
-                          log.isSubmitted ? 'border-slate-700' : 'border-amber-500/30'
+                        className={`theme-card rounded-xl overflow-hidden ${
+                          log.isSubmitted ? '' : 'border border-amber-500/30'
                         }`}
                       >
                         {/* Clickable User Header */}
                         <div
-                          className="flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-slate-700/30 transition-colors"
+                          className="flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                           onClick={() => toggleLogExpansion(log._id)}
                         >
                           <div className="flex items-center gap-3">
@@ -582,8 +585,8 @@ function AdminDailyLogView() {
                                 .slice(0, 2)}
                             </div>
                             <div>
-                              <p className="text-white font-medium">{log.userName}</p>
-                              <div className="flex items-center gap-2 text-slate-400 text-sm">
+                              <p className="theme-text-primary font-medium">{log.userName}</p>
+                              <div className="flex items-center gap-2 theme-text-secondary text-sm">
                                 {log.hoursWorked && <span>{log.hoursWorked}h</span>}
                                 {log.accomplishments && log.accomplishments.length > 0 && (
                                   <span className="text-green-400">{log.accomplishments.length} accomplishments</span>
@@ -613,7 +616,7 @@ function AdminDailyLogView() {
                                     e.stopPropagation();
                                     handleUnlockLog(log._id);
                                   }}
-                                  className="text-slate-500 hover:text-amber-400 text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-700/50 transition-colors"
+                                  className="theme-text-tertiary hover:text-amber-400 text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                                   title="Unlock for editing"
                                 >
                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -631,7 +634,7 @@ function AdminDailyLogView() {
                               </span>
                             )}
                             <svg
-                              className={`w-5 h-5 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                              className={`w-5 h-5 theme-text-secondary transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -643,22 +646,22 @@ function AdminDailyLogView() {
 
                         {/* Expandable Content */}
                         {isExpanded && (
-                        <div className="px-4 sm:px-6 pb-4 sm:pb-6 border-t border-slate-700/50">
+                        <div className="px-4 sm:px-6 pb-4 sm:pb-6 border-t theme-border-secondary">
                         {/* Summary */}
                         <div className="pt-4">
-                          <h4 className="text-slate-400 text-xs uppercase tracking-wide mb-2 flex items-center gap-2">
+                          <h4 className="theme-text-secondary text-xs uppercase tracking-wide mb-2 flex items-center gap-2">
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
                             </svg>
                             Summary
                           </h4>
-                          <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">{log.summary || <span className="text-slate-500 italic">No summary yet</span>}</p>
+                          <p className="theme-text-primary text-sm leading-relaxed whitespace-pre-wrap">{log.summary || <span className="theme-text-tertiary italic">No summary yet</span>}</p>
                         </div>
 
                         {/* Accomplishments */}
                         {log.accomplishments && log.accomplishments.length > 0 && (
-                          <div className="pt-4 mt-4 border-t border-slate-700/50">
-                            <h4 className="text-slate-400 text-xs uppercase tracking-wide mb-2 flex items-center gap-2">
+                          <div className="pt-4 mt-4 border-t theme-border-secondary">
+                            <h4 className="theme-text-secondary text-xs uppercase tracking-wide mb-2 flex items-center gap-2">
                               <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
@@ -677,8 +680,8 @@ function AdminDailyLogView() {
 
                         {/* Blockers */}
                         {log.blockers && (
-                          <div className="pt-4 mt-4 border-t border-slate-700/50">
-                            <h4 className="text-slate-400 text-xs uppercase tracking-wide mb-2 flex items-center gap-2">
+                          <div className="pt-4 mt-4 border-t theme-border-secondary">
+                            <h4 className="theme-text-secondary text-xs uppercase tracking-wide mb-2 flex items-center gap-2">
                               <svg className="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                               </svg>
@@ -690,33 +693,33 @@ function AdminDailyLogView() {
 
                         {/* Goals for Tomorrow */}
                         {log.goalsForTomorrow && (
-                          <div className="pt-4 mt-4 border-t border-slate-700/50">
-                            <h4 className="text-slate-400 text-xs uppercase tracking-wide mb-2 flex items-center gap-2">
-                              <svg className="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="pt-4 mt-4 border-t theme-border-secondary">
+                            <h4 className="theme-text-secondary text-xs uppercase tracking-wide mb-2 flex items-center gap-2">
+                              <svg className="w-3.5 h-3.5 theme-accent-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                               </svg>
                               Goals for Tomorrow
                             </h4>
-                            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{log.goalsForTomorrow}</p>
+                            <p className="theme-text-secondary text-sm leading-relaxed whitespace-pre-wrap">{log.goalsForTomorrow}</p>
                           </div>
                         )}
 
                         {/* Auto Activities */}
                         {log.autoActivities && log.autoActivities.totalActions > 0 && (
-                          <div className="mt-4 pt-4 border-t border-slate-700">
-                            <h4 className="text-slate-400 text-xs uppercase tracking-wide mb-2">Auto-Tracked Activity</h4>
+                          <div className="mt-4 pt-4 border-t theme-border-secondary">
+                            <h4 className="theme-text-secondary text-xs uppercase tracking-wide mb-2">Auto-Tracked Activity</h4>
                             <div className="flex gap-4 text-sm">
                               {log.autoActivities.projectsCreated > 0 && (
-                                <span className="text-slate-300">
+                                <span className="theme-text-secondary">
                                   {log.autoActivities.projectsCreated} project{log.autoActivities.projectsCreated !== 1 ? "s" : ""} created
                                 </span>
                               )}
                               {log.autoActivities.tasksCompleted > 0 && (
-                                <span className="text-slate-300">
+                                <span className="theme-text-secondary">
                                   {log.autoActivities.tasksCompleted} task{log.autoActivities.tasksCompleted !== 1 ? "s" : ""} completed
                                 </span>
                               )}
-                              <span className="text-cyan-400">
+                              <span className="theme-accent-primary">
                                 {log.autoActivities.totalActions} total actions
                               </span>
                             </div>
@@ -725,14 +728,14 @@ function AdminDailyLogView() {
 
                         {/* Reviewer Notes - Only for submitted logs */}
                         {log.isSubmitted && (
-                          <div className="mt-4 pt-4 border-t border-slate-700">
+                          <div className="mt-4 pt-4 border-t theme-border-secondary">
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-slate-400 text-xs uppercase tracking-wide flex items-center gap-2">
+                              <h4 className="theme-text-secondary text-xs uppercase tracking-wide flex items-center gap-2">
                                 <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
                                 Reviewer Notes
-                                <span className="text-slate-500 normal-case text-xs">(not visible to submitter)</span>
+                                <span className="theme-text-tertiary normal-case text-xs">(not visible to submitter)</span>
                               </h4>
                               {!editingCommentLogId && (
                                 <button
@@ -752,7 +755,7 @@ function AdminDailyLogView() {
                                 <textarea
                                   value={commentText}
                                   onChange={(e) => setCommentText(e.target.value)}
-                                  className="w-full px-3 py-2 bg-slate-900/50 border border-indigo-500/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400 text-sm resize-none"
+                                  className="w-full px-3 py-2 bg-white/60 dark:bg-slate-900/50 border border-indigo-500/50 rounded-lg theme-text-primary placeholder-slate-500 focus:outline-none focus:border-indigo-400 text-sm resize-none"
                                   placeholder="Add reviewer notes for this log..."
                                   rows={3}
                                 />
@@ -762,7 +765,7 @@ function AdminDailyLogView() {
                                       setEditingCommentLogId(null);
                                       setCommentText("");
                                     }}
-                                    className="px-3 py-1.5 text-slate-400 hover:text-white text-sm"
+                                    className="px-3 py-1.5 theme-text-secondary hover:theme-text-primary text-sm"
                                     disabled={savingComment}
                                   >
                                     Cancel
@@ -780,13 +783,13 @@ function AdminDailyLogView() {
                               <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-3">
                                 <p className="text-indigo-300 text-sm">{log.reviewerComment}</p>
                                 {log.reviewerCommentByName && log.reviewerCommentAt && (
-                                  <p className="text-slate-500 text-xs mt-2">
+                                  <p className="theme-text-tertiary text-xs mt-2">
                                     — {log.reviewerCommentByName}, {new Date(log.reviewerCommentAt).toLocaleDateString()}
                                   </p>
                                 )}
                               </div>
                             ) : (
-                              <p className="text-slate-500 text-sm italic">No reviewer notes yet</p>
+                              <p className="theme-text-tertiary text-sm italic">No reviewer notes yet</p>
                             )}
                           </div>
                         )}
@@ -806,30 +809,30 @@ function AdminDailyLogView() {
       {/* Submit on Behalf Modal */}
       {showSubmitOnBehalfModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-slate-700">
+          <div className="theme-card rounded-xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b theme-border-secondary">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">Submit Log on Behalf of Employee</h2>
+                <h2 className="text-xl font-bold theme-text-primary">Submit Log on Behalf of Employee</h2>
                 <button
                   onClick={() => setShowSubmitOnBehalfModal(false)}
-                  className="text-slate-400 hover:text-white"
+                  className="theme-text-secondary hover:theme-text-primary"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
-              <p className="text-slate-400 text-sm mt-1">Fill out a daily log for an employee who forgot to submit.</p>
+              <p className="theme-text-secondary text-sm mt-1">Fill out a daily log for an employee who forgot to submit.</p>
             </div>
 
             <div className="p-6 space-y-4">
               {/* Employee Select */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Employee</label>
+                <label className="block text-sm font-medium theme-text-secondary mb-1">Employee</label>
                 <select
                   value={submitOnBehalfUser}
                   onChange={(e) => setSubmitOnBehalfUser(e.target.value)}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full theme-input"
                 >
                   <option value="">Select an employee...</option>
                   {dailyLogUsers?.map((u) => (
@@ -840,31 +843,31 @@ function AdminDailyLogView() {
 
               {/* Date */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Date</label>
+                <label className="block text-sm font-medium theme-text-secondary mb-1">Date</label>
                 <input
                   type="date"
                   value={submitOnBehalfDate}
                   onChange={(e) => setSubmitOnBehalfDate(e.target.value)}
                   max={new Date().toISOString().split("T")[0]}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full theme-input"
                 />
               </div>
 
               {/* Summary */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Summary</label>
+                <label className="block text-sm font-medium theme-text-secondary mb-1">Summary</label>
                 <textarea
                   value={submitOnBehalfSummary}
                   onChange={(e) => setSubmitOnBehalfSummary(e.target.value)}
                   placeholder="What did they work on?"
                   rows={2}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                  className="w-full theme-input"
                 />
               </div>
 
               {/* Accomplishments */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Accomplishments</label>
+                <label className="block text-sm font-medium theme-text-secondary mb-1">Accomplishments</label>
                 <div className="space-y-2">
                   {submitOnBehalfAccomplishments.map((acc, index) => (
                     <div key={index} className="flex gap-2">
@@ -873,7 +876,7 @@ function AdminDailyLogView() {
                         value={acc}
                         onChange={(e) => updateAccomplishment(index, e.target.value)}
                         placeholder="Enter accomplishment..."
-                        className="flex-1 px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                        className="flex-1 theme-input"
                       />
                       {submitOnBehalfAccomplishments.length > 1 && (
                         <button
@@ -891,7 +894,7 @@ function AdminDailyLogView() {
                   <button
                     type="button"
                     onClick={addAccomplishmentField}
-                    className="text-sm text-cyan-400 hover:text-cyan-300"
+                    className="text-sm theme-accent-primary hover:opacity-80"
                   >
                     + Add another
                   </button>
@@ -900,7 +903,7 @@ function AdminDailyLogView() {
 
               {/* Hours */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Hours Worked</label>
+                <label className="block text-sm font-medium theme-text-secondary mb-1">Hours Worked</label>
                 <input
                   type="number"
                   value={submitOnBehalfHours || ""}
@@ -909,39 +912,39 @@ function AdminDailyLogView() {
                   max="24"
                   step="0.5"
                   placeholder="8"
-                  className="w-32 px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                  className="w-32 theme-input"
                 />
               </div>
 
               {/* Blockers (optional) */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Blockers <span className="text-slate-500">(optional)</span></label>
+                <label className="block text-sm font-medium theme-text-secondary mb-1">Blockers <span className="theme-text-tertiary">(optional)</span></label>
                 <textarea
                   value={submitOnBehalfBlockers}
                   onChange={(e) => setSubmitOnBehalfBlockers(e.target.value)}
                   placeholder="Any blockers or challenges?"
                   rows={2}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                  className="w-full theme-input"
                 />
               </div>
 
               {/* Goals (optional) */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Goals for Tomorrow <span className="text-slate-500">(optional)</span></label>
+                <label className="block text-sm font-medium theme-text-secondary mb-1">Goals for Tomorrow <span className="theme-text-tertiary">(optional)</span></label>
                 <textarea
                   value={submitOnBehalfGoals}
                   onChange={(e) => setSubmitOnBehalfGoals(e.target.value)}
                   placeholder="What will they work on next?"
                   rows={2}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                  className="w-full theme-input"
                 />
               </div>
             </div>
 
-            <div className="p-6 border-t border-slate-700 flex justify-end gap-3">
+            <div className="p-6 border-t theme-border-secondary flex justify-end gap-3">
               <button
                 onClick={() => setShowSubmitOnBehalfModal(false)}
-                className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                className="theme-btn-secondary px-4 py-2 rounded-lg transition-colors"
               >
                 Cancel
               </button>
@@ -1199,19 +1202,19 @@ function EmployeeDailyLogView() {
   const canSubmit = summary.trim() !== "" && accomplishments.some((a) => a.trim() !== "");
 
   return (
-    <div className="flex h-screen bg-slate-900">
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 flex flex-col overflow-hidden">
         <MobileHeader />
 
         {/* Header */}
-        <header className="flex-shrink-0 bg-slate-900/80 backdrop-blur-sm border-b border-slate-700 px-4 sm:px-8 py-3 sm:py-4">
+        <header className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b theme-border-secondary px-4 sm:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-white">Daily Activity Log</h1>
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Daily Activity Log</h1>
               <div className="flex items-center gap-3 mt-1">
-                <p className="text-slate-400 text-xs sm:text-sm">
+                <p className="theme-text-secondary text-xs sm:text-sm">
                   Track your daily work and accomplishments
                 </p>
                 {/* Auto-save status indicator */}
@@ -1240,7 +1243,7 @@ function EmployeeDailyLogView() {
                       </>
                     )}
                     {autoSaveStatus === "idle" && lastSaved && (
-                      <span className="text-slate-500 text-xs">
+                      <span className="theme-text-tertiary text-xs">
                         Last saved {lastSaved.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                       </span>
                     )}
@@ -1254,14 +1257,14 @@ function EmployeeDailyLogView() {
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 max={today}
-                className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500"
+                className="theme-input px-3 py-2 text-sm"
               />
               <button
                 onClick={() => setShowPastLogs(!showPastLogs)}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   showPastLogs
                     ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
-                    : "bg-slate-700 text-slate-300 hover:text-white"
+                    : "theme-btn-secondary"
                 }`}
               >
                 Past Logs
@@ -1269,7 +1272,7 @@ function EmployeeDailyLogView() {
               {/* Help Button */}
               <button
                 onClick={() => setShowHelp(true)}
-                className="p-2 rounded-lg transition-colors text-slate-400 hover:text-white hover:bg-slate-700"
+                className="p-2 rounded-lg transition-colors theme-text-secondary hover:bg-black/5 dark:hover:bg-white/5"
                 title="How to use Daily Log"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1310,9 +1313,9 @@ function EmployeeDailyLogView() {
               )}
 
               {/* Summary */}
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6">
+              <div className="theme-card rounded-xl p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-slate-300">
+                  <label className="block text-sm font-medium theme-text-secondary">
                     What did you work on today? <span className="text-red-400">*</span>
                   </label>
                   {!isLocked && autoActivities && (autoActivities.totalActions > 0 || (dailyTasksWithStatus && dailyTasksWithStatus.some(t => t.isCompletedToday))) && (
@@ -1355,16 +1358,16 @@ function EmployeeDailyLogView() {
                   value={summary}
                   onChange={(e) => setSummary(e.target.value)}
                   disabled={isLocked}
-                  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 resize-none disabled:opacity-50"
+                  className="theme-input resize-none disabled:opacity-50"
                   placeholder="Describe your main focus and activities..."
                   rows={4}
                 />
               </div>
 
               {/* Accomplishments */}
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6">
+              <div className="theme-card rounded-xl p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-slate-300">
+                  <label className="block text-sm font-medium theme-text-secondary">
                     Accomplishments <span className="text-red-400">*</span>
                   </label>
                   <div className="flex items-center gap-2">
@@ -1393,7 +1396,7 @@ function EmployeeDailyLogView() {
                     {!isLocked && (
                       <button
                         onClick={handleAddAccomplishment}
-                        className="text-cyan-400 hover:text-cyan-300 text-sm flex items-center gap-1"
+                        className="theme-accent-primary hover:underline text-sm flex items-center gap-1"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1412,13 +1415,13 @@ function EmployeeDailyLogView() {
                         value={item}
                         onChange={(e) => handleAccomplishmentChange(index, e.target.value)}
                         disabled={isLocked}
-                        className="flex-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 text-sm disabled:opacity-50"
+                        className="flex-1 theme-input text-sm disabled:opacity-50"
                         placeholder="What did you accomplish?"
                       />
                       {!isLocked && accomplishments.length > 1 && (
                         <button
                           onClick={() => handleRemoveAccomplishment(index)}
-                          className="text-slate-500 hover:text-red-400 p-1"
+                          className="theme-text-tertiary hover:text-red-400 p-1"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1431,8 +1434,8 @@ function EmployeeDailyLogView() {
 
                 {/* Quick Templates */}
                 {!isLocked && (
-                  <div className="mt-4 pt-4 border-t border-slate-700">
-                    <p className="text-xs text-slate-500 mb-2">Quick add:</p>
+                  <div className="mt-4 pt-4 border-t theme-border-secondary">
+                    <p className="text-xs theme-text-tertiary mb-2">Quick add:</p>
                     <div className="flex flex-wrap gap-2">
                       {[
                         "Completed project tasks",
@@ -1456,7 +1459,7 @@ function EmployeeDailyLogView() {
                               setAccomplishments([...accomplishments, template]);
                             }
                           }}
-                          className="px-2.5 py-1 text-xs bg-slate-700/50 text-slate-400 rounded-full hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors"
+                          className="px-2.5 py-1 text-xs bg-black/5 dark:bg-slate-700/50 theme-text-secondary rounded-full hover:bg-[#007AFF]/10 hover:text-[#007AFF] transition-colors"
                         >
                           + {template}
                         </button>
@@ -1467,38 +1470,38 @@ function EmployeeDailyLogView() {
               </div>
 
               {/* Blockers */}
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6">
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+              <div className="theme-card rounded-xl p-4 sm:p-6">
+                <label className="block text-sm font-medium theme-text-secondary mb-2">
                   Blockers / Challenges
                 </label>
                 <textarea
                   value={blockers}
                   onChange={(e) => setBlockers(e.target.value)}
                   disabled={isLocked}
-                  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 resize-none disabled:opacity-50"
+                  className="theme-input resize-none disabled:opacity-50"
                   placeholder="Any blockers or challenges you faced..."
                   rows={2}
                 />
               </div>
 
               {/* Goals for Tomorrow */}
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6">
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+              <div className="theme-card rounded-xl p-4 sm:p-6">
+                <label className="block text-sm font-medium theme-text-secondary mb-2">
                   Goals for Tomorrow
                 </label>
                 <textarea
                   value={goalsForTomorrow}
                   onChange={(e) => setGoalsForTomorrow(e.target.value)}
                   disabled={isLocked}
-                  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 resize-none disabled:opacity-50"
+                  className="theme-input resize-none disabled:opacity-50"
                   placeholder="What do you plan to focus on tomorrow?"
                   rows={2}
                 />
               </div>
 
               {/* Hours Worked */}
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6">
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+              <div className="theme-card rounded-xl p-4 sm:p-6">
+                <label className="block text-sm font-medium theme-text-secondary mb-2">
                   Hours Worked
                 </label>
                 <input
@@ -1509,7 +1512,7 @@ function EmployeeDailyLogView() {
                   min="0"
                   max="24"
                   step="0.5"
-                  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 disabled:opacity-50"
+                  className="theme-input disabled:opacity-50"
                   placeholder="8"
                 />
               </div>
@@ -1517,7 +1520,7 @@ function EmployeeDailyLogView() {
               {/* Action Buttons */}
               {!isLocked && (
                 <div className="flex items-center justify-between">
-                  <p className="text-slate-500 text-sm flex items-center gap-2">
+                  <p className="theme-text-tertiary text-sm flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
@@ -1526,7 +1529,7 @@ function EmployeeDailyLogView() {
                   <button
                     onClick={() => handleSave(true)}
                     disabled={isSaving || !canSubmit}
-                    className="px-6 py-3 bg-cyan-500 text-white font-medium rounded-lg hover:bg-cyan-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="theme-btn-primary px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSaving ? "Submitting..." : "Submit Log"}
                   </button>
@@ -1537,9 +1540,9 @@ function EmployeeDailyLogView() {
             {/* Sidebar - Daily Tasks, Auto Activities & Past Logs */}
             <div className="space-y-6">
               {/* Daily Tasks Checklist */}
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6">
+              <div className="theme-card rounded-xl p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                  <h3 className="text-sm font-medium theme-text-secondary flex items-center gap-2">
                     <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                     </svg>
@@ -1560,13 +1563,13 @@ function EmployeeDailyLogView() {
 
                 {/* Add new task form */}
                 {showAddTask && (
-                  <div className="mb-4 p-3 bg-slate-900/50 rounded-lg border border-slate-600">
+                  <div className="mb-4 p-3 bg-[#f2f2f7] dark:bg-slate-900/50 rounded-lg border theme-border-secondary">
                     <input
                       type="text"
                       value={newTaskTitle}
                       onChange={(e) => setNewTaskTitle(e.target.value)}
                       placeholder="New daily task..."
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:border-emerald-500 mb-2"
+                      className="theme-input w-full px-3 py-2 text-sm mb-2"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") handleAddTask();
                         if (e.key === "Escape") {
@@ -1588,7 +1591,7 @@ function EmployeeDailyLogView() {
                           setShowAddTask(false);
                           setNewTaskTitle("");
                         }}
-                        className="px-3 py-1.5 text-slate-400 text-xs hover:text-white"
+                        className="px-3 py-1.5 theme-text-secondary text-xs"
                       >
                         Cancel
                       </button>
@@ -1605,7 +1608,7 @@ function EmployeeDailyLogView() {
                         className={`flex items-center gap-3 p-2 rounded-lg transition-colors group ${
                           task.isCompletedToday
                             ? "bg-emerald-500/10 border border-emerald-500/30"
-                            : "bg-slate-900/30 hover:bg-slate-900/50"
+                            : "bg-black/5 dark:bg-slate-900/30 hover:bg-black/10 dark:hover:bg-slate-900/50"
                         }`}
                       >
                         <button
@@ -1625,7 +1628,7 @@ function EmployeeDailyLogView() {
                         </button>
                         <span
                           className={`flex-1 text-sm ${
-                            task.isCompletedToday ? "text-emerald-400 line-through" : "text-slate-300"
+                            task.isCompletedToday ? "text-emerald-400 line-through" : "theme-text-secondary"
                           }`}
                         >
                           {task.title}
@@ -1633,7 +1636,7 @@ function EmployeeDailyLogView() {
                         {!isLocked && (
                           <button
                             onClick={() => handleDeleteTask(task._id)}
-                            className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 transition-opacity"
+                            className="opacity-0 group-hover:opacity-100 theme-text-tertiary hover:text-red-400 p-1 transition-opacity"
                             title="Delete task"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1644,8 +1647,8 @@ function EmployeeDailyLogView() {
                       </div>
                     ))}
                     {/* Completion summary */}
-                    <div className="pt-2 border-t border-slate-700 flex justify-between items-center">
-                      <span className="text-slate-500 text-xs">
+                    <div className="pt-2 border-t theme-border-secondary flex justify-between items-center">
+                      <span className="theme-text-tertiary text-xs">
                         {dailyTasksWithStatus.filter(t => t.isCompletedToday).length} of {dailyTasksWithStatus.length} complete
                       </span>
                       {dailyTasksWithStatus.length > 0 && dailyTasksWithStatus.every(t => t.isCompletedToday) && (
@@ -1660,19 +1663,19 @@ function EmployeeDailyLogView() {
                   </div>
                 ) : dailyTasksWithStatus && dailyTasksWithStatus.length === 0 ? (
                   <div className="text-center py-4">
-                    <p className="text-slate-500 text-sm mb-2">No daily tasks yet</p>
-                    <p className="text-slate-600 text-xs">
+                    <p className="theme-text-tertiary text-sm mb-2">No daily tasks yet</p>
+                    <p className="theme-text-tertiary text-xs">
                       Add recurring tasks that you do every day
                     </p>
                   </div>
                 ) : (
-                  <p className="text-slate-500 text-sm">Loading...</p>
+                  <p className="theme-text-tertiary text-sm">Loading...</p>
                 )}
               </div>
 
               {/* Auto-Tracked Activities */}
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6">
-                <h3 className="text-sm font-medium text-slate-300 mb-4 flex items-center gap-2">
+              <div className="theme-card rounded-xl p-4 sm:p-6">
+                <h3 className="text-sm font-medium theme-text-secondary mb-4 flex items-center gap-2">
                   <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
@@ -1681,31 +1684,31 @@ function EmployeeDailyLogView() {
                 {autoActivities ? (
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-400 text-sm">Projects Created</span>
-                      <span className="text-white font-medium">{autoActivities.projectsCreated}</span>
+                      <span className="theme-text-secondary text-sm">Projects Created</span>
+                      <span className="theme-text-primary font-medium">{autoActivities.projectsCreated}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-400 text-sm">Projects Moved</span>
-                      <span className="text-white font-medium">{autoActivities.projectsMoved}</span>
+                      <span className="theme-text-secondary text-sm">Projects Moved</span>
+                      <span className="theme-text-primary font-medium">{autoActivities.projectsMoved}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-400 text-sm">Tasks Completed</span>
-                      <span className="text-white font-medium">{autoActivities.tasksCompleted}</span>
+                      <span className="theme-text-secondary text-sm">Tasks Completed</span>
+                      <span className="theme-text-primary font-medium">{autoActivities.tasksCompleted}</span>
                     </div>
-                    <div className="border-t border-slate-700 pt-3 flex justify-between items-center">
-                      <span className="text-slate-300 text-sm font-medium">Total Actions</span>
-                      <span className="text-cyan-400 font-bold">{autoActivities.totalActions}</span>
+                    <div className="border-t theme-border-secondary pt-3 flex justify-between items-center">
+                      <span className="theme-text-secondary text-sm font-medium">Total Actions</span>
+                      <span className="theme-accent-primary font-bold">{autoActivities.totalActions}</span>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-slate-500 text-sm">Loading...</p>
+                  <p className="theme-text-tertiary text-sm">Loading...</p>
                 )}
               </div>
 
               {/* Past Logs */}
               {(showPastLogs || !existingLog) && myLogs && myLogs.length > 0 && (
-                <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6">
-                  <h3 className="text-sm font-medium text-slate-300 mb-4">Recent Logs</h3>
+                <div className="theme-card rounded-xl p-4 sm:p-6">
+                  <h3 className="text-sm font-medium theme-text-secondary mb-4">Recent Logs</h3>
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {myLogs.map((log) => (
                       <button
@@ -1714,11 +1717,11 @@ function EmployeeDailyLogView() {
                         className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
                           log.date === selectedDate
                             ? "bg-cyan-500/20 border border-cyan-500/50"
-                            : "bg-slate-900/50 hover:bg-slate-700/50"
+                            : "bg-black/5 dark:bg-slate-900/50 hover:bg-black/10 dark:hover:bg-slate-700/50"
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-white text-sm">
+                          <span className="theme-text-primary text-sm">
                             {new Date(log.date + "T00:00:00").toLocaleDateString("en-US", {
                               weekday: "short",
                               month: "short",
@@ -1736,7 +1739,7 @@ function EmployeeDailyLogView() {
                             <span className="text-amber-400 text-xs">Draft</span>
                           )}
                         </div>
-                        <p className="text-slate-400 text-xs truncate mt-1">
+                        <p className="theme-text-secondary text-xs truncate mt-1">
                           {log.accomplishments.length} accomplishments
                           {log.hoursWorked ? ` • ${log.hoursWorked}h` : ""}
                         </p>
@@ -1748,21 +1751,21 @@ function EmployeeDailyLogView() {
 
               {/* Quick Stats */}
               {existingLog && (
-                <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 sm:p-6">
-                  <h3 className="text-sm font-medium text-slate-300 mb-4">Log Summary</h3>
+                <div className="theme-card rounded-xl p-4 sm:p-6">
+                  <h3 className="text-sm font-medium theme-text-secondary mb-4">Log Summary</h3>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-400 text-sm">Accomplishments</span>
-                      <span className="text-white font-medium">{existingLog.accomplishments.length}</span>
+                      <span className="theme-text-secondary text-sm">Accomplishments</span>
+                      <span className="theme-text-primary font-medium">{existingLog.accomplishments.length}</span>
                     </div>
                     {existingLog.hoursWorked && (
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-400 text-sm">Hours</span>
-                        <span className="text-white font-medium">{existingLog.hoursWorked}h</span>
+                        <span className="theme-text-secondary text-sm">Hours</span>
+                        <span className="theme-text-primary font-medium">{existingLog.hoursWorked}h</span>
                       </div>
                     )}
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-400 text-sm">Status</span>
+                      <span className="theme-text-secondary text-sm">Status</span>
                       <span className={`text-xs font-medium ${existingLog.isSubmitted ? "text-green-400" : "text-amber-400"}`}>
                         {existingLog.isSubmitted ? "Submitted" : "Draft"}
                       </span>
@@ -1777,14 +1780,14 @@ function EmployeeDailyLogView() {
         {/* Help Modal */}
         {showHelp && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="w-full max-w-lg rounded-xl p-6 max-h-[90vh] overflow-y-auto bg-slate-800">
+            <div className="theme-card w-full max-w-lg rounded-xl p-6 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold theme-text-primary">
                   How to Use Daily Logs
                 </h2>
                 <button
                   onClick={() => setShowHelp(false)}
-                  className="p-2 rounded-lg transition-colors text-slate-400 hover:text-white hover:bg-slate-700"
+                  className="p-2 rounded-lg transition-colors theme-text-secondary hover:bg-black/5 dark:hover:bg-white/5"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1795,13 +1798,13 @@ function EmployeeDailyLogView() {
               <div className="space-y-6">
                 {/* Why Daily Logs */}
                 <div>
-                  <h3 className="font-medium mb-2 flex items-center gap-2 text-white">
+                  <h3 className="font-medium mb-2 flex items-center gap-2 theme-text-primary">
                     <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     Why Fill Out Daily Logs?
                   </h3>
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm theme-text-secondary">
                     Daily logs help management track team progress and provide visibility to stakeholders.
                     They also help you keep a record of your accomplishments for performance reviews.
                   </p>
@@ -1809,54 +1812,54 @@ function EmployeeDailyLogView() {
 
                 {/* What to Include */}
                 <div>
-                  <h3 className="font-medium mb-2 flex items-center gap-2 text-white">
+                  <h3 className="font-medium mb-2 flex items-center gap-2 theme-text-primary">
                     <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     What to Include
                   </h3>
-                  <ul className="text-sm text-slate-400 space-y-2 ml-7">
-                    <li><span className="text-white font-medium">Summary:</span> Brief overview of what you worked on today</li>
-                    <li><span className="text-white font-medium">Accomplishments:</span> Specific tasks you completed (be specific!)</li>
-                    <li><span className="text-white font-medium">Blockers:</span> Any issues preventing progress (optional)</li>
-                    <li><span className="text-white font-medium">Goals:</span> What you plan to work on tomorrow (optional)</li>
-                    <li><span className="text-white font-medium">Hours:</span> How many hours you worked</li>
+                  <ul className="text-sm theme-text-secondary space-y-2 ml-7">
+                    <li><span className="theme-text-primary font-medium">Summary:</span> Brief overview of what you worked on today</li>
+                    <li><span className="theme-text-primary font-medium">Accomplishments:</span> Specific tasks you completed (be specific!)</li>
+                    <li><span className="theme-text-primary font-medium">Blockers:</span> Any issues preventing progress (optional)</li>
+                    <li><span className="theme-text-primary font-medium">Goals:</span> What you plan to work on tomorrow (optional)</li>
+                    <li><span className="theme-text-primary font-medium">Hours:</span> How many hours you worked</li>
                   </ul>
                 </div>
 
                 {/* Auto-Tracked Activities */}
                 <div>
-                  <h3 className="font-medium mb-2 flex items-center gap-2 text-white">
+                  <h3 className="font-medium mb-2 flex items-center gap-2 theme-text-primary">
                     <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                     Auto-Tracked Activities
                   </h3>
-                  <p className="text-sm text-slate-400 mb-2">
+                  <p className="text-sm theme-text-secondary mb-2">
                     The system automatically tracks some of your activities:
                   </p>
-                  <ul className="text-sm text-slate-400 space-y-1 ml-7 list-disc">
+                  <ul className="text-sm theme-text-secondary space-y-1 ml-7 list-disc">
                     <li><span className="text-purple-400">Projects Created</span> - When you create a new project</li>
                     <li><span className="text-purple-400">Projects Moved</span> - Moving projects between status columns</li>
                     <li><span className="text-purple-400">Tasks Completed</span> - Marking tasks as done on your project board</li>
                     <li><span className="text-purple-400">Total Actions</span> - All tracked activities combined</li>
                   </ul>
-                  <p className="text-sm text-slate-500 mt-2 italic">
+                  <p className="text-sm theme-text-tertiary mt-2 italic">
                     These are captured automatically when you submit - no need to list them manually!
                   </p>
                 </div>
 
                 {/* Save vs Submit */}
                 <div>
-                  <h3 className="font-medium mb-2 flex items-center gap-2 text-white">
+                  <h3 className="font-medium mb-2 flex items-center gap-2 theme-text-primary">
                     <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                     </svg>
                     Auto-Save & Submit
                   </h3>
-                  <ul className="text-sm text-slate-400 space-y-2 ml-7">
-                    <li><span className="text-white font-medium">Auto-Save:</span> Your progress saves automatically as you type - no need to click save! Just add items throughout the day.</li>
-                    <li><span className="text-white font-medium">Submit:</span> Finalizes your log and sends it to management. Click this at the end of your day.</li>
+                  <ul className="text-sm theme-text-secondary space-y-2 ml-7">
+                    <li><span className="theme-text-primary font-medium">Auto-Save:</span> Your progress saves automatically as you type - no need to click save! Just add items throughout the day.</li>
+                    <li><span className="theme-text-primary font-medium">Submit:</span> Finalizes your log and sends it to management. Click this at the end of your day.</li>
                   </ul>
                 </div>
 
@@ -1877,10 +1880,10 @@ function EmployeeDailyLogView() {
                 </div>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-slate-700">
+              <div className="mt-6 pt-4 border-t theme-border-secondary">
                 <button
                   onClick={() => setShowHelp(false)}
-                  className="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-cyan-500 text-white hover:bg-cyan-600"
+                  className="theme-btn-primary w-full px-4 py-2"
                 >
                   Got it!
                 </button>
@@ -1947,33 +1950,33 @@ function ReporteesOnlyView({ reportees }: { reportees: ReporteeUser[] }) {
   const sortedDates = Object.keys(logsByDate).sort((a, b) => b.localeCompare(a));
 
   return (
-    <div className="flex h-screen bg-slate-900">
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 flex flex-col overflow-hidden">
         <MobileHeader />
 
         {/* Header */}
-        <header className="flex-shrink-0 bg-slate-900/80 backdrop-blur-sm border-b border-slate-700 px-4 sm:px-8 py-3 sm:py-4">
+        <header className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b theme-border-secondary px-4 sm:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-white">Team Daily Logs</h1>
-              <p className="text-slate-400 text-xs sm:text-sm mt-1">
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Team Daily Logs</h1>
+              <p className="theme-text-secondary text-xs sm:text-sm mt-1">
                 View daily logs from your direct reports
               </p>
             </div>
             <div className="flex items-center gap-3">
               <a
                 href="/daily-log/report"
-                className="px-3 py-2 bg-cyan-500 text-white font-medium rounded-lg hover:bg-cyan-600 transition-colors flex items-center gap-2 text-sm"
+                className="theme-btn-primary px-3 py-2 font-medium rounded-lg transition-colors flex items-center gap-2 text-sm"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
                 <span className="hidden sm:inline">Print Team Log</span>
               </a>
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center gap-2 text-sm theme-text-secondary">
+                <svg className="w-4 h-4 theme-accent-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
                 {reportees.length} reportee{reportees.length > 1 ? "s" : ""}
@@ -1987,11 +1990,11 @@ function ReporteesOnlyView({ reportees }: { reportees: ReporteeUser[] }) {
           <div className="max-w-4xl mx-auto space-y-6">
 
             {/* Today's Status Card */}
-            <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-500/30 rounded-xl p-4 sm:p-6">
+            <div className="theme-card rounded-xl border border-cyan-500/30 p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <h2 className="text-lg font-semibold text-white">Today&apos;s Status</h2>
-                <span className="text-slate-400 text-sm">
+                <h2 className="text-lg font-semibold theme-text-primary">Today&apos;s Status</h2>
+                <span className="theme-text-secondary text-sm">
                   ({new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })})
                 </span>
               </div>
@@ -2003,14 +2006,14 @@ function ReporteesOnlyView({ reportees }: { reportees: ReporteeUser[] }) {
                   const hasDraft = todayLog && !todayLog.isSubmitted;
 
                   return (
-                    <div key={reportee._id} className="flex items-center justify-between bg-slate-800/50 rounded-lg p-3">
+                    <div key={reportee._id} className="flex items-center justify-between theme-card rounded-lg p-3">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 font-medium">
                           {reportee.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                         </div>
                         <div>
-                          <p className="text-white font-medium">{reportee.name}</p>
-                          <p className="text-slate-400 text-sm">{reportee.email}</p>
+                          <p className="theme-text-primary font-medium">{reportee.name}</p>
+                          <p className="theme-text-secondary text-sm">{reportee.email}</p>
                         </div>
                       </div>
                       <div>
@@ -2023,7 +2026,7 @@ function ReporteesOnlyView({ reportees }: { reportees: ReporteeUser[] }) {
                             Draft in Progress
                           </span>
                         ) : (
-                          <span className="px-3 py-1 text-xs font-medium rounded-full bg-slate-500/20 text-slate-400 border border-slate-500/30">
+                          <span className="px-3 py-1 text-xs font-medium rounded-full bg-black/5 dark:bg-slate-500/20 theme-text-secondary border theme-border-secondary">
                             Not Started
                           </span>
                         )}
@@ -2036,21 +2039,21 @@ function ReporteesOnlyView({ reportees }: { reportees: ReporteeUser[] }) {
 
             {/* Recent Logs */}
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-white">Recent Logs</h2>
+              <h2 className="text-lg font-semibold theme-text-primary">Recent Logs</h2>
 
               {sortedDates.length === 0 ? (
-                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center">
-                  <svg className="w-12 h-12 text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="theme-card rounded-xl p-8 text-center">
+                  <svg className="w-12 h-12 theme-text-tertiary mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <p className="text-slate-400">No logs submitted yet</p>
-                  <p className="text-slate-500 text-sm mt-1">Logs from your direct reports will appear here</p>
+                  <p className="theme-text-secondary">No logs submitted yet</p>
+                  <p className="theme-text-tertiary text-sm mt-1">Logs from your direct reports will appear here</p>
                 </div>
               ) : (
                 sortedDates.map(date => (
                   <div key={date} className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-medium text-slate-400">
+                      <h3 className="text-sm font-medium theme-text-secondary">
                         {new Date(date + "T12:00:00").toLocaleDateString("en-US", {
                           weekday: "long",
                           month: "short",
@@ -2065,9 +2068,9 @@ function ReporteesOnlyView({ reportees }: { reportees: ReporteeUser[] }) {
                     </div>
 
                     {logsByDate[date].filter(l => l.isSubmitted).map(log => (
-                      <div key={log._id} className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                      <div key={log._id} className="theme-card rounded-xl overflow-hidden">
                         <div
-                          className="p-4 cursor-pointer hover:bg-slate-800/80 transition-colors"
+                          className="p-4 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                           onClick={() => toggleLogExpansion(log._id)}
                         >
                           <div className="flex items-center justify-between">
@@ -2076,12 +2079,12 @@ function ReporteesOnlyView({ reportees }: { reportees: ReporteeUser[] }) {
                                 {log.userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                               </div>
                               <div>
-                                <p className="text-white font-medium">{log.userName}</p>
-                                <p className="text-slate-500 text-sm">{log.summary?.slice(0, 60)}{log.summary && log.summary.length > 60 ? "..." : ""}</p>
+                                <p className="theme-text-primary font-medium">{log.userName}</p>
+                                <p className="theme-text-tertiary text-sm">{log.summary?.slice(0, 60)}{log.summary && log.summary.length > 60 ? "..." : ""}</p>
                               </div>
                             </div>
                             <svg
-                              className={`w-5 h-5 text-slate-400 transition-transform ${expandedLogs.has(log._id) ? "rotate-180" : ""}`}
+                              className={`w-5 h-5 theme-text-secondary transition-transform ${expandedLogs.has(log._id) ? "rotate-180" : ""}`}
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -2092,23 +2095,23 @@ function ReporteesOnlyView({ reportees }: { reportees: ReporteeUser[] }) {
                         </div>
 
                         {expandedLogs.has(log._id) && (
-                          <div className="px-4 pb-4 border-t border-slate-700 pt-4 space-y-4">
+                          <div className="px-4 pb-4 border-t theme-border-secondary pt-4 space-y-4">
                             {log.summary && (
                               <div>
-                                <h4 className="text-xs font-medium text-slate-400 uppercase mb-1">Summary</h4>
-                                <p className="text-white">{log.summary}</p>
+                                <h4 className="text-xs font-medium theme-text-tertiary uppercase mb-1">Summary</h4>
+                                <p className="theme-text-primary">{log.summary}</p>
                               </div>
                             )}
                             {log.accomplishments && log.accomplishments.length > 0 && (
                               <div>
-                                <h4 className="text-xs font-medium text-slate-400 uppercase mb-1">Accomplishments</h4>
+                                <h4 className="text-xs font-medium theme-text-tertiary uppercase mb-1">Accomplishments</h4>
                                 <ul className="space-y-1">
                                   {log.accomplishments.map((acc: string, i: number) => (
                                     <li key={i} className="flex items-start gap-2">
                                       <svg className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                       </svg>
-                                      <span className="text-slate-300">{acc}</span>
+                                      <span className="theme-text-secondary">{acc}</span>
                                     </li>
                                   ))}
                                 </ul>
@@ -2116,19 +2119,19 @@ function ReporteesOnlyView({ reportees }: { reportees: ReporteeUser[] }) {
                             )}
                             {log.blockers && (
                               <div>
-                                <h4 className="text-xs font-medium text-slate-400 uppercase mb-1">Blockers</h4>
-                                <p className="text-slate-300">{log.blockers}</p>
+                                <h4 className="text-xs font-medium theme-text-tertiary uppercase mb-1">Blockers</h4>
+                                <p className="theme-text-secondary">{log.blockers}</p>
                               </div>
                             )}
                             {log.goalsForTomorrow && (
                               <div>
-                                <h4 className="text-xs font-medium text-slate-400 uppercase mb-1">Goals for Tomorrow</h4>
-                                <p className="text-slate-300">{log.goalsForTomorrow}</p>
+                                <h4 className="text-xs font-medium theme-text-tertiary uppercase mb-1">Goals for Tomorrow</h4>
+                                <p className="theme-text-secondary">{log.goalsForTomorrow}</p>
                               </div>
                             )}
                             {log.hoursWorked && (
-                              <div className="text-sm text-slate-400">
-                                Hours worked: <span className="text-white">{log.hoursWorked}h</span>
+                              <div className="text-sm theme-text-secondary">
+                                Hours worked: <span className="theme-text-primary">{log.hoursWorked}h</span>
                               </div>
                             )}
                           </div>
@@ -2151,33 +2154,33 @@ function ManagerWithReporteesView({ reportees }: { reportees: ReporteeUser[] }) 
   const [activeTab, setActiveTab] = useState<"my-log" | "team">("my-log");
 
   return (
-    <div className="flex h-screen bg-slate-900">
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 flex flex-col overflow-hidden">
         <MobileHeader />
 
         {/* Header with Tabs */}
-        <header className="flex-shrink-0 bg-slate-900/80 backdrop-blur-sm border-b border-slate-700 px-4 sm:px-8 py-3 sm:py-4">
+        <header className="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b theme-border-secondary px-4 sm:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-white">Daily Log</h1>
-              <p className="text-slate-400 text-xs sm:text-sm mt-1">
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Daily Log</h1>
+              <p className="theme-text-secondary text-xs sm:text-sm mt-1">
                 Submit your log and view your team&apos;s activity
               </p>
             </div>
             <div className="flex items-center gap-3">
               <a
                 href="/daily-log/report"
-                className="px-3 py-2 bg-cyan-500 text-white font-medium rounded-lg hover:bg-cyan-600 transition-colors flex items-center gap-2 text-sm"
+                className="theme-btn-primary px-3 py-2 font-medium rounded-lg transition-colors flex items-center gap-2 text-sm"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
                 <span className="hidden sm:inline">Print</span>
               </a>
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center gap-2 text-sm theme-text-secondary">
+                <svg className="w-4 h-4 theme-accent-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
                 {reportees.length} reportee{reportees.length > 1 ? "s" : ""}
@@ -2186,13 +2189,13 @@ function ManagerWithReporteesView({ reportees }: { reportees: ReporteeUser[] }) 
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex gap-1 bg-slate-800 rounded-lg p-1">
+          <div className="flex gap-1 bg-black/5 dark:bg-slate-800 rounded-lg p-1">
             <button
               onClick={() => setActiveTab("my-log")}
               className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === "my-log"
-                  ? "bg-cyan-500 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-slate-700"
+                  ? "theme-btn-primary"
+                  : "theme-text-secondary hover:bg-black/5 dark:hover:bg-white/5"
               }`}
             >
               My Daily Log
@@ -2201,8 +2204,8 @@ function ManagerWithReporteesView({ reportees }: { reportees: ReporteeUser[] }) 
               onClick={() => setActiveTab("team")}
               className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === "team"
-                  ? "bg-cyan-500 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-slate-700"
+                  ? "theme-btn-primary"
+                  : "theme-text-secondary hover:bg-black/5 dark:hover:bg-white/5"
               }`}
             >
               Team Logs
@@ -2392,12 +2395,12 @@ function EmployeeDailyLogViewContent() {
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
             max={today}
-            className="px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+            className="theme-input"
           />
           {selectedDate !== today && (
             <button
               onClick={() => setSelectedDate(today)}
-              className="text-cyan-400 text-sm hover:underline"
+              className="theme-accent-primary text-sm hover:underline"
             >
               Go to today
             </button>
@@ -2422,7 +2425,7 @@ function EmployeeDailyLogViewContent() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Summary */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium theme-text-secondary mb-2">
               Summary <span className="text-red-400">*</span>
             </label>
             <textarea
@@ -2431,14 +2434,14 @@ function EmployeeDailyLogViewContent() {
               placeholder="Brief overview of your day..."
               rows={3}
               disabled={isLocked}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 disabled:opacity-50"
+              className="theme-input disabled:opacity-50"
               required
             />
           </div>
 
           {/* Accomplishments */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium theme-text-secondary mb-2">
               Accomplishments <span className="text-red-400">*</span>
             </label>
             <div className="space-y-2">
@@ -2450,13 +2453,13 @@ function EmployeeDailyLogViewContent() {
                     onChange={(e) => updateAccomplishment(index, e.target.value)}
                     placeholder={`Accomplishment ${index + 1}`}
                     disabled={isLocked}
-                    className="flex-1 px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 disabled:opacity-50"
+                    className="flex-1 theme-input disabled:opacity-50"
                   />
                   {accomplishments.length > 1 && !isLocked && (
                     <button
                       type="button"
                       onClick={() => removeAccomplishment(index)}
-                      className="p-2 text-slate-400 hover:text-red-400"
+                      className="p-2 theme-text-secondary hover:text-red-400"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -2470,7 +2473,7 @@ function EmployeeDailyLogViewContent() {
               <button
                 type="button"
                 onClick={addAccomplishment}
-                className="mt-2 text-cyan-400 text-sm hover:underline flex items-center gap-1"
+                className="mt-2 theme-accent-primary text-sm hover:underline flex items-center gap-1"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -2482,8 +2485,8 @@ function EmployeeDailyLogViewContent() {
 
           {/* Blockers */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Blockers <span className="text-slate-500">(optional)</span>
+            <label className="block text-sm font-medium theme-text-secondary mb-2">
+              Blockers <span className="theme-text-tertiary">(optional)</span>
             </label>
             <textarea
               value={blockers}
@@ -2491,14 +2494,14 @@ function EmployeeDailyLogViewContent() {
               placeholder="Any challenges or blockers?"
               rows={2}
               disabled={isLocked}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 disabled:opacity-50"
+              className="theme-input disabled:opacity-50"
             />
           </div>
 
           {/* Goals for Tomorrow */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Goals for Tomorrow <span className="text-slate-500">(optional)</span>
+            <label className="block text-sm font-medium theme-text-secondary mb-2">
+              Goals for Tomorrow <span className="theme-text-tertiary">(optional)</span>
             </label>
             <textarea
               value={goalsForTomorrow}
@@ -2506,14 +2509,14 @@ function EmployeeDailyLogViewContent() {
               placeholder="What do you plan to work on?"
               rows={2}
               disabled={isLocked}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 disabled:opacity-50"
+              className="theme-input disabled:opacity-50"
             />
           </div>
 
           {/* Hours Worked */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Hours Worked <span className="text-slate-500">(optional)</span>
+            <label className="block text-sm font-medium theme-text-secondary mb-2">
+              Hours Worked <span className="theme-text-tertiary">(optional)</span>
             </label>
             <input
               type="number"
@@ -2524,7 +2527,7 @@ function EmployeeDailyLogViewContent() {
               max="24"
               step="0.5"
               disabled={isLocked}
-              className="w-32 px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 disabled:opacity-50"
+              className="w-32 theme-input disabled:opacity-50"
             />
           </div>
 
@@ -2533,7 +2536,7 @@ function EmployeeDailyLogViewContent() {
             <button
               type="submit"
               disabled={isSaving || !summary.trim()}
-              className="w-full px-6 py-3 bg-cyan-500 text-white font-medium rounded-xl hover:bg-cyan-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="theme-btn-primary w-full px-6 py-3 font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSaving ? (
                 <>
@@ -2557,10 +2560,10 @@ function EmployeeDailyLogViewContent() {
 
         {/* Past Logs Section */}
         {myLogs && myLogs.length > 0 && (
-          <div className="mt-8 pt-6 border-t border-slate-700">
+          <div className="mt-8 pt-6 border-t theme-border-secondary">
             <button
               onClick={() => setShowPastLogs(!showPastLogs)}
-              className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+              className="flex items-center gap-2 theme-text-secondary transition-colors"
             >
               <svg
                 className={`w-5 h-5 transition-transform ${showPastLogs ? "rotate-90" : ""}`}
@@ -2576,9 +2579,9 @@ function EmployeeDailyLogViewContent() {
             {showPastLogs && (
               <div className="mt-4 space-y-3">
                 {myLogs.filter(l => l.isSubmitted && l.date !== selectedDate).map(log => (
-                  <div key={log._id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                  <div key={log._id} className="theme-card rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-white font-medium">
+                      <span className="theme-text-primary font-medium">
                         {new Date(log.date + "T12:00:00").toLocaleDateString("en-US", {
                           weekday: "short",
                           month: "short",
@@ -2586,10 +2589,10 @@ function EmployeeDailyLogViewContent() {
                         })}
                       </span>
                       {log.hoursWorked && (
-                        <span className="text-slate-400 text-sm">{log.hoursWorked}h</span>
+                        <span className="theme-text-secondary text-sm">{log.hoursWorked}h</span>
                       )}
                     </div>
-                    <p className="text-slate-300 text-sm">{log.summary}</p>
+                    <p className="theme-text-secondary text-sm">{log.summary}</p>
                   </div>
                 ))}
               </div>
@@ -2645,10 +2648,10 @@ function ReporteesLogsContent({ reportees }: { reportees: ReporteeUser[] }) {
     <div className="p-4 sm:p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Today's Status */}
-        <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-500/30 rounded-xl p-4">
+        <div className="theme-card rounded-xl border border-cyan-500/30 p-4">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <h2 className="text-lg font-semibold text-white">Today&apos;s Status</h2>
+            <h2 className="text-lg font-semibold theme-text-primary">Today&apos;s Status</h2>
           </div>
 
           <div className="grid gap-2">
@@ -2658,19 +2661,19 @@ function ReporteesLogsContent({ reportees }: { reportees: ReporteeUser[] }) {
               const hasDraft = todayLog && !todayLog.isSubmitted;
 
               return (
-                <div key={reportee._id} className="flex items-center justify-between bg-slate-800/50 rounded-lg p-3">
+                <div key={reportee._id} className="flex items-center justify-between theme-card rounded-lg p-3">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-sm font-medium">
                       {reportee.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                     </div>
-                    <span className="text-white">{reportee.name}</span>
+                    <span className="theme-text-primary">{reportee.name}</span>
                   </div>
                   {hasSubmitted ? (
                     <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-500/20 text-green-400">Submitted</span>
                   ) : hasDraft ? (
                     <span className="px-2 py-1 text-xs font-medium rounded-full bg-amber-500/20 text-amber-400">Draft</span>
                   ) : (
-                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-slate-500/20 text-slate-400">Not Started</span>
+                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-black/5 dark:bg-slate-500/20 theme-text-secondary">Not Started</span>
                   )}
                 </div>
               );
@@ -2680,16 +2683,16 @@ function ReporteesLogsContent({ reportees }: { reportees: ReporteeUser[] }) {
 
         {/* Recent Logs */}
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-white">Recent Logs</h2>
+          <h2 className="text-lg font-semibold theme-text-primary">Recent Logs</h2>
 
           {sortedDates.length === 0 ? (
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center">
-              <p className="text-slate-400">No logs from your team yet</p>
+            <div className="theme-card rounded-xl p-8 text-center">
+              <p className="theme-text-secondary">No logs from your team yet</p>
             </div>
           ) : (
             sortedDates.map(date => (
               <div key={date} className="space-y-2">
-                <h3 className="text-sm font-medium text-slate-400 flex items-center gap-2">
+                <h3 className="text-sm font-medium theme-text-secondary flex items-center gap-2">
                   {new Date(date + "T12:00:00").toLocaleDateString("en-US", {
                     weekday: "long",
                     month: "short",
@@ -2701,9 +2704,9 @@ function ReporteesLogsContent({ reportees }: { reportees: ReporteeUser[] }) {
                 </h3>
 
                 {logsByDate[date].filter(l => l.isSubmitted).map(log => (
-                  <div key={log._id} className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                  <div key={log._id} className="theme-card rounded-xl overflow-hidden">
                     <div
-                      className="p-4 cursor-pointer hover:bg-slate-800/80 transition-colors"
+                      className="p-4 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                       onClick={() => toggleLogExpansion(log._id)}
                     >
                       <div className="flex items-center justify-between">
@@ -2712,34 +2715,34 @@ function ReporteesLogsContent({ reportees }: { reportees: ReporteeUser[] }) {
                             {log.userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                           </div>
                           <div>
-                            <p className="text-white font-medium">{log.userName}</p>
-                            <p className="text-slate-500 text-sm truncate max-w-md">{log.summary?.slice(0, 50)}...</p>
+                            <p className="theme-text-primary font-medium">{log.userName}</p>
+                            <p className="theme-text-tertiary text-sm truncate max-w-md">{log.summary?.slice(0, 50)}...</p>
                           </div>
                         </div>
-                        <svg className={`w-5 h-5 text-slate-400 transition-transform ${expandedLogs.has(log._id) ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className={`w-5 h-5 theme-text-secondary transition-transform ${expandedLogs.has(log._id) ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
                       </div>
                     </div>
 
                     {expandedLogs.has(log._id) && (
-                      <div className="px-4 pb-4 border-t border-slate-700 pt-4 space-y-3">
+                      <div className="px-4 pb-4 border-t theme-border-secondary pt-4 space-y-3">
                         {log.summary && (
                           <div>
-                            <h4 className="text-xs font-medium text-slate-400 uppercase mb-1">Summary</h4>
-                            <p className="text-white">{log.summary}</p>
+                            <h4 className="text-xs font-medium theme-text-tertiary uppercase mb-1">Summary</h4>
+                            <p className="theme-text-primary">{log.summary}</p>
                           </div>
                         )}
                         {log.accomplishments && log.accomplishments.length > 0 && (
                           <div>
-                            <h4 className="text-xs font-medium text-slate-400 uppercase mb-1">Accomplishments</h4>
+                            <h4 className="text-xs font-medium theme-text-tertiary uppercase mb-1">Accomplishments</h4>
                             <ul className="space-y-1">
                               {log.accomplishments.map((acc: string, i: number) => (
                                 <li key={i} className="flex items-start gap-2">
                                   <svg className="w-4 h-4 text-green-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                   </svg>
-                                  <span className="text-slate-300">{acc}</span>
+                                  <span className="theme-text-secondary">{acc}</span>
                                 </li>
                               ))}
                             </ul>
@@ -2747,13 +2750,13 @@ function ReporteesLogsContent({ reportees }: { reportees: ReporteeUser[] }) {
                         )}
                         {log.blockers && (
                           <div>
-                            <h4 className="text-xs font-medium text-slate-400 uppercase mb-1">Blockers</h4>
-                            <p className="text-slate-300">{log.blockers}</p>
+                            <h4 className="text-xs font-medium theme-text-tertiary uppercase mb-1">Blockers</h4>
+                            <p className="theme-text-secondary">{log.blockers}</p>
                           </div>
                         )}
                         {log.hoursWorked && (
-                          <div className="text-sm text-slate-400">
-                            Hours: <span className="text-white">{log.hoursWorked}h</span>
+                          <div className="text-sm theme-text-secondary">
+                            Hours: <span className="theme-text-primary">{log.hoursWorked}h</span>
                           </div>
                         )}
                       </div>
@@ -2784,8 +2787,8 @@ function DailyLogContent() {
 
   if (!user) {
     return (
-      <div className="flex h-screen bg-slate-900 items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+      <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900 items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#007AFF]"></div>
       </div>
     );
   }
@@ -2793,8 +2796,8 @@ function DailyLogContent() {
   // Loading state for reportees query
   if (reporteesRequiringLog === undefined) {
     return (
-      <div className="flex h-screen bg-slate-900 items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+      <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900 items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#007AFF]"></div>
       </div>
     );
   }
