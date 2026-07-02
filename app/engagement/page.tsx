@@ -472,25 +472,25 @@ function EngagementDashboardContent() {
               {/* Exit Interview Stats */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 print:grid-cols-4">
                 <Card padding="md">
-                  <div className="ui-section-label">Completed</div>
+                  <div className="ui-section-label print:text-gray-500">Completed</div>
                   <div className="text-3xl font-bold mt-1 theme-text-primary print:text-gray-900">
                     {exitAnalytics?.totalCompleted || 0}
                   </div>
                 </Card>
                 <Card padding="md">
-                  <div className="ui-section-label">Avg Satisfaction</div>
+                  <div className="ui-section-label print:text-gray-500">Avg Satisfaction</div>
                   <div className={`text-3xl font-bold mt-1 ${getScoreColor(exitAnalytics?.avgSatisfaction ?? null)} print:text-gray-900`}>
                     {exitAnalytics?.avgSatisfaction?.toFixed(1) || "—"}
                   </div>
                 </Card>
                 <Card padding="md">
-                  <div className="ui-section-label">Would Return</div>
+                  <div className="ui-section-label print:text-gray-500">Would Return</div>
                   <div className="text-3xl font-bold mt-1 text-green-500 print:text-gray-900">
                     {exitAnalytics?.wouldReturn?.yes || 0}
                   </div>
                 </Card>
                 <Card padding="md">
-                  <div className="ui-section-label">Would Recommend</div>
+                  <div className="ui-section-label print:text-gray-500">Would Recommend</div>
                   <div className="text-3xl font-bold mt-1 text-green-500 print:text-gray-900">
                     {exitAnalytics?.wouldRecommend?.yes || 0}
                   </div>
@@ -528,7 +528,7 @@ function EngagementDashboardContent() {
               </Card>
 
               {/* AI Insights Section */}
-              <Card padding="md">
+              <Card padding="md" className="print:break-inside-avoid">
                 <div className="flex items-center justify-between mb-4 print:break-inside-avoid">
                   <h3 className="text-[17px] font-semibold theme-text-primary print:text-gray-900">
                     AI-Powered Insights
@@ -631,7 +631,7 @@ function EngagementDashboardContent() {
 
               {/* Pending Exit Interviews */}
               <Card padding="md" className="print:hidden">
-                <h3 className="text-[17px] font-semibold mb-4 theme-text-primary">
+                <h3 className="text-[17px] font-semibold mb-4 theme-text-primary print:text-gray-900">
                   Pending Exit Interviews ({pendingExitInterviews?.length || 0})
                 </h3>
                 {pendingExitInterviews && pendingExitInterviews.length > 0 ? (
@@ -639,18 +639,18 @@ function EngagementDashboardContent() {
                     {pendingExitInterviews.map((interview) => (
                       <div
                         key={interview._id}
-                        className="p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-700/50 flex items-center justify-between"
+                        className="p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-700/50 flex items-center justify-between print:bg-gray-50"
                       >
                         <div>
-                          <span className="font-medium theme-text-primary">
+                          <span className="font-medium theme-text-primary print:text-gray-900">
                             {interview.personnelName}
                           </span>
                           <span className="mx-2 theme-text-tertiary">•</span>
-                          <span className="text-sm theme-text-tertiary">
+                          <span className="text-sm theme-text-tertiary print:text-gray-500">
                             {interview.department} - {interview.position}
                           </span>
                         </div>
-                        <div className="text-sm theme-text-tertiary">
+                        <div className="text-sm theme-text-tertiary print:text-gray-500">
                           Term date: {interview.terminationDate}
                         </div>
                       </div>
