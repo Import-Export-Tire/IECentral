@@ -10,7 +10,6 @@ import { Id } from "@/convex/_generated/dataModel";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import SectionHeader from "@/components/ui/SectionHeader";
 
 interface SharedMailbox {
   _id: Id<"sharedMailboxes">;

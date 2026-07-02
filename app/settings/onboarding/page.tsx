@@ -10,7 +10,6 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import SectionHeader from "@/components/ui/SectionHeader";
 
 const DOCUMENT_TYPES = [
   { value: "handbook", label: "Employee Handbook", icon: "📘" },
