@@ -6,8 +6,9 @@ import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useTheme } from "../theme-context";
 import { useAuth } from "../auth-context";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 
 const REQUEST_TYPES = [
   { value: "vacation", label: "Vacation", color: "blue" },
@@ -24,23 +25,22 @@ const STATUS_OPTIONS = [
   { value: "denied", label: "Denied" },
 ];
 
-const typeColors: Record<string, string> = {
-  vacation: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  sick: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  personal: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-  bereavement: "bg-slate-500/20 text-slate-400 border-slate-500/30",
-  other: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+// ui-badge color keys for request type
+const typeBadgeColor: Record<string, string> = {
+  vacation: "ui-badge ui-badge-blue",
+  sick: "ui-badge ui-badge-amber",
+  personal: "ui-badge ui-badge-purple",
+  bereavement: "ui-badge ui-badge-gray",
+  other: "ui-badge ui-badge-gray",
 };
 
-const statusColors: Record<string, string> = {
-  pending: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  approved: "bg-green-500/20 text-green-400 border-green-500/30",
-  denied: "bg-red-500/20 text-red-400 border-red-500/30",
+const statusBadgeColor: Record<string, string> = {
+  pending: "ui-badge ui-badge-amber",
+  approved: "ui-badge ui-badge-green",
+  denied: "ui-badge ui-badge-red",
 };
 
 function TimeOffContent() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const { user, canManageTimeOff } = useAuth();
 
   const allRequests = useQuery(api.timeOffRequests.getAll, {}) || [];
@@ -63,14 +63,12 @@ function TimeOffContent() {
   // Redirect if user doesn't have permission
   if (!canManageTimeOff) {
     return (
-      <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+      <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
         <Sidebar />
         <main className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-              Access Denied
-            </h1>
-            <p className={`mt-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+          <div className="text-center px-4">
+            <h1 className="text-2xl font-bold theme-text-primary">Access Denied</h1>
+            <p className="mt-2 theme-text-secondary">
               You don&apos;t have permission to view this page.
             </p>
           </div>
@@ -145,20 +143,20 @@ function TimeOffContent() {
     : null;
 
   return (
-    <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
 
-        {/* Header */}
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+        {/* Sticky iOS-style page header */}
+        <header className="flex-shrink-0 sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary truncate">
                 Time Off Requests
               </h1>
-              <p className={`text-xs sm:text-sm mt-1 hidden sm:block ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className="text-xs sm:text-sm mt-0.5 hidden sm:block theme-text-tertiary">
                 Review and manage employee time off requests
               </p>
             </div>
@@ -168,26 +166,34 @@ function TimeOffContent() {
         <div className="p-4 sm:p-8 space-y-4 sm:space-y-6">
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-            <div className={`rounded-lg p-2 sm:p-4 text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <p className={`text-lg sm:text-2xl font-bold text-amber-400`}>{stats.pendingCount}</p>
-              <p className={`text-[10px] sm:text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>Pending</p>
-            </div>
-            <div className={`rounded-lg p-2 sm:p-4 text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <p className={`text-lg sm:text-2xl font-bold text-blue-400`}>{stats.outToday}</p>
-              <p className={`text-[10px] sm:text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>Out Today</p>
-            </div>
-            <div className={`rounded-lg p-2 sm:p-4 text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <p className={`text-lg sm:text-2xl font-bold text-green-400`}>{stats.approvedUpcoming}</p>
-              <p className={`text-[10px] sm:text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>Upcoming</p>
-            </div>
-            <div className={`rounded-lg p-2 sm:p-4 text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <p className={`text-lg sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{stats.requestsThisWeek}</p>
-              <p className={`text-[10px] sm:text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>This Week</p>
-            </div>
+            <Card padding="sm">
+              <div className="text-center py-1">
+                <p className="text-lg sm:text-2xl font-bold text-amber-500 dark:text-amber-400">{stats.pendingCount}</p>
+                <p className="text-[10px] sm:text-xs theme-text-tertiary mt-0.5">Pending</p>
+              </div>
+            </Card>
+            <Card padding="sm">
+              <div className="text-center py-1">
+                <p className="text-lg sm:text-2xl font-bold text-[#007AFF]">{stats.outToday}</p>
+                <p className="text-[10px] sm:text-xs theme-text-tertiary mt-0.5">Out Today</p>
+              </div>
+            </Card>
+            <Card padding="sm">
+              <div className="text-center py-1">
+                <p className="text-lg sm:text-2xl font-bold text-green-500 dark:text-green-400">{stats.approvedUpcoming}</p>
+                <p className="text-[10px] sm:text-xs theme-text-tertiary mt-0.5">Upcoming</p>
+              </div>
+            </Card>
+            <Card padding="sm">
+              <div className="text-center py-1">
+                <p className="text-lg sm:text-2xl font-bold theme-text-primary">{stats.requestsThisWeek}</p>
+                <p className="text-[10px] sm:text-xs theme-text-tertiary mt-0.5">This Week</p>
+              </div>
+            </Card>
           </div>
 
           {/* Filters */}
-          <div className={`rounded-lg p-3 sm:p-4 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+          <Card padding="sm">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1">
                 <input
@@ -195,11 +201,7 @@ function TimeOffContent() {
                   placeholder="Search by name or department..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-                  }`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 />
               </div>
               <div className="flex gap-2 overflow-x-auto">
@@ -207,14 +209,10 @@ function TimeOffContent() {
                   <button
                     key={status.value}
                     onClick={() => setFilterStatus(status.value)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                    className={`px-3 py-1.5 rounded-[9px] text-[13px] font-semibold whitespace-nowrap transition-colors ${
                       filterStatus === status.value
-                        ? isDark
-                          ? "bg-cyan-500 text-white"
-                          : "bg-blue-600 text-white"
-                        : isDark
-                          ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        ? "theme-btn-primary"
+                        : "ui-btn-ghost"
                     }`}
                   >
                     {status.label}
@@ -227,14 +225,14 @@ function TimeOffContent() {
                 ))}
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Requests List */}
-          <div className={`rounded-lg overflow-hidden ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+          <Card padding="sm" className="overflow-hidden">
             {filteredRequests.length === 0 ? (
-              <div className="p-8 text-center">
+              <div className="py-10 text-center">
                 <svg
-                  className={`w-12 h-12 mx-auto mb-3 ${isDark ? "text-slate-600" : "text-gray-300"}`}
+                  className="w-12 h-12 mx-auto mb-3 theme-text-tertiary opacity-40"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -246,51 +244,49 @@ function TimeOffContent() {
                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                   />
                 </svg>
-                <p className={isDark ? "text-slate-400" : "text-gray-500"}>
-                  No time off requests found
-                </p>
+                <p className="text-sm theme-text-tertiary">No time off requests found</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-700">
+              <div className="divide-y theme-border-secondary">
                 {filteredRequests.map((request) => (
                   <div
                     key={request._id}
-                    className={`p-4 ${isDark ? "hover:bg-slate-700/50" : "hover:bg-gray-50"} transition-colors`}
+                    className="p-4 hover:bg-gray-50 dark:hover:bg-slate-700/40 transition-colors"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                          <h3 className="font-semibold text-[15px] theme-text-primary">
                             {request.personnelName}
                           </h3>
-                          <span className={`text-xs px-2 py-0.5 rounded-full border ${typeColors[request.requestType]}`}>
+                          <span className={typeBadgeColor[request.requestType] ?? "ui-badge ui-badge-gray"}>
                             {REQUEST_TYPES.find((t) => t.value === request.requestType)?.label || request.requestType}
                           </span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full border ${statusColors[request.status]}`}>
+                          <span className={statusBadgeColor[request.status] ?? "ui-badge ui-badge-gray"}>
                             {request.status}
                           </span>
                         </div>
-                        <div className={`mt-1 text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <div className="mt-1 text-sm theme-text-tertiary">
                           {request.personnelDepartment} &bull; {request.personnelPosition}
                         </div>
-                        <div className={`mt-2 text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                        <div className="mt-2 text-sm theme-text-primary">
                           <span className="font-medium">{formatDate(request.startDate)}</span>
                           {request.startDate !== request.endDate && (
                             <>
-                              <span className={isDark ? "text-slate-500" : "text-gray-400"}> to </span>
+                              <span className="theme-text-tertiary"> to </span>
                               <span className="font-medium">{formatDate(request.endDate)}</span>
                             </>
                           )}
-                          <span className={`ml-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                          <span className="ml-2 theme-text-tertiary">
                             ({request.totalDays} day{request.totalDays !== 1 ? "s" : ""})
                           </span>
                         </div>
                         {request.reason && (
-                          <p className={`mt-2 text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          <p className="mt-2 text-sm theme-text-secondary">
                             {request.reason}
                           </p>
                         )}
-                        <p className={`mt-2 text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                        <p className="mt-2 text-xs theme-text-tertiary">
                           Requested {formatTimestamp(request.requestedAt)}
                           {request.reviewedBy && (
                             <>
@@ -300,7 +296,7 @@ function TimeOffContent() {
                           )}
                         </p>
                         {request.managerNotes && (
-                          <p className={`mt-1 text-xs italic ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          <p className="mt-1 text-xs italic theme-text-tertiary">
                             Note: {request.managerNotes}
                           </p>
                         )}
@@ -308,19 +304,16 @@ function TimeOffContent() {
 
                       {request.status === "pending" && (
                         <div className="flex gap-2 flex-shrink-0">
-                          <button
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => {
                               setSelectedRequest(request._id);
                               setManagerNotes("");
                             }}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
-                              isDark
-                                ? "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30"
-                                : "bg-blue-100 text-blue-600 hover:bg-blue-200"
-                            }`}
                           >
                             Review
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -328,108 +321,93 @@ function TimeOffContent() {
                 ))}
               </div>
             )}
-          </div>
+          </Card>
         </div>
       </main>
 
       {/* Review Modal */}
       {selectedRequest && selectedRequestData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
-            <h2 className={`text-lg font-bold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-              Review Time Off Request
-            </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700">
+            <div className="px-5 py-4 border-b theme-border-secondary">
+              <h2 className="text-[17px] font-semibold theme-text-primary">Review Time Off Request</h2>
+            </div>
 
-            <div className="space-y-3 mb-6">
+            <div className="px-5 py-4 space-y-3">
               <div>
-                <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Employee:</span>
-                <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                  {selectedRequestData.personnelName}
-                </p>
+                <p className="ui-section-label">Employee</p>
+                <p className="font-medium text-sm theme-text-primary mt-0.5">{selectedRequestData.personnelName}</p>
               </div>
               <div>
-                <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Type:</span>
-                <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                <p className="ui-section-label">Type</p>
+                <p className="font-medium text-sm theme-text-primary mt-0.5">
                   {REQUEST_TYPES.find((t) => t.value === selectedRequestData.requestType)?.label}
                 </p>
               </div>
               <div>
-                <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Dates:</span>
-                <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                <p className="ui-section-label">Dates</p>
+                <p className="font-medium text-sm theme-text-primary mt-0.5">
                   {formatDate(selectedRequestData.startDate)}
                   {selectedRequestData.startDate !== selectedRequestData.endDate && (
                     <> to {formatDate(selectedRequestData.endDate)}</>
                   )}
-                  <span className={`ml-2 font-normal ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <span className="ml-2 font-normal theme-text-tertiary">
                     ({selectedRequestData.totalDays} day{selectedRequestData.totalDays !== 1 ? "s" : ""})
                   </span>
                 </p>
               </div>
               {selectedRequestData.reason && (
                 <div>
-                  <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Reason:</span>
-                  <p className={`${isDark ? "text-white" : "text-gray-900"}`}>
-                    {selectedRequestData.reason}
-                  </p>
+                  <p className="ui-section-label">Reason</p>
+                  <p className="text-sm theme-text-primary mt-0.5">{selectedRequestData.reason}</p>
                 </div>
               )}
             </div>
 
-            <div className="mb-6">
-              <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+            <div className="px-5 pb-4">
+              <label className="block text-xs font-medium mb-1.5 theme-text-tertiary">
                 Manager Notes (optional)
               </label>
               <textarea
                 value={managerNotes}
                 onChange={(e) => setManagerNotes(e.target.value)}
                 rows={3}
-                className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                  isDark
-                    ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                    : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-                }`}
+                className="theme-input w-full px-3 py-2 text-sm"
                 placeholder="Add a note for the employee..."
               />
             </div>
 
-            <div className="flex gap-3">
-              <button
+            <div className="px-5 pb-4 flex gap-3">
+              <Button
+                variant="danger"
+                className="flex-1"
                 onClick={() => handleDeny(selectedRequest)}
                 disabled={isProcessing}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isDark
-                    ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                    : "bg-red-100 text-red-600 hover:bg-red-200"
-                } disabled:opacity-50`}
               >
                 Deny
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1"
                 onClick={() => handleApprove(selectedRequest)}
                 disabled={isProcessing}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isDark
-                    ? "bg-green-500 hover:bg-green-400 text-white"
-                    : "bg-green-600 hover:bg-green-700 text-white"
-                } disabled:opacity-50`}
               >
                 Approve
-              </button>
+              </Button>
             </div>
 
-            <button
-              onClick={() => {
-                setSelectedRequest(null);
-                setManagerNotes("");
-              }}
-              className={`w-full mt-3 px-4 py-2 rounded-lg font-medium transition-colors ${
-                isDark
-                  ? "bg-slate-700 hover:bg-slate-600 text-slate-300"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-              }`}
-            >
-              Cancel
-            </button>
+            <div className="px-5 pb-5 border-t theme-border-secondary pt-3">
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => {
+                  setSelectedRequest(null);
+                  setManagerNotes("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
         </div>
       )}
