@@ -800,6 +800,20 @@ function CalendarContent() {
                       <span className="hidden sm:inline">Disconnect</span>
                     </Button>
                   </div>
+                ) : (outlook as { needsReconnect?: boolean } | undefined)?.needsReconnect ? (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      window.location.href = `/api/calendar/outlook/oauth?userId=${user._id}`;
+                    }}
+                    title={`Outlook sync stopped (session expired) — reconnect to resume. Account: ${(outlook as { outlookEmail?: string }).outlookEmail ?? ""}`}
+                  >
+                    <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="hidden sm:inline text-amber-500">Reconnect Outlook</span>
+                    <span className="sm:hidden text-amber-500">Reconnect</span>
+                  </Button>
                 ) : (
                   <Button
                     variant="ghost"

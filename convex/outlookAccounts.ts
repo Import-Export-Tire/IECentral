@@ -25,7 +25,25 @@ export const getByUser = query({
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .filter((q) => q.eq(q.field("isActive"), true))
       .first();
-    if (!account) return { connected: false };
+    if (!account) {
+      // No active account — but if there's an inactive one that was
+      // deactivated because its token can no longer be refreshed, surface a
+      // distinct "needs reconnect" state so the UI can prompt the user to
+      // re-authorize rather than looking like it was never connected.
+      const stale = await ctx.db
+        .query("outlookAccounts")
+        .withIndex("by_user", (q) => q.eq("userId", args.userId))
+        .first();
+      if (stale && stale.syncError) {
+        return {
+          connected: false,
+          needsReconnect: true,
+          outlookEmail: stale.outlookEmail,
+          syncError: stale.syncError,
+        };
+      }
+      return { connected: false };
+    }
     return {
       connected: true,
       outlookEmail: account.outlookEmail,
