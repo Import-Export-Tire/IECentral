@@ -181,6 +181,35 @@ function CalendarContent() {
       setZoomSyncing(false);
     }
   }, [user]);
+
+  // Outlook / M365 manual "Sync now" (Phase 2 pull)
+  const [outlookSyncing, setOutlookSyncing] = useState(false);
+  const [outlookSyncResult, setOutlookSyncResult] = useState<{ synced: number; message?: string } | null>(null);
+
+  const handleOutlookSync = useCallback(async () => {
+    if (!user?._id) return;
+    setOutlookSyncing(true);
+    setOutlookSyncResult(null);
+    try {
+      const res = await fetch("/api/calendar/outlook-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user._id }),
+      });
+      const data = await res.json();
+      setOutlookSyncResult({
+        synced: data.synced || 0,
+        message: data.error
+          ? (data.error === "reconnect_required" ? "Reconnect Outlook" : data.error)
+          : (data.synced > 0 ? `${data.synced} synced` : "Up to date"),
+      });
+    } catch {
+      setOutlookSyncResult({ synced: 0, message: "Sync failed" });
+    } finally {
+      setOutlookSyncing(false);
+    }
+  }, [user]);
+
   const [shareUserId, setShareUserId] = useState<Id<"users"> | "">("");
   const [viewingSharedCalendar, setViewingSharedCalendar] = useState<Id<"users"> | null>(null);
 
@@ -743,6 +772,26 @@ function CalendarContent() {
                     <span className="hidden md:inline text-xs theme-text-tertiary" title={outlook.outlookEmail}>
                       Outlook: {outlook.outlookEmail}
                     </span>
+                    <Button
+                      variant="ghost"
+                      onClick={handleOutlookSync}
+                      disabled={outlookSyncing}
+                      title="Pull events from Outlook"
+                    >
+                      <svg className={`w-4 h-4 ${outlookSyncing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span className="hidden sm:inline">{outlookSyncing ? "Syncing..." : "Sync now"}</span>
+                    </Button>
+                    {outlookSyncResult ? (
+                      <span className={`text-xs ${outlookSyncResult.synced > 0 ? (isDark ? "text-emerald-400" : "text-emerald-600") : "theme-text-tertiary"}`}>
+                        {outlookSyncResult.message}
+                      </span>
+                    ) : outlook.lastSyncAt ? (
+                      <span className="hidden lg:inline text-xs theme-text-tertiary">
+                        Synced {new Date(outlook.lastSyncAt).toLocaleString()}
+                      </span>
+                    ) : null}
                     <Button
                       variant="ghost"
                       onClick={() => disconnectOutlook({ userId: user._id as Id<"users"> })}
