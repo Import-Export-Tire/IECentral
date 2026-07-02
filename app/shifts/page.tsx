@@ -8,6 +8,8 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useTheme } from "../theme-context";
 import { useAuth } from "../auth-context";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 
 // Generate unique ID for tasks
 function generateId(): string {
@@ -497,11 +499,9 @@ function ShiftsContent() {
       <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
         <Sidebar />
         <main className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-              Access Denied
-            </h1>
-            <p className={`mt-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+          <div className="text-center px-4">
+            <h1 className="text-2xl font-bold theme-text-primary">Access Denied</h1>
+            <p className="mt-2 theme-text-secondary">
               You don&apos;t have permission to view shift planning.
             </p>
           </div>
@@ -515,7 +515,7 @@ function ShiftsContent() {
     ? shifts.filter(s => s.department === printDepartment)
     : shifts;
 
-  // Print mode layout
+  // Print mode layout — kept as-is (print CSS is functional, not cosmetic)
   if (isPrintMode) {
     return (
       <div className="p-3 bg-white min-h-screen print:p-2">
@@ -705,28 +705,26 @@ function ShiftsContent() {
 
       <main className="flex-1 overflow-hidden flex flex-col">
         <MobileHeader />
-        {/* Header */}
-        <header className={`flex-shrink-0 border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200"}`}>
+
+        {/* Sticky iOS-style page header */}
+        <header className={`flex-shrink-0 sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h1 className={`text-xl sm:text-2xl font-bold truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary truncate">
                 Shift Planning
               </h1>
-              <p className={`text-xs sm:text-sm mt-1 hidden sm:block ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className="text-xs sm:text-sm mt-0.5 hidden sm:block theme-text-tertiary">
                 Drag staff between departments
               </p>
             </div>
-            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-              {/* Location Selector */}
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Location Selector (header) */}
               {accessibleLocations.length > 0 && (
                 <select
                   value={selectedLocationId || ""}
                   onChange={(e) => setSelectedLocationId(e.target.value ? e.target.value as Id<"locations"> : null)}
-                  className={`px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
-                    isDark
-                      ? "bg-slate-700 text-white border-slate-600"
-                      : "bg-gray-100 text-gray-900 border-gray-200"
-                  } border`}
+                  className="theme-input px-3 py-2 text-sm"
                 >
                   <option value="">All Locations</option>
                   {accessibleLocations.map((loc) => (
@@ -740,13 +738,9 @@ function ShiftsContent() {
               {/* Template Dropdown */}
               {canEditShifts && (
                 <div className="relative" ref={templateDropdownRef}>
-                  <button
+                  <Button
+                    variant="ghost"
                     onClick={() => setShowTemplateDropdown(!showTemplateDropdown)}
-                    className={`p-2 sm:px-4 sm:py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                      isDark
-                        ? "bg-slate-700 hover:bg-slate-600 text-white"
-                        : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-                    }`}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -755,43 +749,35 @@ function ShiftsContent() {
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
-                  </button>
+                  </Button>
                   {showTemplateDropdown && (
-                    <div className={`absolute right-0 mt-2 w-64 rounded-lg shadow-lg border z-50 ${
-                      isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"
-                    }`}>
-                      <div className={`p-2 border-b ${isDark ? "border-slate-700" : "border-gray-100"}`}>
-                        <p className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                          Load Template
-                        </p>
+                    <div className={`absolute right-0 mt-2 w-64 rounded-xl border shadow-lg z-50 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+                      <div className={`px-3 py-2 border-b ${isDark ? "border-slate-700" : "border-gray-100"}`}>
+                        <p className="ui-section-label">Load Template</p>
                       </div>
                       <div className="max-h-48 overflow-y-auto">
                         {templates.length === 0 ? (
-                          <p className={`p-3 text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                            No templates saved
-                          </p>
+                          <p className="p-3 text-sm theme-text-tertiary">No templates saved</p>
                         ) : (
                           templates.map((template) => (
                             <div
                               key={template._id}
-                              className={`flex items-center justify-between p-2 ${
-                                isDark ? "hover:bg-slate-700" : "hover:bg-gray-50"
-                              }`}
+                              className={`flex items-center justify-between px-2 py-1.5 ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-50"}`}
                             >
                               <button
                                 onClick={() => handleApplyTemplate(template._id)}
-                                className={`flex-1 text-left text-sm ${isDark ? "text-white" : "text-gray-900"}`}
+                                className="flex-1 text-left text-sm theme-text-primary"
                               >
                                 {template.name}
                                 {template.description && (
-                                  <span className={`block text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                                  <span className="block text-xs theme-text-tertiary">
                                     {template.description}
                                   </span>
                                 )}
                               </button>
                               <button
                                 onClick={() => handleDeleteTemplate(template._id)}
-                                className={`p-1 rounded ${isDark ? "hover:bg-red-500/20 text-slate-500 hover:text-red-400" : "hover:bg-red-50 text-gray-400 hover:text-red-500"}`}
+                                className="p-1 rounded theme-text-tertiary hover:text-red-500 hover:bg-red-500/10 transition-colors"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -801,18 +787,14 @@ function ShiftsContent() {
                           ))
                         )}
                       </div>
-                      <div className={`p-2 border-t ${isDark ? "border-slate-700" : "border-gray-100"}`}>
+                      <div className={`px-2 py-2 border-t ${isDark ? "border-slate-700" : "border-gray-100"}`}>
                         <button
                           onClick={() => {
                             setShowTemplateDropdown(false);
                             setShowSaveTemplateModal(true);
                           }}
                           disabled={shifts.length === 0}
-                          className={`w-full text-left p-2 rounded text-sm font-medium transition-colors disabled:opacity-50 ${
-                            isDark
-                              ? "text-cyan-400 hover:bg-slate-700"
-                              : "text-blue-600 hover:bg-blue-50"
-                          }`}
+                          className="w-full text-left px-2 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 theme-accent-primary hover:bg-gray-50 dark:hover:bg-slate-700"
                         >
                           + Save Current as Template
                         </button>
@@ -824,13 +806,9 @@ function ShiftsContent() {
 
               {/* Print Dropdown */}
               <div className="relative" ref={printDropdownRef}>
-                <button
+                <Button
+                  variant="ghost"
                   onClick={() => setShowPrintDropdown(!showPrintDropdown)}
-                  className={`p-2 sm:px-4 sm:py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                    isDark
-                      ? "bg-slate-700 hover:bg-slate-600 text-white"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-                  }`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -839,35 +817,23 @@ function ShiftsContent() {
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
-                </button>
+                </Button>
                 {showPrintDropdown && (
-                  <div className={`absolute right-0 mt-2 w-48 rounded-lg shadow-lg border z-50 ${
-                    isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"
-                  }`}>
+                  <div className={`absolute right-0 mt-2 w-48 rounded-xl border shadow-lg z-50 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
                     <button
                       onClick={() => handlePrintDepartment(null)}
-                      className={`w-full text-left p-3 text-sm font-medium border-b ${
-                        isDark
-                          ? "text-white hover:bg-slate-700 border-slate-700"
-                          : "text-gray-900 hover:bg-gray-50 border-gray-100"
-                      }`}
+                      className={`w-full text-left px-3 py-2.5 text-sm font-medium border-b theme-text-primary ${isDark ? "hover:bg-slate-700 border-slate-700" : "hover:bg-gray-50 border-gray-100"}`}
                     >
                       Print All Departments
                     </button>
                     {shifts.length > 0 && (
-                      <div className={`border-t ${isDark ? "border-slate-700" : "border-gray-100"}`}>
-                        <p className={`px-3 py-2 text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                          Print Single Department
-                        </p>
+                      <div>
+                        <p className="px-3 py-2 ui-section-label">Print Single Department</p>
                         {shifts.map((shift) => (
                           <button
                             key={shift._id}
                             onClick={() => handlePrintDepartment(shift.department)}
-                            className={`w-full text-left px-3 py-2 text-sm ${
-                              isDark
-                                ? "text-slate-300 hover:bg-slate-700"
-                                : "text-gray-700 hover:bg-gray-50"
-                            }`}
+                            className={`w-full text-left px-3 py-2 text-sm theme-text-secondary ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-50"}`}
                           >
                             {shift.department}
                           </button>
@@ -880,102 +846,78 @@ function ShiftsContent() {
 
               {canEditShifts && (
                 <>
-                  <button
+                  <Button
+                    variant="secondary"
+                    className="hidden sm:inline-flex"
                     onClick={handleCopyFromYesterday}
-                    className={`hidden sm:block px-4 py-2 rounded-lg font-medium transition-colors ${
-                      isDark
-                        ? "bg-slate-700 hover:bg-slate-600 text-white"
-                        : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-                    }`}
                   >
                     Copy Yesterday
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="primary"
                     onClick={() => setShowCreateModal(true)}
-                    className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-sm sm:text-base ${
-                      isDark
-                        ? "bg-cyan-500 hover:bg-cyan-400 text-white"
-                        : "bg-blue-600 hover:bg-blue-700 text-white"
-                    }`}
                   >
                     <span className="hidden sm:inline">+ Add Department</span>
                     <span className="sm:hidden">+ Add</span>
-                  </button>
+                  </Button>
                 </>
               )}
             </div>
           </div>
 
           {/* Date Navigation */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-3 sm:mt-4">
-            <div className="flex items-center gap-1 sm:gap-2">
-              <button
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-3">
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={goToPreviousDay}
-                className={`p-2 rounded-lg transition-colors ${
-                  isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"
-                }`}
+                aria-label="Previous day"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-              </button>
-              <button
+              </Button>
+              <Button
+                variant={isToday ? "primary" : "secondary"}
+                size="sm"
                 onClick={goToToday}
-                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-colors text-sm sm:text-base ${
-                  isToday
-                    ? isDark
-                      ? "bg-cyan-500 text-white"
-                      : "bg-blue-600 text-white"
-                    : isDark
-                      ? "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30"
-                      : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                }`}
               >
                 Today
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={goToNextDay}
-                className={`p-2 rounded-lg transition-colors ${
-                  isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"
-                }`}
+                aria-label="Next day"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-              </button>
+              </Button>
             </div>
 
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg focus:outline-none text-sm sm:text-base ${
-                isDark
-                  ? "bg-slate-800 border border-slate-700 text-white"
-                  : "bg-white border border-gray-200 text-gray-900"
-              }`}
+              className="theme-input px-3 py-1.5 text-sm"
             />
 
-            <span className={`text-sm sm:text-lg font-semibold hidden sm:inline ${isDark ? "text-white" : "text-gray-900"}`}>
+            <span className="text-sm sm:text-base font-semibold hidden sm:inline theme-text-primary">
               {formatDisplayDate(currentDate)}
             </span>
 
             {isToday && (
-              <span className={`hidden sm:inline px-2 py-1 text-xs rounded-full ${isDark ? "bg-cyan-500/20 text-cyan-400" : "bg-blue-100 text-blue-600"}`}>
-                Today
-              </span>
+              <span className="hidden sm:inline ui-badge ui-badge-blue">Today</span>
             )}
 
-            {/* Location Selector */}
+            {/* Location Selector (date bar — mobile) */}
             {accessibleLocations.length > 0 && (
               <select
                 value={selectedLocationId || ""}
                 onChange={(e) => setSelectedLocationId(e.target.value ? e.target.value as Id<"locations"> : null)}
-                className={`ml-2 px-3 py-1.5 sm:py-2 rounded-lg text-sm focus:outline-none ${
-                  isDark
-                    ? "bg-slate-800 border border-slate-700 text-white"
-                    : "bg-white border border-gray-200 text-gray-900"
-                }`}
+                className="theme-input px-3 py-1.5 text-sm sm:hidden"
               >
                 <option value="">All Locations</option>
                 {accessibleLocations.map((loc) => (
@@ -989,46 +931,40 @@ function ShiftsContent() {
 
           {/* Mobile: Copy Yesterday button */}
           {canEditShifts && (
-            <button
+            <Button
+              variant="secondary"
+              className="sm:hidden mt-3 w-full"
               onClick={handleCopyFromYesterday}
-              className={`sm:hidden mt-3 w-full px-4 py-2 rounded-lg font-medium transition-colors text-sm ${
-                isDark
-                  ? "bg-slate-700 hover:bg-slate-600 text-white"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-              }`}
             >
               Copy Yesterday
-            </button>
+            </Button>
           )}
         </header>
 
         {/* Main Content */}
         <div className="flex-1 overflow-auto p-3 sm:p-6">
           <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 h-full">
+
             {/* Department Columns */}
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4 auto-rows-min">
               {shifts.map((shift) => (
                 <div
                   key={shift._id}
-                  className={`rounded-xl border min-h-[200px] ${
-                    isDark
-                      ? "bg-slate-800/50 border-slate-700"
-                      : "bg-white border-gray-200 shadow-sm"
-                  } ${draggedPerson ? "ring-2 ring-dashed ring-cyan-400/50" : ""}`}
+                  className={`theme-card min-h-[200px] ${draggedPerson ? "ring-2 ring-dashed ring-[#007AFF]/40" : ""}`}
                 >
                   {/* Department Header */}
-                  <div className={`flex items-center justify-between p-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                    <h3 className={`font-semibold text-lg ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <div className={`flex items-center justify-between px-4 py-3 border-b theme-border-secondary`}>
+                    <h3 className="font-semibold text-[15px] theme-text-primary">
                       {shift.department}
                     </h3>
                     <div className="flex items-center gap-2">
-                      <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      <span className="ui-badge ui-badge-gray">
                         {shift.assignedPersonnel.length}
                       </span>
                       {canEditShifts && (
                         <button
                           onClick={() => handleDeleteDepartment(shift._id)}
-                          className={`p-1 rounded hover:bg-red-500/20 ${isDark ? "text-slate-500 hover:text-red-400" : "text-gray-400 hover:text-red-500"}`}
+                          className="p-1 rounded-lg theme-text-tertiary hover:text-red-500 hover:bg-red-500/10 transition-colors"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1039,16 +975,12 @@ function ShiftsContent() {
                   </div>
 
                   {/* Department Lead Section */}
-                  <div
-                    className={`p-3 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}
-                  >
-                    <div className={`flex items-center gap-2 mb-2`}>
-                      <svg className={`w-4 h-4 ${isDark ? "text-amber-400" : "text-amber-500"}`} fill="currentColor" viewBox="0 0 24 24">
+                  <div className={`px-3 py-3 border-b theme-border-secondary`}>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                       </svg>
-                      <span className={`text-xs font-medium ${isDark ? "text-amber-400" : "text-amber-600"}`}>
-                        Department Lead
-                      </span>
+                      <span className="ui-section-label">Department Lead</span>
                     </div>
                     {shift.leadId && shift.leadName ? (
                       <div
@@ -1057,19 +989,15 @@ function ShiftsContent() {
                         onDragEnd={handleDragEnd}
                         onDragOver={handleDragOver}
                         onDrop={(e) => handleDropLead(e, shift)}
-                        className={`flex items-center justify-between p-2 rounded-lg ${
-                          isDark
-                            ? "bg-amber-500/10 border border-amber-500/30"
-                            : "bg-amber-50 border border-amber-200"
-                        }`}
+                        className="flex items-center justify-between px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/25"
                       >
-                        <span className={`font-medium ${isDark ? "text-amber-300" : "text-amber-700"}`}>
+                        <span className="font-medium text-sm text-amber-600 dark:text-amber-400">
                           {shift.leadName}
                         </span>
                         {canEditShifts && (
                           <button
                             onClick={() => handleRemoveLead(shift._id)}
-                            className={`p-1 rounded hover:bg-red-500/20 ${isDark ? "text-amber-400 hover:text-red-400" : "text-amber-500 hover:text-red-500"}`}
+                            className="p-1 rounded-lg text-amber-500 hover:text-red-500 hover:bg-red-500/10 transition-colors"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1081,12 +1009,11 @@ function ShiftsContent() {
                       <div
                         onDragOver={handleDragOver}
                         onDrop={(e) => handleDropLead(e, shift)}
-                        className={`p-4 rounded-lg border-2 border-dashed text-center min-h-[50px] flex items-center justify-center ${
-                        isDark
-                          ? "border-slate-600 text-slate-500"
-                          : "border-gray-300 text-gray-400"
-                      } ${draggedPerson ? "ring-2 ring-amber-400/50 bg-amber-500/10 border-amber-400" : ""}`}>
-                        <span className="text-sm">Drop to set as lead</span>
+                        className={`px-3 py-3 rounded-xl border-2 border-dashed text-center min-h-[48px] flex items-center justify-center transition-colors theme-border-secondary ${
+                          draggedPerson ? "ring-2 ring-amber-400/40 bg-amber-500/5 border-amber-400/50" : ""
+                        }`}
+                      >
+                        <span className="text-sm theme-text-tertiary">Drop to set as lead</span>
                       </div>
                     )}
                   </div>
@@ -1095,14 +1022,12 @@ function ShiftsContent() {
                   {(() => {
                     const deptTasks = dailyTasks[shift.department] || [];
                     return (
-                      <div className={`p-3 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <svg className={`w-4 h-4 ${isDark ? "text-green-400" : "text-green-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className={`px-3 py-3 border-b theme-border-secondary`}>
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                           </svg>
-                          <span className={`text-xs font-medium ${isDark ? "text-green-400" : "text-green-600"}`}>
-                            Daily Goals
-                          </span>
+                          <span className="ui-section-label">Daily Goals</span>
                         </div>
 
                         {/* Task list */}
@@ -1110,15 +1035,13 @@ function ShiftsContent() {
                           {deptTasks.map((task: { id: string; text: string; completed?: boolean }) => (
                             <div
                               key={task.id}
-                              className={`flex items-center gap-2 p-2 rounded-lg ${
-                                isDark ? "bg-slate-700/30" : "bg-gray-50"
-                              }`}
+                              className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${isDark ? "bg-slate-700/30" : "bg-gray-50"}`}
                             >
                               <button
                                 onClick={() => handleToggleTask(shift.department, task.id)}
-                                className={`flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center ${
+                                className={`flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
                                   task.completed
-                                    ? isDark ? "bg-green-500 border-green-500" : "bg-green-500 border-green-500"
+                                    ? "bg-green-500 border-green-500"
                                     : isDark ? "border-slate-500" : "border-gray-300"
                                 }`}
                               >
@@ -1129,18 +1052,16 @@ function ShiftsContent() {
                                 )}
                               </button>
                               <span className={`flex-1 text-sm ${
-                                task.completed
-                                  ? isDark ? "text-slate-500 line-through" : "text-gray-400 line-through"
-                                  : isDark ? "text-white" : "text-gray-900"
+                                task.completed ? "line-through theme-text-tertiary" : "theme-text-primary"
                               }`}>
                                 {task.text}
                               </span>
                               {canEditShifts && (
                                 <button
                                   onClick={() => handleRemoveTask(shift.department, task.id)}
-                                  className={`p-1 rounded hover:bg-red-500/20 ${isDark ? "text-slate-500 hover:text-red-400" : "text-gray-400 hover:text-red-500"}`}
+                                  className="p-1 rounded-lg theme-text-tertiary hover:text-red-500 hover:bg-red-500/10 transition-colors"
                                 >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                   </svg>
                                 </button>
@@ -1158,20 +1079,12 @@ function ShiftsContent() {
                               onChange={(e) => setNewTaskTexts(prev => ({ ...prev, [shift.department]: e.target.value }))}
                               onKeyDown={(e) => e.key === "Enter" && handleAddTask(shift.department)}
                               placeholder="Add a task..."
-                              className={`flex-1 px-3 py-1.5 rounded-lg text-sm ${
-                                isDark
-                                  ? "bg-slate-700/50 border-slate-600 text-white placeholder-slate-500"
-                                  : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"
-                              } border focus:outline-none focus:ring-1 focus:ring-green-500`}
+                              className="theme-input flex-1 px-3 py-1.5 text-sm"
                             />
                             <button
                               onClick={() => handleAddTask(shift.department)}
                               disabled={!newTaskTexts[shift.department]?.trim()}
-                              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
-                                isDark
-                                  ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
-                                  : "bg-green-50 text-green-600 hover:bg-green-100"
-                              }`}
+                              className="px-3 py-1.5 rounded-[9px] text-sm font-semibold transition-colors disabled:opacity-50 bg-green-500/15 text-green-600 dark:text-green-400 hover:bg-green-500/25"
                             >
                               +
                             </button>
@@ -1179,9 +1092,7 @@ function ShiftsContent() {
                         )}
 
                         {deptTasks.length === 0 && !canEditShifts && (
-                          <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                            No tasks for today
-                          </p>
+                          <p className="text-xs theme-text-tertiary">No tasks for today</p>
                         )}
                       </div>
                     );
@@ -1195,7 +1106,7 @@ function ShiftsContent() {
                       e.stopPropagation();
                       handleDrop(shift);
                     }}
-                    className="p-3 space-y-2 min-h-[60px]"
+                    className="px-3 py-3 space-y-2 min-h-[60px]"
                   >
                     {shift.assignedNames.map((name, idx) => (
                       <div
@@ -1203,19 +1114,17 @@ function ShiftsContent() {
                         draggable={canEditShifts}
                         onDragStart={(e) => handleDragStart(e, shift.assignedPersonnel[idx], name, shift.department)}
                         onDragEnd={handleDragEnd}
-                        className={`flex items-center justify-between p-3 rounded-lg cursor-move transition-colors ${
-                          isDark
-                            ? "bg-slate-700/50 hover:bg-slate-700"
-                            : "bg-gray-50 hover:bg-gray-100"
+                        className={`flex items-center justify-between px-3 py-2 rounded-xl cursor-move transition-colors ${
+                          isDark ? "bg-slate-700/50 hover:bg-slate-700" : "bg-gray-50 hover:bg-gray-100"
                         }`}
                       >
-                        <span className={isDark ? "text-white" : "text-gray-900"}>{name}</span>
+                        <span className="text-sm theme-text-primary">{name}</span>
                         {canEditShifts && (
                           <button
                             onClick={() => handleUnassignPersonnel(shift._id, shift.assignedPersonnel[idx])}
-                            className={`p-1 rounded hover:bg-red-500/20 ${isDark ? "text-slate-500 hover:text-red-400" : "text-gray-400 hover:text-red-500"}`}
+                            className="p-1 rounded-lg theme-text-tertiary hover:text-red-500 hover:bg-red-500/10 transition-colors"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </button>
@@ -1223,7 +1132,7 @@ function ShiftsContent() {
                       </div>
                     ))}
                     {shift.assignedNames.length === 0 && (
-                      <div className={`text-center py-8 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                      <div className="text-center py-8 theme-text-tertiary">
                         <p className="text-sm">Drop staff here</p>
                       </div>
                     )}
@@ -1231,16 +1140,14 @@ function ShiftsContent() {
 
                   {/* Add Personnel Button */}
                   {canEditShifts && (
-                    <div className={`p-3 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                    <div className={`px-3 py-3 border-t theme-border-secondary`}>
                       <button
                         onClick={() => {
                           setSelectedDepartment(shift);
                           setShowAssignModal(true);
                         }}
-                        className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${
-                          isDark
-                            ? "bg-slate-700/50 hover:bg-slate-700 text-slate-400 hover:text-white"
-                            : "bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-700"
+                        className={`w-full py-2 rounded-xl text-sm font-medium transition-colors theme-text-tertiary hover:theme-text-primary ${
+                          isDark ? "bg-slate-700/40 hover:bg-slate-700" : "bg-gray-100 hover:bg-gray-200"
                         }`}
                       >
                         + Add Staff
@@ -1250,10 +1157,11 @@ function ShiftsContent() {
                 </div>
               ))}
 
+              {/* Empty State */}
               {shifts.length === 0 && (
-                <div className={`col-span-full text-center py-16 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                <div className="col-span-full text-center py-16 theme-text-tertiary">
                   <svg
-                    className="w-16 h-16 mx-auto mb-4 opacity-50"
+                    className="w-16 h-16 mx-auto mb-4 opacity-40"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -1265,51 +1173,35 @@ function ShiftsContent() {
                       d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
                     />
                   </svg>
-                  <h3 className={`text-lg font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <h3 className="text-[17px] font-semibold theme-text-secondary mb-1">
                     No departments for today
                   </h3>
-                  <p className="text-sm mb-4">Add a department to start assigning staff</p>
+                  <p className="text-sm theme-text-tertiary mb-5">Add a department to start assigning staff</p>
                   {canEditShifts && (
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                      <button
-                        onClick={handleCreateDefaultDepartments}
-                        className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                          isDark
-                            ? "bg-cyan-500 hover:bg-cyan-400 text-white"
-                            : "bg-blue-600 hover:bg-blue-700 text-white"
-                        }`}
-                      >
+                      <Button variant="primary" onClick={handleCreateDefaultDepartments}>
                         Create Default Departments
-                      </button>
-                      <button
-                        onClick={() => setShowCreateModal(true)}
-                        className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                          isDark
-                            ? "bg-slate-700 hover:bg-slate-600 text-white"
-                            : "bg-gray-200 hover:bg-gray-300 text-gray-900"
-                        }`}
-                      >
+                      </Button>
+                      <Button variant="secondary" onClick={() => setShowCreateModal(true)}>
                         + Add Custom Department
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Unassigned Personnel Panel - Horizontal scroll on mobile, sidebar on desktop */}
-            <div className={`lg:w-64 flex-shrink-0 rounded-xl border order-first lg:order-last ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-              <div className={`p-3 sm:p-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                <h3 className={`font-semibold text-sm sm:text-base ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Unassigned Staff
-                </h3>
-                <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+            {/* Unassigned Personnel Panel */}
+            <div className={`theme-card lg:w-64 flex-shrink-0 order-first lg:order-last`}>
+              <div className={`px-4 py-3 border-b theme-border-secondary`}>
+                <h3 className="font-semibold text-[15px] theme-text-primary">Unassigned Staff</h3>
+                <p className="text-xs mt-0.5 theme-text-tertiary">
                   {unassignedPersonnel.length} available
                 </p>
               </div>
               {/* Horizontal scroll on mobile, vertical on desktop */}
               <div className="p-2 sm:p-3 lg:space-y-2 lg:max-h-[calc(100vh-300px)] overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto">
-                <div className="flex lg:flex-col gap-2 lg:gap-2">
+                <div className="flex lg:flex-col gap-2">
                   {unassignedPersonnel.map((person) => {
                     const personLocation = locations.find(l => l._id === person.locationId);
                     return (
@@ -1318,20 +1210,16 @@ function ShiftsContent() {
                         draggable={canEditShifts}
                         onDragStart={(e) => handleDragStart(e, person._id, `${person.firstName} ${person.lastName}`, "unassigned")}
                         onDragEnd={handleDragEnd}
-                        className={`p-2 sm:p-3 rounded-lg cursor-move transition-colors flex-shrink-0 min-w-[120px] lg:min-w-0 ${
-                          isDark
-                            ? "bg-slate-700/50 hover:bg-slate-700"
-                            : "bg-gray-50 hover:bg-gray-100"
+                        className={`px-3 py-2 rounded-xl cursor-move transition-colors flex-shrink-0 min-w-[120px] lg:min-w-0 ${
+                          isDark ? "bg-slate-700/50 hover:bg-slate-700" : "bg-gray-50 hover:bg-gray-100"
                         }`}
                       >
-                        <div className={`font-medium text-sm sm:text-base whitespace-nowrap lg:whitespace-normal ${isDark ? "text-white" : "text-gray-900"}`}>
+                        <div className="font-medium text-sm whitespace-nowrap lg:whitespace-normal theme-text-primary">
                           {person.firstName} {person.lastName}
                         </div>
-                        <div className={`text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>
-                          {person.department}
-                        </div>
+                        <div className="text-xs theme-text-tertiary">{person.department}</div>
                         {personLocation && !selectedLocationId && (
-                          <div className={`text-xs mt-0.5 ${isDark ? "text-cyan-400/70" : "text-blue-500/70"}`}>
+                          <div className="text-xs mt-0.5 theme-accent-primary opacity-70">
                             📍 {personLocation.name}
                           </div>
                         )}
@@ -1339,7 +1227,7 @@ function ShiftsContent() {
                     );
                   })}
                   {unassignedPersonnel.length === 0 && (
-                    <div className={`text-center py-4 lg:py-8 w-full ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                    <div className="text-center py-4 lg:py-8 w-full theme-text-tertiary">
                       <p className="text-sm">All staff assigned</p>
                     </div>
                   )}
@@ -1352,17 +1240,13 @@ function ShiftsContent() {
         {/* Create Department Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className={`w-full max-w-md rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-xl"}`}>
-              <h2 className={`text-base sm:text-lg font-semibold mb-3 sm:mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                Add Department
-              </h2>
-              <p className={`text-xs sm:text-sm mb-3 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                For {formatDisplayDate(currentDate)}
-              </p>
-              <div>
-                <label className={`block text-xs sm:text-sm font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                  Department Name
-                </label>
+            <div className={`w-full max-w-md rounded-2xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+              <div className={`px-5 py-4 border-b theme-border-secondary`}>
+                <h2 className="text-[17px] font-semibold theme-text-primary">Add Department</h2>
+                <p className="text-sm theme-text-tertiary mt-0.5">For {formatDisplayDate(currentDate)}</p>
+              </div>
+              <div className="px-5 py-4">
+                <label className="block text-xs font-medium mb-1.5 theme-text-tertiary">Department Name</label>
                 <input
                   type="text"
                   value={newDepartmentName}
@@ -1370,26 +1254,28 @@ function ShiftsContent() {
                   placeholder="e.g., Warehouse, Shipping, Office"
                   autoFocus
                   onKeyDown={(e) => e.key === "Enter" && handleCreateDepartment()}
-                  className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                  className="theme-input w-full px-3 py-2.5 text-sm"
                 />
               </div>
-              <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
-                <button
+              <div className={`px-5 py-4 border-t theme-border-secondary flex gap-3`}>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
                   onClick={() => {
                     setShowCreateModal(false);
                     setNewDepartmentName("");
                   }}
-                  className={`flex-1 px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-sm sm:text-base ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
                   onClick={handleCreateDepartment}
                   disabled={!newDepartmentName.trim()}
-                  className={`flex-1 px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 text-sm sm:text-base ${isDark ? "bg-cyan-500 hover:bg-cyan-400 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
                 >
                   Add
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -1397,16 +1283,16 @@ function ShiftsContent() {
 
         {/* Assign Personnel Modal */}
         {showAssignModal && selectedDepartment && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-xl"}`}>
-              <h2 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-                Add Staff to {selectedDepartment.department}
-              </h2>
-              <p className={`text-sm mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                Select staff members to assign
-              </p>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className={`w-full max-w-md rounded-2xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+              <div className={`px-5 py-4 border-b theme-border-secondary`}>
+                <h2 className="text-[17px] font-semibold theme-text-primary">
+                  Add Staff to {selectedDepartment.department}
+                </h2>
+                <p className="text-sm theme-text-tertiary mt-0.5">Select staff members to assign</p>
+              </div>
 
-              <div className="space-y-2 max-h-80 overflow-y-auto">
+              <div className="px-5 py-3 space-y-1.5 max-h-80 overflow-y-auto">
                 {unassignedPersonnel.length > 0 ? (
                   unassignedPersonnel.map((person) => {
                     const personLocation = locations.find(l => l._id === person.locationId);
@@ -1414,46 +1300,45 @@ function ShiftsContent() {
                       <button
                         key={person._id}
                         onClick={() => handleAssignPersonnel(person._id)}
-                        className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
-                          isDark
-                            ? "bg-slate-700/50 hover:bg-slate-700 text-white"
-                            : "bg-gray-50 hover:bg-gray-100 text-gray-900"
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors text-left ${
+                          isDark ? "hover:bg-slate-700" : "hover:bg-gray-50"
                         }`}
                       >
-                        <div className="text-left">
-                          <div className="font-medium">{person.firstName} {person.lastName}</div>
-                          <div className={`text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                        <div>
+                          <div className="font-medium text-sm theme-text-primary">
+                            {person.firstName} {person.lastName}
+                          </div>
+                          <div className="text-xs theme-text-tertiary">
                             {person.department} - {person.position}
                           </div>
                           {personLocation && !selectedLocationId && (
-                            <div className={`text-xs ${isDark ? "text-cyan-400/70" : "text-blue-500/70"}`}>
+                            <div className="text-xs theme-accent-primary opacity-70">
                               📍 {personLocation.name}
                             </div>
                           )}
                         </div>
-                        <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         </svg>
                       </button>
                     );
                   })
                 ) : (
-                  <p className={`text-sm text-center py-8 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
-                    All staff have been assigned
-                  </p>
+                  <p className="text-sm text-center py-8 theme-text-tertiary">All staff have been assigned</p>
                 )}
               </div>
 
-              <div className="flex gap-3 mt-6">
-                <button
+              <div className={`px-5 py-4 border-t theme-border-secondary`}>
+                <Button
+                  variant="secondary"
+                  className="w-full"
                   onClick={() => {
                     setShowAssignModal(false);
                     setSelectedDepartment(null);
                   }}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
                 >
                   Done
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -1462,18 +1347,16 @@ function ShiftsContent() {
         {/* Save Template Modal */}
         {showSaveTemplateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className={`w-full max-w-md rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-xl"}`}>
-              <h2 className={`text-base sm:text-lg font-semibold mb-3 sm:mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                Save as Template
-              </h2>
-              <p className={`text-xs sm:text-sm mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                Save today&apos;s shift plan ({shifts.length} departments) as a reusable template
-              </p>
-              <div className="space-y-4">
+            <div className={`w-full max-w-md rounded-2xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+              <div className={`px-5 py-4 border-b theme-border-secondary`}>
+                <h2 className="text-[17px] font-semibold theme-text-primary">Save as Template</h2>
+                <p className="text-sm theme-text-tertiary mt-0.5">
+                  Save today&apos;s shift plan ({shifts.length} departments) as a reusable template
+                </p>
+              </div>
+              <div className="px-5 py-4 space-y-4">
                 <div>
-                  <label className={`block text-xs sm:text-sm font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                    Template Name *
-                  </label>
+                  <label className="block text-xs font-medium mb-1.5 theme-text-tertiary">Template Name *</label>
                   <input
                     type="text"
                     value={newTemplateName}
@@ -1481,56 +1364,40 @@ function ShiftsContent() {
                     placeholder="e.g., Monday Standard, Weekend Crew"
                     autoFocus
                     onKeyDown={(e) => e.key === "Enter" && handleSaveAsTemplate()}
-                    className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base ${
-                      isDark
-                        ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500"
-                        : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"
-                    } border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                    className="theme-input w-full px-3 py-2.5 text-sm"
                   />
                 </div>
                 <div>
-                  <label className={`block text-xs sm:text-sm font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                    Description (optional)
-                  </label>
+                  <label className="block text-xs font-medium mb-1.5 theme-text-tertiary">Description (optional)</label>
                   <input
                     type="text"
                     value={newTemplateDescription}
                     onChange={(e) => setNewTemplateDescription(e.target.value)}
                     placeholder="e.g., Standard Monday schedule with full crew"
-                    className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base ${
-                      isDark
-                        ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500"
-                        : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"
-                    } border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                    className="theme-input w-full px-3 py-2.5 text-sm"
                   />
                 </div>
               </div>
-              <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
-                <button
+              <div className={`px-5 py-4 border-t theme-border-secondary flex gap-3`}>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
                   onClick={() => {
                     setShowSaveTemplateModal(false);
                     setNewTemplateName("");
                     setNewTemplateDescription("");
                   }}
-                  className={`flex-1 px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-sm sm:text-base ${
-                    isDark
-                      ? "bg-slate-700 hover:bg-slate-600 text-white"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-                  }`}
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
                   onClick={handleSaveAsTemplate}
                   disabled={!newTemplateName.trim()}
-                  className={`flex-1 px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 text-sm sm:text-base ${
-                    isDark
-                      ? "bg-cyan-500 hover:bg-cyan-400 text-white"
-                      : "bg-blue-600 hover:bg-blue-700 text-white"
-                  }`}
                 >
                   Save Template
-                </button>
+                </Button>
               </div>
             </div>
           </div>
