@@ -6,8 +6,10 @@ import Link from "next/link";
 import Protected from "../../protected";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useTheme } from "../../theme-context";
 import { useAuth } from "../../auth-context";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 function formatTime(timestamp: number): string {
   return new Date(timestamp).toLocaleTimeString("en-US", {
@@ -25,8 +27,6 @@ function formatDuration(hours: number): string {
 }
 
 function HoursContent() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const router = useRouter();
   const { user, canAccessEmployeePortal } = useAuth();
   const personnelId = user?.personnelId;
@@ -65,8 +65,8 @@ function HoursContent() {
 
   if (!personnelId) {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${isDark ? "bg-slate-900" : "bg-gray-50"}`}>
-        <p className={isDark ? "text-slate-400" : "text-gray-500"}>Account not linked to personnel record.</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#f2f2f7] dark:bg-slate-900">
+        <p className="theme-text-tertiary">Account not linked to personnel record.</p>
       </div>
     );
   }
@@ -75,23 +75,21 @@ function HoursContent() {
   const endDateObj = endDate ? new Date(endDate + "T00:00:00") : new Date();
 
   return (
-    <div className={`min-h-screen ${isDark ? "bg-slate-900" : "bg-gray-50"}`}>
+    <div className="min-h-screen bg-[#f2f2f7] dark:bg-slate-900">
       {/* Header */}
-      <header className={`sticky top-0 z-10 border-b px-4 py-4 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+      <header className="sticky top-0 z-10 backdrop-blur-sm border-b px-4 py-4 bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
         <div className="max-w-lg mx-auto flex items-center gap-4">
           <Link
             href="/portal"
-            className={`p-2 -ml-2 rounded-lg ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}
+            className="p-2 -ml-2 rounded-lg theme-text-primary hover:bg-gray-100 dark:hover:bg-slate-700"
           >
-            <svg className={`w-6 h-6 ${isDark ? "text-white" : "text-gray-900"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </Link>
           <div>
-            <h1 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-              My Hours
-            </h1>
-            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+            <h1 className="text-xl font-bold theme-text-primary">My Hours</h1>
+            <p className="text-sm theme-text-tertiary">
               Pay Period: {startDateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" })} -{" "}
               {endDateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
             </p>
@@ -102,47 +100,42 @@ function HoursContent() {
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
         {/* Period Navigation */}
         <div className="flex items-center justify-between">
-          <button
-            onClick={() => setPeriodOffset((o) => o - 1)}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-slate-800 text-white hover:bg-slate-700" : "bg-white text-gray-900 hover:bg-gray-100 border border-gray-200"}`}
-          >
+          <Button variant="secondary" size="sm" onClick={() => setPeriodOffset((o) => o - 1)}>
             Previous
-          </button>
+          </Button>
           {periodOffset !== 0 && (
-            <button
-              onClick={() => setPeriodOffset(0)}
-              className={`px-4 py-2 rounded-lg font-medium ${isDark ? "text-cyan-400" : "text-blue-600"}`}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setPeriodOffset(0)}>
               Current
-            </button>
+            </Button>
           )}
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => setPeriodOffset((o) => o + 1)}
             disabled={periodOffset >= 0}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${periodOffset >= 0 ? "opacity-50 cursor-not-allowed" : ""} ${isDark ? "bg-slate-800 text-white hover:bg-slate-700" : "bg-white text-gray-900 hover:bg-gray-100 border border-gray-200"}`}
           >
             Next
-          </button>
+          </Button>
         </div>
 
         {/* Summary Card */}
-        <div className={`rounded-2xl p-6 ${isDark ? "bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30" : "bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200"}`}>
+        <div className="bg-gradient-to-br from-[#007AFF]/10 to-indigo-500/10 border border-[#007AFF]/20 dark:border-[#007AFF]/30 rounded-2xl p-6">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className={`text-sm ${isDark ? "text-cyan-400" : "text-blue-600"}`}>Total Hours</p>
-              <p className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <p className="text-sm text-[#007AFF]">Total Hours</p>
+              <p className="text-3xl font-bold theme-text-primary">
                 {hours ? formatDuration(hours.totalHours) : "--"}
               </p>
             </div>
             <div>
-              <p className={`text-sm ${isDark ? "text-cyan-400" : "text-blue-600"}`}>Days Worked</p>
-              <p className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <p className="text-sm text-[#007AFF]">Days Worked</p>
+              <p className="text-3xl font-bold theme-text-primary">
                 {hours?.daysWorked || 0}
               </p>
             </div>
           </div>
           {hours && hours.totalBreakMinutes > 0 && (
-            <p className={`text-sm mt-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+            <p className="text-sm mt-4 theme-text-tertiary">
               Total break time: {Math.floor(hours.totalBreakMinutes / 60)}h {hours.totalBreakMinutes % 60}m
             </p>
           )}
@@ -150,27 +143,24 @@ function HoursContent() {
 
         {/* Daily Breakdown */}
         <div className="space-y-3">
-          <h2 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Daily Breakdown</h2>
+          <SectionHeader title="Daily Breakdown" />
 
           {hours?.days && hours.days.length > 0 ? (
             hours.days.map((day) => (
-              <div
-                key={day.date}
-                className={`rounded-xl p-4 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200"}`}
-              >
+              <Card key={day.date} padding="sm">
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <span className="font-medium theme-text-primary">
                     {new Date(day.date + "T00:00:00").toLocaleDateString("en-US", {
                       weekday: "short",
                       month: "short",
                       day: "numeric",
                     })}
                   </span>
-                  <span className={`font-bold ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
+                  <span className="font-bold text-[#007AFF]">
                     {formatDuration(day.totalHours)}
                   </span>
                 </div>
-                <div className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <div className="text-sm theme-text-tertiary">
                   {day.clockIn && (
                     <span>In: {formatTime(day.clockIn)}</span>
                   )}
@@ -181,14 +171,12 @@ function HoursContent() {
                     <span className="ml-4">Break: {day.breakMinutes}m</span>
                   )}
                 </div>
-              </div>
+              </Card>
             ))
           ) : (
-            <div className={`rounded-xl p-6 text-center ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200"}`}>
-              <p className={isDark ? "text-slate-400" : "text-gray-500"}>
-                No hours recorded for this pay period
-              </p>
-            </div>
+            <Card padding="md" className="text-center">
+              <p className="theme-text-tertiary">No hours recorded for this pay period</p>
+            </Card>
           )}
         </div>
       </main>
