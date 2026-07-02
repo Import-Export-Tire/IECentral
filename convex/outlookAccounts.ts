@@ -322,6 +322,79 @@ export const listPulledIdsInWindow = internalQuery({
   },
 });
 
+// ============ PHASE 3: PUSH (IECentral -> Outlook) internal DB helpers ============
+
+// List IECentral-origin events for this user that overlap the forward push
+// window and are candidates for pushing to Outlook.
+//
+// LOOP PREVENTION / protection invariants (reviewer-critical):
+//  - syncSource !== "outlook": NEVER push events that came FROM Outlook
+//    (pushing them back would create an infinite loop). "iecentral" and legacy
+//    undefined rows are eligible.
+//  - createdBy === userId: only push this user's own events into their mailbox.
+//  - isReminder !== true && isPrivate !== true: personal/private time-blocks are
+//    excluded from Outlook by design.
+// Cancelled events ARE included so the push pass can issue a DELETE to Outlook.
+export const listLocalEventsToPush = internalQuery({
+  args: { userId: v.id("users"), start: v.number(), end: v.number() },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("events")
+      .withIndex("by_created_by", (q) => q.eq("createdBy", args.userId))
+      .collect();
+    return rows
+      .filter(
+        (e) =>
+          e.createdBy === args.userId &&
+          e.syncSource !== "outlook" &&
+          e.isReminder !== true &&
+          e.isPrivate !== true &&
+          // overlaps the forward window
+          e.startTime <= args.end &&
+          (e.endTime ?? e.startTime) >= args.start
+      )
+      .map((e) => ({
+        _id: e._id,
+        title: e.title,
+        description: e.description,
+        startTime: e.startTime,
+        endTime: e.endTime,
+        isAllDay: e.isAllDay,
+        location: e.location,
+        meetingLink: e.meetingLink,
+        isCancelled: e.isCancelled === true,
+        updatedAt: e.updatedAt,
+        outlookEventId: e.outlookEventId,
+        outlookSyncedAt: e.outlookSyncedAt,
+      }));
+  },
+});
+
+// Write back the result of a PUSH to Outlook. Refreshes outlookSyncedAt (the
+// anti-churn gate) and, when provided, the Graph ids/weblink. Keeps
+// syncSource:"iecentral" (does NOT flip to "outlook") so the Phase-2 pull keeps
+// ignoring the row and can never duplicate or clobber it.
+export const setPushResult = internalMutation({
+  args: {
+    eventId: v.id("events"),
+    outlookEventId: v.optional(v.string()),
+    outlookICalUId: v.optional(v.string()),
+    outlookWeblink: v.optional(v.string()),
+    outlookSyncedAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.eventId);
+    if (!existing) return;
+    // Never touch outlook-sourced rows via the push write-back path.
+    if (existing.syncSource === "outlook") return;
+    const patch: Record<string, unknown> = { outlookSyncedAt: args.outlookSyncedAt };
+    if (args.outlookEventId !== undefined) patch.outlookEventId = args.outlookEventId;
+    if (args.outlookICalUId !== undefined) patch.outlookICalUId = args.outlookICalUId;
+    if (args.outlookWeblink !== undefined) patch.outlookWeblink = args.outlookWeblink;
+    await ctx.db.patch(args.eventId, patch);
+  },
+});
+
 // Soft-cancel an outlook-sourced event that was deleted in Outlook.
 export const markPulledCancelled = internalMutation({
   args: { userId: v.id("users"), outlookEventId: v.string() },

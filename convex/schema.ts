@@ -1914,6 +1914,7 @@ export default defineSchema({
     outlookICalUId: v.optional(v.string()),   // stable cross-mailbox id
     outlookWeblink: v.optional(v.string()),   // deep link to Outlook
     syncSource: v.optional(v.string()),       // "iecentral" | "outlook"
+    outlookSyncedAt: v.optional(v.number()),  // Phase 3 push: ts of last successful PUSH to Outlook (anti-churn gate)
     createdAt: v.number(),
     updatedAt: v.number(),
   })

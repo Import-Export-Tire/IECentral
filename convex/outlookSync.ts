@@ -28,6 +28,7 @@ import { decrypt, encrypt } from "../lib/email/encryption";
 
 const MICROSOFT_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 const GRAPH_CALENDAR_VIEW = "https://graph.microsoft.com/v1.0/me/calendarView";
+const GRAPH_EVENTS = "https://graph.microsoft.com/v1.0/me/events";
 
 // Calendar scopes (match the Phase-1 connect route).
 const SCOPES = [
@@ -39,6 +40,12 @@ const SCOPES = [
 const WINDOW_BACK_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const WINDOW_FWD_MS = 180 * 24 * 60 * 60 * 1000; // 180 days
 const MAX_PAGES = 10;
+
+// Phase 3 PUSH window is FORWARD-ONLY: we only sync upcoming events out to
+// Outlook (now - 1d ... now + 180d). This deliberately avoids dumping the user's
+// entire IECentral history into their Outlook calendar.
+const PUSH_WINDOW_BACK_MS = 1 * 24 * 60 * 60 * 1000; // 1 day (grace for events that just started)
+const PUSH_WINDOW_FWD_MS = 180 * 24 * 60 * 60 * 1000; // 180 days
 
 interface GraphDateTime {
   dateTime?: string;
@@ -73,10 +80,212 @@ function parseGraphUtcMs(dt: GraphDateTime | undefined): number | null {
 }
 
 /**
- * Core pull logic. Returns { synced, error }. Wraps its body in try/catch so a
- * failure records syncError rather than throwing out of the cron loop.
+ * Map an IECentral event row (from listLocalEventsToPush) to a Microsoft Graph
+ * event body for create/update. Sends times as UTC (Graph stores/normalizes).
  */
-async function runPull(
+function toGraphEventBody(ev: {
+  title: string;
+  description?: string;
+  startTime: number;
+  endTime: number;
+  isAllDay: boolean;
+  location?: string;
+  meetingLink?: string;
+}): Record<string, unknown> {
+  // Build body: description + (if present) the meeting link appended as text.
+  // We deliberately do NOT create a Graph onlineMeeting — just surface the link.
+  let content = ev.description ?? "";
+  if (ev.meetingLink) {
+    content = content ? `${content}\n\n${ev.meetingLink}` : ev.meetingLink;
+  }
+
+  const body: Record<string, unknown> = {
+    subject: ev.title,
+    body: { contentType: "text", content },
+    isAllDay: !!ev.isAllDay,
+  };
+
+  if (ev.isAllDay) {
+    // Graph requires all-day events to start/end at UTC midnight. Snap the
+    // start to 00:00:00 UTC of its day and the end to 00:00:00 UTC of the day
+    // AFTER the last day (Graph's exclusive end for all-day events).
+    const startDay = new Date(ev.startTime);
+    const startMidnight = Date.UTC(
+      startDay.getUTCFullYear(),
+      startDay.getUTCMonth(),
+      startDay.getUTCDate()
+    );
+    const endDay = new Date(ev.endTime);
+    let endMidnight = Date.UTC(
+      endDay.getUTCFullYear(),
+      endDay.getUTCMonth(),
+      endDay.getUTCDate()
+    );
+    // All-day end must be strictly after start (>= next midnight).
+    if (endMidnight <= startMidnight) {
+      endMidnight = startMidnight + 24 * 60 * 60 * 1000;
+    }
+    body.start = { dateTime: new Date(startMidnight).toISOString(), timeZone: "UTC" };
+    body.end = { dateTime: new Date(endMidnight).toISOString(), timeZone: "UTC" };
+  } else {
+    body.start = { dateTime: new Date(ev.startTime).toISOString(), timeZone: "UTC" };
+    body.end = { dateTime: new Date(ev.endTime).toISOString(), timeZone: "UTC" };
+  }
+
+  if (ev.location) {
+    body.location = { displayName: ev.location };
+  }
+
+  return body;
+}
+
+/**
+ * Phase 3 PUSH: push this user's IECentral-origin events out to Outlook. Runs
+ * AFTER the pull, reusing the SAME fresh accessToken (no second refresh).
+ *
+ * Returns the count of events pushed (created/updated/deleted). Per-event
+ * try/catch isolates failures so one bad event cannot abort the rest.
+ *
+ * INVARIANTS (enforced by listLocalEventsToPush + the gate here):
+ *  - Never pushes syncSource:"outlook" events (loop prevention).
+ *  - Never pushes isReminder / isPrivate events.
+ *  - The `updatedAt > (outlookSyncedAt ?? 0)` gate skips unchanged events so we
+ *    don't re-PATCH / re-create on every cycle (no churn).
+ *  - Pushed rows keep syncSource:"iecentral" so the pull keeps ignoring them.
+ */
+async function runPush(
+  ctx: any,
+  userId: any,
+  accessToken: string
+): Promise<number> {
+  const now = Date.now();
+  const start = now - PUSH_WINDOW_BACK_MS;
+  const end = now + PUSH_WINDOW_FWD_MS;
+
+  const toPush: Array<{
+    _id: any;
+    title: string;
+    description?: string;
+    startTime: number;
+    endTime: number;
+    isAllDay: boolean;
+    location?: string;
+    meetingLink?: string;
+    isCancelled: boolean;
+    updatedAt: number;
+    outlookEventId?: string;
+    outlookSyncedAt?: number;
+  }> = await ctx.runQuery(internal.outlookAccounts.listLocalEventsToPush, {
+    userId,
+    start,
+    end,
+  });
+
+  let pushed = 0;
+  for (const ev of toPush) {
+    try {
+      const syncedAt = ev.outlookSyncedAt ?? 0;
+      const changed = ev.updatedAt > syncedAt;
+
+      if (ev.isCancelled) {
+        // DELETE: only if it was ever pushed and the cancellation isn't yet
+        // reflected. The changed-gate stops re-deletes on later cycles.
+        if (!ev.outlookEventId || !changed) continue;
+        const res: Response = await fetch(`${GRAPH_EVENTS}/${ev.outlookEventId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        // 404 = already gone in Outlook -> treat as success.
+        if (!res.ok && res.status !== 404) {
+          const txt = await res.text();
+          console.log(
+            `[outlookSync] push DELETE failed for event ${ev._id}: ${res.status} - ${txt.slice(0, 200)}`
+          );
+          continue;
+        }
+        await ctx.runMutation(internal.outlookAccounts.setPushResult, {
+          eventId: ev._id,
+          outlookSyncedAt: Date.now(),
+        });
+        pushed++;
+        continue;
+      }
+
+      const graphBody = toGraphEventBody(ev);
+
+      if (!ev.outlookEventId) {
+        // CREATE
+        const res: Response = await fetch(GRAPH_EVENTS, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(graphBody),
+        });
+        if (!res.ok) {
+          const txt = await res.text();
+          console.log(
+            `[outlookSync] push CREATE failed for event ${ev._id}: ${res.status} - ${txt.slice(0, 200)}`
+          );
+          continue;
+        }
+        const created: any = await res.json();
+        await ctx.runMutation(internal.outlookAccounts.setPushResult, {
+          eventId: ev._id,
+          outlookEventId: created.id,
+          outlookICalUId: created.iCalUId || undefined,
+          outlookWeblink: created.webLink || undefined,
+          outlookSyncedAt: Date.now(),
+        });
+        pushed++;
+      } else {
+        // UPDATE — only when the local row changed since the last push.
+        if (!changed) continue;
+        const res: Response = await fetch(`${GRAPH_EVENTS}/${ev.outlookEventId}`, {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(graphBody),
+        });
+        if (!res.ok) {
+          const txt = await res.text();
+          console.log(
+            `[outlookSync] push PATCH failed for event ${ev._id}: ${res.status} - ${txt.slice(0, 200)}`
+          );
+          continue;
+        }
+        const updated: any = await res.json().catch(() => ({}));
+        await ctx.runMutation(internal.outlookAccounts.setPushResult, {
+          eventId: ev._id,
+          outlookEventId: updated.id || ev.outlookEventId,
+          outlookICalUId: updated.iCalUId || undefined,
+          outlookWeblink: updated.webLink || undefined,
+          outlookSyncedAt: Date.now(),
+        });
+        pushed++;
+      }
+    } catch (err) {
+      console.log(
+        `[outlookSync] push error for event ${ev._id}: ${
+          err instanceof Error ? err.message : "unknown"
+        }`
+      );
+      // continue with the rest
+    }
+  }
+
+  return pushed;
+}
+
+/**
+ * Core sync logic (pull THEN push). Returns { synced, error }. Wraps its body in
+ * try/catch so a failure records syncError rather than throwing out of the cron
+ * loop. `synced` counts pull upserts + push operations (both directions).
+ */
+async function runSync(
   ctx: any,
   userId: any
 ): Promise<{ synced: number; error?: string }> {
@@ -229,14 +438,29 @@ async function runPull(
       }
     }
 
-    // 6. Record success.
+    // 6. PUSH (IECentral -> Outlook), reusing the SAME fresh accessToken from
+    // the pull above (do NOT refresh a second time). Push failures are isolated
+    // per-event inside runPush and won't throw.
+    let pushed = 0;
+    try {
+      pushed = await runPush(ctx, userId, accessToken);
+    } catch (pushErr) {
+      // runPush already isolates per-event errors; a throw here is unexpected.
+      console.log(
+        `[outlookSync] push pass failed for user ${userId}: ${
+          pushErr instanceof Error ? pushErr.message : "unknown"
+        }`
+      );
+    }
+
+    // 7. Record success.
     await ctx.runMutation(internal.outlookAccounts.setSyncStatus, {
       userId,
       lastSyncAt: Date.now(),
       syncError: undefined,
     });
 
-    return { synced, error: undefined };
+    return { synced: synced + pushed, error: undefined };
   } catch (err) {
     const message = err instanceof Error ? err.message : "sync failed";
     try {
@@ -257,7 +481,7 @@ async function runPull(
 export const pullForUser = action({
   args: { userId: v.id("users") },
   handler: async (ctx, args): Promise<{ synced: number; error?: string }> => {
-    return await runPull(ctx, args.userId);
+    return await runSync(ctx, args.userId);
   },
 });
 
@@ -267,7 +491,7 @@ export const pullForUser = action({
 export const pullForUserInternal = internalAction({
   args: { userId: v.id("users") },
   handler: async (ctx, args): Promise<{ synced: number; error?: string }> => {
-    return await runPull(ctx, args.userId);
+    return await runSync(ctx, args.userId);
   },
 });
 
