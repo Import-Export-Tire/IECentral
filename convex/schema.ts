@@ -1915,6 +1915,7 @@ export default defineSchema({
     outlookWeblink: v.optional(v.string()),   // deep link to Outlook
     syncSource: v.optional(v.string()),       // "iecentral" | "outlook"
     outlookSyncedAt: v.optional(v.number()),  // Phase 3 push: ts of last successful PUSH to Outlook (anti-churn gate)
+    outlookLastModified: v.optional(v.number()), // Phase 4b: remote Graph lastModifiedDateTime (ms) as of last reconcile (remote-change baseline)
     createdAt: v.number(),
     updatedAt: v.number(),
   })

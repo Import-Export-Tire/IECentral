@@ -63,6 +63,7 @@ interface GraphEvent {
   location?: { displayName?: string };
   onlineMeeting?: { joinUrl?: string } | null;
   webLink?: string;
+  lastModifiedDateTime?: string; // Graph UTC timestamp of the last remote edit
 }
 
 /**
@@ -175,6 +176,7 @@ async function runPush(
     updatedAt: number;
     outlookEventId?: string;
     outlookSyncedAt?: number;
+    syncSource?: string;
   }> = await ctx.runQuery(internal.outlookAccounts.listLocalEventsToPush, {
     userId,
     start,
@@ -190,6 +192,10 @@ async function runPush(
       if (ev.isCancelled) {
         // DELETE: only if it was ever pushed and the cancellation isn't yet
         // reflected. The changed-gate stops re-deletes on later cycles.
+        // Phase 4b: cross-boundary deletion is OUT OF SCOPE — never delete the
+        // Outlook copy of an OUTLOOK-origin event (that would be cross-deletion).
+        // Only iecentral-origin cancels propagate a DELETE (Phase 3 behavior).
+        if (ev.syncSource === "outlook") continue;
         if (!ev.outlookEventId || !changed) continue;
         const res: Response = await fetch(`${GRAPH_EVENTS}/${ev.outlookEventId}`, {
           method: "DELETE",
@@ -213,8 +219,10 @@ async function runPush(
 
       const graphBody = toGraphEventBody(ev);
 
-      if (!ev.outlookEventId) {
-        // CREATE
+      if (!ev.outlookEventId && ev.syncSource !== "outlook") {
+        // CREATE — only for unlinked iecentral-origin events. An outlook-origin
+        // event ALWAYS carries an id, so this branch never creates a duplicate
+        // Outlook copy of a pulled event.
         const res: Response = await fetch(GRAPH_EVENTS, {
           method: "POST",
           headers: {
@@ -231,16 +239,29 @@ async function runPush(
           continue;
         }
         const created: any = await res.json();
+        // Establish the remote baseline from the create response so the next
+        // pull doesn't spuriously see this brand-new copy as remotely changed.
+        let createdMod = Date.now();
+        if (created && typeof created.lastModifiedDateTime === "string") {
+          const parsed = Date.parse(created.lastModifiedDateTime);
+          if (!isNaN(parsed)) createdMod = parsed;
+        }
         await ctx.runMutation(internal.outlookAccounts.setPushResult, {
           eventId: ev._id,
           outlookEventId: created.id,
           outlookICalUId: created.iCalUId || undefined,
           outlookWeblink: created.webLink || undefined,
           outlookSyncedAt: Date.now(),
+          outlookLastModified: createdMod,
         });
         pushed++;
-      } else {
-        // UPDATE — only when the local row changed since the last push.
+      } else if (ev.outlookEventId) {
+        // UPDATE (PATCH) — Phase 4b local-wins path. Fires for ANY linked event
+        // (pushed-iecentral OR outlook-origin) whose local row changed since the
+        // last reconcile (`updatedAt > outlookSyncedAt`). The pull step ran first
+        // and, on a remote-win, set outlookSyncedAt == updatedAt so `changed` is
+        // FALSE here — that is what stops a remote-win from being pushed back
+        // (anti-loop). syncSource is NEVER touched (setPushResult preserves it).
         if (!changed) continue;
         const res: Response = await fetch(`${GRAPH_EVENTS}/${ev.outlookEventId}`, {
           method: "PATCH",
@@ -258,12 +279,23 @@ async function runPush(
           continue;
         }
         const updated: any = await res.json().catch(() => ({}));
+        // Anti-loop bookkeeping (local-wins): set outlookSyncedAt=now and
+        // outlookLastModified to the remote lastModifiedDateTime returned by the
+        // PATCH response (else now). Do NOT bump updatedAt — the local change is
+        // now mirrored remotely, and with syncedAt=now the next pull sees
+        // localChanged=false so it will not re-apply / oscillate.
+        let remoteMod = Date.now();
+        if (updated && typeof updated.lastModifiedDateTime === "string") {
+          const parsed = Date.parse(updated.lastModifiedDateTime);
+          if (!isNaN(parsed)) remoteMod = parsed;
+        }
         await ctx.runMutation(internal.outlookAccounts.setPushResult, {
           eventId: ev._id,
           outlookEventId: updated.id || ev.outlookEventId,
           outlookICalUId: updated.iCalUId || undefined,
           outlookWeblink: updated.webLink || undefined,
           outlookSyncedAt: Date.now(),
+          outlookLastModified: remoteMod,
         });
         pushed++;
       }
@@ -368,7 +400,7 @@ async function runSync(
       endDateTime: new Date(end).toISOString(),
       $top: "250",
       $select:
-        "id,iCalUId,subject,bodyPreview,start,end,isAllDay,location,onlineMeeting,webLink,isCancelled",
+        "id,iCalUId,subject,bodyPreview,start,end,isAllDay,location,onlineMeeting,webLink,isCancelled,lastModifiedDateTime",
     });
     let url: string | null = `${GRAPH_CALENDAR_VIEW}?${params.toString()}`;
 
@@ -406,6 +438,15 @@ async function runSync(
       if (startMs === null || endMs === null) continue;
       returnedIds.add(ev.id);
 
+      // Phase 4b: parse the remote last-modified timestamp (ms). Graph returns a
+      // full ISO-8601 UTC string here (with a trailing Z). Fall back to `now` if
+      // it's missing/unparseable so a linked event is never mis-judged "unchanged".
+      let remoteMod = now;
+      if (ev.lastModifiedDateTime) {
+        const parsed = Date.parse(ev.lastModifiedDateTime);
+        if (!isNaN(parsed)) remoteMod = parsed;
+      }
+
       await ctx.runMutation(internal.outlookAccounts.upsertPulledEvent, {
         userId,
         outlookEventId: ev.id,
@@ -419,6 +460,7 @@ async function runSync(
         location: ev.location?.displayName || undefined,
         meetingLink: ev.onlineMeeting?.joinUrl || undefined,
         isCancelled: ev.isCancelled === true,
+        remoteMod,
       });
       if (ev.isCancelled !== true) synced++;
     }

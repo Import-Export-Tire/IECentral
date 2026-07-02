@@ -238,9 +238,27 @@ export const setSyncStatus = internalMutation({
   },
 });
 
-// Upsert a single Outlook-sourced event. NEVER touches IECentral-origin events:
-// dedup is by (createdBy = userId) + outlookEventId via the by_outlook_event
-// index, and we only ever patch/insert rows with syncSource === "outlook".
+// Upsert / reconcile a single Outlook event (Phase 4b: last-writer-wins).
+//
+// MATCH is by (createdBy = userId) + a non-empty outlookEventId via the
+// by_outlook_event index. It NO LONGER requires syncSource === "outlook", so a
+// LINKED iecentral-origin event (one previously pushed, now carrying a real
+// Graph id) is reconciled too. This is SAFE: the match key is a real Graph id,
+// and an UNLINKED iecentral event has outlookEventId: undefined, so it can NEVER
+// appear under this index key — unlinked events are never matched/patched.
+//
+// syncSource is PRESERVED (never written) — a pushed iecentral event stays
+// "iecentral", an outlook-origin event stays "outlook". No flip.
+//
+// Decision table (per linked event; ms timestamps):
+//   localMod=updatedAt, remoteMod=arg, syncedAt=outlookSyncedAt??0,
+//   remoteBaseline=outlookLastModified??0
+//   localChanged  = localMod  > syncedAt
+//   remoteChanged = remoteMod > remoteBaseline
+//   remote wins (patch LOCAL) iff remoteChanged && (!localChanged || remoteMod >= localMod)
+//   otherwise (in-sync or local-wins) we do NOT patch — the push step handles local-wins.
+// On a remote-win patch we set outlookSyncedAt=now, outlookLastModified=remoteMod,
+// updatedAt=now so the following push sees localChanged=false (anti-loop).
 export const upsertPulledEvent = internalMutation({
   args: {
     userId: v.id("users"),
@@ -255,22 +273,59 @@ export const upsertPulledEvent = internalMutation({
     location: v.optional(v.string()),
     meetingLink: v.optional(v.string()),
     isCancelled: v.optional(v.boolean()),
+    remoteMod: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
+    const remoteMod = args.remoteMod ?? now;
 
     // Find any existing event with this Graph event id, scoped to this user.
+    // NOTE: match is intentionally NOT restricted to syncSource === "outlook"
+    // so linked iecentral-origin events reconcile too (see header).
     const candidates = await ctx.db
       .query("events")
       .withIndex("by_outlook_event", (q) => q.eq("outlookEventId", args.outlookEventId))
       .collect();
-    const existing = candidates.find(
-      (e) => e.createdBy === args.userId && e.syncSource === "outlook"
-    );
+    const existing = candidates.find((e) => e.createdBy === args.userId);
 
     if (existing) {
-      // Guard: only ever patch outlook-sourced rows.
-      if (existing.syncSource !== "outlook") return;
+      const isOutlookOrigin = existing.syncSource === "outlook";
+
+      // Cancellation from Graph: ONLY cancel outlook-origin events. For an
+      // iecentral-origin linked event, an isCancelled from Graph would be
+      // cross-deletion (out of scope) — ignore it and fall through to normal
+      // field reconciliation.
+      if (args.isCancelled && isOutlookOrigin) {
+        if (!existing.isCancelled) {
+          await ctx.db.patch(existing._id, {
+            isCancelled: true,
+            cancelledAt: now,
+            outlookSyncedAt: now,
+            outlookLastModified: remoteMod,
+            updatedAt: now,
+          });
+        }
+        return;
+      }
+
+      // Decision table.
+      const syncedAt = existing.outlookSyncedAt ?? 0;
+      const remoteBaseline = existing.outlookLastModified ?? 0;
+      const localChanged = existing.updatedAt > syncedAt;
+      const remoteChanged = remoteMod > remoteBaseline;
+      const remoteWins =
+        remoteChanged && (!localChanged || remoteMod >= existing.updatedAt);
+
+      if (!remoteWins) {
+        // in-sync, or LOCAL wins → do NOT patch here. The push step will PATCH
+        // Graph from local (local-wins) or do nothing (in-sync).
+        return;
+      }
+
+      // REMOTE WINS → patch local fields from Graph. syncSource is preserved
+      // (not in the patch). Anti-loop: updatedAt == outlookSyncedAt == now makes
+      // the push gate `updatedAt > outlookSyncedAt` FALSE, so this remote change
+      // is not pushed back.
       await ctx.db.patch(existing._id, {
         title: args.title,
         description: args.description,
@@ -282,8 +337,8 @@ export const upsertPulledEvent = internalMutation({
         meetingType: args.meetingLink ? "other" : undefined,
         outlookICalUId: args.outlookICalUId,
         outlookWeblink: args.outlookWeblink,
-        isCancelled: args.isCancelled ? true : existing.isCancelled,
-        cancelledAt: args.isCancelled && !existing.isCancelled ? now : existing.cancelledAt,
+        outlookSyncedAt: now,
+        outlookLastModified: remoteMod,
         updatedAt: now,
       });
       return;
@@ -310,6 +365,10 @@ export const upsertPulledEvent = internalMutation({
       outlookICalUId: args.outlookICalUId,
       outlookWeblink: args.outlookWeblink,
       syncSource: "outlook",
+      // Phase 4b: establish the reconcile baselines on insert so the next cycle
+      // sees remoteChanged only if Outlook actually changes again.
+      outlookSyncedAt: now,
+      outlookLastModified: remoteMod,
       createdAt: now,
       updatedAt: now,
     });
@@ -342,17 +401,25 @@ export const listPulledIdsInWindow = internalQuery({
 
 // ============ PHASE 3: PUSH (IECentral -> Outlook) internal DB helpers ============
 
-// List IECentral-origin events for this user that overlap the forward push
-// window and are candidates for pushing to Outlook.
+// List this user's events that overlap the forward push window and are
+// candidates for pushing to Outlook.
 //
-// LOOP PREVENTION / protection invariants (reviewer-critical):
-//  - syncSource !== "outlook": NEVER push events that came FROM Outlook
-//    (pushing them back would create an infinite loop). "iecentral" and legacy
-//    undefined rows are eligible.
+// Phase 4b GENERALIZED candidate set (reviewer-critical):
 //  - createdBy === userId: only push this user's own events into their mailbox.
 //  - isReminder !== true && isPrivate !== true: personal/private time-blocks are
-//    excluded from Outlook by design.
-// Cancelled events ARE included so the push pass can issue a DELETE to Outlook.
+//    NEVER pushed (design invariant).
+//  - Eligible when EITHER:
+//      (a) syncSource !== "outlook"  → iecentral-origin (create or update), OR
+//      (b) syncSource === "outlook" AND outlookEventId present → an outlook-origin
+//          event that was edited LOCALLY (update only; runPush never creates or
+//          deletes an Outlook copy for these).
+//    An unlinked outlook-origin event (no outlookEventId) can't exist, so (b) is
+//    effectively "linked outlook-origin".
+// syncSource is returned so runPush can gate CREATE (iecentral-only) and DELETE
+// (iecentral-only) without ever flipping it.
+// Cancelled iecentral-origin events ARE included so the push pass can DELETE the
+// Outlook copy (Phase 3). Cancelled outlook-origin events are skipped in runPush
+// (no cross-deletion).
 export const listLocalEventsToPush = internalQuery({
   args: { userId: v.id("users"), start: v.number(), end: v.number() },
   handler: async (ctx, args) => {
@@ -364,9 +431,10 @@ export const listLocalEventsToPush = internalQuery({
       .filter(
         (e) =>
           e.createdBy === args.userId &&
-          e.syncSource !== "outlook" &&
           e.isReminder !== true &&
           e.isPrivate !== true &&
+          (e.syncSource !== "outlook" ||
+            (e.syncSource === "outlook" && !!e.outlookEventId)) &&
           // overlaps the forward window
           e.startTime <= args.end &&
           (e.endTime ?? e.startTime) >= args.start
@@ -384,14 +452,21 @@ export const listLocalEventsToPush = internalQuery({
         updatedAt: e.updatedAt,
         outlookEventId: e.outlookEventId,
         outlookSyncedAt: e.outlookSyncedAt,
+        syncSource: e.syncSource,
       }));
   },
 });
 
 // Write back the result of a PUSH to Outlook. Refreshes outlookSyncedAt (the
-// anti-churn gate) and, when provided, the Graph ids/weblink. Keeps
-// syncSource:"iecentral" (does NOT flip to "outlook") so the Phase-2 pull keeps
-// ignoring the row and can never duplicate or clobber it.
+// anti-churn / local-wins gate) and, when provided, the Graph ids/weblink and
+// outlookLastModified (the remote baseline as of this PATCH). syncSource is
+// NEVER written, so a pushed iecentral event stays "iecentral" and a linked
+// outlook-origin event stays "outlook" — no flip.
+//
+// Phase 4b: this path may now legitimately write back to a LINKED outlook-origin
+// event (local-wins PATCH), so the old "never touch outlook-sourced rows" guard
+// is removed. It does NOT bump updatedAt, so with outlookSyncedAt=now the next
+// pull computes localChanged=false and will not re-apply the change (anti-loop).
 export const setPushResult = internalMutation({
   args: {
     eventId: v.id("events"),
@@ -399,16 +474,17 @@ export const setPushResult = internalMutation({
     outlookICalUId: v.optional(v.string()),
     outlookWeblink: v.optional(v.string()),
     outlookSyncedAt: v.number(),
+    outlookLastModified: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.eventId);
     if (!existing) return;
-    // Never touch outlook-sourced rows via the push write-back path.
-    if (existing.syncSource === "outlook") return;
     const patch: Record<string, unknown> = { outlookSyncedAt: args.outlookSyncedAt };
     if (args.outlookEventId !== undefined) patch.outlookEventId = args.outlookEventId;
     if (args.outlookICalUId !== undefined) patch.outlookICalUId = args.outlookICalUId;
     if (args.outlookWeblink !== undefined) patch.outlookWeblink = args.outlookWeblink;
+    if (args.outlookLastModified !== undefined)
+      patch.outlookLastModified = args.outlookLastModified;
     await ctx.db.patch(args.eventId, patch);
   },
 });
