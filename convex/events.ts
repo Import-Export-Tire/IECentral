@@ -241,6 +241,8 @@ export const create = mutation({
     endTime: v.number(),
     isAllDay: v.boolean(),
     location: v.optional(v.string()),
+    isReminder: v.optional(v.boolean()),
+    isPrivate: v.optional(v.boolean()),
     meetingLink: v.optional(v.string()),
     meetingType: v.optional(v.string()),
     inviteeIds: v.array(v.id("users")),
@@ -264,6 +266,8 @@ export const create = mutation({
       endTime: args.endTime,
       isAllDay: args.isAllDay,
       location: args.location,
+      isReminder: args.isReminder,
+      isPrivate: args.isPrivate,
       meetingLink: args.meetingLink,
       meetingType: args.meetingType,
       createdBy: args.userId,
@@ -272,16 +276,20 @@ export const create = mutation({
       updatedAt: now,
     });
 
-    // Create invites for all invitees
-    for (const inviteeId of args.inviteeIds) {
-      await ctx.db.insert("eventInvites", {
-        eventId,
-        userId: inviteeId,
-        status: "pending",
-        isRead: false,
-        notifiedAt: now,
-        createdAt: now,
-      });
+    // Reminders are personal — never create invites for them, even if
+    // inviteeIds is non-empty.
+    if (!args.isReminder) {
+      // Create invites for all invitees
+      for (const inviteeId of args.inviteeIds) {
+        await ctx.db.insert("eventInvites", {
+          eventId,
+          userId: inviteeId,
+          status: "pending",
+          isRead: false,
+          notifiedAt: now,
+          createdAt: now,
+        });
+      }
     }
 
     return eventId;
@@ -298,6 +306,8 @@ export const createRecurring = mutation({
     endTime: v.number(),
     isAllDay: v.boolean(),
     location: v.optional(v.string()),
+    isReminder: v.optional(v.boolean()),
+    isPrivate: v.optional(v.boolean()),
     meetingLink: v.optional(v.string()),
     meetingType: v.optional(v.string()),
     inviteeIds: v.array(v.id("users")),
@@ -333,6 +343,8 @@ export const createRecurring = mutation({
         endTime: shift(args.endTime, n),
         isAllDay: args.isAllDay,
         location: args.location,
+        isReminder: args.isReminder,
+        isPrivate: args.isPrivate,
         meetingLink: args.meetingLink,
         meetingType: args.meetingType,
         createdBy: args.userId,
@@ -343,15 +355,19 @@ export const createRecurring = mutation({
         createdAt: now,
         updatedAt: now,
       });
-      for (const inviteeId of args.inviteeIds) {
-        await ctx.db.insert("eventInvites", {
-          eventId,
-          userId: inviteeId,
-          status: "pending",
-          isRead: false,
-          notifiedAt: now,
-          createdAt: now,
-        });
+      // Reminders are personal — never create invites, even if inviteeIds
+      // is non-empty.
+      if (!args.isReminder) {
+        for (const inviteeId of args.inviteeIds) {
+          await ctx.db.insert("eventInvites", {
+            eventId,
+            userId: inviteeId,
+            status: "pending",
+            isRead: false,
+            notifiedAt: now,
+            createdAt: now,
+          });
+        }
       }
       ids.push(eventId);
     }
@@ -430,6 +446,8 @@ export const update = mutation({
     endTime: v.optional(v.number()),
     isAllDay: v.optional(v.boolean()),
     location: v.optional(v.string()),
+    isReminder: v.optional(v.boolean()),
+    isPrivate: v.optional(v.boolean()),
     meetingLink: v.optional(v.string()),
     meetingType: v.optional(v.string()),
     requestingUserId: v.id("users"),
@@ -790,7 +808,33 @@ export const getSharedCalendarEvents = query({
       filtered = filtered.filter((e) => e.endTime >= args.startDate!);
     }
 
+    // Visibility transform (SECURITY-CRITICAL — happens server-side so a
+    // viewer's browser never receives the real details of another
+    // person's reminders or private events).
+    const visible = filtered
+      // Reminders are strictly personal — never appear on a shared calendar.
+      .filter((e) => e.isReminder !== true)
+      // Private events show only as an opaque "Busy" block: strip every
+      // detail field before it leaves the server.
+      .map((event) => {
+        if (event.isPrivate !== true) return event;
+        return {
+          ...event,
+          title: "Busy",
+          description: undefined,
+          location: undefined,
+          meetingLink: undefined,
+          meetingType: undefined,
+          zoomJoinUrl: undefined,
+          zoomMeetingId: undefined,
+          zoomAccountId: undefined,
+          isZoomSynced: undefined,
+          applicationId: undefined,
+          isPrivate: true, // keep so the client can style the "Busy" block
+        };
+      });
+
     // Sort by start time
-    return filtered.sort((a, b) => a.startTime - b.startTime);
+    return visible.sort((a, b) => a.startTime - b.startTime);
   },
 });
