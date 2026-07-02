@@ -12,6 +12,9 @@ import { LOCATION_LABELS, locationLabel } from "@/lib/locationLabels";
 import { tireSortKey } from "@/lib/tireSize";
 import { isReportableBrand } from "@/lib/brandFilter";
 import { tireSizeMatchesQuery } from "@/lib/tireSearch";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 interface InventoryItem {
   location: string;
@@ -680,54 +683,59 @@ export default function FilteredInventoryReportPage() {
 
   return (
     <Protected>
-      <div className="flex h-screen theme-bg-primary">
+      <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
         <Sidebar />
         <main className="flex-1 overflow-y-auto">
           <MobileHeader />
-          <header className={`sticky top-0 z-10 border-b px-4 sm:px-6 py-4 ${isDark ? "bg-slate-900/95 backdrop-blur border-slate-700" : "bg-white/95 backdrop-blur border-gray-200"}`}>
+
+          {/* Sticky iOS-style page header */}
+          <header className={`sticky top-0 z-10 border-b px-4 sm:px-6 py-3 sm:py-4 backdrop-blur-sm ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
             <div className="flex items-center gap-3">
-              <Link href="/reports/inventory" className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-800 text-slate-400" : "hover:bg-gray-200 text-gray-500"}`}>
+              <Link
+                href="/reports/inventory"
+                className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5 flex-shrink-0"
+              >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
               </Link>
-              <div>
-                <h1 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Filtered Inventory Report</h1>
-                <p className={`text-sm ${isDark ? "text-slate-200" : "text-gray-800"}`}>
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold theme-text-primary">Filtered Inventory Report</h1>
+                <p className="text-xs mt-0.5 theme-text-tertiary">
                   {reportDate
                     ? `Snapshot date: ${formatReportDateMMDDYY(reportDate)}`
                     : "No OEAVAL 77 upload found — upload one to set the snapshot date"}
                   {uploadedAtLabel && (
-                    <span className="ml-2">
-                      · Last uploaded: {uploadedAtLabel}
-                    </span>
+                    <span className="ml-2">· Last uploaded: {uploadedAtLabel}</span>
                   )}
                 </p>
               </div>
             </div>
           </header>
 
-          <div className="px-4 sm:px-6 py-6 max-w-3xl space-y-5">
+          <div className="px-4 sm:px-6 py-5 max-w-3xl space-y-4">
+
+            {/* Error banner */}
             {error && (
-              <div className={`rounded-xl border p-4 ${isDark ? "bg-red-500/10 border-red-500/30 text-red-400" : "bg-red-50 border-red-200 text-red-700"}`}>
-                {error}
-              </div>
+              <Card tone="red" padding="sm">
+                <p className="text-sm theme-text-primary">{error}</p>
+              </Card>
             )}
 
             {/* Location picker */}
-            <div className={`rounded-xl border p-5 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-              <label className={`block text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Location</label>
+            <Card padding="sm">
+              <label className="block ui-section-label mb-2">Location</label>
               <select
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                className="theme-input w-full px-3 py-2 text-sm"
               >
                 <option value="">— Select a location —</option>
                 {locationOptions.map((code) => (
                   <option key={code} value={code}>{code} — {LOCATION_LABELS[code]}</option>
                 ))}
               </select>
-            </div>
+            </Card>
 
             {/* Tab strip */}
             <div className="flex gap-1">
@@ -738,8 +746,10 @@ export default function FilteredInventoryReportPage() {
                   onClick={() => setTab(t)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     tab === t
-                      ? isDark ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" : "bg-emerald-100 text-emerald-700 border border-emerald-300"
-                      : isDark ? "text-slate-400 hover:text-slate-300 hover:bg-slate-800" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                      ? isDark
+                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                        : "bg-emerald-100 text-emerald-700 border border-emerald-300"
+                      : "theme-text-tertiary hover:theme-text-secondary hover:bg-black/5 dark:hover:bg-white/5"
                   }`}
                 >
                   {t === "report" ? "Generate Report" : t === "adjustments" ? "Adjustments" : "Coverage"}
@@ -749,36 +759,43 @@ export default function FilteredInventoryReportPage() {
 
             {/* Brand picker */}
             {tab === "report" && location && (
-              <div className={`rounded-xl border p-5 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <label className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                    Brands ({selectedBrands.size} selected)
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={selectAllBrands}
-                      disabled={brandsAtLocation.length === 0}
-                      className={`text-xs px-2 py-1 rounded disabled:opacity-40 ${isDark ? "text-cyan-400 hover:bg-slate-700" : "text-blue-600 hover:bg-gray-100"}`}
-                    >Select all</button>
-                    <button
-                      type="button"
-                      onClick={clearBrands}
-                      disabled={selectedBrands.size === 0}
-                      className={`text-xs px-2 py-1 rounded disabled:opacity-40 ${isDark ? "text-slate-400 hover:bg-slate-700" : "text-gray-500 hover:bg-gray-100"}`}
-                    >Clear</button>
-                  </div>
-                </div>
+              <Card padding="sm">
+                <SectionHeader
+                  label={`Brands (${selectedBrands.size} selected)`}
+                  actions={
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={selectAllBrands}
+                        disabled={brandsAtLocation.length === 0}
+                      >
+                        Select all
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearBrands}
+                        disabled={selectedBrands.size === 0}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  }
+                />
                 {loading ? (
-                  <p className={`text-xs py-3 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Loading inventory...</p>
+                  <p className="text-xs py-3 theme-text-tertiary">Loading inventory...</p>
                 ) : brandsAtLocation.length === 0 ? (
-                  <p className={`text-xs py-3 ${isDark ? "text-slate-500" : "text-gray-400"}`}>No items at this location.</p>
+                  <p className="text-xs py-3 theme-text-tertiary">No items at this location.</p>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-72 overflow-y-auto">
                     {brandsAtLocation.map((brand) => {
                       const checked = selectedBrands.has(brand);
                       return (
-                        <label key={brand} className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-xs ${isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-gray-50 text-gray-700"}`}>
+                        <label
+                          key={brand}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-xs theme-text-secondary hover:bg-black/5 dark:hover:bg-white/5"
+                        >
                           <input type="checkbox" checked={checked} onChange={() => toggleBrand(brand)} className="rounded w-3.5 h-3.5" />
                           <span className="truncate">{brand}</span>
                         </label>
@@ -786,46 +803,44 @@ export default function FilteredInventoryReportPage() {
                     })}
                   </div>
                 )}
-              </div>
+              </Card>
             )}
 
             {/* Generate */}
             {tab === "report" && location && selectedBrands.size > 0 && (
-              <div className={`rounded-xl border p-5 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+              <Card padding="sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium theme-text-primary">
                       {filteredRows.length.toLocaleString()} items will appear in the report
                     </p>
-                    <p className={`text-xs mt-0.5 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                    <p className="text-xs mt-0.5 theme-text-tertiary">
                       {locationLabel(location)} — {[...selectedBrands].sort().map(brandAbbr).join("/")}
                     </p>
                   </div>
-                  <button
+                  <Button
+                    variant="primary"
                     onClick={handleGenerate}
                     disabled={generating || filteredRows.length === 0}
-                    className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${isDark ? "bg-emerald-600 text-white hover:bg-emerald-500" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}
                   >
                     {generating ? "Generating..." : "Generate PDF"}
-                  </button>
+                  </Button>
                 </div>
-              </div>
+              </Card>
             )}
 
-            {/* Adjustments tab */}
+            {/* Adjustments tab — no location selected */}
             {tab === "adjustments" && !location && (
-              <div className={`rounded-xl border p-5 text-sm ${isDark ? "bg-slate-800/50 border-slate-700 text-slate-400" : "bg-white border-gray-200 text-gray-600"}`}>
-                Pick a location above to log inventory adjustments.
-              </div>
+              <Card padding="sm">
+                <p className="text-sm theme-text-tertiary">Pick a location above to log inventory adjustments.</p>
+              </Card>
             )}
 
             {tab === "adjustments" && location && (
               <>
                 {/* Entry form */}
-                <div className={`rounded-xl border p-5 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-                  <h2 className={`text-sm font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
-                    Log adjustment — {location} · {locationLabel(location)}
-                  </h2>
+                <Card padding="sm">
+                  <SectionHeader title={`Log adjustment — ${location} · ${locationLabel(location)}`} />
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-3" onKeyDown={(e) => {
                     // Press Enter from any input in the entry form to add the
                     // adjustment, mirroring the click on Add.
@@ -835,157 +850,168 @@ export default function FilteredInventoryReportPage() {
                     handleAddAdjustment();
                   }}>
                     <div className="sm:col-span-3">
-                      <label className={`block text-[10px] uppercase tracking-wide mb-1 ${isDark ? "text-slate-500" : "text-gray-500"}`}>Item ID</label>
+                      <label className="block text-[10px] uppercase tracking-wide mb-1 theme-text-tertiary">Item ID</label>
                       <input
                         type="text"
                         value={adjItemId}
                         onChange={(e) => setAdjItemId(e.target.value)}
                         placeholder="e.g. 4076ATL"
-                        className={`w-full px-3 py-2 rounded-lg border text-sm font-mono ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                        className="theme-input w-full px-3 py-2 text-sm font-mono"
                       />
                     </div>
                     <div className="sm:col-span-5">
-                      <label className={`block text-[10px] uppercase tracking-wide mb-1 ${isDark ? "text-slate-500" : "text-gray-500"}`}>Item details (autofilled)</label>
-                      <div className={`px-3 py-2 rounded-lg border text-sm h-[38px] ${isDark ? "bg-slate-900/50 border-slate-700 text-slate-300" : "bg-gray-50 border-gray-200 text-gray-700"}`}>
+                      <label className="block text-[10px] uppercase tracking-wide mb-1 theme-text-tertiary">Item details (autofilled)</label>
+                      <div className="theme-input px-3 py-2 text-sm h-[38px] bg-black/[0.03] dark:bg-white/[0.03]">
                         {adjItemId.trim() === "" ? (
-                          <span className={isDark ? "text-slate-600" : "text-gray-400"}>—</span>
+                          <span className="theme-text-tertiary">—</span>
                         ) : adjLookupMatch ? (
-                          <span className="truncate block">{adjLookupMatch.manufacturerName} · {adjLookupMatch.description}</span>
+                          <span className="truncate block theme-text-secondary">{adjLookupMatch.manufacturerName} · {adjLookupMatch.description}</span>
                         ) : loading ? (
-                          <span className={isDark ? "text-slate-500" : "text-gray-400"}>loading inventory…</span>
+                          <span className="theme-text-tertiary">loading inventory…</span>
                         ) : (
-                          <span className={isDark ? "text-amber-400" : "text-amber-700"}>not in current inventory snapshot</span>
+                          <span className="text-amber-600 dark:text-amber-400">not in current inventory snapshot</span>
                         )}
                       </div>
                     </div>
                     <div className="sm:col-span-2">
-                      <label className={`block text-[10px] uppercase tracking-wide mb-1 ${isDark ? "text-slate-500" : "text-gray-500"}`}>Qty (+/−)</label>
+                      <label className="block text-[10px] uppercase tracking-wide mb-1 theme-text-tertiary">Qty (+/−)</label>
                       <input
                         type="number"
                         value={adjQty}
                         onChange={(e) => setAdjQty(e.target.value)}
                         placeholder="-2 or 4"
-                        className={`w-full px-3 py-2 rounded-lg border text-sm text-right font-mono ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                        className="theme-input w-full px-3 py-2 text-sm text-right font-mono"
                       />
                     </div>
                     <div className="sm:col-span-2 flex items-end">
-                      <button
+                      <Button
+                        variant="primary"
                         onClick={handleAddAdjustment}
                         disabled={adjSaving || !adjItemId.trim() || !adjQty}
-                        className={`w-full px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50 ${isDark ? "bg-emerald-600 text-white hover:bg-emerald-500" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}
+                        className="w-full"
                       >
                         {adjSaving ? "Saving…" : "Add"}
-                      </button>
+                      </Button>
                     </div>
                     <div className="sm:col-span-12">
-                      <label className={`block text-[10px] uppercase tracking-wide mb-1 ${isDark ? "text-slate-500" : "text-gray-500"}`}>Notes (optional)</label>
+                      <label className="block text-[10px] uppercase tracking-wide mb-1 theme-text-tertiary">Notes (optional)</label>
                       <input
                         type="text"
                         value={adjNotes}
                         onChange={(e) => setAdjNotes(e.target.value)}
                         placeholder="e.g. damaged, recount, inter-store transfer"
-                        className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                        className="theme-input w-full px-3 py-2 text-sm"
                       />
                     </div>
                   </div>
                   {adjError && (
-                    <p className={`mt-2 text-xs ${isDark ? "text-red-400" : "text-red-600"}`}>{adjError}</p>
+                    <p className="mt-2 text-xs text-red-600 dark:text-red-400">{adjError}</p>
                   )}
-                </div>
+                </Card>
 
                 {/* Stats panel */}
-                <div className={`grid grid-cols-1 sm:grid-cols-3 gap-3`}>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
                     { label: ymLabel(adjStats.priorYm), value: adjStats.priorCount },
                     { label: ymLabel(adjStats.currentYm), value: adjStats.currentCount },
                     { label: "Total", value: adjStats.totalCount },
                   ].map((s) => (
-                    <div key={s.label} className={`rounded-xl border p-4 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-                      <p className={`text-[10px] uppercase tracking-wide ${isDark ? "text-slate-500" : "text-gray-500"}`}>{s.label}</p>
-                      <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{s.value}</p>
-                    </div>
+                    <Card key={s.label} padding="sm">
+                      <div className="ui-section-label">{s.label}</div>
+                      <div className="text-2xl font-bold mt-1 theme-text-primary">{s.value}</div>
+                    </Card>
                   ))}
                 </div>
 
                 {/* Recent log + filters + Print */}
-                <div className={`rounded-xl border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-                  <div className={`flex flex-wrap items-center gap-3 px-4 py-3 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                    <h2 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Adjustment log</h2>
+                <div className="theme-card overflow-hidden p-0">
+                  <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b theme-border-secondary">
+                    <h2 className="text-sm font-semibold theme-text-primary">Adjustment log</h2>
                     <input
                       type="text"
                       value={adjSearch}
                       onChange={(e) => setAdjSearch(e.target.value)}
                       placeholder="Search item ID, description, notes…"
-                      className={`flex-1 min-w-[180px] px-3 py-1.5 rounded-lg border text-xs ${isDark ? "bg-slate-900 border-slate-600 text-white placeholder:text-slate-500" : "bg-white border-gray-300 placeholder:text-gray-400"}`}
+                      className="theme-input flex-1 min-w-[180px] px-3 py-1.5 text-xs"
                     />
                     <select
                       value={adjRange}
                       onChange={(e) => setAdjRange(e.target.value as any)}
-                      className={`px-2 py-1.5 rounded-lg border text-xs ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`}
+                      className="theme-input px-2 py-1.5 text-xs"
                     >
                       <option value="thisMonth">This month</option>
                       <option value="lastMonth">Last month</option>
                       <option value="last90">Last 90 days</option>
                       <option value="all">All time</option>
                     </select>
-                    <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                    <span className="text-xs theme-text-tertiary">
                       {filteredAdjustments.length} of {adjustments?.length ?? 0}
                       {adjustments && adjustments.length >= 50 ? " (last 50)" : ""}
                     </span>
                     <button
                       onClick={handleGenerateAdjustmentsPDF}
                       disabled={adjGenerating || !adjustments || adjustments.length === 0}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50 ${isDark ? "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30" : "bg-purple-100 text-purple-700 hover:bg-purple-200"}`}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50 bg-purple-500/20 text-purple-700 dark:text-purple-400 hover:bg-purple-500/30 transition-colors"
                     >
                       {adjGenerating ? "Generating…" : "Print PDF"}
                     </button>
                   </div>
                   {!adjustments ? (
-                    <p className={`p-4 text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>Loading…</p>
+                    <p className="p-4 text-sm theme-text-tertiary">Loading…</p>
                   ) : adjustments.length === 0 ? (
-                    <p className={`p-4 text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>No adjustments logged for this location yet.</p>
+                    <p className="p-4 text-sm theme-text-tertiary">No adjustments logged for this location yet.</p>
                   ) : filteredAdjustments.length === 0 ? (
-                    <p className={`p-4 text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>No adjustments match the current filter.</p>
+                    <p className="p-4 text-sm theme-text-tertiary">No adjustments match the current filter.</p>
                   ) : (
                     <>
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs">
-                          <thead className={isDark ? "bg-slate-900/50 text-slate-400" : "bg-gray-50 text-gray-600"}>
+                          <thead className={`${isDark ? "bg-slate-800" : "bg-gray-50"}`}>
                             <tr>
                               {["Date", "Item ID", "Mfg", "Description", "Qty", "Notes", "By", ""].map((h) => (
-                                <th key={h} className="text-left px-3 py-2 font-semibold">{h}</th>
+                                <th key={h} className="text-left px-3 py-2 font-semibold theme-text-tertiary">{h}</th>
                               ))}
                             </tr>
                           </thead>
                           <tbody>
                             {adjPaged.map((a) => (
-                              <tr key={a._id} className={`border-t ${isDark ? "border-slate-700/50" : "border-gray-100"}`}>
-                                <td className={`px-3 py-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>{new Date(a.createdAt).toLocaleString(undefined, { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
-                                <td className={`px-3 py-2 font-mono ${isDark ? "text-slate-300" : "text-gray-800"}`}>{a.itemId}</td>
-                                <td className={`px-3 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{a.manufacturerName || "—"}</td>
-                                <td className={`px-3 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{a.description || "—"}</td>
-                                <td className={`px-3 py-2 text-right font-mono font-semibold ${a.qtyChange > 0 ? (isDark ? "text-emerald-400" : "text-emerald-700") : (isDark ? "text-red-400" : "text-red-700")}`}>{a.qtyChange > 0 ? "+" : ""}{a.qtyChange}</td>
-                                <td className={`px-3 py-2 ${isDark ? "text-slate-400" : "text-gray-600"}`}>{a.notes || ""}</td>
-                                <td className={`px-3 py-2 ${isDark ? "text-slate-500" : "text-gray-500"}`}>{a.enteredByName}</td>
+                              <tr key={a._id} className="border-t theme-border-secondary">
+                                <td className="px-3 py-2 theme-text-tertiary">{new Date(a.createdAt).toLocaleString(undefined, { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
+                                <td className="px-3 py-2 font-mono theme-text-secondary">{a.itemId}</td>
+                                <td className="px-3 py-2 theme-text-secondary">{a.manufacturerName || "—"}</td>
+                                <td className="px-3 py-2 theme-text-secondary">{a.description || "—"}</td>
+                                {/* data-driven: color depends on sign of qty, not just dark mode */}
+                                <td className={`px-3 py-2 text-right font-mono font-semibold ${a.qtyChange > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{a.qtyChange > 0 ? "+" : ""}{a.qtyChange}</td>
+                                <td className="px-3 py-2 theme-text-tertiary">{a.notes || ""}</td>
+                                <td className="px-3 py-2 theme-text-tertiary">{a.enteredByName}</td>
                                 <td className="px-3 py-2 text-right">
-                                  <button onClick={() => handleDeleteAdjustment(a._id)} className={`text-[10px] px-2 py-1 rounded ${isDark ? "text-red-400 hover:bg-red-500/10" : "text-red-600 hover:bg-red-50"}`}>Delete</button>
+                                  <button
+                                    onClick={() => handleDeleteAdjustment(a._id)}
+                                    className="text-[10px] px-2 py-1 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                  >
+                                    Delete
+                                  </button>
                                 </td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
                       </div>
-                      <div className={`flex items-center justify-between px-4 py-3 border-t ${isDark ? "bg-slate-900/40 border-slate-700" : "bg-gray-50 border-gray-200"}`}>
-                        <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      <div className="flex items-center justify-between px-4 py-3 border-t theme-border-secondary">
+                        <span className="text-xs theme-text-tertiary">
                           Showing {adjPage * adjPageSize + 1}–{Math.min((adjPage + 1) * adjPageSize, filteredAdjustments.length)} of {filteredAdjustments.length}
                         </span>
                         <div className="flex items-center gap-2">
-                          <select value={adjPageSize} onChange={(e) => setAdjPageSize(Number(e.target.value))} className={`px-2 py-1 rounded border text-xs ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`}>
+                          <select
+                            value={adjPageSize}
+                            onChange={(e) => setAdjPageSize(Number(e.target.value))}
+                            className="theme-input px-2 py-1 text-xs"
+                          >
                             {[25, 50, 100].map((s) => <option key={s} value={s}>{s}/page</option>)}
                           </select>
-                          <button disabled={adjPage === 0} onClick={() => setAdjPage((p) => p - 1)} className={`px-2 py-1 rounded text-xs disabled:opacity-30 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Prev</button>
-                          <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>{adjPage + 1}/{adjTotalPages}</span>
-                          <button disabled={adjPage >= adjTotalPages - 1} onClick={() => setAdjPage((p) => p + 1)} className={`px-2 py-1 rounded text-xs disabled:opacity-30 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Next</button>
+                          <Button variant="ghost" size="sm" disabled={adjPage === 0} onClick={() => setAdjPage((p) => p - 1)}>Prev</Button>
+                          <span className="text-xs theme-text-tertiary">{adjPage + 1}/{adjTotalPages}</span>
+                          <Button variant="ghost" size="sm" disabled={adjPage >= adjTotalPages - 1} onClick={() => setAdjPage((p) => p + 1)}>Next</Button>
                         </div>
                       </div>
                     </>
@@ -994,33 +1020,34 @@ export default function FilteredInventoryReportPage() {
 
                 {/* Per-item MoM */}
                 {adjStats.perItemMoM.length > 0 && (
-                  <div className={`rounded-xl border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-                    <div className={`px-4 py-2 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                      <h2 className={`text-xs font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <div className="theme-card overflow-hidden p-0">
+                    <div className="px-4 py-2 border-b theme-border-secondary">
+                      <h2 className="text-xs font-semibold theme-text-primary">
                         Per-item MoM ({ymLabel(adjStats.priorYm)} → {ymLabel(adjStats.currentYm)})
                       </h2>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-[11px]">
-                        <thead className={isDark ? "bg-slate-900/50 text-slate-400" : "bg-gray-50 text-gray-600"}>
+                        <thead className={`${isDark ? "bg-slate-800" : "bg-gray-50"}`}>
                           <tr>
-                            <th className="text-left px-2 py-1 font-semibold">Item ID</th>
-                            <th className="text-left px-2 py-1 font-semibold">Mfg</th>
-                            <th className="text-left px-2 py-1 font-semibold">Description</th>
-                            <th className="text-right px-2 py-1 font-semibold">{ymLabel(adjStats.priorYm)}</th>
-                            <th className="text-right px-2 py-1 font-semibold">{ymLabel(adjStats.currentYm)}</th>
-                            <th className="text-right px-2 py-1 font-semibold">Δ</th>
+                            <th className="text-left px-2 py-1 font-semibold theme-text-tertiary">Item ID</th>
+                            <th className="text-left px-2 py-1 font-semibold theme-text-tertiary">Mfg</th>
+                            <th className="text-left px-2 py-1 font-semibold theme-text-tertiary">Description</th>
+                            <th className="text-right px-2 py-1 font-semibold theme-text-tertiary">{ymLabel(adjStats.priorYm)}</th>
+                            <th className="text-right px-2 py-1 font-semibold theme-text-tertiary">{ymLabel(adjStats.currentYm)}</th>
+                            <th className="text-right px-2 py-1 font-semibold theme-text-tertiary">Δ</th>
                           </tr>
                         </thead>
                         <tbody>
                           {adjStats.perItemMoM.map((r) => (
-                            <tr key={r.itemId} className={`border-t ${isDark ? "border-slate-700/50" : "border-gray-100"}`}>
-                              <td className={`px-2 py-0.5 font-mono ${isDark ? "text-slate-300" : "text-gray-800"}`}>{r.itemId}</td>
-                              <td className={`px-2 py-0.5 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.meta.manufacturerName}</td>
-                              <td className={`px-2 py-0.5 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.meta.description}</td>
-                              <td className={`px-2 py-0.5 text-right font-mono ${isDark ? "text-slate-400" : "text-gray-600"}`}>{r.prior > 0 ? "+" : ""}{r.prior}</td>
-                              <td className={`px-2 py-0.5 text-right font-mono ${isDark ? "text-slate-400" : "text-gray-600"}`}>{r.current > 0 ? "+" : ""}{r.current}</td>
-                              <td className={`px-2 py-0.5 text-right font-mono font-bold ${(r.current - r.prior) > 0 ? (isDark ? "text-emerald-400" : "text-emerald-700") : (r.current - r.prior) < 0 ? (isDark ? "text-red-400" : "text-red-700") : ""}`}>{(r.current - r.prior) > 0 ? "+" : ""}{r.current - r.prior}</td>
+                            <tr key={r.itemId} className="border-t theme-border-secondary">
+                              <td className="px-2 py-0.5 font-mono theme-text-secondary">{r.itemId}</td>
+                              <td className="px-2 py-0.5 theme-text-secondary">{r.meta.manufacturerName}</td>
+                              <td className="px-2 py-0.5 theme-text-secondary">{r.meta.description}</td>
+                              <td className="px-2 py-0.5 text-right font-mono theme-text-tertiary">{r.prior > 0 ? "+" : ""}{r.prior}</td>
+                              <td className="px-2 py-0.5 text-right font-mono theme-text-tertiary">{r.current > 0 ? "+" : ""}{r.current}</td>
+                              {/* data-driven: delta color depends on sign */}
+                              <td className={`px-2 py-0.5 text-right font-mono font-bold ${(r.current - r.prior) > 0 ? "text-emerald-600 dark:text-emerald-400" : (r.current - r.prior) < 0 ? "text-red-600 dark:text-red-400" : "theme-text-tertiary"}`}>{(r.current - r.prior) > 0 ? "+" : ""}{r.current - r.prior}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1031,12 +1058,12 @@ export default function FilteredInventoryReportPage() {
 
                 {/* Repeat flags */}
                 {(adjStats.repeatedThisMonth.length > 0 || adjStats.consecutiveMultiMonth.length > 0) && (
-                  <div className={`rounded-xl border p-4 ${isDark ? "bg-amber-500/10 border-amber-500/30" : "bg-amber-50 border-amber-200"}`}>
-                    <h2 className={`text-sm font-semibold mb-2 ${isDark ? "text-amber-300" : "text-amber-800"}`}>Flags</h2>
+                  <Card tone="amber" padding="sm">
+                    <h2 className="text-sm font-semibold mb-2 text-amber-800 dark:text-amber-300">Flags</h2>
                     {adjStats.repeatedThisMonth.length > 0 && (
                       <div className="mb-3">
-                        <p className={`text-xs font-medium mb-1 ${isDark ? "text-amber-300" : "text-amber-800"}`}>Adjusted ≥ 2× this month:</p>
-                        <ul className={`text-xs space-y-0.5 ${isDark ? "text-amber-200" : "text-amber-900"}`}>
+                        <p className="text-xs font-medium mb-1 text-amber-800 dark:text-amber-300">Adjusted ≥ 2× this month:</p>
+                        <ul className="text-xs space-y-0.5 text-amber-900 dark:text-amber-200">
                           {adjStats.repeatedThisMonth.map((r) => (
                             <li key={r.itemId}>
                               <span className="font-mono">{r.itemId}</span> — {r.meta.manufacturerName} {r.meta.description} <span className="font-bold">({r.count}×)</span>
@@ -1047,8 +1074,8 @@ export default function FilteredInventoryReportPage() {
                     )}
                     {adjStats.consecutiveMultiMonth.length > 0 && (
                       <div>
-                        <p className={`text-xs font-medium mb-1 ${isDark ? "text-amber-300" : "text-amber-800"}`}>Adjusted in consecutive months:</p>
-                        <ul className={`text-xs space-y-0.5 ${isDark ? "text-amber-200" : "text-amber-900"}`}>
+                        <p className="text-xs font-medium mb-1 text-amber-800 dark:text-amber-300">Adjusted in consecutive months:</p>
+                        <ul className="text-xs space-y-0.5 text-amber-900 dark:text-amber-200">
                           {adjStats.consecutiveMultiMonth.map((r) => (
                             <li key={r.itemId}>
                               <span className="font-mono">{r.itemId}</span> — {r.meta.manufacturerName} {r.meta.description} <span className="font-bold">({r.months.map(ymLabel).join(", ")})</span>
@@ -1057,7 +1084,7 @@ export default function FilteredInventoryReportPage() {
                         </ul>
                       </div>
                     )}
-                  </div>
+                  </Card>
                 )}
               </>
             )}
@@ -1065,73 +1092,86 @@ export default function FilteredInventoryReportPage() {
             {/* Coverage tab */}
             {tab === "coverage" && (
               <div className="space-y-4">
-                <div className={`rounded-xl border p-4 flex flex-wrap items-center gap-3 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-                  <label className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-600"}`}>Window:</label>
-                  <div className="flex gap-1">
-                    {[30, 45, 60, 90].map((d) => (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => setCoverageDays(d)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
-                          coverageDays === d
-                            ? (isDark ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40" : "bg-blue-100 text-blue-700 border-blue-300")
-                            : (isDark ? "bg-slate-900 text-slate-400 border-slate-600 hover:bg-slate-800" : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50")
-                        }`}
-                      >
-                        {d}d
-                      </button>
-                    ))}
+                <Card padding="sm">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="ui-section-label">Window:</label>
+                    <div className="flex gap-1">
+                      {[30, 45, 60, 90].map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => setCoverageDays(d)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                            coverageDays === d
+                              ? "bg-[#007AFF]/15 text-[#007AFF] border-[#007AFF]/30"
+                              : isDark
+                                ? "bg-slate-900 text-slate-400 border-slate-600 hover:bg-slate-800"
+                                : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          {d}d
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-[11px] theme-text-tertiary">counts in the last {coverageDays} days</span>
+                    <span className="ml-auto text-xs theme-text-tertiary">
+                      {coverageLoading ? "Loading inventory…" : `${(cirRunsInWindow ?? []).length} CIR run(s)`}
+                    </span>
                   </div>
-                  <span className={`text-[11px] ${isDark ? "text-slate-500" : "text-gray-400"}`}>counts in the last {coverageDays} days</span>
-                  <span className={`ml-auto text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                    {coverageLoading ? "Loading inventory…" : `${(cirRunsInWindow ?? []).length} CIR run(s)`}
-                  </span>
-                </div>
+                </Card>
 
                 {coverageLoading && Object.keys(coverageBrands).length === 0 ? (
-                  <div className={`rounded-xl border p-8 text-center text-sm ${isDark ? "bg-slate-800/50 border-slate-700 text-slate-500" : "bg-white border-gray-200 text-gray-400"}`}>
-                    Loading brand inventory across all locations…
-                  </div>
+                  <Card padding="sm">
+                    <p className="text-sm text-center theme-text-tertiary">Loading brand inventory across all locations…</p>
+                  </Card>
                 ) : (
                   (location ? [location] : Object.keys(LOCATION_LABELS).sort()).map((code) => {
                     const rows = coverageByLocation[code] || [];
                     const total = rows.length;
                     const covered = rows.filter((r) => r.pulledOn.length > 0).length;
                     return (
-                      <div key={code} className={`rounded-xl border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-                        <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                          <h3 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                      <div key={code} className="theme-card overflow-hidden p-0">
+                        <div className="flex items-center justify-between px-4 py-3 border-b theme-border-secondary">
+                          <h3 className="text-sm font-semibold theme-text-primary">
                             {code} · {LOCATION_LABELS[code]}
                           </h3>
-                          <span className={`text-xs font-medium ${covered === total && total > 0 ? (isDark ? "text-emerald-400" : "text-emerald-700") : (isDark ? "text-slate-400" : "text-gray-500")}`}>
+                          <span className={`text-xs font-medium ${covered === total && total > 0 ? "text-emerald-600 dark:text-emerald-400" : "theme-text-tertiary"}`}>
                             {covered} / {total} covered
                           </span>
                         </div>
                         {total === 0 ? (
-                          <p className={`p-4 text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>No brands found in this location.</p>
+                          <p className="p-4 text-xs theme-text-tertiary">No brands found in this location.</p>
                         ) : (
                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1 p-2">
                             {rows.map((r) => {
                               const pulled = r.pulledOn.length > 0;
                               const lastPulled = pulled ? new Date(Math.max(...r.pulledOn)) : null;
                               return (
-                                <div key={r.brand} className={`group flex items-center justify-between px-2 py-1 rounded text-[11px] ${pulled ? (isDark ? "bg-emerald-500/10 border border-emerald-500/30" : "bg-emerald-50 border border-emerald-200") : (isDark ? "bg-slate-900/40 border border-slate-700" : "bg-gray-50 border border-gray-200")}`}>
+                                <div
+                                  key={r.brand}
+                                  className={`group flex items-center justify-between px-2 py-1 rounded text-[11px] border ${
+                                    pulled
+                                      ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30"
+                                      : isDark
+                                        ? "bg-slate-900/40 border-slate-700"
+                                        : "bg-gray-50 border-gray-200"
+                                  }`}
+                                >
                                   <div className="flex items-center gap-2 min-w-0">
-                                    <span className={pulled ? (isDark ? "text-emerald-400" : "text-emerald-700") : (isDark ? "text-slate-600" : "text-gray-400")}>
+                                    <span className={pulled ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400 dark:text-slate-600"}>
                                       {pulled ? "✓" : "○"}
                                     </span>
-                                    <span className={`truncate ${pulled ? (isDark ? "text-emerald-300" : "text-emerald-800") : (isDark ? "text-slate-400" : "text-gray-600")}`}>{r.brand}</span>
+                                    <span className={`truncate ${pulled ? "text-emerald-800 dark:text-emerald-300" : "theme-text-tertiary"}`}>{r.brand}</span>
                                   </div>
                                   {pulled && lastPulled ? (
-                                    <span className={`text-[10px] ml-2 flex-shrink-0 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                                    <span className="text-[10px] ml-2 flex-shrink-0 theme-text-tertiary">
                                       {`${lastPulled.getMonth()+1}/${lastPulled.getDate()}`}{r.pulledOn.length > 1 ? ` ×${r.pulledOn.length}` : ""}
                                     </span>
                                   ) : (
                                     <button
                                       type="button"
                                       onClick={() => handleMarkCovered(code, r.brand)}
-                                      className={`text-[10px] ml-2 flex-shrink-0 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity ${isDark ? "bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}
+                                      className="text-[10px] ml-2 flex-shrink-0 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-[#007AFF]/15 text-[#007AFF] hover:bg-[#007AFF]/25"
                                     >
                                       Mark
                                     </button>
@@ -1142,8 +1182,8 @@ export default function FilteredInventoryReportPage() {
                           </div>
                         )}
                         {(archivedRunsByLocation[code] || []).length > 0 && (
-                          <div className={`px-4 py-3 border-t text-xs ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                            <p className={`text-[10px] uppercase tracking-wide mb-1.5 ${isDark ? "text-slate-500" : "text-gray-500"}`}>Past CIR PDFs ({(archivedRunsByLocation[code] || []).length})</p>
+                          <div className="px-4 py-3 border-t theme-border-secondary text-xs">
+                            <p className="ui-section-label mb-1.5">Past CIR PDFs ({(archivedRunsByLocation[code] || []).length})</p>
                             <div className="flex flex-wrap gap-1.5">
                               {(archivedRunsByLocation[code] || []).map((r: any) => {
                                 const d = new Date(r.createdAt);
@@ -1154,7 +1194,7 @@ export default function FilteredInventoryReportPage() {
                                     key={r._id}
                                     type="button"
                                     onClick={() => handleDownloadArchived(r.s3Key)}
-                                    className={`px-2 py-1 rounded text-[11px] border ${isDark ? "bg-slate-900/50 border-slate-700 text-slate-300 hover:bg-slate-800" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"}`}
+                                    className="px-2 py-1 rounded text-[11px] border theme-card theme-text-secondary hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                                     title={`${abbrs} — ${r.generatedByName}`}
                                   >
                                     {label} · {abbrs.length > 25 ? abbrs.slice(0, 22) + "…" : abbrs}
