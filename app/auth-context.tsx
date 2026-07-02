@@ -119,6 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const performLogout = useCallback(() => {
     setUserId(null);
     localStorage.removeItem("ie_central_user_id");
+    localStorage.removeItem("ie_central_session_epoch");
     localStorage.removeItem(IMPERSONATION_KEY);
     setImpersonation(null);
     hasLoadedUserData.current = false;
@@ -238,7 +239,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logOutOtherDevices = async () => {
-    if (!user) return;
+    // Never rotate while impersonating — `user` is the impersonation target, so this
+    // would log out the impersonated user's devices, not the real admin's.
+    if (!user || impersonation) return;
     const epoch = Date.now();
     // Stamp THIS device FIRST so the incoming getUser push matches and we stay in.
     localStorage.setItem("ie_central_session_epoch", String(epoch));
