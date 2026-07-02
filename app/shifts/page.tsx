@@ -9,7 +9,6 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useTheme } from "../theme-context";
 import { useAuth } from "../auth-context";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 
 // Generate unique ID for tasks
 function generateId(): string {
