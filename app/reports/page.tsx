@@ -16,6 +16,9 @@ import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 // CSV export utility
 function exportToCSV(data: Record<string, unknown>[], filename: string) {
@@ -225,14 +228,14 @@ function ReportsContent() {
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
 
-        {/* Header */}
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+        {/* Sticky iOS-style page header */}
+        <header className="sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-6 py-3 sm:py-4 bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {!showHub && (
                 <button
                   onClick={() => setShowHub(true)}
-                  className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-800 text-slate-400" : "hover:bg-gray-200 text-gray-500"}`}
+                  className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -240,10 +243,10 @@ function ReportsContent() {
                 </button>
               )}
               <div>
-                <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">
                   {showHub ? "Reports" : reportTypes.find((r) => r.id === activeReport)?.label || "Report"}
                 </h1>
-                <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <p className="text-xs sm:text-sm mt-1 theme-text-tertiary">
                   {showHub ? "Select a report to view" : "Generate and export data"}
                 </p>
               </div>
@@ -251,13 +254,13 @@ function ReportsContent() {
           </div>
         </header>
 
-        <div className="p-4 sm:p-8 space-y-6">
+        <div className="px-4 sm:px-6 py-5 space-y-6">
           {/* Card Hub */}
           {showHub ? (
             <div className="space-y-6">
               {/* Search */}
               <div className="relative">
-                <svg className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? "text-slate-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
@@ -265,10 +268,13 @@ function ReportsContent() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search reports..."
-                  className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm ${isDark ? "bg-slate-800/50 border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-400"} outline-none transition-colors`}
+                  className="theme-input w-full pl-10 pr-4 py-2.5 text-sm"
                 />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery("")} className={`absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? "text-slate-500 hover:text-slate-300" : "text-gray-400 hover:text-gray-600"}`}>
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 theme-text-tertiary hover:theme-text-secondary"
+                  >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -292,28 +298,28 @@ function ReportsContent() {
                   return (
                     <div key={group.id}>
                       <div className="flex items-center gap-2 mb-3">
-                        <svg className={`w-4 h-4 ${isDark ? "text-slate-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={group.icon} />
                         </svg>
-                        <h2 className={`text-sm font-semibold uppercase tracking-wider ${isDark ? "text-slate-500" : "text-gray-400"}`}>{group.label}</h2>
+                        <h2 className="text-sm font-semibold uppercase tracking-wider theme-text-tertiary">{group.label}</h2>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {filteredConfigs.map((config: { _id: string; name: string; description?: string; sources: string[]; autoRun: boolean }) => (
                           <Link key={config._id} href={`/reports/saved/${config._id}`}>
-                            <div className={`group rounded-xl border p-5 transition-all cursor-pointer ${isDark ? "bg-slate-800/50 border-slate-700 hover:border-amber-500/40 hover:bg-slate-800" : "bg-white border-gray-200 hover:border-amber-300 hover:shadow-md"}`}>
+                            <div className="group theme-card p-5 transition-all cursor-pointer hover:shadow-md">
                               <div className="flex items-start gap-4">
-                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${isDark ? "bg-amber-500/10 group-hover:bg-amber-500/20" : "bg-amber-50 group-hover:bg-amber-100"}`}>
-                                  <svg className={`w-5 h-5 ${isDark ? "text-amber-400" : "text-amber-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-amber-50 dark:bg-amber-500/10 group-hover:bg-amber-100 dark:group-hover:bg-amber-500/20">
+                                  <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                                   </svg>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <h3 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{config.name}</h3>
-                                  <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                                  <h3 className="text-sm font-semibold theme-text-primary">{config.name}</h3>
+                                  <p className="text-xs mt-0.5 theme-text-secondary">
                                     {config.description || config.sources.join(" + ")}
                                   </p>
                                   {config.autoRun && (
-                                    <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-50 text-emerald-600"}`}>Auto-run</span>
+                                    <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">Auto-run</span>
                                   )}
                                 </div>
                               </div>
@@ -342,10 +348,10 @@ function ReportsContent() {
                 return (
                   <div key={group.id}>
                     <div className="flex items-center gap-2 mb-3">
-                      <svg className={`w-4 h-4 ${isDark ? "text-slate-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={group.icon} />
                       </svg>
-                      <h2 className={`text-sm font-semibold uppercase tracking-wider ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                      <h2 className="text-sm font-semibold uppercase tracking-wider theme-text-tertiary">
                         {group.label}
                       </h2>
                     </div>
@@ -355,18 +361,18 @@ function ReportsContent() {
                         if (report.external) {
                           return (
                             <Link key={report.id} href={report.href}>
-                              <div className={`group rounded-xl border p-5 transition-all cursor-pointer ${isDark ? "bg-slate-800/50 border-slate-700 hover:border-cyan-500/40 hover:bg-slate-800" : "bg-white border-gray-200 hover:border-blue-300 hover:shadow-md"}`}>
+                              <div className="group theme-card p-5 transition-all cursor-pointer hover:shadow-md">
                                 <div className="flex items-start gap-4">
-                                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${isDark ? "bg-cyan-500/10 group-hover:bg-cyan-500/20" : "bg-blue-50 group-hover:bg-blue-100"}`}>
-                                    <svg className={`w-5 h-5 ${isDark ? "text-cyan-400" : "text-blue-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-blue-50 dark:bg-cyan-500/10 group-hover:bg-blue-100 dark:group-hover:bg-cyan-500/20">
+                                    <svg className="w-5 h-5 text-blue-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={report.icon} />
                                     </svg>
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <h3 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{report.title}</h3>
-                                    <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-gray-500"}`}>{report.description}</p>
+                                    <h3 className="text-sm font-semibold theme-text-primary">{report.title}</h3>
+                                    <p className="text-xs mt-0.5 theme-text-secondary">{report.description}</p>
                                   </div>
-                                  <svg className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isDark ? "text-slate-600" : "text-gray-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-4 h-4 flex-shrink-0 mt-0.5 theme-text-tertiary opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                   </svg>
                                 </div>
@@ -381,17 +387,17 @@ function ReportsContent() {
                           <button
                             key={report.id}
                             onClick={() => { setActiveReport(reportId); setShowHub(false); }}
-                            className={`text-left group rounded-xl border p-5 transition-all cursor-pointer ${isDark ? "bg-slate-800/50 border-slate-700 hover:border-cyan-500/40 hover:bg-slate-800" : "bg-white border-gray-200 hover:border-blue-300 hover:shadow-md"}`}
+                            className="text-left group theme-card p-5 transition-all cursor-pointer hover:shadow-md w-full"
                           >
                             <div className="flex items-start gap-4">
-                              <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${isDark ? "bg-cyan-500/10 group-hover:bg-cyan-500/20" : "bg-blue-50 group-hover:bg-blue-100"}`}>
-                                <svg className={`w-5 h-5 ${isDark ? "text-cyan-400" : "text-blue-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-blue-50 dark:bg-cyan-500/10 group-hover:bg-blue-100 dark:group-hover:bg-cyan-500/20">
+                                <svg className="w-5 h-5 text-blue-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={report.icon} />
                                 </svg>
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h3 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{report.title}</h3>
-                                <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-gray-500"}`}>{report.description}</p>
+                                <h3 className="text-sm font-semibold theme-text-primary">{report.title}</h3>
+                                <p className="text-xs mt-0.5 theme-text-secondary">{report.description}</p>
                               </div>
                             </div>
                           </button>
@@ -407,653 +413,568 @@ function ReportsContent() {
           {/* Report Content */}
           <div className={showHub ? "hidden" : ""}>
 
-          {/* Filters */}
-          {(activeReport === "applications" || activeReport === "hiring" || activeReport === "attendance" || activeReport === "weekly") && (
-            <div className={`border rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-              <h3 className={`font-medium mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                Filters
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {activeReport === "applications" && (
-                  <div>
-                    <label className={`block text-sm mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                      Status
-                    </label>
-                    <select
-                      value={appStatus}
-                      onChange={(e) => setAppStatus(e.target.value)}
-                      className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`}
-                    >
-                      <option value="all">All Statuses</option>
-                      <option value="new">New</option>
-                      <option value="reviewed">Reviewed</option>
-                      <option value="contacted">Contacted</option>
-                      <option value="scheduled">Interview Scheduled</option>
-                      <option value="interviewed">Interviewed</option>
-                      <option value="hired">Hired</option>
-                      <option value="rejected">Rejected</option>
-                      <option value="dns">Did Not Show</option>
-                      <option value="expired">Expired</option>
-                    </select>
-                  </div>
-                )}
-                {activeReport !== "weekly" ? (
-                  <>
+            {/* Filters */}
+            {(activeReport === "applications" || activeReport === "hiring" || activeReport === "attendance" || activeReport === "weekly") && (
+              <Card padding="md" className="mb-4">
+                <SectionHeader label="Filters" />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {activeReport === "applications" && (
                     <div>
-                      <label className={`block text-sm mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                        Start Date
-                      </label>
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`}
-                      />
+                      <label className="block text-xs ui-section-label mb-1">Status</label>
+                      <select
+                        value={appStatus}
+                        onChange={(e) => setAppStatus(e.target.value)}
+                        className="theme-input w-full px-3 py-2 text-sm"
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="new">New</option>
+                        <option value="reviewed">Reviewed</option>
+                        <option value="contacted">Contacted</option>
+                        <option value="scheduled">Interview Scheduled</option>
+                        <option value="interviewed">Interviewed</option>
+                        <option value="hired">Hired</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="dns">Did Not Show</option>
+                        <option value="expired">Expired</option>
+                      </select>
                     </div>
-                    <div>
-                      <label className={`block text-sm mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                        End Date
-                      </label>
-                      <input
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`}
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div>
-                      <label className={`block text-sm mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                        Week Start
-                      </label>
-                      <input
-                        type="date"
-                        value={weeklyStartDate}
-                        onChange={(e) => setWeeklyStartDate(e.target.value)}
-                        className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`}
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-sm mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                        Week End
-                      </label>
-                      <input
-                        type="date"
-                        value={weeklyEndDate}
-                        onChange={(e) => setWeeklyEndDate(e.target.value)}
-                        className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300"}`}
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Report Content */}
-          <div className={`border rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
-              <h3 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                {reportTypes.find((r) => r.id === activeReport)?.label} Report
-              </h3>
-              <button
-                onClick={handleExport}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isDark
-                    ? "bg-cyan-500 hover:bg-cyan-600 text-white"
-                    : "bg-blue-600 hover:bg-blue-700 text-white"
-                }`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Export CSV
-              </button>
-            </div>
-
-            {/* Personnel Report */}
-            {activeReport === "personnel" && (
-              <div className="overflow-x-auto">
-                {personnel ? (
-                  <>
-                    <p className={`mb-4 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                      {personnel.length} personnel records
-                    </p>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className={isDark ? "text-slate-400" : "text-gray-500"}>
-                          <th className="text-left py-2 px-3">Name</th>
-                          <th className="text-left py-2 px-3">Position</th>
-                          <th className="text-left py-2 px-3">Department</th>
-                          <th className="text-left py-2 px-3">Status</th>
-                          <th className="text-left py-2 px-3">Hire Date</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {personnel.slice(0, 10).map((p) => (
-                          <tr key={p.id} className={`border-t ${isDark ? "border-slate-700" : "border-gray-100"}`}>
-                            <td className={`py-2 px-3 ${isDark ? "text-white" : "text-gray-900"}`}>
-                              {p.firstName} {p.lastName}
-                            </td>
-                            <td className={`py-2 px-3 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                              {p.position}
-                            </td>
-                            <td className={`py-2 px-3 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                              {p.department}
-                            </td>
-                            <td className="py-2 px-3">
-                              <span className={`px-2 py-0.5 text-xs rounded-full ${
-                                p.status === "active"
-                                  ? "bg-green-500/20 text-green-400"
-                                  : "bg-slate-500/20 text-slate-400"
-                              }`}>
-                                {p.status}
-                              </span>
-                            </td>
-                            <td className={`py-2 px-3 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                              {p.hireDate}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {personnel.length > 10 && (
-                      <p className={`mt-4 text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                        Showing 10 of {personnel.length} records. Export to see all.
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
-                  </div>
-                )}
-              </div>
+                  )}
+                  {activeReport !== "weekly" ? (
+                    <>
+                      <div>
+                        <label className="block text-xs ui-section-label mb-1">Start Date</label>
+                        <input
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className="theme-input w-full px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs ui-section-label mb-1">End Date</label>
+                        <input
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          className="theme-input w-full px-3 py-2 text-sm"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="block text-xs ui-section-label mb-1">Week Start</label>
+                        <input
+                          type="date"
+                          value={weeklyStartDate}
+                          onChange={(e) => setWeeklyStartDate(e.target.value)}
+                          className="theme-input w-full px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs ui-section-label mb-1">Week End</label>
+                        <input
+                          type="date"
+                          value={weeklyEndDate}
+                          onChange={(e) => setWeeklyEndDate(e.target.value)}
+                          className="theme-input w-full px-3 py-2 text-sm"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </Card>
             )}
 
-            {/* Applications Report */}
-            {activeReport === "applications" && (
-              <div className="overflow-x-auto">
-                {applications ? (
-                  <>
-                    <p className={`mb-4 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                      {applications.length} applications
-                    </p>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className={isDark ? "text-slate-400" : "text-gray-500"}>
-                          <th className="text-left py-2 px-3">Name</th>
-                          <th className="text-left py-2 px-3">Position</th>
-                          <th className="text-left py-2 px-3">Score</th>
-                          <th className="text-left py-2 px-3">Status</th>
-                          <th className="text-left py-2 px-3">Applied</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {applications.slice(0, 10).map((a) => (
-                          <tr key={a.id} className={`border-t ${isDark ? "border-slate-700" : "border-gray-100"}`}>
-                            <td className={`py-2 px-3 ${isDark ? "text-white" : "text-gray-900"}`}>
-                              {a.firstName} {a.lastName}
-                            </td>
-                            <td className={`py-2 px-3 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                              {a.appliedJobTitle}
-                            </td>
-                            <td className="py-2 px-3">
-                              {a.overallScore ? (
-                                <span className={`px-2 py-0.5 text-xs rounded-full ${
-                                  Number(a.overallScore) >= 70 ? "bg-green-500/20 text-green-400" :
-                                  Number(a.overallScore) >= 50 ? "bg-amber-500/20 text-amber-400" :
-                                  "bg-red-500/20 text-red-400"
-                                }`}>
-                                  {a.overallScore}%
-                                </span>
-                              ) : "-"}
-                            </td>
-                            <td className={`py-2 px-3 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                              {a.status}
-                            </td>
-                            <td className={`py-2 px-3 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                              {new Date(a.createdAt).toLocaleDateString()}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {applications.length > 10 && (
-                      <p className={`mt-4 text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                        Showing 10 of {applications.length} records. Export to see all.
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Hiring Analytics */}
-            {activeReport === "hiring" && hiringReport && (
-              <div className="space-y-6">
-                {/* Summary Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className={`p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                    <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                      {hiringReport.summary.totalApplications}
-                    </p>
-                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>Total Applications</p>
-                  </div>
-                  <div className={`p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                    <p className="text-2xl font-bold text-green-400">{hiringReport.summary.hired}</p>
-                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>Hired</p>
-                  </div>
-                  <div className={`p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                    <p className={`text-2xl font-bold ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
-                      {hiringReport.summary.hireRate}%
-                    </p>
-                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>Hire Rate</p>
-                  </div>
-                  <div className={`p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                    <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                      {hiringReport.summary.avgHiredScore || "-"}%
-                    </p>
-                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>Avg Hired Score</p>
-                  </div>
-                </div>
-
-                {/* By Job Table */}
-                <div>
-                  <h4 className={`font-medium mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
-                    By Position
-                  </h4>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className={isDark ? "text-slate-400" : "text-gray-500"}>
-                        <th className="text-left py-2 px-3">Position</th>
-                        <th className="text-left py-2 px-3">Total</th>
-                        <th className="text-left py-2 px-3">Hired</th>
-                        <th className="text-left py-2 px-3">Rejected</th>
-                        <th className="text-left py-2 px-3">Hire Rate</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {hiringReport.byJob.map((job) => (
-                        <tr key={job.jobTitle} className={`border-t ${isDark ? "border-slate-700" : "border-gray-100"}`}>
-                          <td className={`py-2 px-3 ${isDark ? "text-white" : "text-gray-900"}`}>
-                            {job.jobTitle}
-                          </td>
-                          <td className={`py-2 px-3 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                            {job.total}
-                          </td>
-                          <td className="py-2 px-3 text-green-400">{job.hired}</td>
-                          <td className="py-2 px-3 text-red-400">{job.rejected}</td>
-                          <td className={`py-2 px-3 ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
-                            {job.hireRate}%
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Equipment Report */}
-            {activeReport === "equipment" && equipmentReport && (() => {
-              // Get unique equipment types and sort them
-              const equipmentTypes = [...new Set(equipmentReport.equipment.map(eq => eq.type))].sort();
-
-              // Filter equipment by selected type
-              const filteredEquipment = equipmentTypeFilter === "all"
-                ? equipmentReport.equipment
-                : equipmentReport.equipment.filter(eq => eq.type === equipmentTypeFilter);
-
-              // Sort by type, then by number
-              const sortedEquipment = [...filteredEquipment].sort((a, b) => {
-                const typeCompare = a.type.localeCompare(b.type);
-                if (typeCompare !== 0) return typeCompare;
-                return (a.number || "").localeCompare(b.number || "");
-              });
-
-              return (
-              <div className="space-y-6">
-                {/* Filter by Type */}
-                <div className="flex items-center gap-4">
-                  <label className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                    Filter by Type:
-                  </label>
-                  <select
-                    value={equipmentTypeFilter}
-                    onChange={(e) => setEquipmentTypeFilter(e.target.value)}
-                    className={`px-3 py-2 rounded-lg text-sm ${isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-gray-200 text-gray-900"} border`}
-                  >
-                    <option value="all">All Equipment ({equipmentReport.equipment.length})</option>
-                    {equipmentTypes.map(type => {
-                      const count = equipmentReport.equipment.filter(eq => eq.type === type).length;
-                      return (
-                        <option key={type} value={type}>{type} ({count})</option>
-                      );
-                    })}
-                  </select>
-                </div>
-
-                {/* Summary Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className={`p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                    <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                      {equipmentReport.summary.totalScanners}
-                    </p>
-                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>Scanners</p>
-                  </div>
-                  <div className={`p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                    <p className="text-2xl font-bold text-green-400">
-                      {equipmentReport.summary.scannersAvailable}
-                    </p>
-                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>Available</p>
-                  </div>
-                  <div className={`p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                    <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                      {equipmentReport.summary.totalPickers}
-                    </p>
-                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>Pickers</p>
-                  </div>
-                  <div className={`p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                    <p className="text-2xl font-bold text-green-400">
-                      {equipmentReport.summary.pickersAvailable}
-                    </p>
-                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>Available</p>
-                  </div>
-                </div>
-
-                {/* Equipment Table - shows all filtered items */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className={isDark ? "text-slate-400" : "text-gray-500"}>
-                        <th className="text-left py-2 px-3">Type</th>
-                        <th className="text-left py-2 px-3">Number</th>
-                        <th className="text-left py-2 px-3">Model</th>
-                        <th className="text-left py-2 px-3">Status</th>
-                        <th className="text-left py-2 px-3">Assigned To</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedEquipment.map((eq, i) => (
-                        <tr key={i} className={`border-t ${isDark ? "border-slate-700" : "border-gray-100"}`}>
-                          <td className={`py-2 px-3 ${isDark ? "text-white" : "text-gray-900"}`}>
-                            {eq.type}
-                          </td>
-                          <td className={`py-2 px-3 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                            #{eq.number}
-                          </td>
-                          <td className={`py-2 px-3 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                            {eq.model || "-"}
-                          </td>
-                          <td className="py-2 px-3">
-                            <span className={`px-2 py-0.5 text-xs rounded-full ${
-                              eq.status === "available" ? "bg-green-500/20 text-green-400" :
-                              eq.status === "assigned" ? "bg-cyan-500/20 text-cyan-400" :
-                              eq.status === "inactive" ? "bg-slate-500/20 text-slate-400" :
-                              eq.status === "inoperable" ? "bg-red-500/20 text-red-400" :
-                              "bg-amber-500/20 text-amber-400"
-                            }`}>
-                              {eq.status}
-                            </span>
-                          </td>
-                          <td className={`py-2 px-3 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                            {eq.assignedTo || "-"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <p className={`text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                  Showing {sortedEquipment.length} of {equipmentReport.equipment.length} total equipment items
-                </p>
-              </div>
-              );
-            })()}
-
-            {/* Attendance Report */}
-            {activeReport === "attendance" && (
-              <div className="space-y-6">
-                {!startDate || !endDate ? (
-                  <div className={`text-center py-8 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                    <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            {/* Report Content Card */}
+            <Card padding="md">
+              <SectionHeader
+                title={`${reportTypes.find((r) => r.id === activeReport)?.label} Report`}
+                actions={
+                  <Button variant="primary" onClick={handleExport}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                    <p>Select a date range to view attendance records</p>
-                  </div>
-                ) : attendanceReport ? (
-                  <>
-                    {/* Summary Cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                      {attendanceReport.summary.map((s) => (
-                        <div key={s.name} className={`p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                          <p className={`font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>{s.name}</p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className="text-green-400 text-sm">{s.present}P</span>
-                            <span className="text-amber-400 text-sm">{s.late}L</span>
-                            <span className="text-red-400 text-sm">{s.absent}A</span>
-                          </div>
-                          <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
-                            {s.attendanceRate}% attendance
-                          </p>
-                        </div>
-                      ))}
-                    </div>
+                    Export CSV
+                  </Button>
+                }
+              />
 
-                    {/* Records Table */}
-                    <div className="overflow-x-auto">
-                      <p className={`mb-4 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                        {attendanceReport.records.length} attendance records
+              {/* Personnel Report */}
+              {activeReport === "personnel" && (
+                <div className="overflow-x-auto">
+                  {personnel ? (
+                    <>
+                      <p className="mb-4 text-sm theme-text-secondary">
+                        {personnel.length} personnel records
                       </p>
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className={isDark ? "text-slate-400" : "text-gray-500"}>
-                            <th className="text-left py-2 px-3">Date</th>
-                            <th className="text-left py-2 px-3">Employee</th>
-                            <th className="text-left py-2 px-3">Status</th>
-                            <th className="text-left py-2 px-3">Scheduled</th>
-                            <th className="text-left py-2 px-3">Actual</th>
-                            <th className="text-left py-2 px-3">Hours</th>
+                          <tr className="border-b theme-border-secondary">
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Name</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Position</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Department</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Status</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Hire Date</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {attendanceReport.records.slice(0, 20).map((r) => (
-                            <tr key={r.id} className={`border-t ${isDark ? "border-slate-700" : "border-gray-100"}`}>
-                              <td className={`py-2 px-3 ${isDark ? "text-white" : "text-gray-900"}`}>
-                                {r.date}
+                          {personnel.slice(0, 10).map((p) => (
+                            <tr key={p.id} className="border-t theme-border-secondary hover:bg-black/3 dark:hover:bg-white/3">
+                              <td className="py-2 px-3 font-medium theme-text-primary">
+                                {p.firstName} {p.lastName}
                               </td>
-                              <td className={`py-2 px-3 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                                {r.personnelName}
-                              </td>
+                              <td className="py-2 px-3 theme-text-secondary">{p.position}</td>
+                              <td className="py-2 px-3 theme-text-secondary">{p.department}</td>
                               <td className="py-2 px-3">
                                 <span className={`px-2 py-0.5 text-xs rounded-full ${
-                                  r.status === "present" ? "bg-green-500/20 text-green-400" :
-                                  r.status === "late" ? "bg-amber-500/20 text-amber-400" :
-                                  r.status === "excused" ? "bg-blue-500/20 text-blue-400" :
-                                  "bg-red-500/20 text-red-400"
+                                  p.status === "active"
+                                    ? "bg-green-500/20 text-green-600 dark:text-green-400"
+                                    : "bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400"
                                 }`}>
-                                  {r.status.replace("_", " ")}
+                                  {p.status}
                                 </span>
                               </td>
-                              <td className={`py-2 px-3 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                                {r.scheduledStart} - {r.scheduledEnd}
+                              <td className="py-2 px-3 theme-text-secondary">{p.hireDate}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {personnel.length > 10 && (
+                        <p className="mt-4 text-sm theme-text-tertiary">
+                          Showing 10 of {personnel.length} records. Export to see all.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex justify-center py-8">
+                      <div className="w-8 h-8 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Applications Report */}
+              {activeReport === "applications" && (
+                <div className="overflow-x-auto">
+                  {applications ? (
+                    <>
+                      <p className="mb-4 text-sm theme-text-secondary">
+                        {applications.length} applications
+                      </p>
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b theme-border-secondary">
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Name</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Position</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Score</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Status</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Applied</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {applications.slice(0, 10).map((a) => (
+                            <tr key={a.id} className="border-t theme-border-secondary hover:bg-black/3 dark:hover:bg-white/3">
+                              <td className="py-2 px-3 font-medium theme-text-primary">
+                                {a.firstName} {a.lastName}
                               </td>
-                              <td className={`py-2 px-3 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                                {r.actualStart || "-"} - {r.actualEnd || "-"}
+                              <td className="py-2 px-3 theme-text-secondary">{a.appliedJobTitle}</td>
+                              <td className="py-2 px-3">
+                                {a.overallScore ? (
+                                  <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                    Number(a.overallScore) >= 70 ? "bg-green-500/20 text-green-600 dark:text-green-400" :
+                                    Number(a.overallScore) >= 50 ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" :
+                                    "bg-red-500/20 text-red-600 dark:text-red-400"
+                                  }`}>
+                                    {a.overallScore}%
+                                  </span>
+                                ) : "-"}
                               </td>
-                              <td className={`py-2 px-3 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                                {r.hoursWorked.toFixed(1)}
+                              <td className="py-2 px-3 theme-text-secondary">{a.status}</td>
+                              <td className="py-2 px-3 theme-text-secondary">
+                                {new Date(a.createdAt).toLocaleDateString()}
                               </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
-                      {attendanceReport.records.length > 20 && (
-                        <p className={`mt-4 text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                          Showing 20 of {attendanceReport.records.length} records. Export to see all.
+                      {applications.length > 10 && (
+                        <p className="mt-4 text-sm theme-text-tertiary">
+                          Showing 10 of {applications.length} records. Export to see all.
                         </p>
                       )}
+                    </>
+                  ) : (
+                    <div className="flex justify-center py-8">
+                      <div className="w-8 h-8 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin" />
                     </div>
-                  </>
-                ) : (
-                  <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+                  )}
+                </div>
+              )}
+
+              {/* Hiring Analytics */}
+              {activeReport === "hiring" && hiringReport && (
+                <div className="space-y-6">
+                  {/* Summary KPI Cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/50 border theme-border-secondary">
+                      <p className="text-2xl font-bold theme-text-primary">{hiringReport.summary.totalApplications}</p>
+                      <p className="text-sm theme-text-secondary mt-1">Total Applications</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/50 border theme-border-secondary">
+                      <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{hiringReport.summary.hired}</p>
+                      <p className="text-sm theme-text-secondary mt-1">Hired</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/50 border theme-border-secondary">
+                      <p className="text-2xl font-bold text-[#007AFF]">{hiringReport.summary.hireRate}%</p>
+                      <p className="text-sm theme-text-secondary mt-1">Hire Rate</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/50 border theme-border-secondary">
+                      <p className="text-2xl font-bold theme-text-primary">{hiringReport.summary.avgHiredScore || "-"}%</p>
+                      <p className="text-sm theme-text-secondary mt-1">Avg Hired Score</p>
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
 
-            {/* Weekly Overview Report */}
-            {activeReport === "weekly" && (
-              <div className="space-y-6">
-                {weeklyOverview ? (
-                  <>
-                    {/* Date Range Header */}
-                    <div className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                      Week of {new Date(weeklyOverview.startDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {new Date(weeklyOverview.endDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                    </div>
-
-                    {/* Summary Cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                        <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                          {weeklyOverview.totals.totalLogs}
-                        </p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>Logs Submitted</p>
-                      </div>
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                        <p className={`text-2xl font-bold ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
-                          {weeklyOverview.totals.totalHours.toFixed(1)}
-                        </p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>Hours Worked</p>
-                      </div>
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                        <p className="text-2xl font-bold text-green-400">
-                          {weeklyOverview.totals.totalAccomplishments}
-                        </p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>Accomplishments</p>
-                      </div>
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                        <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                          {weeklyOverview.totals.uniqueUsers}
-                        </p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>Team Members</p>
-                      </div>
-                    </div>
-
-                    {/* Per-User Breakdown */}
-                    {weeklyOverview.userSummaries.length > 0 ? (
-                      <div>
-                        <h4 className={`font-medium mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
-                          Per-User Breakdown
-                        </h4>
-                        <div className="space-y-4">
-                          {weeklyOverview.userSummaries.map((user) => (
-                            <div
-                              key={user.userId}
-                              className={`border rounded-lg p-4 ${isDark ? "bg-slate-900/30 border-slate-700" : "bg-gray-50 border-gray-200"}`}
-                            >
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-3">
-                                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium ${isDark ? "bg-cyan-600" : "bg-blue-600"}`}>
-                                    {user.userName.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                                  </div>
-                                  <div>
-                                    <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                                      {user.userName}
-                                    </p>
-                                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                                      {user.daysLogged} day{user.daysLogged !== 1 ? "s" : ""} logged &middot; {user.totalHours.toFixed(1)} hours
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-4 text-sm">
-                                  <span className={`${isDark ? "text-green-400" : "text-green-600"}`}>
-                                    {user.totalAccomplishments} accomplishments
-                                  </span>
-                                  {user.blockers.length > 0 && (
-                                    <span className={`${isDark ? "text-amber-400" : "text-amber-600"}`}>
-                                      {user.blockers.length} blocker{user.blockers.length !== 1 ? "s" : ""}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Expandable Details */}
-                              <details className="mt-2">
-                                <summary className={`cursor-pointer text-sm ${isDark ? "text-slate-400 hover:text-slate-300" : "text-gray-500 hover:text-gray-700"}`}>
-                                  View daily details
-                                </summary>
-                                <div className="mt-3 space-y-3">
-                                  {user.logs
-                                    .sort((a, b) => a.date.localeCompare(b.date))
-                                    .map((log) => (
-                                      <div
-                                        key={log._id}
-                                        className={`border-l-2 pl-3 ${isDark ? "border-slate-600" : "border-gray-300"}`}
-                                      >
-                                        <p className={`text-sm font-medium ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                                          {new Date(log.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                                          {log.hoursWorked && (
-                                            <span className={`ml-2 font-normal ${isDark ? "text-slate-500" : "text-gray-500"}`}>
-                                              ({log.hoursWorked}h)
-                                            </span>
-                                          )}
-                                        </p>
-                                        <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                                          {log.summary}
-                                        </p>
-                                        {log.accomplishments.length > 0 && (
-                                          <ul className={`mt-2 text-sm list-disc list-inside ${isDark ? "text-green-400/80" : "text-green-700"}`}>
-                                            {log.accomplishments.map((acc, i) => (
-                                              <li key={i}>{acc}</li>
-                                            ))}
-                                          </ul>
-                                        )}
-                                        {log.blockers && (
-                                          <p className={`mt-2 text-sm ${isDark ? "text-amber-400/80" : "text-amber-700"}`}>
-                                            <span className="font-medium">Blocker:</span> {log.blockers}
-                                          </p>
-                                        )}
-                                      </div>
-                                    ))}
-                                </div>
-                              </details>
-                            </div>
+                  {/* By Job Table */}
+                  <div>
+                    <div className="ui-section-label mb-3">By Position</div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b theme-border-secondary">
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Position</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Total</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Hired</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Rejected</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Hire Rate</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {hiringReport.byJob.map((job) => (
+                            <tr key={job.jobTitle} className="border-t theme-border-secondary hover:bg-black/3 dark:hover:bg-white/3">
+                              <td className="py-2 px-3 font-medium theme-text-primary">{job.jobTitle}</td>
+                              <td className="py-2 px-3 theme-text-secondary">{job.total}</td>
+                              <td className="py-2 px-3 text-emerald-600 dark:text-emerald-400">{job.hired}</td>
+                              <td className="py-2 px-3 text-red-500 dark:text-red-400">{job.rejected}</td>
+                              <td className="py-2 px-3 text-[#007AFF]">{job.hireRate}%</td>
+                            </tr>
                           ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Equipment Report */}
+              {activeReport === "equipment" && equipmentReport && (() => {
+                // Get unique equipment types and sort them
+                const equipmentTypes = [...new Set(equipmentReport.equipment.map(eq => eq.type))].sort();
+
+                // Filter equipment by selected type
+                const filteredEquipment = equipmentTypeFilter === "all"
+                  ? equipmentReport.equipment
+                  : equipmentReport.equipment.filter(eq => eq.type === equipmentTypeFilter);
+
+                // Sort by type, then by number
+                const sortedEquipment = [...filteredEquipment].sort((a, b) => {
+                  const typeCompare = a.type.localeCompare(b.type);
+                  if (typeCompare !== 0) return typeCompare;
+                  return (a.number || "").localeCompare(b.number || "");
+                });
+
+                return (
+                  <div className="space-y-6">
+                    {/* Filter by Type */}
+                    <div className="flex items-center gap-3">
+                      <span className="ui-section-label">Filter by Type:</span>
+                      <select
+                        value={equipmentTypeFilter}
+                        onChange={(e) => setEquipmentTypeFilter(e.target.value)}
+                        className="theme-input px-3 py-2 text-sm"
+                      >
+                        <option value="all">All Equipment ({equipmentReport.equipment.length})</option>
+                        {equipmentTypes.map(type => {
+                          const count = equipmentReport.equipment.filter(eq => eq.type === type).length;
+                          return (
+                            <option key={type} value={type}>{type} ({count})</option>
+                          );
+                        })}
+                      </select>
+                    </div>
+
+                    {/* Summary KPI Cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/50 border theme-border-secondary">
+                        <p className="text-2xl font-bold theme-text-primary">{equipmentReport.summary.totalScanners}</p>
+                        <p className="text-sm theme-text-secondary mt-1">Scanners</p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/50 border theme-border-secondary">
+                        <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{equipmentReport.summary.scannersAvailable}</p>
+                        <p className="text-sm theme-text-secondary mt-1">Available</p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/50 border theme-border-secondary">
+                        <p className="text-2xl font-bold theme-text-primary">{equipmentReport.summary.totalPickers}</p>
+                        <p className="text-sm theme-text-secondary mt-1">Pickers</p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/50 border theme-border-secondary">
+                        <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{equipmentReport.summary.pickersAvailable}</p>
+                        <p className="text-sm theme-text-secondary mt-1">Available</p>
+                      </div>
+                    </div>
+
+                    {/* Equipment Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b theme-border-secondary">
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Type</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Number</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Model</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Status</th>
+                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Assigned To</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sortedEquipment.map((eq, i) => (
+                            <tr key={i} className="border-t theme-border-secondary hover:bg-black/3 dark:hover:bg-white/3">
+                              <td className="py-2 px-3 font-medium theme-text-primary">{eq.type}</td>
+                              <td className="py-2 px-3 theme-text-secondary">#{eq.number}</td>
+                              <td className="py-2 px-3 theme-text-secondary">{eq.model || "-"}</td>
+                              <td className="py-2 px-3">
+                                <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                  eq.status === "available" ? "bg-green-500/20 text-green-600 dark:text-green-400" :
+                                  eq.status === "assigned" ? "bg-blue-500/20 text-[#007AFF]" :
+                                  eq.status === "inactive" ? "bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400" :
+                                  eq.status === "inoperable" ? "bg-red-500/20 text-red-600 dark:text-red-400" :
+                                  "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                                }`}>
+                                  {eq.status}
+                                </span>
+                              </td>
+                              <td className="py-2 px-3 theme-text-secondary">{eq.assignedTo || "-"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-sm theme-text-tertiary">
+                      Showing {sortedEquipment.length} of {equipmentReport.equipment.length} total equipment items
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* Attendance Report */}
+              {activeReport === "attendance" && (
+                <div className="space-y-6">
+                  {!startDate || !endDate ? (
+                    <div className="text-center py-8 theme-text-secondary">
+                      <svg className="w-12 h-12 mx-auto mb-4 theme-text-tertiary opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <p>Select a date range to view attendance records</p>
+                    </div>
+                  ) : attendanceReport ? (
+                    <>
+                      {/* Summary Cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        {attendanceReport.summary.map((s) => (
+                          <div key={s.name} className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/50 border theme-border-secondary">
+                            <p className="font-medium truncate theme-text-primary">{s.name}</p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <span className="text-emerald-600 dark:text-emerald-400 text-sm">{s.present}P</span>
+                              <span className="text-amber-600 dark:text-amber-400 text-sm">{s.late}L</span>
+                              <span className="text-red-500 dark:text-red-400 text-sm">{s.absent}A</span>
+                            </div>
+                            <p className="text-xs mt-1 theme-text-tertiary">{s.attendanceRate}% attendance</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Records Table */}
+                      <div className="overflow-x-auto">
+                        <p className="mb-4 text-sm theme-text-secondary">
+                          {attendanceReport.records.length} attendance records
+                        </p>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b theme-border-secondary">
+                              <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Date</th>
+                              <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Employee</th>
+                              <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Status</th>
+                              <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Scheduled</th>
+                              <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Actual</th>
+                              <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Hours</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {attendanceReport.records.slice(0, 20).map((r) => (
+                              <tr key={r.id} className="border-t theme-border-secondary hover:bg-black/3 dark:hover:bg-white/3">
+                                <td className="py-2 px-3 theme-text-primary">{r.date}</td>
+                                <td className="py-2 px-3 theme-text-secondary">{r.personnelName}</td>
+                                <td className="py-2 px-3">
+                                  <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                    r.status === "present" ? "bg-green-500/20 text-green-600 dark:text-green-400" :
+                                    r.status === "late" ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" :
+                                    r.status === "excused" ? "bg-blue-500/20 text-[#007AFF]" :
+                                    "bg-red-500/20 text-red-600 dark:text-red-400"
+                                  }`}>
+                                    {r.status.replace("_", " ")}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 theme-text-secondary">{r.scheduledStart} - {r.scheduledEnd}</td>
+                                <td className="py-2 px-3 theme-text-secondary">{r.actualStart || "-"} - {r.actualEnd || "-"}</td>
+                                <td className="py-2 px-3 theme-text-secondary">{r.hoursWorked.toFixed(1)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {attendanceReport.records.length > 20 && (
+                          <p className="mt-4 text-sm theme-text-tertiary">
+                            Showing 20 of {attendanceReport.records.length} records. Export to see all.
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-center py-8">
+                      <div className="w-8 h-8 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Weekly Overview Report */}
+              {activeReport === "weekly" && (
+                <div className="space-y-6">
+                  {weeklyOverview ? (
+                    <>
+                      {/* Date Range Header */}
+                      <div className="text-sm theme-text-secondary">
+                        Week of {new Date(weeklyOverview.startDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {new Date(weeklyOverview.endDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </div>
+
+                      {/* Summary KPI Cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/50 border theme-border-secondary">
+                          <p className="text-2xl font-bold theme-text-primary">{weeklyOverview.totals.totalLogs}</p>
+                          <p className="text-sm theme-text-secondary mt-1">Logs Submitted</p>
+                        </div>
+                        <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/50 border theme-border-secondary">
+                          <p className="text-2xl font-bold text-[#007AFF]">{weeklyOverview.totals.totalHours.toFixed(1)}</p>
+                          <p className="text-sm theme-text-secondary mt-1">Hours Worked</p>
+                        </div>
+                        <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/50 border theme-border-secondary">
+                          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{weeklyOverview.totals.totalAccomplishments}</p>
+                          <p className="text-sm theme-text-secondary mt-1">Accomplishments</p>
+                        </div>
+                        <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/50 border theme-border-secondary">
+                          <p className="text-2xl font-bold theme-text-primary">{weeklyOverview.totals.uniqueUsers}</p>
+                          <p className="text-sm theme-text-secondary mt-1">Team Members</p>
                         </div>
                       </div>
-                    ) : (
-                      <div className={`text-center py-8 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                        <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <p>No submitted daily logs for this week</p>
-                        <p className={`text-sm mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                          Team members can submit daily logs from the Daily Log page
-                        </p>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
-                  </div>
-                )}
-              </div>
-            )}
 
-            {activeReport === "sales" && (
-              <SalesDashboard isDark={isDark} />
-            )}
-          </div>
+                      {/* Per-User Breakdown */}
+                      {weeklyOverview.userSummaries.length > 0 ? (
+                        <div>
+                          <div className="ui-section-label mb-3">Per-User Breakdown</div>
+                          <div className="space-y-4">
+                            {weeklyOverview.userSummaries.map((user) => (
+                              <div
+                                key={user.userId}
+                                className="theme-card p-4"
+                              >
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-medium bg-[#007AFF]">
+                                      {user.userName.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                                    </div>
+                                    <div>
+                                      <p className="font-medium theme-text-primary">{user.userName}</p>
+                                      <p className="text-sm theme-text-tertiary">
+                                        {user.daysLogged} day{user.daysLogged !== 1 ? "s" : ""} logged &middot; {user.totalHours.toFixed(1)} hours
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-4 text-sm">
+                                    <span className="text-emerald-600 dark:text-emerald-400">
+                                      {user.totalAccomplishments} accomplishments
+                                    </span>
+                                    {user.blockers.length > 0 && (
+                                      <span className="text-amber-600 dark:text-amber-400">
+                                        {user.blockers.length} blocker{user.blockers.length !== 1 ? "s" : ""}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Expandable Details */}
+                                <details className="mt-2">
+                                  <summary className="cursor-pointer text-sm theme-text-tertiary hover:theme-text-secondary">
+                                    View daily details
+                                  </summary>
+                                  <div className="mt-3 space-y-3">
+                                    {user.logs
+                                      .sort((a, b) => a.date.localeCompare(b.date))
+                                      .map((log) => (
+                                        <div
+                                          key={log._id}
+                                          className="border-l-2 pl-3 theme-border-secondary"
+                                        >
+                                          <p className="text-sm font-medium theme-text-secondary">
+                                            {new Date(log.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                                            {log.hoursWorked && (
+                                              <span className="ml-2 font-normal theme-text-tertiary">
+                                                ({log.hoursWorked}h)
+                                              </span>
+                                            )}
+                                          </p>
+                                          <p className="text-sm mt-1 theme-text-secondary">{log.summary}</p>
+                                          {log.accomplishments.length > 0 && (
+                                            <ul className="mt-2 text-sm list-disc list-inside text-emerald-700 dark:text-emerald-400/80">
+                                              {log.accomplishments.map((acc, i) => (
+                                                <li key={i}>{acc}</li>
+                                              ))}
+                                            </ul>
+                                          )}
+                                          {log.blockers && (
+                                            <p className="mt-2 text-sm text-amber-700 dark:text-amber-400/80">
+                                              <span className="font-medium">Blocker:</span> {log.blockers}
+                                            </p>
+                                          )}
+                                        </div>
+                                      ))}
+                                  </div>
+                                </details>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 theme-text-secondary">
+                          <svg className="w-12 h-12 mx-auto mb-4 theme-text-tertiary opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <p>No submitted daily logs for this week</p>
+                          <p className="text-sm mt-1 theme-text-tertiary">
+                            Team members can submit daily logs from the Daily Log page
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex justify-center py-8">
+                      <div className="w-8 h-8 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeReport === "sales" && (
+                <SalesDashboard isDark={isDark} />
+              )}
+            </Card>
           </div>
         </div>
       </main>
@@ -1211,14 +1132,16 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
   // Monthly trend for sparkline
   const trendData = useMemo(() => monthlyTrend.filter(m => m.hasData), [monthlyTrend]);
 
-  const cardClass = `rounded-xl border p-5 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`;
-
-  if (loading) return <div className="flex justify-center py-16"><div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className="flex justify-center py-16">
+      <div className="w-8 h-8 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
 
   if (availableMonths.length === 0) return (
-    <div className={`text-center py-16 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-      <p className="text-lg font-medium">No sales data yet</p>
-      <p className="text-sm mt-1">Upload a JMK report through the Dunlop Reporting tool to populate the dashboard.</p>
+    <div className="text-center py-16 theme-text-secondary">
+      <p className="text-lg font-medium theme-text-primary">No sales data yet</p>
+      <p className="text-sm mt-1 theme-text-tertiary">Upload a JMK report through the Dunlop Reporting tool to populate the dashboard.</p>
     </div>
   );
 
@@ -1226,20 +1149,24 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
     <div className="space-y-6">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className={`px-3 py-1.5 rounded-lg border text-sm ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}>
+        <select
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          className="theme-input px-3 py-1.5 text-sm"
+        >
           {availableMonths.map(m => <option key={m} value={m}>{fmtMonth(m)}</option>)}
         </select>
 
         {/* Location filter */}
         {allLocations.length > 0 && (
           <div className="flex items-center gap-1">
-            <span className={`text-xs mr-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Locations:</span>
+            <span className="text-xs ui-section-label mr-1">Locations:</span>
             <button
               onClick={() => setSelectedLocations(new Set())}
               className={`px-2 py-1 text-xs rounded-md transition-colors ${
                 selectedLocations.size === 0
-                  ? isDark ? "bg-cyan-500/20 text-cyan-400 font-medium" : "bg-blue-100 text-blue-700 font-medium"
-                  : isDark ? "text-slate-400 hover:bg-slate-700" : "text-gray-500 hover:bg-gray-100"
+                  ? "bg-[#007AFF]/15 text-[#007AFF] font-medium"
+                  : "theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5"
               }`}
             >
               All
@@ -1262,8 +1189,8 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
                   }}
                   className={`px-2 py-1 text-xs rounded-md transition-colors ${
                     isSelected
-                      ? isDark ? "bg-cyan-500/20 text-cyan-400 font-medium" : "bg-blue-100 text-blue-700 font-medium"
-                      : isDark ? "text-slate-400 hover:bg-slate-700" : "text-gray-500 hover:bg-gray-100"
+                      ? "bg-[#007AFF]/15 text-[#007AFF] font-medium"
+                      : "theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5"
                   }`}
                 >
                   {LOC_NAMES[loc]?.replace(/ \(.*\)/, "") || loc}
@@ -1274,7 +1201,7 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
         )}
 
         {prevAgg && (
-          <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+          <span className="text-xs theme-text-tertiary">
             vs {fmtMonth(compareData?.prevMonth?.month || "")} (MoM)
             {yoyAgg && ` / ${fmtMonth(compareData?.yoyMonth?.month || "")} (YoY)`}
           </span>
@@ -1283,36 +1210,36 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
 
       {/* KPI Cards with MoM/YoY badges */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className={cardClass}>
-          <p className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Total Revenue</p>
-          <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{fmtCurrency(kpis.totalRevenue)}</p>
+        <div className="theme-card p-5">
+          <p className="text-xs font-medium theme-text-tertiary">Total Revenue</p>
+          <p className="text-2xl font-bold theme-text-primary mt-1">{fmtCurrency(kpis.totalRevenue)}</p>
           <div className="flex items-center gap-2 mt-1">
             {prevKpis && <ChangeBadge current={kpis.totalRevenue} previous={prevKpis.totalRevenue} isDark={isDark} />}
-            {yoyKpis && <span className={`text-[10px] ${isDark ? "text-slate-500" : "text-gray-400"}`}>YoY: <ChangeBadge current={kpis.totalRevenue} previous={yoyKpis.totalRevenue} isDark={isDark} /></span>}
+            {yoyKpis && <span className="text-[10px] theme-text-tertiary">YoY: <ChangeBadge current={kpis.totalRevenue} previous={yoyKpis.totalRevenue} isDark={isDark} /></span>}
           </div>
         </div>
-        <div className={cardClass}>
-          <p className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Units Sold</p>
-          <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{kpis.totalUnits.toLocaleString()}</p>
+        <div className="theme-card p-5">
+          <p className="text-xs font-medium theme-text-tertiary">Units Sold</p>
+          <p className="text-2xl font-bold theme-text-primary mt-1">{kpis.totalUnits.toLocaleString()}</p>
           <div className="flex items-center gap-2 mt-1">
             {prevKpis && <ChangeBadge current={kpis.totalUnits} previous={prevKpis.totalUnits} isDark={isDark} />}
-            {yoyKpis && <span className={`text-[10px] ${isDark ? "text-slate-500" : "text-gray-400"}`}>YoY: <ChangeBadge current={kpis.totalUnits} previous={yoyKpis.totalUnits} isDark={isDark} /></span>}
+            {yoyKpis && <span className="text-[10px] theme-text-tertiary">YoY: <ChangeBadge current={kpis.totalUnits} previous={yoyKpis.totalUnits} isDark={isDark} /></span>}
           </div>
         </div>
-        <div className={cardClass}>
-          <p className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Avg Price / Unit</p>
-          <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{fmtCurrency(kpis.avgPrice)}</p>
+        <div className="theme-card p-5">
+          <p className="text-xs font-medium theme-text-tertiary">Avg Price / Unit</p>
+          <p className="text-2xl font-bold theme-text-primary mt-1">{fmtCurrency(kpis.avgPrice)}</p>
           <div className="flex items-center gap-2 mt-1">
             {prevKpis && <ChangeBadge current={kpis.avgPrice} previous={prevKpis.avgPrice} isDark={isDark} />}
           </div>
         </div>
-        <div className={cardClass}>
-          <p className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Unique Customers</p>
-          <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{kpis.uniqueCustomers.toLocaleString()}</p>
+        <div className="theme-card p-5">
+          <p className="text-xs font-medium theme-text-tertiary">Unique Customers</p>
+          <p className="text-2xl font-bold theme-text-primary mt-1">{kpis.uniqueCustomers.toLocaleString()}</p>
           <div className="flex items-center gap-2 mt-1">
             {prevKpis && <ChangeBadge current={kpis.uniqueCustomers} previous={prevKpis.uniqueCustomers} isDark={isDark} />}
             {retentionRate !== null && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isDark ? "bg-blue-500/15 text-blue-400" : "bg-blue-50 text-blue-600"}`}>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#007AFF]/10 text-[#007AFF]">
                 {retentionRate}% retained
               </span>
             )}
@@ -1322,8 +1249,8 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
 
       {/* Monthly Revenue Trend (12mo sparkline) */}
       {trendData.length > 1 && (
-        <div className={cardClass}>
-          <h3 className={`text-sm font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>Monthly Revenue Trend</h3>
+        <div className="theme-card p-5">
+          <h3 className="text-sm font-semibold theme-text-primary mb-4">Monthly Revenue Trend</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={trendData}>
               <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#334155" : "#e5e7eb"} />
@@ -1344,9 +1271,9 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
 
       {/* Location MoM Comparison */}
       {locationComparison.length > 0 && prevAgg && (
-        <div className={cardClass}>
-          <h3 className={`text-sm font-semibold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>Revenue by Location — Month over Month</h3>
-          <p className={`text-xs mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>{fmtMonth(selectedMonth)} vs {fmtMonth(compareData?.prevMonth?.month || "")}</p>
+        <div className="theme-card p-5">
+          <h3 className="text-sm font-semibold theme-text-primary mb-1">Revenue by Location — Month over Month</h3>
+          <p className="text-xs theme-text-tertiary mb-4">{fmtMonth(selectedMonth)} vs {fmtMonth(compareData?.prevMonth?.month || "")}</p>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={locationComparison}>
               <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#334155" : "#e5e7eb"} />
@@ -1362,8 +1289,8 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
       )}
 
       {/* Daily Trend */}
-      <div className={cardClass}>
-        <h3 className={`text-sm font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>Daily Revenue</h3>
+      <div className="theme-card p-5">
+        <h3 className="text-sm font-semibold theme-text-primary mb-4">Daily Revenue</h3>
         <ResponsiveContainer width="100%" height={280}>
           <LineChart data={dailyTrend}>
             <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#334155" : "#e5e7eb"} />
@@ -1377,8 +1304,8 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
 
       {/* Two column charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className={cardClass}>
-          <h3 className={`text-sm font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>Revenue by Location</h3>
+        <div className="theme-card p-5">
+          <h3 className="text-sm font-semibold theme-text-primary mb-4">Revenue by Location</h3>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={byLocation} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#334155" : "#e5e7eb"} />
@@ -1389,8 +1316,8 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className={cardClass}>
-          <h3 className={`text-sm font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>Top Brands by Revenue</h3>
+        <div className="theme-card p-5">
+          <h3 className="text-sm font-semibold theme-text-primary mb-4">Top Brands by Revenue</h3>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={byBrand} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#334155" : "#e5e7eb"} />
@@ -1401,8 +1328,8 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className={cardClass}>
-          <h3 className={`text-sm font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>Transaction Types</h3>
+        <div className="theme-card p-5">
+          <h3 className="text-sm font-semibold theme-text-primary mb-4">Transaction Types</h3>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie data={byTrnType} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>
@@ -1412,8 +1339,8 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
             </PieChart>
           </ResponsiveContainer>
         </div>
-        <div className={cardClass}>
-          <h3 className={`text-sm font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>Units by Location</h3>
+        <div className="theme-card p-5">
+          <h3 className="text-sm font-semibold theme-text-primary mb-4">Units by Location</h3>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={byLocation}>
               <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#334155" : "#e5e7eb"} />
@@ -1428,21 +1355,21 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
 
       {/* Day-of-Week Analysis */}
       {agg?.dowByLocation && agg.dowByLocation.length > 0 && (
-        <div className={cardClass}>
-          <h3 className={`text-sm font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>Day-of-Week Revenue by Location</h3>
-          <p className={`text-xs mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+        <div className="theme-card p-5">
+          <h3 className="text-sm font-semibold theme-text-primary mb-2">Day-of-Week Revenue by Location</h3>
+          <p className="text-xs theme-text-tertiary mb-4">
             Shows what % of each location&apos;s revenue falls on each day — useful for evaluating Saturday hours.
           </p>
 
           {/* Saturday summary */}
-          <div className={`rounded-lg p-4 mb-4 ${isDark ? "bg-slate-700/30" : "bg-amber-50"}`}>
-            <h4 className={`text-xs font-semibold uppercase mb-2 ${isDark ? "text-amber-400" : "text-amber-700"}`}>Saturday Impact</h4>
+          <div className="rounded-xl p-4 mb-4 bg-amber-50 dark:bg-slate-700/30">
+            <h4 className="text-xs font-semibold uppercase mb-2 text-amber-700 dark:text-amber-400">Saturday Impact</h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {agg.dowByLocation.filter((d: { saturdayTransactions: number }) => d.saturdayTransactions > 0).map((d: { loc: string; saturdayPct: number; saturdayRevenue: number; saturdayUnits: number; saturdayTransactions: number }) => (
-                <div key={d.loc} className={`text-center p-2 rounded ${isDark ? "bg-slate-800/50" : "bg-white"}`}>
-                  <p className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>{LOC_NAMES[d.loc] || d.loc}</p>
-                  <p className={`text-lg font-bold ${d.saturdayPct > 15 ? isDark ? "text-emerald-400" : "text-emerald-600" : isDark ? "text-slate-300" : "text-gray-700"}`}>{d.saturdayPct}%</p>
-                  <p className={`text-[10px] ${isDark ? "text-slate-500" : "text-gray-400"}`}>{fmtCurrency(d.saturdayRevenue)} / {d.saturdayUnits} units</p>
+                <div key={d.loc} className="text-center p-2 rounded-lg theme-card">
+                  <p className="text-xs font-medium theme-text-tertiary">{LOC_NAMES[d.loc] || d.loc}</p>
+                  <p className={`text-lg font-bold ${d.saturdayPct > 15 ? "text-emerald-600 dark:text-emerald-400" : "theme-text-primary"}`}>{d.saturdayPct}%</p>
+                  <p className="text-[10px] theme-text-tertiary">{fmtCurrency(d.saturdayRevenue)} / {d.saturdayUnits} units</p>
                 </div>
               ))}
             </div>
@@ -1452,18 +1379,18 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className={isDark ? "border-b border-slate-700" : "border-b border-gray-200"}>
-                  <th className={`px-3 py-2 text-left text-xs font-semibold ${isDark ? "text-slate-400" : "text-gray-500"}`}>Location</th>
+                <tr className="border-b theme-border-secondary">
+                  <th className="px-3 py-2 text-left text-xs font-semibold theme-text-tertiary">Location</th>
                   {[{d:"Mon",l:"M"},{d:"Tue",l:"T"},{d:"Wed",l:"W"},{d:"Thu",l:"T"},{d:"Fri",l:"F"},{d:"Sat",l:"Sa"}].map(({d,l}) => (
-                    <th key={d} className={`px-3 py-2 text-center text-xs font-semibold ${d === "Sat" ? isDark ? "text-amber-400" : "text-amber-600" : isDark ? "text-slate-400" : "text-gray-500"}`}>{l}</th>
+                    <th key={d} className={`px-3 py-2 text-center text-xs font-semibold ${d === "Sat" ? "text-amber-600 dark:text-amber-400" : "theme-text-tertiary"}`}>{l}</th>
                   ))}
-                  <th className={`px-3 py-2 text-right text-xs font-semibold ${isDark ? "text-slate-400" : "text-gray-500"}`}>Total</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold theme-text-tertiary">Total</th>
                 </tr>
               </thead>
               <tbody>
                 {agg.dowByLocation.map((loc: { loc: string; totalRevenue: number; days: { day: string; revenue: number; pct: number }[] }) => (
-                  <tr key={loc.loc} className={isDark ? "border-t border-slate-700/50" : "border-t border-gray-100"}>
-                    <td className={`px-3 py-2 font-medium text-xs ${isDark ? "text-white" : "text-gray-900"}`}>{LOC_NAMES[loc.loc] || loc.loc}</td>
+                  <tr key={loc.loc} className="border-t theme-border-secondary">
+                    <td className="px-3 py-2 font-medium text-xs theme-text-primary">{LOC_NAMES[loc.loc] || loc.loc}</td>
                     {loc.days.filter(d => d.day !== "Sun").map(d => {
                       const intensity = Math.min(d.pct / 25, 1);
                       const bg = d.day === "Sat"
@@ -1471,13 +1398,13 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
                         : `rgba(${isDark ? "6,182,212" : "8,145,178"}, ${intensity * 0.4})`;
                       return (
                         <td key={d.day} className="px-3 py-2 text-center" style={{ backgroundColor: bg }}>
-                          <span className={`text-xs font-mono font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{d.pct}%</span>
+                          <span className="text-xs font-mono font-bold theme-text-primary">{d.pct}%</span>
                           <br />
-                          <span className={`text-[10px] ${isDark ? "text-slate-400" : "text-gray-500"}`}>{fmtCurrency(d.revenue)}</span>
+                          <span className="text-[10px] theme-text-tertiary">{fmtCurrency(d.revenue)}</span>
                         </td>
                       );
                     })}
-                    <td className={`px-3 py-2 text-right font-mono text-xs font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>{fmtCurrency(loc.totalRevenue)}</td>
+                    <td className="px-3 py-2 text-right font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">{fmtCurrency(loc.totalRevenue)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1487,22 +1414,26 @@ function SalesDashboard({ isDark }: { isDark: boolean }) {
       )}
 
       {/* Top Customers */}
-      <div className={cardClass}>
-        <h3 className={`text-sm font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>Top 20 Customers</h3>
+      <div className="theme-card p-5">
+        <h3 className="text-sm font-semibold theme-text-primary mb-4">Top 20 Customers</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className={isDark ? "border-b border-slate-700" : "border-b border-gray-200"}>
-              {["#", "Customer", "Revenue", "Units", "Txns", "Avg/Unit"].map(h => <th key={h} className={`px-3 py-2 text-left text-xs font-semibold uppercase ${isDark ? "text-slate-400" : "text-gray-500"}`}>{h}</th>)}
-            </tr></thead>
+            <thead>
+              <tr className="border-b theme-border-secondary">
+                {["#", "Customer", "Revenue", "Units", "Txns", "Avg/Unit"].map(h => (
+                  <th key={h} className="px-3 py-2 text-left text-xs font-semibold theme-text-tertiary">{h}</th>
+                ))}
+              </tr>
+            </thead>
             <tbody>
               {topCustomers.map((c, i) => (
-                <tr key={i} className={isDark ? "border-t border-slate-700/50" : "border-t border-gray-100"}>
-                  <td className={`px-3 py-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>{i+1}</td>
-                  <td className={`px-3 py-2 font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{c.name}</td>
-                  <td className={`px-3 py-2 font-mono ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>{fmtCurrency(c.revenue)}</td>
-                  <td className={`px-3 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{c.units}</td>
-                  <td className={`px-3 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{(c as { txns: number }).txns}</td>
-                  <td className={`px-3 py-2 font-mono ${isDark ? "text-slate-400" : "text-gray-500"}`}>{c.units > 0 ? fmtCurrency(c.revenue / c.units) : "-"}</td>
+                <tr key={i} className="border-t theme-border-secondary hover:bg-black/3 dark:hover:bg-white/3">
+                  <td className="px-3 py-2 theme-text-tertiary">{i+1}</td>
+                  <td className="px-3 py-2 font-medium theme-text-primary">{c.name}</td>
+                  <td className="px-3 py-2 font-mono text-emerald-600 dark:text-emerald-400">{fmtCurrency(c.revenue)}</td>
+                  <td className="px-3 py-2 theme-text-secondary">{c.units}</td>
+                  <td className="px-3 py-2 theme-text-secondary">{(c as { txns: number }).txns}</td>
+                  <td className="px-3 py-2 font-mono theme-text-tertiary">{c.units > 0 ? fmtCurrency(c.revenue / c.units) : "-"}</td>
                 </tr>
               ))}
             </tbody>
