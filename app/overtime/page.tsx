@@ -6,8 +6,10 @@ import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useTheme } from "../theme-context";
 import { useAuth } from "../auth-context";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 // Get next Saturday
 function getNextSaturday(): string {
@@ -20,8 +22,6 @@ function getNextSaturday(): string {
 }
 
 function OvertimeContent() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const { user } = useAuth();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -117,23 +117,32 @@ function OvertimeContent() {
     }
   };
 
+  // Status filter badge map
+  const statusBadgeClass: Record<string, string> = {
+    open: "ui-badge ui-badge-green",
+    closed: "ui-badge ui-badge-gray",
+    cancelled: "ui-badge ui-badge-red",
+  };
+
   return (
-    <div className={`flex min-h-screen ${isDark ? "bg-[#0f172a]" : "bg-gray-50"}`}>
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
-      <main className="flex-1">
+      <main className="flex-1 overflow-y-auto">
         <MobileHeader />
-        <div className="p-4 lg:p-8">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+
+        {/* Sticky iOS-style page header */}
+        <header className="flex-shrink-0 sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary truncate">
                 Saturday Overtime
               </h1>
-              <p className={`mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className="text-xs sm:text-sm mt-0.5 hidden sm:block theme-text-tertiary">
                 Offer optional overtime and track employee responses
               </p>
             </div>
-            <button
+            <Button
+              variant="primary"
               onClick={() => {
                 setOfferForm({
                   ...offerForm,
@@ -142,314 +151,278 @@ function OvertimeContent() {
                 });
                 setShowCreateModal(true);
               }}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                isDark
-                  ? "bg-cyan-500 hover:bg-cyan-400 text-white"
-                  : "bg-cyan-600 hover:bg-cyan-700 text-white"
-              }`}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              Create Overtime Offer
-            </button>
+              <span className="hidden sm:inline">Create Overtime Offer</span>
+              <span className="sm:hidden">Create</span>
+            </Button>
           </div>
 
-          {/* Filters */}
-          <div className="mb-6">
-            <div className="flex flex-wrap gap-2">
-              {["all", "open", "closed", "cancelled"].map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setStatusFilter(status)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    statusFilter === status
-                      ? isDark
-                        ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
-                        : "bg-cyan-100 text-cyan-700 border border-cyan-300"
-                      : isDark
-                        ? "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                        : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
-                  }`}
-                >
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </button>
-              ))}
-            </div>
+          {/* Status filter tabs */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {["all", "open", "closed", "cancelled"].map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`px-3 py-1.5 rounded-[9px] text-[13px] font-semibold transition-colors ${
+                  statusFilter === status
+                    ? "theme-btn-primary"
+                    : "ui-btn-ghost"
+                }`}
+              >
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </button>
+            ))}
           </div>
+        </header>
 
+        <div className="p-4 sm:p-6">
           {/* Main Content - Split View */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Offers List */}
             <div className="lg:col-span-1">
-              <div className={`rounded-xl ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                <div className={`p-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                  <h2 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                    Overtime Offers
-                  </h2>
+              <Card padding="sm" className="overflow-hidden">
+                <div className="px-4 py-3 border-b theme-border-secondary">
+                  <h2 className="font-semibold text-[15px] theme-text-primary">Overtime Offers</h2>
                 </div>
                 <div className="max-h-[600px] overflow-y-auto">
                   {offers && offers.length > 0 ? (
-                    <div className="divide-y divide-slate-700/50">
+                    <div className="divide-y theme-border-secondary">
                       {offers.map((offer) => (
                         <button
                           key={offer._id}
                           onClick={() => setSelectedOffer(offer._id)}
                           className={`w-full p-4 text-left transition-colors ${
                             selectedOffer === offer._id
-                              ? isDark
-                                ? "bg-cyan-500/10 border-l-2 border-cyan-500"
-                                : "bg-cyan-50 border-l-2 border-cyan-500"
-                              : isDark
-                                ? "hover:bg-slate-700/50"
-                                : "hover:bg-gray-50"
+                              ? "bg-[#007AFF]/10 border-l-2 border-[#007AFF]"
+                              : "hover:bg-gray-50 dark:hover:bg-slate-700/50"
                           }`}
                         >
                           <div className="flex items-center justify-between mb-1">
-                            <span className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <span className="font-semibold text-sm theme-text-primary">
                               {new Date(offer.date + "T12:00:00").toLocaleDateString("en-US", {
                                 weekday: "short",
                                 month: "short",
                                 day: "numeric",
                               })}
                             </span>
-                            <span className={`text-xs px-2 py-1 rounded-full ${
-                              offer.status === "open"
-                                ? "bg-green-500/20 text-green-400"
-                                : offer.status === "closed"
-                                  ? "bg-slate-500/20 text-slate-400"
-                                  : "bg-red-500/20 text-red-400"
-                            }`}>
+                            <span className={statusBadgeClass[offer.status] ?? "ui-badge ui-badge-gray"}>
                               {offer.status}
                             </span>
                           </div>
-                          <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                            {offer.startTime} - {offer.endTime}
+                          <p className="text-sm theme-text-tertiary">
+                            {offer.startTime} – {offer.endTime}
                           </p>
-                          <div className={`mt-2 flex gap-3 text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                            <span className="text-green-400">{offer.responseStats.accepted} accepted</span>
-                            <span className="text-red-400">{offer.responseStats.declined} declined</span>
-                            <span className="text-amber-400">{offer.responseStats.pending} pending</span>
+                          <div className="mt-2 flex gap-3 text-xs">
+                            <span className="text-green-500 dark:text-green-400">{offer.responseStats.accepted} accepted</span>
+                            <span className="text-red-500 dark:text-red-400">{offer.responseStats.declined} declined</span>
+                            <span className="text-amber-500 dark:text-amber-400">{offer.responseStats.pending} pending</span>
                           </div>
                         </button>
                       ))}
                     </div>
                   ) : (
-                    <div className={`p-8 text-center ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                      <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="p-8 text-center theme-text-tertiary">
+                      <svg className="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <p>No overtime offers found</p>
+                      <p className="text-sm">No overtime offers found</p>
                     </div>
                   )}
                 </div>
-              </div>
+              </Card>
             </div>
 
             {/* Selected Offer Details */}
             <div className="lg:col-span-2">
               {selectedOfferDetails ? (
-                <div className={`rounded-xl ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                <Card padding="sm" className="overflow-hidden">
                   {/* Header */}
-                  <div className={`p-6 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                          {selectedOfferDetails.title}
-                        </h2>
-                        <p className={`mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                          {new Date(selectedOfferDetails.date + "T12:00:00").toLocaleDateString("en-US", {
-                            weekday: "long",
-                            month: "long",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        {selectedOfferDetails.status === "open" && (
-                          <>
-                            <button
+                  <div className="px-5 py-4 border-b theme-border-secondary">
+                    <SectionHeader
+                      title={selectedOfferDetails.title}
+                      actions={
+                        <div className="flex gap-2 flex-wrap">
+                          {selectedOfferDetails.status === "open" && (
+                            <>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={async () => {
+                                  if (confirm("Send reminder to employees who haven't responded?")) {
+                                    await sendReminders({ offerId: selectedOfferDetails._id, userId: user!._id });
+                                    alert("Reminders sent!");
+                                  }
+                                }}
+                              >
+                                Send Reminders
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={async () => {
+                                  if (confirm("Close this offer? No more responses will be accepted.")) {
+                                    await closeOffer({ offerId: selectedOfferDetails._id, userId: user!._id });
+                                  }
+                                }}
+                              >
+                                Close
+                              </Button>
+                            </>
+                          )}
+                          {selectedOfferDetails.status === "closed" && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               onClick={async () => {
-                                if (confirm("Send reminder to employees who haven't responded?")) {
-                                  await sendReminders({ offerId: selectedOfferDetails._id, userId: user!._id });
-                                  alert("Reminders sent!");
-                                }
+                                await reopenOffer({ offerId: selectedOfferDetails._id, userId: user!._id });
                               }}
-                              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                                isDark
-                                  ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
-                                  : "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                              }`}
                             >
-                              Send Reminders
-                            </button>
-                            <button
-                              onClick={async () => {
-                                if (confirm("Close this offer? No more responses will be accepted.")) {
-                                  await closeOffer({ offerId: selectedOfferDetails._id, userId: user!._id });
-                                }
-                              }}
-                              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                                isDark
-                                  ? "bg-slate-600 text-white hover:bg-slate-500"
-                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                              }`}
-                            >
-                              Close
-                            </button>
-                          </>
-                        )}
-                        {selectedOfferDetails.status === "closed" && (
-                          <button
+                              Reopen
+                            </Button>
+                          )}
+                          <Button
+                            variant="danger"
+                            size="sm"
                             onClick={async () => {
-                              await reopenOffer({ offerId: selectedOfferDetails._id, userId: user!._id });
+                              if (confirm("Delete this overtime offer? This cannot be undone.")) {
+                                await deleteOffer({ offerId: selectedOfferDetails._id, userId: user!._id });
+                                setSelectedOffer(null);
+                              }
                             }}
-                            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                              isDark
-                                ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
-                                : "bg-green-100 text-green-700 hover:bg-green-200"
-                            }`}
                           >
-                            Reopen
-                          </button>
-                        )}
-                        <button
-                          onClick={async () => {
-                            if (confirm("Delete this overtime offer? This cannot be undone.")) {
-                              await deleteOffer({ offerId: selectedOfferDetails._id, userId: user!._id });
-                              setSelectedOffer(null);
-                            }
-                          }}
-                          className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                            isDark
-                              ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                              : "bg-red-100 text-red-700 hover:bg-red-200"
-                          }`}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
+                            Delete
+                          </Button>
+                        </div>
+                      }
+                    />
+                    <p className="text-sm theme-text-tertiary mt-0.5">
+                      {new Date(selectedOfferDetails.date + "T12:00:00").toLocaleDateString("en-US", {
+                        weekday: "long",
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </p>
                   </div>
 
                   {/* Details */}
-                  <div className={`p-6 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                  <div className="px-5 py-4 border-b theme-border-secondary">
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       <div>
-                        <p className={`text-xs uppercase tracking-wide ${isDark ? "text-slate-500" : "text-gray-400"}`}>Time</p>
-                        <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                          {selectedOfferDetails.startTime} - {selectedOfferDetails.endTime}
+                        <p className="ui-section-label">Time</p>
+                        <p className="font-medium text-sm theme-text-primary mt-0.5">
+                          {selectedOfferDetails.startTime} – {selectedOfferDetails.endTime}
                         </p>
                       </div>
                       <div>
-                        <p className={`text-xs uppercase tracking-wide ${isDark ? "text-slate-500" : "text-gray-400"}`}>Max Slots</p>
-                        <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                        <p className="ui-section-label">Max Slots</p>
+                        <p className="font-medium text-sm theme-text-primary mt-0.5">
                           {selectedOfferDetails.maxSlots || "Unlimited"}
                         </p>
                       </div>
                       <div>
-                        <p className={`text-xs uppercase tracking-wide ${isDark ? "text-slate-500" : "text-gray-400"}`}>Target</p>
-                        <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                        <p className="ui-section-label">Target</p>
+                        <p className="font-medium text-sm theme-text-primary mt-0.5">
                           {selectedOfferDetails.targetType === "all" ? "All Employees" :
                            selectedOfferDetails.targetType === "department" ? selectedOfferDetails.department :
                            selectedOfferDetails.locationName || "Specific"}
                         </p>
                       </div>
                     </div>
-                    <p className={`mt-3 text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                    <p className="mt-3 text-xs theme-text-tertiary">
                       Overtime rate: 1.5x for hours over 40/week
                     </p>
                     {selectedOfferDetails.description && (
-                      <p className={`mt-4 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                      <p className="mt-3 text-sm theme-text-secondary">
                         {selectedOfferDetails.description}
                       </p>
                     )}
                   </div>
 
                   {/* Response Stats */}
-                  <div className={`p-6 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-green-500/10" : "bg-green-50"}`}>
-                        <p className={`text-2xl font-bold text-green-500`}>
+                  <div className="px-5 py-4 border-b theme-border-secondary">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="ui-callout-green rounded-xl p-4 text-center">
+                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                           {selectedOfferDetails.responses.filter(r => r.response === "accepted").length}
                         </p>
-                        <p className={`text-sm ${isDark ? "text-green-400/70" : "text-green-600"}`}>Accepted</p>
+                        <p className="text-sm text-green-700 dark:text-green-400/80 mt-0.5">Accepted</p>
                       </div>
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-red-500/10" : "bg-red-50"}`}>
-                        <p className={`text-2xl font-bold text-red-500`}>
+                      <div className="ui-callout-red rounded-xl p-4 text-center">
+                        <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                           {selectedOfferDetails.responses.filter(r => r.response === "declined").length}
                         </p>
-                        <p className={`text-sm ${isDark ? "text-red-400/70" : "text-red-600"}`}>Declined</p>
+                        <p className="text-sm text-red-700 dark:text-red-400/80 mt-0.5">Declined</p>
                       </div>
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-amber-500/10" : "bg-amber-50"}`}>
-                        <p className={`text-2xl font-bold text-amber-500`}>
+                      <div className="ui-callout-amber rounded-xl p-4 text-center">
+                        <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
                           {selectedOfferDetails.responses.filter(r => r.response === "pending").length}
                         </p>
-                        <p className={`text-sm ${isDark ? "text-amber-400/70" : "text-amber-600"}`}>Pending</p>
+                        <p className="text-sm text-amber-700 dark:text-amber-400/80 mt-0.5">Pending</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Responses List */}
-                  <div className="p-6">
-                    <h3 className={`font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                      Employee Responses
-                    </h3>
+                  <div className="px-5 py-4">
+                    <h3 className="font-semibold text-[15px] theme-text-primary mb-3">Employee Responses</h3>
                     <div className="space-y-2 max-h-80 overflow-y-auto">
                       {selectedOfferDetails.responses.map((response) => (
                         <div
                           key={response._id}
-                          className={`p-3 rounded-lg flex items-center justify-between ${
-                            isDark ? "bg-slate-700/50" : "bg-gray-50"
-                          }`}
+                          className="px-3 py-3 rounded-xl bg-gray-50 dark:bg-slate-700/50 flex items-center justify-between"
                         >
                           <div>
-                            <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <p className="font-medium text-sm theme-text-primary">
                               {response.personnelName}
                             </p>
-                            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <p className="text-xs theme-text-tertiary mt-0.5">
                               {response.personnelDepartment}
                             </p>
                           </div>
                           <div className="flex items-center gap-3">
                             {response.respondedAt && (
-                              <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                              <span className="text-xs theme-text-tertiary">
                                 {new Date(response.respondedAt).toLocaleDateString()}
                               </span>
                             )}
-                            <span className={`px-3 py-1 text-sm rounded-full font-medium ${
+                            <span className={
                               response.response === "accepted"
-                                ? "bg-green-500/20 text-green-400"
+                                ? "ui-badge ui-badge-green"
                                 : response.response === "declined"
-                                  ? "bg-red-500/20 text-red-400"
-                                  : "bg-amber-500/20 text-amber-400"
-                            }`}>
+                                  ? "ui-badge ui-badge-red"
+                                  : "ui-badge ui-badge-amber"
+                            }>
                               {response.response}
                             </span>
                           </div>
                         </div>
                       ))}
                       {selectedOfferDetails.responses.length === 0 && (
-                        <p className={`text-center py-4 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                        <p className="text-center py-4 text-sm theme-text-tertiary">
                           No responses yet
                         </p>
                       )}
                     </div>
                   </div>
-                </div>
+                </Card>
               ) : (
-                <div className={`rounded-xl p-12 text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <svg className={`w-16 h-16 mx-auto mb-4 ${isDark ? "text-slate-600" : "text-gray-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className={`text-lg font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                    Select an overtime offer to view details
-                  </p>
-                  <p className={`mt-2 text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                    Or create a new one to get started
-                  </p>
-                </div>
+                <Card>
+                  <div className="py-12 text-center">
+                    <svg className="w-16 h-16 mx-auto mb-4 theme-text-tertiary opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-[17px] font-semibold theme-text-secondary">
+                      Select an overtime offer to view details
+                    </p>
+                    <p className="mt-1 text-sm theme-text-tertiary">
+                      Or create a new one to get started
+                    </p>
+                  </div>
+                </Card>
               )}
             </div>
           </div>
@@ -457,15 +430,13 @@ function OvertimeContent() {
 
         {/* Create Overtime Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={`w-full max-w-xl rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Create Overtime Offer
-                </h2>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="w-full max-w-xl rounded-2xl border bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700">
+              <div className="flex items-center justify-between px-5 py-4 border-b theme-border-secondary">
+                <h2 className="text-[17px] font-semibold theme-text-primary">Create Overtime Offer</h2>
                 <button
                   onClick={() => setShowCreateModal(false)}
-                  className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}
+                  className="p-2 rounded-lg theme-text-tertiary hover:theme-text-primary hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -473,100 +444,78 @@ function OvertimeContent() {
                 </button>
               </div>
 
-              <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+              <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
                 {/* Date */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Date
-                  </label>
+                  <label className="block text-xs font-medium mb-1.5 theme-text-tertiary">Date</label>
                   <input
                     type="date"
                     value={offerForm.date}
                     onChange={(e) => handleDateChange(e.target.value)}
                     min={new Date().toISOString().split("T")[0]}
-                    className={`w-full px-4 py-2 rounded-lg border ${
-                      isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"
-                    }`}
+                    className="theme-input w-full px-3 py-2.5 text-sm"
                   />
                 </div>
 
                 {/* Title */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Title
-                  </label>
+                  <label className="block text-xs font-medium mb-1.5 theme-text-tertiary">Title</label>
                   <input
                     type="text"
                     value={offerForm.title}
                     onChange={(e) => setOfferForm({ ...offerForm, title: e.target.value })}
                     placeholder="e.g., Saturday Overtime - January 18th"
-                    className={`w-full px-4 py-2 rounded-lg border ${
-                      isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400" : "bg-white border-gray-300 text-gray-900"
-                    }`}
+                    className="theme-input w-full px-3 py-2.5 text-sm"
                   />
                 </div>
 
                 {/* Time */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Start Time
-                    </label>
+                    <label className="block text-xs font-medium mb-1.5 theme-text-tertiary">Start Time</label>
                     <input
                       type="time"
                       value={offerForm.startTime}
                       onChange={(e) => setOfferForm({ ...offerForm, startTime: e.target.value })}
-                      className={`w-full px-4 py-2 rounded-lg border ${
-                        isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"
-                      }`}
+                      className="theme-input w-full px-3 py-2.5 text-sm"
                     />
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      End Time
-                    </label>
+                    <label className="block text-xs font-medium mb-1.5 theme-text-tertiary">End Time</label>
                     <input
                       type="time"
                       value={offerForm.endTime}
                       onChange={(e) => setOfferForm({ ...offerForm, endTime: e.target.value })}
-                      className={`w-full px-4 py-2 rounded-lg border ${
-                        isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"
-                      }`}
+                      className="theme-input w-full px-3 py-2.5 text-sm"
                     />
                   </div>
                 </div>
 
                 {/* Max Slots */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Max Slots (optional)
-                  </label>
+                  <label className="block text-xs font-medium mb-1.5 theme-text-tertiary">Max Slots (optional)</label>
                   <input
                     type="number"
                     min="1"
                     value={offerForm.maxSlots}
                     onChange={(e) => setOfferForm({ ...offerForm, maxSlots: e.target.value })}
                     placeholder="Unlimited"
-                    className={`w-full px-4 py-2 rounded-lg border ${
-                      isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400" : "bg-white border-gray-300 text-gray-900"
-                    }`}
+                    className="theme-input w-full px-3 py-2.5 text-sm"
                   />
-                  <p className={`mt-1 text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                  <p className="mt-1 text-xs theme-text-tertiary">
                     Overtime is calculated as 1.5x for hours over 40/week
                   </p>
                 </div>
 
                 {/* Target */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="block text-xs font-medium mb-1.5 theme-text-tertiary">
                     Who should receive this offer?
                   </label>
                   <select
                     value={offerForm.targetType}
                     onChange={(e) => setOfferForm({ ...offerForm, targetType: e.target.value as "all" | "department" | "location" })}
-                    className={`w-full px-4 py-2 rounded-lg border ${
-                      isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"
-                    }`}
+                    className="theme-input w-full px-3 py-2.5 text-sm"
                   >
                     <option value="all">All Employees</option>
                     <option value="department">Specific Department</option>
@@ -577,15 +526,11 @@ function OvertimeContent() {
                 {/* Department selector */}
                 {offerForm.targetType === "department" && (
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Department
-                    </label>
+                    <label className="block text-xs font-medium mb-1.5 theme-text-tertiary">Department</label>
                     <select
                       value={offerForm.department}
                       onChange={(e) => setOfferForm({ ...offerForm, department: e.target.value })}
-                      className={`w-full px-4 py-2 rounded-lg border ${
-                        isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"
-                      }`}
+                      className="theme-input w-full px-3 py-2.5 text-sm"
                     >
                       <option value="">Select department...</option>
                       {departments.map((dept) => (
@@ -598,15 +543,11 @@ function OvertimeContent() {
                 {/* Location selector */}
                 {offerForm.targetType === "location" && (
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Location
-                    </label>
+                    <label className="block text-xs font-medium mb-1.5 theme-text-tertiary">Location</label>
                     <select
                       value={offerForm.locationId}
                       onChange={(e) => setOfferForm({ ...offerForm, locationId: e.target.value })}
-                      className={`w-full px-4 py-2 rounded-lg border ${
-                        isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"
-                      }`}
+                      className="theme-input w-full px-3 py-2.5 text-sm"
                     >
                       <option value="">Select location...</option>
                       {locations?.map((loc) => (
@@ -618,51 +559,41 @@ function OvertimeContent() {
 
                 {/* Description */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Description (optional)
-                  </label>
+                  <label className="block text-xs font-medium mb-1.5 theme-text-tertiary">Description (optional)</label>
                   <textarea
                     value={offerForm.description}
                     onChange={(e) => setOfferForm({ ...offerForm, description: e.target.value })}
                     placeholder="Additional details about the overtime shift..."
                     rows={3}
-                    className={`w-full px-4 py-2 rounded-lg border ${
-                      isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400" : "bg-white border-gray-300 text-gray-900"
-                    }`}
+                    className="theme-input w-full px-3 py-2.5 text-sm"
                   />
                 </div>
 
                 {/* Send Notification Toggle */}
-                <div className={`p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
+                <div className="theme-card p-4 rounded-xl">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={offerForm.sendNotification}
                       onChange={(e) => setOfferForm({ ...offerForm, sendNotification: e.target.checked })}
-                      className="w-5 h-5 rounded border-slate-500 text-cyan-500 focus:ring-cyan-500"
+                      className="w-5 h-5 rounded border-slate-500 text-[#007AFF] focus:ring-[#007AFF]"
                     />
                     <div>
-                      <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                        Send push notification
-                      </p>
-                      <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                        Notify employees immediately via mobile app
-                      </p>
+                      <p className="font-medium text-sm theme-text-primary">Send push notification</p>
+                      <p className="text-xs theme-text-tertiary mt-0.5">Notify employees immediately via mobile app</p>
                     </div>
                   </label>
                 </div>
 
                 {/* Commitment Notice */}
-                <div className={`p-4 rounded-lg border ${isDark ? "bg-amber-500/10 border-amber-500/30" : "bg-amber-50 border-amber-200"}`}>
+                <div className="ui-callout-amber rounded-xl p-4">
                   <div className="flex gap-3">
-                    <svg className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isDark ? "text-amber-400" : "text-amber-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                     <div>
-                      <p className={`text-sm font-medium ${isDark ? "text-amber-300" : "text-amber-800"}`}>
-                        Commitment Policy
-                      </p>
-                      <p className={`text-xs mt-1 ${isDark ? "text-amber-400/80" : "text-amber-700"}`}>
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Commitment Policy</p>
+                      <p className="text-xs mt-1 text-amber-700 dark:text-amber-400/80">
                         Employees will be shown a notice that accepting overtime is a commitment.
                         Not showing up for an accepted shift will be treated as a No Call/No Show.
                       </p>
@@ -671,26 +602,22 @@ function OvertimeContent() {
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-6">
-                <button
+              <div className="flex gap-3 px-5 py-4 border-t theme-border-secondary">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
                   onClick={() => setShowCreateModal(false)}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                    isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                  }`}
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
                   onClick={handleCreate}
                   disabled={isCreating || !offerForm.date}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                    isDark
-                      ? "bg-cyan-500 hover:bg-cyan-400 text-white disabled:opacity-50"
-                      : "bg-cyan-600 hover:bg-cyan-700 text-white disabled:opacity-50"
-                  }`}
                 >
                   {isCreating ? "Creating..." : "Create Offer"}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
