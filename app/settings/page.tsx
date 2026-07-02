@@ -13,7 +13,7 @@ import Card from "@/components/ui/Card";
 import SectionHeader from "@/components/ui/SectionHeader";
 
 function SettingsContent() {
-  const { user, canManageUsers } = useAuth();
+  const { user, canManageUsers, logOutOtherDevices } = useAuth();
   const { theme, setTheme } = useTheme();
   const { appearance, setAppearance } = useAppearance();
   const users = useQuery(api.auth.getAllUsers);
@@ -36,6 +36,7 @@ function SettingsContent() {
   });
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [logoutOtherSuccess, setLogoutOtherSuccess] = useState("");
 
   // New user state
   const [showNewUser, setShowNewUser] = useState(false);
@@ -578,7 +579,7 @@ function SettingsContent() {
 
           {/* Security Tab */}
           {activeTab === "security" && (
-            <div className="max-w-2xl">
+            <div className="max-w-2xl space-y-5">
               <Card padding="md">
                 <SectionHeader label="SECURITY" title="Change Password" />
                 <form onSubmit={handlePasswordChange} className="space-y-4">
@@ -639,6 +640,29 @@ function SettingsContent() {
                   </div>
                   <Button type="submit" variant="primary">Update Password</Button>
                 </form>
+              </Card>
+
+              <Card padding="md">
+                <SectionHeader label="SESSIONS" title="Active Sessions" />
+                <p className="text-sm mb-4 theme-text-secondary">
+                  Sign out all other browsers and devices where you are currently logged in. This device stays signed in.
+                </p>
+                {logoutOtherSuccess && (
+                  <Card tone="green" padding="sm" className="mb-4">
+                    <p className="text-sm text-green-700 dark:text-green-400">{logoutOtherSuccess}</p>
+                  </Card>
+                )}
+                <Button
+                  variant="secondary"
+                  onClick={async () => {
+                    if (window.confirm("Log out all your other devices/sessions? This device stays signed in.")) {
+                      await logOutOtherDevices();
+                      setLogoutOtherSuccess("Other devices have been logged out.");
+                    }
+                  }}
+                >
+                  Log out other devices
+                </Button>
               </Card>
             </div>
           )}
