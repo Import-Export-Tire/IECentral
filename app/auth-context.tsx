@@ -89,6 +89,8 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   // Helper to get accessible location IDs for warehouse_manager
   getAccessibleLocationIds: () => Id<"locations">[] | "all";
+  // Log out all other devices/sessions for the current user
+  logOutOtherDevices: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -106,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logAudit = useMutation(api.auditLogs.log);
 
   const loginMutation = useMutation(api.auth.login);
+  const invalidateOtherSessions = useMutation(api.auth.invalidateOtherSessions);
   // While impersonating, the whole app loads the target user instead of the real one.
   const effectiveUserId = impersonation?.targetUserId ?? userId;
   const userData = useQuery(
@@ -116,6 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const performLogout = useCallback(() => {
     setUserId(null);
     localStorage.removeItem("ie_central_user_id");
+    localStorage.removeItem("ie_central_session_epoch");
     localStorage.removeItem(IMPERSONATION_KEY);
     setImpersonation(null);
     hasLoadedUserData.current = false;
@@ -180,6 +184,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Successfully loaded user data - mark as loaded
       hasLoadedUserData.current = true;
       setInitialLoadComplete(true);
+
+      // Session-epoch invalidation: if this user's epoch was rotated on another device,
+      // log THIS device out unless it holds the current epoch. Skip while impersonating
+      // (the queried doc is the impersonation target, not the logged-in user).
+      if (!impersonation && userData.sessionEpoch != null) {
+        const localEpoch = localStorage.getItem("ie_central_session_epoch") ?? "";
+        if (localEpoch !== String(userData.sessionEpoch)) {
+          performLogout();
+          return;
+        }
+      }
     } else if (userId && userData === null) {
       // Query returned null - only clear if we've never successfully loaded
       // This prevents logout during navigation/resubscription when queries temporarily return null
@@ -204,6 +219,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.success && result.userId) {
         setUserId(result.userId);
         localStorage.setItem("ie_central_user_id", result.userId);
+        localStorage.setItem(
+          "ie_central_session_epoch",
+          result.sessionEpoch == null ? "" : String(result.sessionEpoch)
+        );
         return {
           success: true,
           forcePasswordChange: result.forcePasswordChange,
@@ -217,6 +236,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     performLogout();
+  };
+
+  const logOutOtherDevices = async () => {
+    // Never rotate while impersonating — `user` is the impersonation target, so this
+    // would log out the impersonated user's devices, not the real admin's.
+    if (!user || impersonation) return;
+    const epoch = Date.now();
+    // Stamp THIS device FIRST so the incoming getUser push matches and we stay in.
+    localStorage.setItem("ie_central_session_epoch", String(epoch));
+    await invalidateOtherSessions({ requestingUserId: user._id, epoch });
   };
 
   const user: User | null = useMemo(
@@ -455,6 +484,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isOfficeManager,
         isSuperAdmin,
         getAccessibleLocationIds,
+        logOutOtherDevices,
       }}
     >
       {children}

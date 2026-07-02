@@ -149,7 +149,24 @@ export const login = mutation({
       success: true,
       userId: user._id,
       forcePasswordChange: user.forcePasswordChange,
+      sessionEpoch: user.sessionEpoch ?? null,
     };
+  },
+});
+
+// Invalidate all other sessions for this user by rotating their session epoch.
+// The caller MUST stamp the same epoch into their own device's localStorage BEFORE
+// calling this mutation, so only OTHER devices (with the old epoch) mismatch and log out.
+export const invalidateOtherSessions = mutation({
+  args: { requestingUserId: v.id("users"), epoch: v.number() },
+  handler: async (ctx, args) => {
+    // Self-service: a user rotates their OWN session epoch. The caller stamps the
+    // SAME epoch into their current device's localStorage first, so only their
+    // other devices mismatch and log out. Only affects THIS user; no other users.
+    const user = await ctx.db.get(args.requestingUserId);
+    if (!user) throw new Error("User not found");
+    await ctx.db.patch(args.requestingUserId, { sessionEpoch: args.epoch });
+    return { epoch: args.epoch };
   },
 });
 

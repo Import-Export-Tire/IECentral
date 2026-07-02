@@ -11,6 +11,7 @@ export default defineSchema({
     role: v.string(), // "super_admin" | "admin" | "warehouse_director" | "warehouse_manager" | "office_manager" | "retail_manager" | "retail_store_manager" | "department_manager" | "shift_lead" | "retail_associate" | "payroll_manager" | "employee" | "member"
     isActive: v.boolean(),
     forcePasswordChange: v.optional(v.boolean()),
+    sessionEpoch: v.optional(v.number()),
     // Role-specific fields
     managedDepartments: v.optional(v.array(v.string())), // For department_manager - which departments they manage
     managedLocationIds: v.optional(v.array(v.id("locations"))), // For warehouse_manager - which locations they manage
