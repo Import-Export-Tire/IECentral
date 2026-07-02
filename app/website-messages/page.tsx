@@ -7,7 +7,9 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useSearchParams } from "next/navigation";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
-import { useTheme } from "../theme-context";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 type MessageType = "contact" | "dealer";
 
@@ -72,8 +74,6 @@ interface DealerInquiry {
 }
 
 function WebsiteMessagesContent() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const searchParams = useSearchParams();
 
   const [activeTab, setActiveTab] = useState<MessageType>("contact");
@@ -204,7 +204,7 @@ function WebsiteMessagesContent() {
     const options = type === "contact" ? CONTACT_STATUS_OPTIONS : DEALER_STATUS_OPTIONS;
     const statusOption = options.find((s) => s.value === status);
     if (!statusOption) {
-      return <span className={`px-2 py-1 text-xs rounded-full ${isDark ? "bg-slate-500/20 text-slate-400" : "bg-gray-200 text-gray-600"}`}>{status}</span>;
+      return <span className="bg-gray-200 text-gray-600 dark:bg-slate-500/20 dark:text-slate-400 px-2 py-1 text-xs rounded-full">{status}</span>;
     }
     return (
       <span className={`px-2 py-1 text-xs rounded-full border ${statusOption.color}`}>
@@ -237,31 +237,34 @@ function WebsiteMessagesContent() {
   const totalNewCount = (contactStats?.new || 0) + (dealerStats?.new || 0);
 
   return (
-    <div className={`flex h-screen theme-bg-primary`}>
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
-        {/* Header */}
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Website Messages</h1>
-              <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                Messages from IE Tire website visitors
-              </p>
-            </div>
-            {totalNewCount > 0 && (
-              <span className={`self-start px-3 py-1 text-sm font-medium rounded-full ${isDark ? "bg-cyan-500/20 text-cyan-400" : "bg-blue-100 text-blue-600"}`}>
-                {totalNewCount} new
-              </span>
-            )}
-          </div>
-        </header>
 
-        <div className="p-4 sm:p-8 space-y-6">
+        {/* Sticky header */}
+        <div className="sticky top-0 z-10 bg-[#f2f2f7]/80 dark:bg-slate-900/80 backdrop-blur border-b border-[var(--theme-border-secondary)]">
+          <div className="px-4 sm:px-8 py-4 sm:py-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Website Messages</h1>
+                <p className="text-sm theme-text-tertiary mt-0.5">
+                  Messages from IE Tire website visitors
+                </p>
+              </div>
+              {totalNewCount > 0 && (
+                <span className="self-start ui-badge ui-badge-blue">
+                  {totalNewCount} new
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 sm:px-8 pb-8 space-y-5 pt-5">
           {/* Tabs */}
-          <div className={`flex gap-2 p-1 rounded-lg ${isDark ? "bg-slate-800/50" : "bg-gray-100"}`}>
+          <div className="flex gap-2 p-1 rounded-xl bg-gray-100 dark:bg-slate-800/50">
             <button
               onClick={() => {
                 setActiveTab("contact");
@@ -270,10 +273,10 @@ function WebsiteMessagesContent() {
                 setShowDetail(false);
                 setFilterStatus("all");
               }}
-              className={`flex-1 sm:flex-none px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center justify-center gap-2 ${
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-[9px] font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${
                 activeTab === "contact"
-                  ? isDark ? "bg-slate-700 text-white" : "bg-white text-gray-900 shadow-sm"
-                  : isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-900"
+                  ? "bg-white dark:bg-slate-700 theme-text-primary shadow-sm"
+                  : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -281,7 +284,7 @@ function WebsiteMessagesContent() {
               </svg>
               <span>Contact</span>
               {(contactStats?.new || 0) > 0 && (
-                <span className={`px-1.5 py-0.5 text-xs rounded-full ${isDark ? "bg-cyan-500/30 text-cyan-400" : "bg-blue-100 text-blue-600"}`}>
+                <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-600 dark:bg-cyan-500/30 dark:text-cyan-400">
                   {contactStats?.new}
                 </span>
               )}
@@ -294,10 +297,10 @@ function WebsiteMessagesContent() {
                 setShowDetail(false);
                 setFilterStatus("all");
               }}
-              className={`flex-1 sm:flex-none px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center justify-center gap-2 ${
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-[9px] font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${
                 activeTab === "dealer"
-                  ? isDark ? "bg-slate-700 text-white" : "bg-white text-gray-900 shadow-sm"
-                  : isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-900"
+                  ? "bg-white dark:bg-slate-700 theme-text-primary shadow-sm"
+                  : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -305,7 +308,7 @@ function WebsiteMessagesContent() {
               </svg>
               <span>Dealer</span>
               {(dealerStats?.new || 0) > 0 && (
-                <span className={`px-1.5 py-0.5 text-xs rounded-full ${isDark ? "bg-purple-500/30 text-purple-400" : "bg-purple-100 text-purple-600"}`}>
+                <span className="px-1.5 py-0.5 text-xs rounded-full bg-purple-100 text-purple-600 dark:bg-purple-500/30 dark:text-purple-400">
                   {dealerStats?.new}
                 </span>
               )}
@@ -315,53 +318,53 @@ function WebsiteMessagesContent() {
           {/* Stats */}
           {activeTab === "contact" ? (
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
-              <div className={`p-3 sm:p-4 rounded-lg border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Total</p>
-                <p className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{contactStats?.total || 0}</p>
-              </div>
-              <div className={`p-3 sm:p-4 rounded-lg border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>New</p>
-                <p className={`text-xl sm:text-2xl font-bold ${isDark ? "text-blue-400" : "text-blue-600"}`}>{contactStats?.new || 0}</p>
-              </div>
-              <div className={`p-3 sm:p-4 rounded-lg border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Read</p>
-                <p className={`text-xl sm:text-2xl font-bold ${isDark ? "text-slate-400" : "text-gray-600"}`}>{contactStats?.read || 0}</p>
-              </div>
-              <div className={`p-3 sm:p-4 rounded-lg border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Replied</p>
+              <Card padding="sm">
+                <p className="ui-section-label">Total</p>
+                <p className="text-xl sm:text-2xl font-bold theme-text-primary">{contactStats?.total || 0}</p>
+              </Card>
+              <Card padding="sm">
+                <p className="ui-section-label">New</p>
+                <p className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400">{contactStats?.new || 0}</p>
+              </Card>
+              <Card padding="sm">
+                <p className="ui-section-label">Read</p>
+                <p className="text-xl sm:text-2xl font-bold theme-text-secondary">{contactStats?.read || 0}</p>
+              </Card>
+              <Card padding="sm">
+                <p className="ui-section-label">Replied</p>
                 <p className="text-xl sm:text-2xl font-bold text-green-400">{contactStats?.replied || 0}</p>
-              </div>
-              <div className={`p-3 sm:p-4 rounded-lg border col-span-2 sm:col-span-1 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Archived</p>
-                <p className={`text-xl sm:text-2xl font-bold ${isDark ? "text-slate-500" : "text-gray-400"}`}>{contactStats?.archived || 0}</p>
-              </div>
+              </Card>
+              <Card padding="sm" className="col-span-2 sm:col-span-1">
+                <p className="ui-section-label">Archived</p>
+                <p className="text-xl sm:text-2xl font-bold theme-text-tertiary">{contactStats?.archived || 0}</p>
+              </Card>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-              <div className={`p-3 sm:p-4 rounded-lg border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Total</p>
-                <p className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{dealerStats?.total || 0}</p>
-              </div>
-              <div className={`p-3 sm:p-4 rounded-lg border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>New</p>
-                <p className={`text-xl sm:text-2xl font-bold ${isDark ? "text-blue-400" : "text-blue-600"}`}>{dealerStats?.new || 0}</p>
-              </div>
-              <div className={`p-3 sm:p-4 rounded-lg border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Contacted</p>
+              <Card padding="sm">
+                <p className="ui-section-label">Total</p>
+                <p className="text-xl sm:text-2xl font-bold theme-text-primary">{dealerStats?.total || 0}</p>
+              </Card>
+              <Card padding="sm">
+                <p className="ui-section-label">New</p>
+                <p className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400">{dealerStats?.new || 0}</p>
+              </Card>
+              <Card padding="sm">
+                <p className="ui-section-label">Contacted</p>
                 <p className="text-xl sm:text-2xl font-bold text-yellow-400">{dealerStats?.contacted || 0}</p>
-              </div>
-              <div className={`p-3 sm:p-4 rounded-lg border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Qualified</p>
+              </Card>
+              <Card padding="sm">
+                <p className="ui-section-label">Qualified</p>
                 <p className="text-xl sm:text-2xl font-bold text-purple-400">{dealerStats?.qualified || 0}</p>
-              </div>
-              <div className={`p-3 sm:p-4 rounded-lg border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Approved</p>
+              </Card>
+              <Card padding="sm">
+                <p className="ui-section-label">Approved</p>
                 <p className="text-xl sm:text-2xl font-bold text-green-400">{dealerStats?.approved || 0}</p>
-              </div>
-              <div className={`p-3 sm:p-4 rounded-lg border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Rejected</p>
+              </Card>
+              <Card padding="sm">
+                <p className="ui-section-label">Rejected</p>
                 <p className="text-xl sm:text-2xl font-bold text-red-400">{dealerStats?.rejected || 0}</p>
-              </div>
+              </Card>
             </div>
           )}
 
@@ -370,7 +373,7 @@ function WebsiteMessagesContent() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className={`px-4 py-2 rounded-lg focus:outline-none text-sm ${isDark ? "bg-slate-800 border border-slate-700 text-white focus:border-cyan-500" : "bg-white border border-gray-200 text-gray-900 focus:border-blue-500"}`}
+              className="theme-input px-4 py-2 text-sm"
             >
               <option value="all">All Statuses</option>
               {(activeTab === "contact" ? CONTACT_STATUS_OPTIONS : DEALER_STATUS_OPTIONS).map((status) => (
@@ -385,7 +388,7 @@ function WebsiteMessagesContent() {
           <div className="flex flex-col lg:flex-row gap-6">
             {/* Messages List */}
             <div className={`flex-1 ${showDetail ? "hidden lg:block" : ""}`}>
-              <div className={`rounded-lg border overflow-hidden ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
+              <Card padding="sm" className="overflow-hidden p-0">
                 {activeTab === "contact" ? (
                   <>
                     {filteredContacts?.map((message) => (
@@ -399,29 +402,29 @@ function WebsiteMessagesContent() {
                             handleContactStatusChange(message, "read");
                           }
                         }}
-                        className={`p-4 border-b cursor-pointer transition-colors ${
+                        className={`p-4 border-b border-[var(--theme-border-secondary)] cursor-pointer transition-colors ${
                           selectedContact?._id === message._id
-                            ? isDark ? "bg-cyan-500/10 border-l-2 border-l-cyan-500" : "bg-blue-50 border-l-2 border-l-blue-500"
-                            : isDark ? "border-slate-700 hover:bg-slate-800/50" : "border-gray-100 hover:bg-gray-50"
+                            ? "bg-blue-50 dark:bg-cyan-500/10 border-l-2 border-l-blue-500 dark:border-l-cyan-500"
+                            : "hover:bg-gray-50 dark:hover:bg-slate-800/50"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <p className={`font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>{message.name}</p>
+                              <p className="font-semibold theme-text-primary truncate">{message.name}</p>
                               {getStatusBadge(message.status, "contact")}
                             </div>
-                            <p className={`text-sm truncate ${isDark ? "text-slate-400" : "text-gray-500"}`}>{message.subject}</p>
-                            <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>{message.email}</p>
+                            <p className="text-sm theme-text-secondary truncate">{message.subject}</p>
+                            <p className="text-xs mt-1 theme-text-tertiary">{message.email}</p>
                           </div>
-                          <p className={`text-xs whitespace-nowrap ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                          <p className="text-xs whitespace-nowrap theme-text-tertiary">
                             {formatDate(message.createdAt)}
                           </p>
                         </div>
                       </div>
                     ))}
                     {filteredContacts?.length === 0 && (
-                      <div className={`text-center py-12 ${isDark ? "text-slate-400" : "text-gray-400"}`}>
+                      <div className="text-center py-12 theme-text-tertiary">
                         No messages found
                       </div>
                     )}
@@ -440,47 +443,47 @@ function WebsiteMessagesContent() {
                             handleDealerStatusChange(inquiry, "contacted");
                           }
                         }}
-                        className={`p-4 border-b cursor-pointer transition-colors ${
+                        className={`p-4 border-b border-[var(--theme-border-secondary)] cursor-pointer transition-colors ${
                           selectedDealer?._id === inquiry._id
-                            ? isDark ? "bg-cyan-500/10 border-l-2 border-l-cyan-500" : "bg-blue-50 border-l-2 border-l-blue-500"
-                            : isDark ? "border-slate-700 hover:bg-slate-800/50" : "border-gray-100 hover:bg-gray-50"
+                            ? "bg-blue-50 dark:bg-cyan-500/10 border-l-2 border-l-blue-500 dark:border-l-cyan-500"
+                            : "hover:bg-gray-50 dark:hover:bg-slate-800/50"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <p className={`font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>{inquiry.businessName}</p>
+                              <p className="font-semibold theme-text-primary truncate">{inquiry.businessName}</p>
                               {getStatusBadge(inquiry.status, "dealer")}
                             </div>
-                            <p className={`text-sm truncate ${isDark ? "text-slate-400" : "text-gray-500"}`}>{inquiry.contactName}</p>
+                            <p className="text-sm theme-text-secondary truncate">{inquiry.contactName}</p>
                             <div className="flex items-center gap-3 mt-1 flex-wrap">
-                              <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>{inquiry.email}</p>
+                              <p className="text-xs theme-text-tertiary">{inquiry.email}</p>
                               {inquiry.businessType && (
-                                <span className={`text-xs px-2 py-0.5 rounded ${isDark ? "bg-slate-700/50 text-slate-400" : "bg-gray-100 text-gray-500"}`}>
+                                <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-slate-700/50 text-gray-500 dark:text-slate-400">
                                   {getBusinessTypeLabel(inquiry.businessType)}
                                 </span>
                               )}
                             </div>
                           </div>
-                          <p className={`text-xs whitespace-nowrap ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                          <p className="text-xs whitespace-nowrap theme-text-tertiary">
                             {formatDate(inquiry.createdAt)}
                           </p>
                         </div>
                       </div>
                     ))}
                     {filteredDealers?.length === 0 && (
-                      <div className={`text-center py-12 ${isDark ? "text-slate-400" : "text-gray-400"}`}>
+                      <div className="text-center py-12 theme-text-tertiary">
                         No dealer inquiries found
                       </div>
                     )}
                   </>
                 )}
-              </div>
+              </Card>
             </div>
 
             {/* Detail Panel */}
             {showDetail && (
-              <div className={`lg:w-[500px] rounded-lg border p-4 sm:p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
+              <Card className="lg:w-[500px]" padding="md">
                 {/* Back button for mobile */}
                 <button
                   onClick={() => {
@@ -488,7 +491,7 @@ function WebsiteMessagesContent() {
                     setSelectedContact(null);
                     setSelectedDealer(null);
                   }}
-                  className={`lg:hidden flex items-center gap-2 mb-4 text-sm ${isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-900"}`}
+                  className="lg:hidden flex items-center gap-2 mb-4 text-sm theme-text-secondary hover:theme-text-primary"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -500,14 +503,14 @@ function WebsiteMessagesContent() {
                   <>
                     <div className="flex items-start justify-between mb-6">
                       <div>
-                        <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{selectedContact.name}</h2>
-                        <p className={isDark ? "text-slate-400" : "text-gray-500"}>{selectedContact.email}</p>
-                        {selectedContact.phone && <p className={isDark ? "text-slate-400" : "text-gray-500"}>{selectedContact.phone}</p>}
-                        {selectedContact.company && <p className={`text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>{selectedContact.company}</p>}
+                        <h2 className="text-xl font-bold theme-text-primary">{selectedContact.name}</h2>
+                        <p className="theme-text-secondary">{selectedContact.email}</p>
+                        {selectedContact.phone && <p className="theme-text-secondary">{selectedContact.phone}</p>}
+                        {selectedContact.company && <p className="text-sm theme-text-tertiary">{selectedContact.company}</p>}
                       </div>
                       <button
                         onClick={() => setShowDeleteConfirm({type: "contact", item: selectedContact})}
-                        className={`p-2 transition-colors ${isDark ? "text-slate-400 hover:text-red-400" : "text-gray-400 hover:text-red-500"}`}
+                        className="p-2 transition-colors text-gray-400 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400"
                         title="Delete message"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -517,23 +520,23 @@ function WebsiteMessagesContent() {
                     </div>
 
                     <div className="mb-6">
-                      <p className={`text-sm mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Subject</p>
-                      <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{selectedContact.subject}</p>
+                      <p className="ui-section-label mb-1">Subject</p>
+                      <p className="font-medium theme-text-primary">{selectedContact.subject}</p>
                     </div>
 
                     <div className="mb-6">
-                      <p className={`text-sm mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Message</p>
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                        <p className={`whitespace-pre-wrap ${isDark ? "text-white" : "text-gray-900"}`}>{selectedContact.message}</p>
+                      <p className="ui-section-label mb-1">Message</p>
+                      <div className="p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50">
+                        <p className="whitespace-pre-wrap theme-text-primary">{selectedContact.message}</p>
                       </div>
                     </div>
 
                     <div className="mb-6">
-                      <p className={`text-sm mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Status</p>
+                      <label className="ui-section-label block mb-1">Status</label>
                       <select
                         value={selectedContact.status}
                         onChange={(e) => handleContactStatusChange(selectedContact, e.target.value)}
-                        className={`w-full px-4 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700 border border-slate-600 text-white focus:border-cyan-500" : "bg-white border border-gray-200 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-4 py-2"
                       >
                         {CONTACT_STATUS_OPTIONS.map((status) => (
                           <option key={status.value} value={status.value}>{status.label}</option>
@@ -542,26 +545,28 @@ function WebsiteMessagesContent() {
                     </div>
 
                     <div className="mb-6">
-                      <p className={`text-sm mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Internal Notes</p>
+                      <label className="ui-section-label block mb-1">Internal Notes</label>
                       <textarea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         rows={3}
                         placeholder="Add notes about this message..."
-                        className={`w-full px-4 py-2 rounded-lg focus:outline-none resize-none ${isDark ? "bg-slate-700 border border-slate-600 text-white placeholder-slate-400 focus:border-cyan-500" : "bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-500"}`}
+                        className="theme-input w-full px-4 py-2 resize-none"
                       />
-                      <button
+                      <Button
+                        variant="primary"
+                        size="sm"
                         onClick={handleSaveNotes}
-                        className={`mt-2 px-4 py-2 rounded-lg transition-colors text-sm text-white ${isDark ? "bg-cyan-500 hover:bg-cyan-600" : "bg-blue-500 hover:bg-blue-600"}`}
+                        className="mt-2"
                       >
                         Save Notes
-                      </button>
+                      </Button>
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3">
                       <a
                         href={`mailto:${selectedContact.email}?subject=Re: ${selectedContact.subject}`}
-                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-white ${isDark ? "bg-cyan-500 hover:bg-cyan-600" : "bg-blue-500 hover:bg-blue-600"}`}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-[9px] transition-colors text-white bg-[#007AFF] hover:bg-blue-600 font-semibold text-[13.5px]"
                         onClick={() => handleContactStatusChange(selectedContact, "replied")}
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -572,7 +577,7 @@ function WebsiteMessagesContent() {
                       {selectedContact.phone && (
                         <a
                           href={`tel:${selectedContact.phone}`}
-                          className={`px-4 py-2 rounded-lg transition-colors flex items-center justify-center ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
+                          className="px-4 py-2 rounded-[9px] transition-colors flex items-center justify-center theme-btn-secondary font-semibold text-[13.5px]"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -581,7 +586,7 @@ function WebsiteMessagesContent() {
                       )}
                     </div>
 
-                    <p className={`text-xs mt-4 text-center ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                    <p className="text-xs mt-4 text-center theme-text-tertiary">
                       Received {formatDate(selectedContact.createdAt)}
                     </p>
                   </>
@@ -591,12 +596,12 @@ function WebsiteMessagesContent() {
                   <>
                     <div className="flex items-start justify-between mb-6">
                       <div>
-                        <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{selectedDealer.businessName}</h2>
-                        <p className={isDark ? "text-slate-400" : "text-gray-500"}>{selectedDealer.contactName}</p>
+                        <h2 className="text-xl font-bold theme-text-primary">{selectedDealer.businessName}</h2>
+                        <p className="theme-text-secondary">{selectedDealer.contactName}</p>
                       </div>
                       <button
                         onClick={() => setShowDeleteConfirm({type: "dealer", item: selectedDealer})}
-                        className={`p-2 transition-colors ${isDark ? "text-slate-400 hover:text-red-400" : "text-gray-400 hover:text-red-500"}`}
+                        className="p-2 transition-colors text-gray-400 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400"
                         title="Delete inquiry"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -606,58 +611,58 @@ function WebsiteMessagesContent() {
                     </div>
 
                     {/* Contact Info */}
-                    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50">
                       <div>
-                        <p className={`text-xs mb-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Email</p>
-                        <p className={`text-sm ${isDark ? "text-white" : "text-gray-900"}`}>{selectedDealer.email}</p>
+                        <p className="ui-section-label mb-1">Email</p>
+                        <p className="text-sm theme-text-primary">{selectedDealer.email}</p>
                       </div>
                       <div>
-                        <p className={`text-xs mb-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Phone</p>
-                        <p className={`text-sm ${isDark ? "text-white" : "text-gray-900"}`}>{selectedDealer.phone}</p>
+                        <p className="ui-section-label mb-1">Phone</p>
+                        <p className="text-sm theme-text-primary">{selectedDealer.phone}</p>
                       </div>
                       {formatAddress(selectedDealer) && (
                         <div className="col-span-1 sm:col-span-2">
-                          <p className={`text-xs mb-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Address</p>
-                          <p className={`text-sm ${isDark ? "text-white" : "text-gray-900"}`}>{formatAddress(selectedDealer)}</p>
+                          <p className="ui-section-label mb-1">Address</p>
+                          <p className="text-sm theme-text-primary">{formatAddress(selectedDealer)}</p>
                         </div>
                       )}
                     </div>
 
                     {/* Business Info */}
-                    <div className={`grid grid-cols-2 gap-4 mb-6 p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
+                    <div className="grid grid-cols-2 gap-4 mb-6 p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50">
                       <div>
-                        <p className={`text-xs mb-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Business Type</p>
-                        <p className={`text-sm ${isDark ? "text-white" : "text-gray-900"}`}>{getBusinessTypeLabel(selectedDealer.businessType)}</p>
+                        <p className="ui-section-label mb-1">Business Type</p>
+                        <p className="text-sm theme-text-primary">{getBusinessTypeLabel(selectedDealer.businessType)}</p>
                       </div>
                       <div>
-                        <p className={`text-xs mb-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Years in Business</p>
-                        <p className={`text-sm ${isDark ? "text-white" : "text-gray-900"}`}>{selectedDealer.yearsInBusiness || "Not specified"}</p>
+                        <p className="ui-section-label mb-1">Years in Business</p>
+                        <p className="text-sm theme-text-primary">{selectedDealer.yearsInBusiness || "Not specified"}</p>
                       </div>
                       <div>
-                        <p className={`text-xs mb-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Est. Monthly Volume</p>
-                        <p className={`text-sm ${isDark ? "text-white" : "text-gray-900"}`}>{selectedDealer.estimatedMonthlyVolume || "Not specified"}</p>
+                        <p className="ui-section-label mb-1">Est. Monthly Volume</p>
+                        <p className="text-sm theme-text-primary">{selectedDealer.estimatedMonthlyVolume || "Not specified"}</p>
                       </div>
                       <div>
-                        <p className={`text-xs mb-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Current Suppliers</p>
-                        <p className={`text-sm ${isDark ? "text-white" : "text-gray-900"}`}>{selectedDealer.currentSuppliers || "Not specified"}</p>
+                        <p className="ui-section-label mb-1">Current Suppliers</p>
+                        <p className="text-sm theme-text-primary">{selectedDealer.currentSuppliers || "Not specified"}</p>
                       </div>
                     </div>
 
                     {selectedDealer.message && (
                       <div className="mb-6">
-                        <p className={`text-sm mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Message</p>
-                        <div className={`p-4 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}>
-                          <p className={`whitespace-pre-wrap text-sm ${isDark ? "text-white" : "text-gray-900"}`}>{selectedDealer.message}</p>
+                        <p className="ui-section-label mb-1">Message</p>
+                        <div className="p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50">
+                          <p className="whitespace-pre-wrap text-sm theme-text-primary">{selectedDealer.message}</p>
                         </div>
                       </div>
                     )}
 
                     <div className="mb-6">
-                      <p className={`text-sm mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Status</p>
+                      <label className="ui-section-label block mb-1">Status</label>
                       <select
                         value={selectedDealer.status}
                         onChange={(e) => handleDealerStatusChange(selectedDealer, e.target.value)}
-                        className={`w-full px-4 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700 border border-slate-600 text-white focus:border-cyan-500" : "bg-white border border-gray-200 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-4 py-2"
                       >
                         {DEALER_STATUS_OPTIONS.map((status) => (
                           <option key={status.value} value={status.value}>{status.label}</option>
@@ -666,11 +671,11 @@ function WebsiteMessagesContent() {
                     </div>
 
                     <div className="mb-6">
-                      <p className={`text-sm mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Assigned To</p>
+                      <label className="ui-section-label block mb-1">Assigned To</label>
                       <select
                         value={selectedDealer.assignedTo || ""}
                         onChange={(e) => handleAssign(selectedDealer, e.target.value ? e.target.value as Id<"users"> : undefined)}
-                        className={`w-full px-4 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700 border border-slate-600 text-white focus:border-cyan-500" : "bg-white border border-gray-200 text-gray-900 focus:border-blue-500"}`}
+                        className="theme-input w-full px-4 py-2"
                       >
                         <option value="">Unassigned</option>
                         {users?.map((user) => (
@@ -680,44 +685,43 @@ function WebsiteMessagesContent() {
                     </div>
 
                     <div className="mb-6">
-                      <p className={`text-sm mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Follow-up Date</p>
+                      <label className="ui-section-label block mb-1">Follow-up Date</label>
                       <div className="flex gap-2">
                         <input
                           type="date"
                           value={followUpDate}
                           onChange={(e) => setFollowUpDate(e.target.value)}
-                          className={`flex-1 px-4 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700 border border-slate-600 text-white focus:border-cyan-500" : "bg-white border border-gray-200 text-gray-900 focus:border-blue-500"}`}
+                          className="theme-input flex-1 px-4 py-2"
                         />
-                        <button
-                          onClick={handleSetFollowUp}
-                          className={`px-4 py-2 rounded-lg transition-colors text-sm text-white ${isDark ? "bg-cyan-500 hover:bg-cyan-600" : "bg-blue-500 hover:bg-blue-600"}`}
-                        >
+                        <Button variant="primary" size="sm" onClick={handleSetFollowUp}>
                           Set
-                        </button>
+                        </Button>
                       </div>
                     </div>
 
                     <div className="mb-6">
-                      <p className={`text-sm mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Internal Notes</p>
+                      <label className="ui-section-label block mb-1">Internal Notes</label>
                       <textarea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         rows={3}
                         placeholder="Add notes about this inquiry..."
-                        className={`w-full px-4 py-2 rounded-lg focus:outline-none resize-none ${isDark ? "bg-slate-700 border border-slate-600 text-white placeholder-slate-400 focus:border-cyan-500" : "bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-500"}`}
+                        className="theme-input w-full px-4 py-2 resize-none"
                       />
-                      <button
+                      <Button
+                        variant="primary"
+                        size="sm"
                         onClick={handleSaveNotes}
-                        className={`mt-2 px-4 py-2 rounded-lg transition-colors text-sm text-white ${isDark ? "bg-cyan-500 hover:bg-cyan-600" : "bg-blue-500 hover:bg-blue-600"}`}
+                        className="mt-2"
                       >
                         Save Notes
-                      </button>
+                      </Button>
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3">
                       <a
                         href={`mailto:${selectedDealer.email}?subject=RE: IE Tire Dealer Application - ${selectedDealer.businessName}`}
-                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-white ${isDark ? "bg-cyan-500 hover:bg-cyan-600" : "bg-blue-500 hover:bg-blue-600"}`}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-[9px] transition-colors text-white bg-[#007AFF] hover:bg-blue-600 font-semibold text-[13.5px]"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -726,7 +730,7 @@ function WebsiteMessagesContent() {
                       </a>
                       <a
                         href={`tel:${selectedDealer.phone}`}
-                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-[9px] transition-colors theme-btn-secondary font-semibold text-[13.5px]"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -735,12 +739,12 @@ function WebsiteMessagesContent() {
                       </a>
                     </div>
 
-                    <p className={`text-xs mt-4 text-center ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                    <p className="text-xs mt-4 text-center theme-text-tertiary">
                       Submitted {formatDate(selectedDealer.createdAt)}
                     </p>
                   </>
                 )}
-              </div>
+              </Card>
             )}
           </div>
         </div>
@@ -748,29 +752,29 @@ function WebsiteMessagesContent() {
         {/* Delete Confirmation Modal */}
         {showDeleteConfirm && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className={`rounded-lg p-6 w-full max-w-md ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white shadow-xl"}`}>
-              <h2 className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                Delete {showDeleteConfirm.type === "contact" ? "Message" : "Inquiry"}
-              </h2>
-              <p className={`mb-6 ${isDark ? "text-slate-300" : "text-gray-600"}`}>
+            <div className="rounded-xl p-6 w-full max-w-md bg-white dark:bg-slate-800 border border-[var(--theme-border-secondary)] shadow-xl">
+              <SectionHeader
+                title={`Delete ${showDeleteConfirm.type === "contact" ? "Message" : "Inquiry"}`}
+              />
+              <p className="mb-6 theme-text-secondary">
                 Are you sure you want to delete {showDeleteConfirm.type === "contact"
                   ? `the message from ${(showDeleteConfirm.item as ContactMessage).name}`
                   : `the inquiry from ${(showDeleteConfirm.item as DealerInquiry).businessName}`
                 }? This action cannot be undone.
               </p>
               <div className="flex justify-end gap-3">
-                <button
+                <Button
+                  variant="secondary"
                   onClick={() => setShowDeleteConfirm(null)}
-                  className={`px-4 py-2 rounded-lg transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="danger"
                   onClick={handleDelete}
-                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
                 >
                   Delete
-                </button>
+                </Button>
               </div>
             </div>
           </div>
