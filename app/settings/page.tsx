@@ -8,6 +8,9 @@ import { useTheme } from "../theme-context";
 import { useAppearance, type Appearance } from "../appearance-context";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 function SettingsContent() {
   const { user, canManageUsers } = useAuth();
@@ -166,137 +169,96 @@ function SettingsContent() {
   };
 
   return (
-    <div className="flex h-screen theme-bg-primary">
+    <div className="flex h-screen theme-bg">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
-        {/* Header */}
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
-          <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Settings</h1>
-          <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+
+        {/* Sticky iOS-style page header */}
+        <header className="sticky top-0 z-10 backdrop-blur-sm border-b theme-border-secondary px-4 sm:px-8 py-3 sm:py-4 bg-[var(--surface-primary)]/80">
+          <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Settings</h1>
+          <p className="text-xs sm:text-sm mt-1 theme-text-tertiary">
             Manage your account and team settings
           </p>
         </header>
 
-        <div className="p-4 sm:p-8">
+        <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-4xl">
           {/* Tabs */}
-          <div className={`flex flex-wrap gap-2 sm:gap-4 mb-6 sm:mb-8 border-b pb-4 ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-            <button
-              onClick={() => setActiveTab("profile")}
-              className={`px-4 py-2 font-medium rounded-lg transition-colors ${
-                activeTab === "profile"
-                  ? isDark
-                    ? "bg-cyan-500/20 text-cyan-400"
-                    : "bg-blue-50 text-blue-600"
-                  : isDark
-                    ? "text-slate-400 hover:text-white"
-                    : "text-gray-500 hover:text-gray-900"
-              }`}
-            >
-              Profile
-            </button>
-            <button
-              onClick={() => setActiveTab("security")}
-              className={`px-4 py-2 font-medium rounded-lg transition-colors ${
-                activeTab === "security"
-                  ? isDark
-                    ? "bg-cyan-500/20 text-cyan-400"
-                    : "bg-blue-50 text-blue-600"
-                  : isDark
-                    ? "text-slate-400 hover:text-white"
-                    : "text-gray-500 hover:text-gray-900"
-              }`}
-            >
-              Security
-            </button>
+          <div className="flex flex-wrap gap-2 mb-6 border-b theme-border-secondary pb-4">
+            {(["profile", "security"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap border ${
+                  activeTab === tab
+                    ? "theme-accent-primary border-[var(--accent-primary)]/30 bg-[color-mix(in_srgb,var(--accent-primary)_12%,transparent)]"
+                    : "theme-text-secondary theme-border-secondary theme-card hover:theme-text-primary"
+                }`}
+              >
+                {tab === "profile" ? "Profile" : "Security"}
+              </button>
+            ))}
             {canManageUsers && (
               <>
-                <button
-                  onClick={() => setActiveTab("users")}
-                  className={`px-4 py-2 font-medium rounded-lg transition-colors ${
-                    activeTab === "users"
-                      ? isDark
-                        ? "bg-cyan-500/20 text-cyan-400"
-                        : "bg-blue-50 text-blue-600"
-                      : isDark
-                        ? "text-slate-400 hover:text-white"
-                        : "text-gray-500 hover:text-gray-900"
-                  }`}
-                >
-                  Users
-                </button>
-                <button
-                  onClick={() => setActiveTab("locations")}
-                  className={`px-4 py-2 font-medium rounded-lg transition-colors ${
-                    activeTab === "locations"
-                      ? isDark
-                        ? "bg-cyan-500/20 text-cyan-400"
-                        : "bg-blue-50 text-blue-600"
-                      : isDark
-                        ? "text-slate-400 hover:text-white"
-                        : "text-gray-500 hover:text-gray-900"
-                  }`}
-                >
-                  Locations
-                </button>
+                {(["users", "locations"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap border ${
+                      activeTab === tab
+                        ? "theme-accent-primary border-[var(--accent-primary)]/30 bg-[color-mix(in_srgb,var(--accent-primary)_12%,transparent)]"
+                        : "theme-text-secondary theme-border-secondary theme-card hover:theme-text-primary"
+                    }`}
+                  >
+                    {tab === "users" ? "Users" : "Locations"}
+                  </button>
+                ))}
               </>
             )}
           </div>
 
           {/* Profile Tab */}
           {activeTab === "profile" && (
-            <div className="max-w-2xl space-y-6">
+            <div className="max-w-2xl space-y-5">
               {/* Profile Information Card */}
-              <div className={`border rounded-xl p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <h2 className={`text-lg font-semibold mb-6 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Profile Information
-                </h2>
+              <Card padding="md">
+                <SectionHeader label="PROFILE INFORMATION" />
                 <div className="space-y-4">
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Name
-                    </label>
+                    <label className="block ui-section-label mb-1.5">Name</label>
                     <input
                       type="text"
                       value={user?.name || ""}
                       disabled
-                      className={`w-full px-4 py-3 border rounded-lg disabled:opacity-50 ${isDark ? "bg-slate-900/50 border-slate-600 text-white" : "bg-gray-50 border-gray-300 text-gray-900"}`}
+                      className="theme-input w-full px-3 py-2 text-sm disabled:opacity-50"
                     />
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Email
-                    </label>
+                    <label className="block ui-section-label mb-1.5">Email</label>
                     <input
                       type="email"
                       value={user?.email || ""}
                       disabled
-                      className={`w-full px-4 py-3 border rounded-lg disabled:opacity-50 ${isDark ? "bg-slate-900/50 border-slate-600 text-white" : "bg-gray-50 border-gray-300 text-gray-900"}`}
+                      className="theme-input w-full px-3 py-2 text-sm disabled:opacity-50"
                     />
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Role
-                    </label>
+                    <label className="block ui-section-label mb-1.5">Role</label>
                     <input
                       type="text"
                       value={user?.role || ""}
                       disabled
-                      className={`w-full px-4 py-3 border rounded-lg disabled:opacity-50 capitalize ${isDark ? "bg-slate-900/50 border-slate-600 text-white" : "bg-gray-50 border-gray-300 text-gray-900"}`}
+                      className="theme-input w-full px-3 py-2 text-sm disabled:opacity-50 capitalize"
                     />
                   </div>
                 </div>
-              </div>
+              </Card>
 
-              {/* Theme Preference Card */}
-              <div className={`border rounded-xl p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <h2 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Appearance
-                </h2>
-                <p className={`text-sm mb-6 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                  Choose your preferred theme
-                </p>
+              {/* Appearance Card */}
+              <Card padding="md">
+                <SectionHeader label="APPEARANCE" title="Theme" />
+                <p className="text-sm mb-4 theme-text-secondary">Choose your preferred theme</p>
 
                 <div className="grid grid-cols-2 gap-4">
                   {/* Light Theme Option */}
@@ -313,14 +275,12 @@ function SettingsContent() {
                     {/* Light Theme Preview */}
                     <div className="aspect-[4/3] rounded-lg overflow-hidden bg-gray-100 mb-3">
                       <div className="h-full flex">
-                        {/* Sidebar preview */}
                         <div className="w-1/4 bg-white border-r border-gray-200 p-2">
                           <div className="w-full h-2 bg-blue-500 rounded mb-2"></div>
                           <div className="w-3/4 h-1.5 bg-gray-300 rounded mb-1"></div>
                           <div className="w-2/3 h-1.5 bg-gray-300 rounded mb-1"></div>
                           <div className="w-3/4 h-1.5 bg-gray-300 rounded"></div>
                         </div>
-                        {/* Content preview */}
                         <div className="flex-1 p-2">
                           <div className="w-1/2 h-2 bg-gray-400 rounded mb-2"></div>
                           <div className="w-full h-8 bg-white rounded border border-gray-200 mb-2"></div>
@@ -330,8 +290,8 @@ function SettingsContent() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Light</p>
-                        <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Clean iOS-style theme</p>
+                        <p className="font-medium theme-text-primary">Light</p>
+                        <p className="text-xs theme-text-tertiary">Clean iOS-style theme</p>
                       </div>
                       {theme === "light" && (
                         <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
@@ -357,14 +317,12 @@ function SettingsContent() {
                     {/* Dark Theme Preview */}
                     <div className="aspect-[4/3] rounded-lg overflow-hidden bg-slate-800 mb-3">
                       <div className="h-full flex">
-                        {/* Sidebar preview */}
                         <div className="w-1/4 bg-slate-900 border-r border-slate-700 p-2">
                           <div className="w-full h-2 bg-gradient-to-r from-cyan-400 to-blue-500 rounded mb-2"></div>
                           <div className="w-3/4 h-1.5 bg-slate-600 rounded mb-1"></div>
                           <div className="w-2/3 h-1.5 bg-slate-600 rounded mb-1"></div>
                           <div className="w-3/4 h-1.5 bg-slate-600 rounded"></div>
                         </div>
-                        {/* Content preview */}
                         <div className="flex-1 p-2">
                           <div className="w-1/2 h-2 bg-slate-400 rounded mb-2"></div>
                           <div className="w-full h-8 bg-slate-700/50 rounded border border-slate-600 mb-2"></div>
@@ -374,8 +332,8 @@ function SettingsContent() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Dark</p>
-                        <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Blue & cyan accents</p>
+                        <p className="font-medium theme-text-primary">Dark</p>
+                        <p className="text-xs theme-text-tertiary">Blue & cyan accents</p>
                       </div>
                       {theme === "dark" && (
                         <div className="w-5 h-5 rounded-full bg-cyan-500 flex items-center justify-center">
@@ -387,16 +345,12 @@ function SettingsContent() {
                     </div>
                   </button>
                 </div>
-              </div>
+              </Card>
 
               {/* Layout / Shell Mode */}
-              <div className={`border rounded-xl p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <h2 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Layout Mode
-                </h2>
-                <p className={`text-sm mb-6 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                  Choose how IE Central looks and feels
-                </p>
+              <Card padding="md">
+                <SectionHeader label="LAYOUT MODE" title="Shell" />
+                <p className="text-sm mb-4 theme-text-secondary">Choose how IE Central looks and feels</p>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                   {/* Modern */}
@@ -421,8 +375,8 @@ function SettingsContent() {
                         </div>
                       </div>
                     </div>
-                    <p className={`font-medium text-sm ${isDark ? "text-white" : "text-gray-900"}`}>Modern</p>
-                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Sidebar navigation</p>
+                    <p className="font-medium text-sm theme-text-primary">Modern</p>
+                    <p className="text-xs theme-text-tertiary">Sidebar navigation</p>
                     {appearance === "modern" && (
                       <div className={`absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center ${isDark ? "bg-cyan-500" : "bg-blue-500"}`}>
                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -461,8 +415,8 @@ function SettingsContent() {
                       {/* Mini taskbar */}
                       <div className={`absolute bottom-0 left-0 right-0 h-2 ${isDark ? "bg-slate-800/80" : "bg-white/80"}`}></div>
                     </div>
-                    <p className={`font-medium text-sm ${isDark ? "text-white" : "text-gray-900"}`}>Desktop</p>
-                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Windows & icons</p>
+                    <p className="font-medium text-sm theme-text-primary">Desktop</p>
+                    <p className="text-xs theme-text-tertiary">Windows & icons</p>
                     {appearance === "desktop" && (
                       <div className={`absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center ${isDark ? "bg-cyan-500" : "bg-blue-500"}`}>
                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -493,8 +447,8 @@ function SettingsContent() {
                         <p className="text-green-700 text-[5px]">F1Help  F3Menu  F12Modern</p>
                       </div>
                     </div>
-                    <p className={`font-medium text-sm ${isDark ? "text-white" : "text-gray-900"}`}>JMK Terminal</p>
-                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Retro tribute</p>
+                    <p className="font-medium text-sm theme-text-primary">JMK Terminal</p>
+                    <p className="text-xs theme-text-tertiary">Retro tribute</p>
                     {appearance === "jmk" && (
                       <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -538,8 +492,8 @@ function SettingsContent() {
                         <p className="text-[#00ff41]/50 text-[4px]">RADS 0</p>
                       </div>
                     </div>
-                    <p className={`font-medium text-sm ${isDark ? "text-white" : "text-gray-900"}`}>Pip-Boy</p>
-                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Vault-Tec terminal</p>
+                    <p className="font-medium text-sm theme-text-primary">Pip-Boy</p>
+                    <p className="text-xs theme-text-tertiary">Vault-Tec terminal</p>
                     {appearance === "pipboy" && (
                       <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#00ff41] flex items-center justify-center">
                         <svg className="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -570,8 +524,8 @@ function SettingsContent() {
                         </div>
                       </div>
                     </div>
-                    <p className={`font-medium text-sm ${isDark ? "text-white" : "text-gray-900"}`}>Amber CRT</p>
-                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>IBM mainframe</p>
+                    <p className="font-medium text-sm theme-text-primary">Amber CRT</p>
+                    <p className="text-xs theme-text-tertiary">IBM mainframe</p>
                     {appearance === "amber" && (
                       <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center">
                         <svg className="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -607,8 +561,8 @@ function SettingsContent() {
                         </div>
                       </div>
                     </div>
-                    <p className={`font-medium text-sm ${isDark ? "text-white" : "text-gray-900"}`}>Dracula</p>
-                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Purple dark</p>
+                    <p className="font-medium text-sm theme-text-primary">Dracula</p>
+                    <p className="text-xs theme-text-tertiary">Purple dark</p>
                     {appearance === "dracula" && (
                       <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#bd93f9] flex items-center justify-center">
                         <svg className="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -618,32 +572,28 @@ function SettingsContent() {
                     )}
                   </button>
                 </div>
-              </div>
+              </Card>
             </div>
           )}
 
           {/* Security Tab */}
           {activeTab === "security" && (
             <div className="max-w-2xl">
-              <div className={`border rounded-xl p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
-                <h2 className={`text-lg font-semibold mb-6 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Change Password
-                </h2>
+              <Card padding="md">
+                <SectionHeader label="SECURITY" title="Change Password" />
                 <form onSubmit={handlePasswordChange} className="space-y-4">
                   {passwordError && (
-                    <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm">
-                      {passwordError}
-                    </div>
+                    <Card tone="red" padding="sm">
+                      <p className="text-sm text-red-700 dark:text-red-400">{passwordError}</p>
+                    </Card>
                   )}
                   {passwordSuccess && (
-                    <div className="bg-green-500/10 border border-green-500/30 text-green-400 px-4 py-3 rounded-lg text-sm">
-                      Password changed successfully
-                    </div>
+                    <Card tone="green" padding="sm">
+                      <p className="text-sm text-green-700 dark:text-green-400">Password changed successfully</p>
+                    </Card>
                   )}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Current Password
-                    </label>
+                    <label className="block ui-section-label mb-1.5">Current Password</label>
                     <input
                       type="password"
                       value={passwordForm.currentPassword}
@@ -653,14 +603,12 @@ function SettingsContent() {
                           currentPassword: e.target.value,
                         })
                       }
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                       required
                     />
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      New Password
-                    </label>
+                    <label className="block ui-section-label mb-1.5">New Password</label>
                     <input
                       type="password"
                       value={passwordForm.newPassword}
@@ -670,14 +618,12 @@ function SettingsContent() {
                           newPassword: e.target.value,
                         })
                       }
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                       required
                     />
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Confirm New Password
-                    </label>
+                    <label className="block ui-section-label mb-1.5">Confirm New Password</label>
                     <input
                       type="password"
                       value={passwordForm.confirmPassword}
@@ -687,96 +633,63 @@ function SettingsContent() {
                           confirmPassword: e.target.value,
                         })
                       }
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                       required
                     />
                   </div>
-                  <button
-                    type="submit"
-                    className={`px-6 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
-                  >
-                    Update Password
-                  </button>
+                  <Button type="submit" variant="primary">Update Password</Button>
                 </form>
-              </div>
+              </Card>
             </div>
           )}
 
           {/* Users Tab */}
           {activeTab === "users" && canManageUsers && (
             <div>
-              <div className="flex items-center justify-between gap-4 mb-6">
-                <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Team Users</h2>
-                <button
-                  onClick={() => setShowNewUser(true)}
-                  className={`px-3 sm:px-4 py-2 text-sm sm:text-base font-medium rounded-lg transition-colors flex items-center gap-2 ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
-                >
-                  <svg
-                    className="w-4 h-4 sm:w-5 sm:h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+              <SectionHeader
+                label="TEAM MANAGEMENT"
+                title="Team Users"
+                actions={
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setShowNewUser(true)}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  <span className="hidden sm:inline">Add User</span>
-                  <span className="sm:hidden">Add</span>
-                </button>
-              </div>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add User
+                  </Button>
+                }
+              />
 
               {/* Desktop Table */}
-              <div className={`hidden md:block border rounded-xl overflow-hidden ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}>
+              <div className="hidden md:block theme-card overflow-hidden">
                 <table className="w-full">
                   <thead>
-                    <tr className={`border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                      <th className={`text-left px-6 py-4 text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                        User
-                      </th>
-                      <th className={`text-left px-6 py-4 text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                        Role
-                      </th>
-                      <th className={`text-left px-6 py-4 text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                        Status
-                      </th>
-                      <th className={`text-left px-6 py-4 text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                        Last Login
-                      </th>
+                    <tr className="border-b theme-border-secondary">
+                      <th className="text-left px-6 py-3 ui-section-label">User</th>
+                      <th className="text-left px-6 py-3 ui-section-label">Role</th>
+                      <th className="text-left px-6 py-3 ui-section-label">Status</th>
+                      <th className="text-left px-6 py-3 ui-section-label">Last Login</th>
                     </tr>
                   </thead>
                   <tbody>
                     {users?.map((u) => (
-                      <tr
-                        key={u._id}
-                        className={`border-b ${isDark ? "border-slate-700/50" : "border-gray-100"}`}
-                      >
+                      <tr key={u._id} className="border-b theme-border-secondary last:border-0">
                         <td className="px-6 py-4">
-                          <div>
-                            <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{u.name}</p>
-                            <p className={`text-sm ${isDark ? "text-slate-500" : "text-gray-500"}`}>{u.email}</p>
-                          </div>
+                          <p className="font-medium theme-text-primary">{u.name}</p>
+                          <p className="text-sm theme-text-secondary">{u.email}</p>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-2 py-1 text-xs font-medium rounded capitalize ${isDark ? "bg-slate-700 text-slate-300" : "bg-gray-100 text-gray-700"}`}>
-                            {u.role}
-                          </span>
+                          <span className="ui-badge ui-badge-gray capitalize">{u.role}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded ${
-                              u.isActive
-                                ? "bg-green-500/20 text-green-400"
-                                : "bg-red-500/20 text-red-400"
-                            }`}
-                          >
+                          <span className={`ui-badge ${u.isActive ? "ui-badge-green" : "ui-badge-red"}`}>
                             {u.isActive ? "Active" : "Inactive"}
                           </span>
                         </td>
-                        <td className={`px-6 py-4 text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <td className="px-6 py-4 text-sm theme-text-secondary">
                           {u.lastLoginAt
                             ? new Date(u.lastLoginAt).toLocaleDateString()
                             : "Never"}
@@ -790,136 +703,97 @@ function SettingsContent() {
               {/* Mobile Cards */}
               <div className="md:hidden space-y-3">
                 {users?.map((u) => (
-                  <div
-                    key={u._id}
-                    className={`border rounded-xl p-4 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}
-                  >
+                  <Card key={u._id} padding="sm">
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="min-w-0 flex-1">
-                        <p className={`font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>{u.name}</p>
-                        <p className={`text-sm truncate ${isDark ? "text-slate-400" : "text-gray-500"}`}>{u.email}</p>
+                        <p className="font-medium theme-text-primary truncate">{u.name}</p>
+                        <p className="text-sm theme-text-secondary truncate">{u.email}</p>
                       </div>
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded flex-shrink-0 ${
-                          u.isActive
-                            ? "bg-green-500/20 text-green-400"
-                            : "bg-red-500/20 text-red-400"
-                        }`}
-                      >
+                      <span className={`ui-badge ${u.isActive ? "ui-badge-green" : "ui-badge-red"} flex-shrink-0`}>
                         {u.isActive ? "Active" : "Inactive"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
-                      <span className={`px-2 py-1 text-xs font-medium rounded capitalize ${isDark ? "bg-slate-700 text-slate-300" : "bg-gray-100 text-gray-700"}`}>
-                        {u.role}
-                      </span>
-                      <span className={isDark ? "text-slate-500" : "text-gray-500"}>
+                      <span className="ui-badge ui-badge-gray capitalize">{u.role}</span>
+                      <span className="theme-text-tertiary">
                         {u.lastLoginAt
                           ? `Last login: ${new Date(u.lastLoginAt).toLocaleDateString()}`
                           : "Never logged in"}
                       </span>
                     </div>
-                  </div>
+                  </Card>
                 ))}
               </div>
 
               {/* New User Modal */}
               {showNewUser && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                  <div className={`border rounded-xl p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-                    <h2 className={`text-xl font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                      Add New User
-                    </h2>
+                  <div className="theme-card p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                    <h2 className="text-xl font-semibold mb-4 theme-text-primary">Add New User</h2>
                     <form onSubmit={handleCreateUser} className="space-y-4">
                       {newUserError && (
-                        <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm">
-                          {newUserError}
-                        </div>
+                        <Card tone="red" padding="sm">
+                          <p className="text-sm text-red-700 dark:text-red-400">{newUserError}</p>
+                        </Card>
                       )}
                       <div>
-                        <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                          Name
-                        </label>
+                        <label className="block ui-section-label mb-1.5">Name</label>
                         <input
                           type="text"
                           value={newUserForm.name}
-                          onChange={(e) =>
-                            setNewUserForm({
-                              ...newUserForm,
-                              name: e.target.value,
-                            })
-                          }
-                          className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                          onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
+                          className="theme-input w-full px-3 py-2 text-sm"
                           required
                         />
                       </div>
                       <div>
-                        <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                          Email
-                        </label>
+                        <label className="block ui-section-label mb-1.5">Email</label>
                         <input
                           type="email"
                           value={newUserForm.email}
-                          onChange={(e) =>
-                            setNewUserForm({
-                              ...newUserForm,
-                              email: e.target.value,
-                            })
-                          }
-                          className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                          onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                          className="theme-input w-full px-3 py-2 text-sm"
                           required
                         />
                       </div>
                       <div>
-                        <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                          Password
-                        </label>
+                        <label className="block ui-section-label mb-1.5">Password</label>
                         <input
                           type="password"
                           value={newUserForm.password}
-                          onChange={(e) =>
-                            setNewUserForm({
-                              ...newUserForm,
-                              password: e.target.value,
-                            })
-                          }
-                          className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                          onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                          className="theme-input w-full px-3 py-2 text-sm"
                           required
                         />
                       </div>
                       <div>
-                        <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                          Role
-                        </label>
+                        <label className="block ui-section-label mb-1.5">Role</label>
                         <select
                           value={newUserForm.role}
-                          onChange={(e) =>
-                            setNewUserForm({
-                              ...newUserForm,
-                              role: e.target.value,
-                            })
-                          }
-                          className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                          onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })}
+                          className="theme-input w-full px-3 py-2 text-sm"
                         >
                           <option value="viewer">Viewer</option>
                           <option value="member">Member</option>
                           <option value="admin">Admin</option>
                         </select>
                       </div>
-                      <div className="flex gap-3 pt-4">
-                        <button
+                      <div className="flex gap-3 pt-2">
+                        <Button
                           type="button"
+                          variant="secondary"
+                          className="flex-1"
                           onClick={() => setShowNewUser(false)}
-                          className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
                         >
                           Cancel
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="submit"
-                          className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
+                          variant="primary"
+                          className="flex-1"
                         >
                           Create User
-                        </button>
+                        </Button>
                       </div>
                     </form>
                   </div>
@@ -931,30 +805,23 @@ function SettingsContent() {
           {/* Locations Tab */}
           {activeTab === "locations" && canManageUsers && (
             <div className="max-w-4xl">
-              <div className="flex items-center justify-between gap-4 mb-6">
-                <div>
-                  <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                    Location Settings
-                  </h2>
-                  <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                    Configure warehouse manager contact info for each location
-                  </p>
-                </div>
-              </div>
+              <SectionHeader
+                label="LOCATION SETTINGS"
+                title="Location Settings"
+                className="mb-5"
+              />
+              <p className="text-sm theme-text-secondary -mt-3 mb-5">
+                Configure warehouse manager contact info for each location
+              </p>
 
               <div className="space-y-4">
                 {locations?.map((location) => (
-                  <div
-                    key={location._id}
-                    className={`border rounded-xl p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}
-                  >
+                  <Card key={location._id} padding="md">
                     <div className="flex items-start justify-between gap-4 mb-4">
                       <div>
-                        <h3 className={`font-semibold text-lg ${isDark ? "text-white" : "text-gray-900"}`}>
-                          {location.name}
-                        </h3>
+                        <h3 className="font-semibold text-base theme-text-primary">{location.name}</h3>
                         {location.address && (
-                          <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          <p className="text-sm theme-text-secondary">
                             {location.address}
                             {location.city && `, ${location.city}`}
                             {location.state && `, ${location.state}`}
@@ -962,36 +829,26 @@ function SettingsContent() {
                           </p>
                         )}
                       </div>
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded ${
-                          location.isActive
-                            ? "bg-green-500/20 text-green-400"
-                            : "bg-red-500/20 text-red-400"
-                        }`}
-                      >
+                      <span className={`ui-badge ${location.isActive ? "ui-badge-green" : "ui-badge-red"} flex-shrink-0`}>
                         {location.isActive ? "Active" : "Inactive"}
                       </span>
                     </div>
 
                     {/* Success message */}
                     {locationSuccess === location._id && (
-                      <div className="mb-4 bg-green-500/10 border border-green-500/30 text-green-400 px-4 py-3 rounded-lg text-sm">
-                        Warehouse manager info saved successfully
-                      </div>
+                      <Card tone="green" padding="sm" className="mb-4">
+                        <p className="text-sm text-green-700 dark:text-green-400">Warehouse manager info saved successfully</p>
+                      </Card>
                     )}
 
                     {editingLocationId === location._id ? (
                       /* Edit Mode */
                       <div className="space-y-4">
-                        <div className={`p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
-                          <h4 className={`text-sm font-medium mb-4 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                            Warehouse Manager
-                          </h4>
+                        <div className="p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/60">
+                          <p className="ui-section-label mb-3">Warehouse Manager</p>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                              <label className={`block text-xs font-medium mb-1.5 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                                Name
-                              </label>
+                              <label className="block ui-section-label mb-1.5">Name</label>
                               <input
                                 type="text"
                                 value={locationForm.warehouseManagerName}
@@ -999,17 +856,11 @@ function SettingsContent() {
                                   setLocationForm({ ...locationForm, warehouseManagerName: e.target.value })
                                 }
                                 placeholder="John Smith"
-                                className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${
-                                  isDark
-                                    ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500 placeholder-slate-500"
-                                    : "bg-white border-gray-300 text-gray-900 focus:border-blue-500 placeholder-gray-400"
-                                }`}
+                                className="theme-input w-full px-3 py-2 text-sm"
                               />
                             </div>
                             <div>
-                              <label className={`block text-xs font-medium mb-1.5 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                                Phone
-                              </label>
+                              <label className="block ui-section-label mb-1.5">Phone</label>
                               <input
                                 type="tel"
                                 value={locationForm.warehouseManagerPhone}
@@ -1017,17 +868,11 @@ function SettingsContent() {
                                   setLocationForm({ ...locationForm, warehouseManagerPhone: e.target.value })
                                 }
                                 placeholder="(555) 123-4567"
-                                className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${
-                                  isDark
-                                    ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500 placeholder-slate-500"
-                                    : "bg-white border-gray-300 text-gray-900 focus:border-blue-500 placeholder-gray-400"
-                                }`}
+                                className="theme-input w-full px-3 py-2 text-sm"
                               />
                             </div>
                             <div>
-                              <label className={`block text-xs font-medium mb-1.5 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                                Email
-                              </label>
+                              <label className="block ui-section-label mb-1.5">Email</label>
                               <input
                                 type="email"
                                 value={locationForm.warehouseManagerEmail}
@@ -1035,87 +880,59 @@ function SettingsContent() {
                                   setLocationForm({ ...locationForm, warehouseManagerEmail: e.target.value })
                                 }
                                 placeholder="jsmith@company.com"
-                                className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${
-                                  isDark
-                                    ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500 placeholder-slate-500"
-                                    : "bg-white border-gray-300 text-gray-900 focus:border-blue-500 placeholder-gray-400"
-                                }`}
+                                className="theme-input w-full px-3 py-2 text-sm"
                               />
                             </div>
                           </div>
                         </div>
                         <div className="flex gap-3">
-                          <button
-                            onClick={handleCancelEditLocation}
-                            className={`px-4 py-2 font-medium rounded-lg transition-colors text-sm ${
-                              isDark
-                                ? "bg-slate-700 text-white hover:bg-slate-600"
-                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                            }`}
-                          >
+                          <Button variant="secondary" size="sm" onClick={handleCancelEditLocation}>
                             Cancel
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            variant="primary"
+                            size="sm"
                             onClick={handleSaveLocation}
                             disabled={locationSaving}
-                            className={`px-4 py-2 font-medium rounded-lg transition-colors text-sm disabled:opacity-50 ${
-                              isDark
-                                ? "bg-cyan-500 text-white hover:bg-cyan-600"
-                                : "bg-blue-600 text-white hover:bg-blue-700"
-                            }`}
                           >
                             {locationSaving ? "Saving..." : "Save Changes"}
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     ) : (
                       /* View Mode */
-                      <div>
-                        <div className={`p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className={`text-sm font-medium ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                              Warehouse Manager
-                            </h4>
-                            <button
-                              onClick={() => handleEditLocation(location)}
-                              className={`text-sm font-medium transition-colors ${
-                                isDark ? "text-cyan-400 hover:text-cyan-300" : "text-blue-600 hover:text-blue-700"
-                              }`}
-                            >
-                              Edit
-                            </button>
-                          </div>
-                          {location.warehouseManagerName ? (
-                            <div className="space-y-1">
-                              <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                                {location.warehouseManagerName}
-                              </p>
-                              <div className="flex flex-wrap gap-4 text-sm">
-                                {location.warehouseManagerPhone && (
-                                  <span className={isDark ? "text-slate-400" : "text-gray-500"}>
-                                    Phone: {location.warehouseManagerPhone}
-                                  </span>
-                                )}
-                                {location.warehouseManagerEmail && (
-                                  <span className={isDark ? "text-slate-400" : "text-gray-500"}>
-                                    Email: {location.warehouseManagerEmail}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ) : (
-                            <p className={`text-sm italic ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                              No warehouse manager assigned
-                            </p>
-                          )}
+                      <div className="p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/60">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="ui-section-label">Warehouse Manager</p>
+                          <button
+                            onClick={() => handleEditLocation(location)}
+                            className="text-sm font-medium theme-accent-primary hover:opacity-80 transition-opacity"
+                          >
+                            Edit
+                          </button>
                         </div>
+                        {location.warehouseManagerName ? (
+                          <div className="space-y-1">
+                            <p className="font-medium theme-text-primary">{location.warehouseManagerName}</p>
+                            <div className="flex flex-wrap gap-4 text-sm theme-text-secondary">
+                              {location.warehouseManagerPhone && (
+                                <span>Phone: {location.warehouseManagerPhone}</span>
+                              )}
+                              {location.warehouseManagerEmail && (
+                                <span>Email: {location.warehouseManagerEmail}</span>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm italic theme-text-tertiary">No warehouse manager assigned</p>
+                        )}
                       </div>
                     )}
-                  </div>
+                  </Card>
                 ))}
 
                 {(!locations || locations.length === 0) && (
-                  <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                  <div className="text-center py-12 theme-text-tertiary">
                     <p>No locations found</p>
                   </div>
                 )}

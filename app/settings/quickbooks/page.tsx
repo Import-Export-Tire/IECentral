@@ -6,13 +6,13 @@ import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import Protected from "../../protected";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useTheme } from "../../theme-context";
 import { useAuth } from "../../auth-context";
 import { Id } from "@/convex/_generated/dataModel";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 function QuickBooksSettingsContent() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const { user } = useAuth();
   const router = useRouter();
 
@@ -55,14 +55,10 @@ function QuickBooksSettingsContent() {
 
   if (!canManageQB) {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${isDark ? "bg-slate-900" : "bg-gray-50"}`}>
+      <div className="min-h-screen flex items-center justify-center theme-bg">
         <div className="text-center">
-          <h1 className={`text-2xl font-bold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-            Access Denied
-          </h1>
-          <p className={`${isDark ? "text-slate-400" : "text-gray-500"}`}>
-            You don't have permission to manage QuickBooks settings.
-          </p>
+          <h1 className="text-2xl font-bold mb-2 theme-text-primary">Access Denied</h1>
+          <p className="theme-text-secondary">You don&apos;t have permission to manage QuickBooks settings.</p>
         </div>
       </div>
     );
@@ -169,92 +165,84 @@ function QuickBooksSettingsContent() {
   };
 
   return (
-    <div className="flex h-screen theme-bg-primary">
+    <div className="flex h-screen theme-bg">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
-        <header className={`sticky top-0 z-10 border-b px-4 sm:px-8 py-4 sm:py-6 ${isDark ? "bg-slate-800/95 border-slate-700 backdrop-blur-sm" : "bg-white/95 border-gray-200 backdrop-blur-sm"}`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.back()}
-                className={`p-2 rounded-lg ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <div>
-                <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                  QuickBooks Integration
-                </h1>
-                <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                  Sync time entries and payroll with QuickBooks Desktop
-                </p>
-              </div>
+
+        {/* Sticky iOS-style page header */}
+        <header className="sticky top-0 z-10 backdrop-blur-sm border-b theme-border-secondary px-4 sm:px-8 py-3 sm:py-4 bg-[var(--surface-primary)]/80">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="p-2 rounded-lg theme-text-secondary hover:theme-text-primary transition-colors hover:bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)]"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">QuickBooks Integration</h1>
+              <p className="text-xs sm:text-sm mt-0.5 theme-text-tertiary">
+                Sync time entries and payroll with QuickBooks Desktop
+              </p>
             </div>
           </div>
         </header>
 
-        <div className="p-4 sm:p-8 space-y-6">
+        <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-5 max-w-4xl">
+
           {/* Connection Status Card */}
-          <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                Connection Status
-              </h2>
-              {connection && (
-                <button
-                  onClick={downloadQwcFile}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium ${isDark ? "bg-cyan-600 hover:bg-cyan-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
-                >
-                  Download .QWC File
-                </button>
-              )}
-            </div>
+          <Card padding="md">
+            <SectionHeader
+              label="CONNECTION"
+              title="Connection Status"
+              actions={
+                connection ? (
+                  <Button variant="primary" size="sm" onClick={downloadQwcFile}>
+                    Download .QWC File
+                  </Button>
+                ) : undefined
+              }
+            />
 
             {!connection ? (
               <div className="text-center py-8">
-                <svg className={`w-16 h-16 mx-auto mb-4 ${isDark ? "text-slate-600" : "text-gray-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-16 h-16 mx-auto mb-4 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                <h3 className={`text-lg font-medium mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  QuickBooks Not Connected
-                </h3>
-                <p className={`mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <h3 className="text-base font-semibold mb-2 theme-text-primary">QuickBooks Not Connected</h3>
+                <p className="text-sm mb-4 theme-text-secondary">
                   Set up the connection to start syncing time entries and payroll.
                 </p>
-                <button
-                  onClick={() => setShowSetup(true)}
-                  className={`px-6 py-2 rounded-lg font-medium ${isDark ? "bg-cyan-600 hover:bg-cyan-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
-                >
+                <Button variant="primary" onClick={() => setShowSetup(true)}>
                   Set Up Connection
-                </button>
+                </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Company</p>
-                  <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{connection.companyName}</p>
+                  <p className="ui-section-label mb-1">Company</p>
+                  <p className="font-medium theme-text-primary">{connection.companyName}</p>
                 </div>
                 <div>
-                  <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Status</p>
+                  <p className="ui-section-label mb-1">Status</p>
                   <p className={`font-medium capitalize ${getStatusColor(connection.connectionStatus)}`}>
                     {connection.connectionStatus}
                   </p>
                 </div>
                 <div>
-                  <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Last Connected</p>
-                  <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <p className="ui-section-label mb-1">Last Connected</p>
+                  <p className="font-medium theme-text-primary">
                     {connection.lastConnectedAt
                       ? new Date(connection.lastConnectedAt).toLocaleString()
                       : "Never"}
                   </p>
                 </div>
                 <div>
-                  <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Last Sync</p>
-                  <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <p className="ui-section-label mb-1">Last Sync</p>
+                  <p className="font-medium theme-text-primary">
                     {connection.lastSyncAt
                       ? new Date(connection.lastSyncAt).toLocaleString()
                       : "Never"}
@@ -264,16 +252,16 @@ function QuickBooksSettingsContent() {
             )}
 
             {connection?.lastError && (
-              <div className="mt-4 p-3 rounded-lg bg-red-500/20 border border-red-500/30">
-                <p className="text-red-400 text-sm">{connection.lastError}</p>
-              </div>
+              <Card tone="red" padding="sm" className="mt-4">
+                <p className="text-sm text-red-700 dark:text-red-400">{connection.lastError}</p>
+              </Card>
             )}
-          </div>
+          </Card>
 
           {/* Tabs */}
           {connection && (
             <>
-              <div className={`flex gap-1 p-1 rounded-lg ${isDark ? "bg-slate-800" : "bg-gray-100"}`}>
+              <div className="flex gap-2 overflow-x-auto flex-nowrap pb-1">
                 {[
                   { id: "connection", label: "Settings" },
                   { id: "mapping", label: "Employee Mapping" },
@@ -283,10 +271,10 @@ function QuickBooksSettingsContent() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                    className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap border ${
                       activeTab === tab.id
-                        ? isDark ? "bg-slate-700 text-white" : "bg-white text-gray-900 shadow-sm"
-                        : isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-700"
+                        ? "theme-accent-primary border-[var(--accent-primary)]/30 bg-[color-mix(in_srgb,var(--accent-primary)_12%,transparent)]"
+                        : "theme-text-secondary theme-border-secondary theme-card hover:theme-text-primary"
                     }`}
                   >
                     {tab.label}
@@ -294,87 +282,86 @@ function QuickBooksSettingsContent() {
                 ))}
               </div>
 
-              {/* Tab Content */}
+              {/* Settings Tab */}
               {activeTab === "connection" && (
-                <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <h3 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                    Sync Settings
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between py-3 border-b border-slate-700/50">
-                      <div>
-                        <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Sync Time Entries</p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Export employee hours to QuickBooks</p>
+                <Card padding="md">
+                  <SectionHeader
+                    label="SYNC CONFIGURATION"
+                    title="Sync Settings"
+                    actions={
+                      <Button variant="secondary" size="sm" onClick={() => setShowSetup(true)}>
+                        Edit Settings
+                      </Button>
+                    }
+                  />
+                  <div className="space-y-0 divide-y theme-border-secondary">
+                    {[
+                      {
+                        label: "Sync Time Entries",
+                        description: "Export employee hours to QuickBooks",
+                        enabled: connection.syncTimeEntries,
+                      },
+                      {
+                        label: "Import Pay Stubs",
+                        description: "Pull paycheck data from QuickBooks",
+                        enabled: connection.syncPayStubs,
+                      },
+                      {
+                        label: "Sync Employees",
+                        description: "Keep employee list in sync",
+                        enabled: connection.syncEmployees,
+                      },
+                    ].map(({ label, description, enabled }) => (
+                      <div key={label} className="flex items-center justify-between py-3">
+                        <div>
+                          <p className="text-sm font-medium theme-text-primary">{label}</p>
+                          <p className="text-xs theme-text-secondary">{description}</p>
+                        </div>
+                        <span className={`ui-badge ${enabled ? "ui-badge-green" : "ui-badge-gray"}`}>
+                          {enabled ? "Enabled" : "Disabled"}
+                        </span>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-sm ${connection.syncTimeEntries ? "bg-green-500/20 text-green-400" : "bg-slate-700 text-slate-400"}`}>
-                        {connection.syncTimeEntries ? "Enabled" : "Disabled"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between py-3 border-b border-slate-700/50">
-                      <div>
-                        <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Import Pay Stubs</p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Pull paycheck data from QuickBooks</p>
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-sm ${connection.syncPayStubs ? "bg-green-500/20 text-green-400" : "bg-slate-700 text-slate-400"}`}>
-                        {connection.syncPayStubs ? "Enabled" : "Disabled"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between py-3 border-b border-slate-700/50">
-                      <div>
-                        <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Sync Employees</p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Keep employee list in sync</p>
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-sm ${connection.syncEmployees ? "bg-green-500/20 text-green-400" : "bg-slate-700 text-slate-400"}`}>
-                        {connection.syncEmployees ? "Enabled" : "Disabled"}
-                      </span>
-                    </div>
+                    ))}
                     <div className="flex items-center justify-between py-3">
                       <div>
-                        <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Sync Interval</p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>How often Web Connector syncs</p>
+                        <p className="text-sm font-medium theme-text-primary">Sync Interval</p>
+                        <p className="text-xs theme-text-secondary">How often Web Connector syncs</p>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-sm bg-slate-700 text-slate-300`}>
-                        Every {connection.syncIntervalMinutes} minutes
+                      <span className="ui-badge ui-badge-gray">
+                        Every {connection.syncIntervalMinutes} min
                       </span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setShowSetup(true)}
-                    className={`mt-6 px-4 py-2 rounded-lg text-sm font-medium ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
-                  >
-                    Edit Settings
-                  </button>
-                </div>
+                </Card>
               )}
 
+              {/* Employee Mapping Tab */}
               {activeTab === "mapping" && (
-                <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                        Employee Mapping
-                      </h3>
-                      <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                        Link IE Central personnel to QuickBooks employees
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setShowMappingModal(true)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium ${isDark ? "bg-cyan-600 hover:bg-cyan-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
-                    >
-                      Add Mapping
-                    </button>
-                  </div>
+                <Card padding="md">
+                  <SectionHeader
+                    label="EMPLOYEE MAPPING"
+                    title="Employee Mapping"
+                    actions={
+                      <Button variant="primary" size="sm" onClick={() => setShowMappingModal(true)}>
+                        Add Mapping
+                      </Button>
+                    }
+                  />
+                  <p className="text-sm theme-text-secondary -mt-2 mb-4">
+                    Link IE Central personnel to QuickBooks employees
+                  </p>
 
                   {syncStats && (
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
-                        <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{syncStats.mappings.total}</p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Mapped Employees</p>
+                    <div className="grid grid-cols-2 gap-4 mb-5">
+                      <div className="p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/60">
+                        <p className="text-2xl font-bold theme-text-primary">{syncStats.mappings.total}</p>
+                        <p className="text-sm theme-text-secondary">Mapped Employees</p>
                       </div>
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
-                        <p className={`text-2xl font-bold ${syncStats.mappings.unmapped > 0 ? "text-amber-400" : isDark ? "text-white" : "text-gray-900"}`}>{syncStats.mappings.unmapped}</p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Unmapped Employees</p>
+                      <div className="p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/60">
+                        <p className={`text-2xl font-bold ${syncStats.mappings.unmapped > 0 ? "text-amber-500 dark:text-amber-400" : "theme-text-primary"}`}>
+                          {syncStats.mappings.unmapped}
+                        </p>
+                        <p className="text-sm theme-text-secondary">Unmapped Employees</p>
                       </div>
                     </div>
                   )}
@@ -383,30 +370,28 @@ function QuickBooksSettingsContent() {
                     {employeeMappings?.map((mapping) => (
                       <div
                         key={mapping._id}
-                        className={`flex items-center justify-between p-4 rounded-lg ${isDark ? "bg-slate-700/30" : "bg-gray-50"}`}
+                        className="flex items-center justify-between p-3 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/60"
                       >
-                        <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? "bg-slate-600" : "bg-gray-200"}`}>
-                            <span className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-700"}`}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full flex items-center justify-center bg-[color-mix(in_srgb,var(--accent-primary)_15%,transparent)]">
+                            <span className="text-sm font-semibold theme-accent-primary">
                               {mapping.personnel?.firstName?.[0]}{mapping.personnel?.lastName?.[0]}
                             </span>
                           </div>
                           <div>
-                            <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <p className="text-sm font-medium theme-text-primary">
                               {mapping.personnel?.firstName} {mapping.personnel?.lastName}
                             </p>
-                            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                              QB: {mapping.qbName}
-                            </p>
+                            <p className="text-xs theme-text-secondary">QB: {mapping.qbName}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={`px-2 py-1 rounded text-xs ${mapping.isSynced ? "bg-green-500/20 text-green-400" : "bg-amber-500/20 text-amber-400"}`}>
+                          <span className={`ui-badge ${mapping.isSynced ? "ui-badge-green" : "ui-badge-amber"}`}>
                             {mapping.isSynced ? "Synced" : "Pending"}
                           </span>
                           <button
                             onClick={() => deleteMapping({ mappingId: mapping._id })}
-                            className="p-2 text-red-400 hover:bg-red-500/20 rounded"
+                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -417,53 +402,43 @@ function QuickBooksSettingsContent() {
                     ))}
 
                     {(!employeeMappings || employeeMappings.length === 0) && (
-                      <div className="text-center py-8">
-                        <p className={isDark ? "text-slate-400" : "text-gray-500"}>
-                          No employee mappings yet. Add mappings to sync time entries.
-                        </p>
+                      <div className="text-center py-8 theme-text-secondary text-sm">
+                        No employee mappings yet. Add mappings to sync time entries.
                       </div>
                     )}
                   </div>
-                </div>
+                </Card>
               )}
 
+              {/* Time Exports Tab */}
               {activeTab === "exports" && (
-                <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                        Pending Time Exports
-                      </h3>
-                      <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                        Review and approve time entries for QuickBooks export
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleCalculateExports}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
-                    >
-                      Calculate This Week
-                    </button>
-                  </div>
+                <Card padding="md">
+                  <SectionHeader
+                    label="TIME EXPORTS"
+                    title="Pending Time Exports"
+                    actions={
+                      <Button variant="secondary" size="sm" onClick={handleCalculateExports}>
+                        Calculate This Week
+                      </Button>
+                    }
+                  />
+                  <p className="text-sm theme-text-secondary -mt-2 mb-4">
+                    Review and approve time entries for QuickBooks export
+                  </p>
 
                   {syncStats && (
-                    <div className="grid grid-cols-4 gap-4 mb-6">
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
-                        <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{syncStats.exports.pending}</p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Pending</p>
-                      </div>
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
-                        <p className={`text-2xl font-bold text-green-400`}>{syncStats.exports.approved}</p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Approved</p>
-                      </div>
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
-                        <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{syncStats.exports.totalPendingHours.toFixed(1)}</p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Pending Hours</p>
-                      </div>
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
-                        <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{syncStats.queue.pending}</p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>In Queue</p>
-                      </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                      {[
+                        { value: syncStats.exports.pending, label: "Pending", color: "theme-text-primary" },
+                        { value: syncStats.exports.approved, label: "Approved", color: "text-green-500 dark:text-green-400" },
+                        { value: syncStats.exports.totalPendingHours.toFixed(1), label: "Pending Hours", color: "theme-text-primary" },
+                        { value: syncStats.queue.pending, label: "In Queue", color: "theme-text-primary" },
+                      ].map(({ value, label, color }) => (
+                        <div key={label} className="p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/60">
+                          <p className={`text-2xl font-bold ${color}`}>{value}</p>
+                          <p className="text-sm theme-text-secondary">{label}</p>
+                        </div>
+                      ))}
                     </div>
                   )}
 
@@ -471,171 +446,147 @@ function QuickBooksSettingsContent() {
                     {pendingExports?.map((exp) => (
                       <div
                         key={exp._id}
-                        className={`flex items-center justify-between p-4 rounded-lg ${isDark ? "bg-slate-700/30" : "bg-gray-50"}`}
+                        className="flex items-center justify-between p-3 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/60"
                       >
                         <div>
-                          <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                          <p className="text-sm font-medium theme-text-primary">
                             {exp.personnel?.firstName} {exp.personnel?.lastName}
                           </p>
-                          <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          <p className="text-xs theme-text-secondary">
                             Week of {exp.weekStartDate} • {exp.totalHours.toFixed(1)} hrs
                             {exp.overtimeHours > 0 && ` (${exp.overtimeHours.toFixed(1)} OT)`}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
                           {!exp.qbMapping && (
-                            <span className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-400">
-                              Not Mapped
-                            </span>
+                            <span className="ui-badge ui-badge-red">Not Mapped</span>
                           )}
                           {exp.status === "pending" && exp.qbMapping && (
                             <button
                               onClick={() => handleApproveExport(exp._id)}
-                              className="px-3 py-1 rounded text-sm font-medium bg-green-500/20 text-green-400 hover:bg-green-500/30"
+                              className="px-3 py-1 rounded-lg text-sm font-medium bg-green-500/15 text-green-600 dark:text-green-400 hover:bg-green-500/25 transition-colors"
                             >
                               Approve
                             </button>
                           )}
                           {exp.status === "approved" && (
-                            <span className="px-2 py-1 rounded text-xs bg-green-500/20 text-green-400">
-                              Approved
-                            </span>
+                            <span className="ui-badge ui-badge-green">Approved</span>
                           )}
                         </div>
                       </div>
                     ))}
 
                     {(!pendingExports || pendingExports.length === 0) && (
-                      <div className="text-center py-8">
-                        <p className={isDark ? "text-slate-400" : "text-gray-500"}>
-                          No pending exports. Click "Calculate This Week" to generate.
-                        </p>
+                      <div className="text-center py-8 theme-text-secondary text-sm">
+                        No pending exports. Click &quot;Calculate This Week&quot; to generate.
                       </div>
                     )}
                   </div>
-                </div>
+                </Card>
               )}
 
+              {/* Sync Logs Tab */}
               {activeTab === "logs" && (
-                <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <h3 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                    Sync Logs
-                  </h3>
+                <Card padding="md">
+                  <SectionHeader label="SYNC LOGS" title="Sync Logs" />
                   <div className="space-y-2">
                     {syncLogs?.map((log) => (
                       <div
                         key={log._id}
-                        className={`flex items-center justify-between p-3 rounded-lg ${isDark ? "bg-slate-700/30" : "bg-gray-50"}`}
+                        className="flex items-center justify-between p-3 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/60"
                       >
                         <div className="flex items-center gap-3">
-                          <span className={`w-2 h-2 rounded-full ${
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
                             log.status === "completed" ? "bg-green-400" :
                             log.status === "failed" ? "bg-red-400" : "bg-amber-400"
                           }`} />
                           <div>
-                            <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                              {log.operation}
-                            </p>
+                            <p className="text-sm font-medium theme-text-primary">{log.operation}</p>
                             {log.message && (
-                              <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                                {log.message}
-                              </p>
+                              <p className="text-xs theme-text-secondary">{log.message}</p>
                             )}
                           </div>
                         </div>
-                        <p className={`text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                        <p className="text-xs theme-text-tertiary whitespace-nowrap ml-4">
                           {new Date(log.createdAt).toLocaleString()}
                         </p>
                       </div>
                     ))}
 
                     {(!syncLogs || syncLogs.length === 0) && (
-                      <div className="text-center py-8">
-                        <p className={isDark ? "text-slate-400" : "text-gray-500"}>
-                          No sync logs yet.
-                        </p>
+                      <div className="text-center py-8 theme-text-secondary text-sm">
+                        No sync logs yet.
                       </div>
                     )}
                   </div>
-                </div>
+                </Card>
               )}
             </>
           )}
 
           {/* Setup Instructions */}
-          <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-            <h3 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-              Setup Instructions
-            </h3>
-            <ol className={`list-decimal list-inside space-y-3 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+          <Card padding="md">
+            <SectionHeader label="SETUP GUIDE" title="Setup Instructions" />
+            <ol className="list-decimal list-inside space-y-3 text-sm theme-text-secondary">
               <li>Configure the connection settings above with your QuickBooks company name</li>
               <li>Download the .QWC file and save it to the computer running QuickBooks</li>
-              <li>Open QuickBooks Desktop and go to <strong>File → App Management → Update Web Services</strong></li>
-              <li>Click "Add an Application" and select the downloaded .QWC file</li>
+              <li>Open QuickBooks Desktop and go to <strong className="theme-text-primary">File → App Management → Update Web Services</strong></li>
+              <li>Click &quot;Add an Application&quot; and select the downloaded .QWC file</li>
               <li>When prompted, enter the password you configured above</li>
               <li>Grant access permissions when QuickBooks asks</li>
               <li>Map your IE Central employees to QuickBooks employees in the Mapping tab</li>
               <li>The Web Connector will automatically sync at the configured interval</li>
             </ol>
-          </div>
+          </Card>
+
         </div>
       </main>
 
       {/* Setup Modal */}
       {showSetup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className={`w-full max-w-lg rounded-xl p-6 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200"}`}>
-            <h2 className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-              QuickBooks Connection Setup
-            </h2>
+          <div className="theme-card w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4 theme-text-primary">QuickBooks Connection Setup</h2>
 
             <div className="space-y-4">
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Company Name
-                </label>
+                <label className="block ui-section-label mb-1.5">Company Name</label>
                 <input
                   type="text"
                   value={setupForm.companyName}
                   onChange={(e) => setSetupForm({ ...setupForm, companyName: e.target.value })}
                   placeholder="Your QuickBooks Company Name"
-                  className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"} border`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 />
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Web Connector Username
-                </label>
+                <label className="block ui-section-label mb-1.5">Web Connector Username</label>
                 <input
                   type="text"
                   value={setupForm.wcUsername}
                   onChange={(e) => setSetupForm({ ...setupForm, wcUsername: e.target.value })}
-                  className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"} border`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 />
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Web Connector Password
-                </label>
+                <label className="block ui-section-label mb-1.5">Web Connector Password</label>
                 <input
                   type="password"
                   value={setupForm.wcPassword}
                   onChange={(e) => setSetupForm({ ...setupForm, wcPassword: e.target.value })}
                   placeholder="Create a secure password"
-                  className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"} border`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 />
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Sync Interval (minutes)
-                </label>
+                <label className="block ui-section-label mb-1.5">Sync Interval</label>
                 <select
                   value={setupForm.syncIntervalMinutes}
                   onChange={(e) => setSetupForm({ ...setupForm, syncIntervalMinutes: parseInt(e.target.value) })}
-                  className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"} border`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 >
                   <option value={5}>Every 5 minutes</option>
                   <option value={15}>Every 15 minutes</option>
@@ -644,51 +595,48 @@ function QuickBooksSettingsContent() {
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <label className={`flex items-center gap-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+              <div className="space-y-2 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={setupForm.syncTimeEntries}
                     onChange={(e) => setSetupForm({ ...setupForm, syncTimeEntries: e.target.checked })}
                     className="rounded"
                   />
-                  <span>Export time entries to QuickBooks</span>
+                  <span className="text-sm theme-text-secondary">Export time entries to QuickBooks</span>
                 </label>
-                <label className={`flex items-center gap-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={setupForm.syncPayStubs}
                     onChange={(e) => setSetupForm({ ...setupForm, syncPayStubs: e.target.checked })}
                     className="rounded"
                   />
-                  <span>Import pay stubs from QuickBooks</span>
+                  <span className="text-sm theme-text-secondary">Import pay stubs from QuickBooks</span>
                 </label>
-                <label className={`flex items-center gap-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={setupForm.syncEmployees}
                     onChange={(e) => setSetupForm({ ...setupForm, syncEmployees: e.target.checked })}
                     className="rounded"
                   />
-                  <span>Sync employee list</span>
+                  <span className="text-sm theme-text-secondary">Sync employee list</span>
                 </label>
               </div>
             </div>
 
             <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => setShowSetup(false)}
-                className={`px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
-              >
+              <Button variant="secondary" onClick={() => setShowSetup(false)}>
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 onClick={handleSaveConnection}
                 disabled={isSaving || !setupForm.companyName || !setupForm.wcPassword}
-                className={`px-4 py-2 rounded-lg font-medium disabled:opacity-50 ${isDark ? "bg-cyan-600 hover:bg-cyan-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
               >
                 {isSaving ? "Saving..." : "Save Connection"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -697,20 +645,16 @@ function QuickBooksSettingsContent() {
       {/* Add Mapping Modal */}
       {showMappingModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className={`w-full max-w-lg rounded-xl p-6 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200"}`}>
-            <h2 className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-              Map Employee to QuickBooks
-            </h2>
+          <div className="theme-card w-full max-w-lg p-6">
+            <h2 className="text-xl font-bold mb-4 theme-text-primary">Map Employee to QuickBooks</h2>
 
             <div className="space-y-4">
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  IE Central Employee
-                </label>
+                <label className="block ui-section-label mb-1.5">IE Central Employee</label>
                 <select
                   value={selectedPersonnel || ""}
                   onChange={(e) => setSelectedPersonnel(e.target.value as Id<"personnel">)}
-                  className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"} border`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 >
                   <option value="">Select employee...</option>
                   {unmappedPersonnel?.map((p) => (
@@ -722,54 +666,50 @@ function QuickBooksSettingsContent() {
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  QuickBooks Employee Name
-                </label>
+                <label className="block ui-section-label mb-1.5">QuickBooks Employee Name</label>
                 <input
                   type="text"
                   value={qbName}
                   onChange={(e) => setQbName(e.target.value)}
                   placeholder="Name as it appears in QuickBooks"
-                  className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"} border`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 />
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  QuickBooks List ID
-                </label>
+                <label className="block ui-section-label mb-1.5">QuickBooks List ID</label>
                 <input
                   type="text"
                   value={qbListId}
                   onChange={(e) => setQbListId(e.target.value)}
                   placeholder="e.g., 80000001-1234567890"
-                  className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"} border`}
+                  className="theme-input w-full px-3 py-2 text-sm"
                 />
-                <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                <p className="text-xs mt-1.5 theme-text-tertiary">
                   The List ID is auto-populated when employees sync from QuickBooks
                 </p>
               </div>
             </div>
 
             <div className="flex justify-end gap-3 mt-6">
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => {
                   setShowMappingModal(false);
                   setSelectedPersonnel(null);
                   setQbListId("");
                   setQbName("");
                 }}
-                className={`px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 onClick={handleCreateMapping}
                 disabled={!selectedPersonnel || !qbListId || !qbName}
-                className={`px-4 py-2 rounded-lg font-medium disabled:opacity-50 ${isDark ? "bg-cyan-600 hover:bg-cyan-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
               >
                 Create Mapping
-              </button>
+              </Button>
             </div>
           </div>
         </div>
