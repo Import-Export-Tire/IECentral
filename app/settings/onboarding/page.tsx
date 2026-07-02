@@ -4,11 +4,13 @@ import { useState, useRef } from "react";
 import Link from "next/link";
 import Protected from "../../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
-import { useTheme } from "../../theme-context";
 import { useAuth } from "../../auth-context";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 const DOCUMENT_TYPES = [
   { value: "handbook", label: "Employee Handbook", icon: "📘" },
@@ -34,9 +36,7 @@ function formatDate(timestamp: number): string {
 }
 
 function OnboardingContent() {
-  const { theme } = useTheme();
   const { user } = useAuth();
-  const isDark = theme === "dark";
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showSignaturesModal, setShowSignaturesModal] = useState(false);
@@ -166,96 +166,92 @@ function OnboardingContent() {
   const selectedDocDetails = documents?.find((d) => d._id === selectedDocument);
 
   return (
-    <div className="flex h-screen theme-bg-primary">
+    <div className="flex h-screen theme-bg">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
-        {/* Header */}
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
-          <div className="flex items-center justify-between">
+
+        {/* Sticky iOS-style page header */}
+        <header className="sticky top-0 z-10 backdrop-blur-sm border-b theme-border-secondary px-4 sm:px-8 py-3 sm:py-4 bg-[var(--surface-primary)]/80">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <Link
                 href="/settings"
-                className={`p-2 -ml-2 rounded-lg transition-colors ${isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+                className="p-2 -ml-2 rounded-lg theme-text-secondary hover:theme-text-primary transition-colors hover:bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)]"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </Link>
               <div>
-                <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Onboarding Documents
-                </h1>
-                <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Onboarding Documents</h1>
+                <p className="text-xs sm:text-sm mt-0.5 theme-text-tertiary">
                   Manage employee handbooks, policies, and required documents
                 </p>
               </div>
             </div>
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() => {
                 setShowUploadModal(true);
                 resetForm();
               }}
-              className={`px-3 sm:px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <span className="hidden sm:inline">Add Document</span>
-            </button>
+              + Add Document
+            </Button>
           </div>
         </header>
 
-        <div className="p-4 sm:p-8">
+        <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-5 max-w-4xl">
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm mb-6">
-              {error}
-              <button onClick={() => setError("")} className="ml-4 text-red-300 hover:text-red-100">Dismiss</button>
-            </div>
+            <Card tone="red" padding="sm">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                <button onClick={() => setError("")} className="text-sm text-red-500 hover:text-red-700 shrink-0">Dismiss</button>
+              </div>
+            </Card>
           )}
 
           {/* Stats Cards */}
-          <div className="grid gap-4 sm:grid-cols-3 mb-6">
-            <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-              <div className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                {documents?.length || 0}
-              </div>
-              <div className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Total Documents</div>
-            </div>
-            <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-              <div className={`text-2xl font-bold text-green-400`}>
-                {documents?.filter((d) => d.isActive).length || 0}
-              </div>
-              <div className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Active Documents</div>
-            </div>
-            <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-              <div className={`text-2xl font-bold text-amber-400`}>
-                {documents?.filter((d) => d.requiresSignature && d.isRequired).length || 0}
-              </div>
-              <div className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Require Signature</div>
-            </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Card padding="sm">
+              <div className="text-2xl font-bold theme-text-primary">{documents?.length || 0}</div>
+              <div className="text-sm theme-text-secondary mt-0.5">Total Documents</div>
+            </Card>
+            <Card padding="sm">
+              <div className="text-2xl font-bold text-green-500">{documents?.filter((d) => d.isActive).length || 0}</div>
+              <div className="text-sm theme-text-secondary mt-0.5">Active Documents</div>
+            </Card>
+            <Card padding="sm">
+              <div className="text-2xl font-bold text-amber-500">{documents?.filter((d) => d.requiresSignature && d.isRequired).length || 0}</div>
+              <div className="text-sm theme-text-secondary mt-0.5">Require Signature</div>
+            </Card>
           </div>
 
           {/* Documents List */}
           {!documents || documents.length === 0 ? (
-            <div className={`text-center py-12 border rounded-xl ${isDark ? "bg-slate-800/50 border-slate-700 text-slate-400" : "bg-white border-gray-200 text-gray-500"}`}>
-              <div className="text-4xl mb-3">📋</div>
-              <p>No onboarding documents yet.</p>
-              <p className="text-sm mt-2">Upload your employee handbook or company policies to get started.</p>
-            </div>
+            <Card padding="md">
+              <div className="text-center py-8">
+                <div className="text-4xl mb-3">📋</div>
+                <p className="theme-text-secondary">No onboarding documents yet.</p>
+                <p className="text-sm theme-text-tertiary mt-2">Upload your employee handbook or company policies to get started.</p>
+              </div>
+            </Card>
           ) : (
             <div className="space-y-4">
               {documents.map((doc) => {
                 const docType = DOCUMENT_TYPES.find((t) => t.value === doc.documentType);
                 return (
-                  <div
+                  <Card
                     key={doc._id}
-                    className={`border rounded-xl p-4 sm:p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"} ${!doc.isActive && "opacity-60"}`}
+                    padding="md"
+                    className={!doc.isActive ? "opacity-60" : ""}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                       {/* Icon */}
-                      <div className={`text-3xl p-3 rounded-lg shrink-0 ${isDark ? "bg-slate-700" : "bg-gray-100"}`}>
+                      <div className="text-3xl p-3 rounded-xl shrink-0 bg-[#f2f2f7] dark:bg-slate-900/60">
                         {docType?.icon || "📄"}
                       </div>
 
@@ -263,34 +259,33 @@ function OnboardingContent() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-4">
                           <div>
-                            <h3 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                              {doc.title}
-                            </h3>
-                            <div className={`flex flex-wrap items-center gap-2 mt-1 text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                              <span className={`px-2 py-0.5 rounded ${isDark ? "bg-slate-700" : "bg-gray-100"}`}>
-                                {docType?.label}
-                              </span>
-                              <span>v{doc.version}</span>
-                              <span>|</span>
-                              <span>{formatFileSize(doc.fileSize)}</span>
-                              {doc.pageCount && <span>| {doc.pageCount} pages</span>}
+                            <h3 className="text-lg font-semibold theme-text-primary">{doc.title}</h3>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              <span className="ui-badge ui-badge-gray">{docType?.label}</span>
+                              <span className="text-sm theme-text-tertiary">v{doc.version}</span>
+                              <span className="text-sm theme-text-tertiary">·</span>
+                              <span className="text-sm theme-text-tertiary">{formatFileSize(doc.fileSize)}</span>
+                              {doc.pageCount && (
+                                <>
+                                  <span className="text-sm theme-text-tertiary">·</span>
+                                  <span className="text-sm theme-text-tertiary">{doc.pageCount} pages</span>
+                                </>
+                              )}
                             </div>
                           </div>
 
                           {/* Status Badge */}
-                          <div className={`px-3 py-1 rounded-full text-xs font-medium ${doc.isActive ? "bg-green-500/20 text-green-400" : "bg-gray-500/20 text-gray-400"}`}>
+                          <span className={`ui-badge ${doc.isActive ? "ui-badge-green" : "ui-badge-gray"}`}>
                             {doc.isActive ? "Active" : "Inactive"}
-                          </div>
+                          </span>
                         </div>
 
                         {doc.description && (
-                          <p className={`mt-2 text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                            {doc.description}
-                          </p>
+                          <p className="mt-2 text-sm theme-text-secondary">{doc.description}</p>
                         )}
 
                         {/* Meta Info */}
-                        <div className={`flex flex-wrap items-center gap-4 mt-4 text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                        <div className="flex flex-wrap items-center gap-4 mt-3 text-xs theme-text-tertiary">
                           <div className="flex items-center gap-1">
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -304,7 +299,7 @@ function OnboardingContent() {
                             Added: {formatDate(doc.createdAt)}
                           </div>
                           {doc.requiresSignature && (
-                            <div className="flex items-center gap-1 text-amber-400">
+                            <div className="flex items-center gap-1 text-amber-500">
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                               </svg>
@@ -312,7 +307,7 @@ function OnboardingContent() {
                             </div>
                           )}
                           {doc.isRequired && (
-                            <div className="flex items-center gap-1 text-red-400">
+                            <div className="flex items-center gap-1 text-red-500">
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                               </svg>
@@ -323,15 +318,15 @@ function OnboardingContent() {
 
                         {/* Signature Stats */}
                         {doc.requiresSignature && (
-                          <div className={`flex items-center gap-4 mt-4 pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                          <div className="flex items-center gap-4 mt-4 pt-4 border-t theme-border-secondary">
                             <button
                               onClick={() => handleViewSignatures(doc._id)}
-                              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-[#f2f2f7] dark:bg-slate-900/60 theme-text-secondary hover:bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)]"
                             >
-                              <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                              <span className="text-green-400 font-bold">{doc.signatureCount}</span>
+                              <span className="text-green-500 font-bold">{doc.signatureCount}</span>
                               Signed
                             </button>
                           </div>
@@ -340,21 +335,23 @@ function OnboardingContent() {
 
                       {/* Actions */}
                       <div className="flex sm:flex-col gap-2 shrink-0">
-                        <button
+                        <Button
+                          variant={doc.isActive ? "secondary" : "ghost"}
+                          size="sm"
                           onClick={() => handleToggleActive(doc._id, doc.isActive)}
-                          className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${doc.isActive ? isDark ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30" : "bg-amber-100 text-amber-600 hover:bg-amber-200" : isDark ? "bg-green-500/20 text-green-400 hover:bg-green-500/30" : "bg-green-100 text-green-600 hover:bg-green-200"}`}
                         >
                           {doc.isActive ? "Deactivate" : "Activate"}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
                           onClick={() => handleDelete(doc._id)}
-                          className="px-3 py-1.5 text-xs font-medium rounded transition-colors bg-red-500/10 text-red-400 hover:bg-red-500/20"
                         >
                           Delete
-                        </button>
+                        </Button>
                       </div>
                     </div>
-                  </div>
+                  </Card>
                 );
               })}
             </div>
@@ -364,22 +361,20 @@ function OnboardingContent() {
         {/* Upload Modal */}
         {showUploadModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`border rounded-xl p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-              <h2 className={`text-xl font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                Add Onboarding Document
-              </h2>
-              <form onSubmit={handleUpload} className="space-y-4">
+            <div className="theme-card w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <div className="p-5 border-b theme-border-secondary">
+                <h2 className="text-lg font-semibold theme-text-primary">Add Onboarding Document</h2>
+              </div>
+              <form onSubmit={handleUpload} className="p-5 space-y-4">
                 {/* File Upload */}
                 <div>
-                  <span className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Document File *
-                  </span>
+                  <span className="block ui-section-label mb-1.5">Document File *</span>
                   <label
                     htmlFor="file-upload"
-                    className={`block border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                    className={`block border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
                       selectedFile
-                        ? isDark ? "border-cyan-500 bg-cyan-500/10" : "border-blue-500 bg-blue-50"
-                        : isDark ? "border-slate-600 hover:border-slate-500" : "border-gray-300 hover:border-gray-400"
+                        ? "border-[var(--accent-primary)] bg-[color-mix(in_srgb,var(--accent-primary)_6%,transparent)]"
+                        : "theme-border-secondary hover:border-[var(--accent-primary)]"
                     }`}
                   >
                     <input
@@ -393,14 +388,14 @@ function OnboardingContent() {
                     {selectedFile ? (
                       <div>
                         <div className="text-2xl mb-2">📄</div>
-                        <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{selectedFile.name}</p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>{formatFileSize(selectedFile.size)}</p>
+                        <p className="font-medium theme-text-primary">{selectedFile.name}</p>
+                        <p className="text-sm theme-text-secondary">{formatFileSize(selectedFile.size)}</p>
                       </div>
                     ) : (
                       <div>
                         <div className="text-2xl mb-2">📤</div>
-                        <p className={isDark ? "text-slate-400" : "text-gray-500"}>Click to select a document</p>
-                        <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>PDF or Word documents</p>
+                        <p className="theme-text-secondary">Click to select a document</p>
+                        <p className="text-xs mt-1 theme-text-tertiary">PDF or Word documents</p>
                       </div>
                     )}
                   </label>
@@ -408,14 +403,12 @@ function OnboardingContent() {
 
                 {/* Title */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Document Title *
-                  </label>
+                  <label className="block ui-section-label mb-1.5">Document Title *</label>
                   <input
                     type="text"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                     required
                     placeholder="e.g., Employee Handbook 2025"
                   />
@@ -423,14 +416,12 @@ function OnboardingContent() {
 
                 {/* Description */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Description
-                  </label>
+                  <label className="block ui-section-label mb-1.5">Description</label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={2}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none resize-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                     placeholder="Brief description..."
                   />
                 </div>
@@ -438,13 +429,11 @@ function OnboardingContent() {
                 {/* Document Type & Version */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Document Type *
-                    </label>
+                    <label className="block ui-section-label mb-1.5">Document Type *</label>
                     <select
                       value={formData.documentType}
                       onChange={(e) => setFormData({ ...formData, documentType: e.target.value })}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                     >
                       {DOCUMENT_TYPES.map((type) => (
                         <option key={type.value} value={type.value}>
@@ -454,14 +443,12 @@ function OnboardingContent() {
                     </select>
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Version *
-                    </label>
+                    <label className="block ui-section-label mb-1.5">Version *</label>
                     <input
                       type="text"
                       value={formData.version}
                       onChange={(e) => setFormData({ ...formData, version: e.target.value })}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                       required
                       placeholder="1.0"
                     />
@@ -470,59 +457,59 @@ function OnboardingContent() {
 
                 {/* Effective Date */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Effective Date *
-                  </label>
+                  <label className="block ui-section-label mb-1.5">Effective Date *</label>
                   <input
                     type="date"
                     value={formData.effectiveDate}
                     onChange={(e) => setFormData({ ...formData, effectiveDate: e.target.value })}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${isDark ? "bg-slate-900/50 border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                     required
                   />
                 </div>
 
                 {/* Checkboxes */}
                 <div className="space-y-3">
-                  <label className={`flex items-center gap-3 cursor-pointer ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={formData.requiresSignature}
                       onChange={(e) => setFormData({ ...formData, requiresSignature: e.target.checked })}
                       className="w-4 h-4 rounded border-slate-600 text-cyan-500 focus:ring-cyan-500"
                     />
-                    <span className="text-sm">Requires digital signature</span>
+                    <span className="text-sm theme-text-secondary">Requires digital signature</span>
                   </label>
-                  <label className={`flex items-center gap-3 cursor-pointer ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={formData.isRequired}
                       onChange={(e) => setFormData({ ...formData, isRequired: e.target.checked })}
                       className="w-4 h-4 rounded border-slate-600 text-cyan-500 focus:ring-cyan-500"
                     />
-                    <span className="text-sm">Required for all employees</span>
+                    <span className="text-sm theme-text-secondary">Required for all employees</span>
                   </label>
                 </div>
 
                 {/* Buttons */}
-                <div className="flex gap-3 pt-4">
-                  <button
+                <div className="flex gap-3 pt-2">
+                  <Button
                     type="button"
+                    variant="secondary"
+                    className="flex-1"
                     onClick={() => {
                       setShowUploadModal(false);
                       resetForm();
                     }}
-                    className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
+                    variant="primary"
+                    className="flex-1"
                     disabled={uploading || !selectedFile}
-                    className={`flex-1 px-4 py-3 font-medium rounded-lg transition-colors disabled:opacity-50 ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
                   >
                     {uploading ? "Uploading..." : "Add Document"}
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
@@ -532,14 +519,12 @@ function OnboardingContent() {
         {/* Signatures Modal */}
         {showSignaturesModal && selectedDocDetails && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`border rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+            <div className="theme-card w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
               {/* Modal Header */}
-              <div className={`flex items-center justify-between p-4 sm:p-6 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+              <div className="flex items-center justify-between p-5 border-b theme-border-secondary">
                 <div>
-                  <h2 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                    Signature Status
-                  </h2>
-                  <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <h2 className="text-lg font-semibold theme-text-primary">Signature Status</h2>
+                  <p className="text-sm theme-text-secondary mt-0.5">
                     {selectedDocDetails.title} (v{selectedDocDetails.version})
                   </p>
                 </div>
@@ -548,7 +533,7 @@ function OnboardingContent() {
                     setShowSignaturesModal(false);
                     setSelectedDocument(null);
                   }}
-                  className={`p-2 rounded-lg ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}
+                  className="p-2 rounded-lg theme-text-secondary hover:theme-text-primary hover:bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)] transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -557,78 +542,63 @@ function OnboardingContent() {
               </div>
 
               {/* Modal Content */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="flex-1 overflow-y-auto p-5">
                 {/* Stats */}
                 <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div className={`p-4 rounded-lg ${isDark ? "bg-green-500/10 border border-green-500/20" : "bg-green-50 border border-green-200"}`}>
-                    <div className="text-2xl font-bold text-green-400">{signatures?.length || 0}</div>
-                    <div className={`text-sm ${isDark ? "text-green-400/80" : "text-green-600"}`}>Signed</div>
-                  </div>
-                  <div className={`p-4 rounded-lg ${isDark ? "bg-amber-500/10 border border-amber-500/20" : "bg-amber-50 border border-amber-200"}`}>
-                    <div className="text-2xl font-bold text-amber-400">{unsignedEmployees?.length || 0}</div>
-                    <div className={`text-sm ${isDark ? "text-amber-400/80" : "text-amber-600"}`}>Pending</div>
-                  </div>
+                  <Card tone="green" padding="sm">
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">{signatures?.length || 0}</div>
+                    <div className="text-sm text-green-700 dark:text-green-400 mt-0.5">Signed</div>
+                  </Card>
+                  <Card tone="amber" padding="sm">
+                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{unsignedEmployees?.length || 0}</div>
+                    <div className="text-sm text-amber-700 dark:text-amber-400 mt-0.5">Pending</div>
+                  </Card>
                 </div>
 
-                {/* Tabs */}
                 <div className="space-y-6">
                   {/* Signed List */}
                   <div>
-                    <h3 className={`text-sm font-medium mb-3 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Signed ({signatures?.length || 0})
-                    </h3>
+                    <div className="ui-section-label mb-3">Signed ({signatures?.length || 0})</div>
                     {signatures && signatures.length > 0 ? (
                       <div className="space-y-2">
                         {signatures.map((sig) => (
                           <div
                             key={sig._id}
-                            className={`flex items-center justify-between p-3 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}
+                            className="flex items-center justify-between p-3 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/60"
                           >
                             <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-600"}`}>
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium bg-green-500/20 text-green-600 dark:text-green-400">
                                 {sig.personnelName.charAt(0)}
                               </div>
-                              <span className={isDark ? "text-white" : "text-gray-900"}>
-                                {sig.personnelName}
-                              </span>
+                              <span className="theme-text-primary text-sm">{sig.personnelName}</span>
                             </div>
-                            <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                              {formatDate(sig.signedAt)}
-                            </span>
+                            <span className="text-xs theme-text-tertiary">{formatDate(sig.signedAt)}</span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className={`text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                        No signatures yet
-                      </p>
+                      <p className="text-sm theme-text-tertiary">No signatures yet</p>
                     )}
                   </div>
 
                   {/* Unsigned List */}
                   <div>
-                    <h3 className={`text-sm font-medium mb-3 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Pending Signatures ({unsignedEmployees?.length || 0})
-                    </h3>
+                    <div className="ui-section-label mb-3">Pending Signatures ({unsignedEmployees?.length || 0})</div>
                     {unsignedEmployees && unsignedEmployees.length > 0 ? (
                       <div className="space-y-2">
                         {unsignedEmployees.map((emp) => (
                           <div
                             key={emp._id}
-                            className={`flex items-center justify-between p-3 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}
+                            className="flex items-center justify-between p-3 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/60"
                           >
                             <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${isDark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-600"}`}>
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium bg-amber-500/20 text-amber-600 dark:text-amber-400">
                                 {emp.name.charAt(0)}
                               </div>
                               <div>
-                                <span className={isDark ? "text-white" : "text-gray-900"}>
-                                  {emp.name}
-                                </span>
+                                <span className="theme-text-primary text-sm">{emp.name}</span>
                                 {emp.department && (
-                                  <span className={`block text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                                    {emp.department}
-                                  </span>
+                                  <span className="block text-xs theme-text-tertiary">{emp.department}</span>
                                 )}
                               </div>
                             </div>
@@ -636,9 +606,7 @@ function OnboardingContent() {
                         ))}
                       </div>
                     ) : (
-                      <p className={`text-sm text-green-400`}>
-                        All active employees have signed!
-                      </p>
+                      <p className="text-sm text-green-500">All active employees have signed!</p>
                     )}
                   </div>
                 </div>
