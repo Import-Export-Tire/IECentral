@@ -12,6 +12,8 @@ import Link from "next/link";
 import CalendarHelpModal from "@/components/CalendarHelpModal";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import TimeGrid from "@/components/calendar/TimeGrid";
+import { useNowMinute } from "@/components/calendar/useNowMinute";
 
 function formatTime(timestamp: number): string {
   return new Date(timestamp).toLocaleTimeString("en-US", {
@@ -56,6 +58,7 @@ function CalendarContent() {
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
+  const now = useNowMinute(); // browser-local "now", ticks each minute for the now-line
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
@@ -516,10 +519,69 @@ function CalendarContent() {
     }
   };
 
-  const navigateMonth = (delta: number) => {
+  // Unified nav that respects the active view: month ±1 month, week ±7 days,
+  // day ±1 day.
+  const navigate = (delta: number) => {
     const newDate = new Date(selectedDate);
-    newDate.setMonth(newDate.getMonth() + delta);
+    if (viewMode === "month") newDate.setMonth(newDate.getMonth() + delta);
+    else if (viewMode === "week") newDate.setDate(newDate.getDate() + delta * 7);
+    else newDate.setDate(newDate.getDate() + delta);
     setSelectedDate(newDate);
+  };
+
+  // The 7 local-midnight days (Sun..Sat) of the week containing selectedDate.
+  const weekDays = useMemo(() => {
+    const start = new Date(selectedDate);
+    start.setDate(start.getDate() - start.getDay());
+    start.setHours(0, 0, 0, 0);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      return d;
+    });
+  }, [selectedDate]);
+
+  // Single local-midnight day for day view.
+  const dayViewDays = useMemo(() => {
+    const d = new Date(selectedDate);
+    d.setHours(0, 0, 0, 0);
+    return [d];
+  }, [selectedDate]);
+
+  // Header date label reflects the active view.
+  const headerLabel = useMemo(() => {
+    if (viewMode === "month") {
+      return selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    }
+    if (viewMode === "day") {
+      return selectedDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+    // week — "Jul 6 – 12, 2026" (crossing months/years shown in full)
+    const first = weekDays[0];
+    const last = weekDays[6];
+    const sameMonth = first.getMonth() === last.getMonth() && first.getFullYear() === last.getFullYear();
+    if (sameMonth) {
+      return `${first.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${last.getDate()}, ${last.getFullYear()}`;
+    }
+    return `${first.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${last.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${last.getFullYear()}`;
+  }, [viewMode, selectedDate, weekDays]);
+
+  // Empty-slot click in Day/Week grid → open create modal prefilled for that
+  // day + hour, mirroring the month click-to-create flow.
+  const handleSlotClick = (dayDate: Date, hour: number) => {
+    const start = new Date(dayDate);
+    start.setHours(hour, 0, 0, 0);
+    setFormData({
+      ...formData,
+      startTime: formatDateForInput(start),
+      endTime: formatDateForInput(new Date(start.getTime() + 60 * 60 * 1000)),
+    });
+    setShowCreateModal(true);
   };
 
   const isToday = (date: Date) => {
@@ -689,38 +751,84 @@ function CalendarContent() {
           )}
 
           {/* Calendar Navigation */}
-          <div className="theme-card p-3 flex items-center justify-between gap-2">
+          <div className="theme-card p-3 flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigateMonth(-1)}
-                aria-label="Previous month"
+                onClick={() => navigate(-1)}
+                aria-label="Previous"
               >
                 &#8592;
               </Button>
               <h2 className="text-base sm:text-lg font-semibold theme-text-primary px-2 min-w-[160px] text-center">
-                {selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                {headerLabel}
               </h2>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigateMonth(1)}
-                aria-label="Next month"
+                onClick={() => navigate(1)}
+                aria-label="Next"
               >
                 &#8594;
               </Button>
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setSelectedDate(new Date())}
-            >
-              Today
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Day / Week / Month switcher */}
+              <div className="flex items-center gap-1">
+                {(["day", "week", "month"] as const).map((mode) => (
+                  <Button
+                    key={mode}
+                    variant={viewMode === mode ? "primary" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewMode(mode)}
+                    aria-pressed={viewMode === mode}
+                  >
+                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setSelectedDate(new Date())}
+              >
+                Today
+              </Button>
+            </div>
           </div>
 
+          {/* ── Week / Day time-grid views ── */}
+          {viewMode === "week" && (
+            <div className={`rounded-xl border overflow-hidden ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+              <TimeGrid
+                days={weekDays}
+                getEventsForDay={getEventsForDay}
+                eventChipClass={eventChipClass}
+                onEventClick={openEventDetails}
+                onSlotClick={handleSlotClick}
+                isToday={isToday}
+                now={now}
+              />
+            </div>
+          )}
+
+          {viewMode === "day" && (
+            <div className={`rounded-xl border overflow-hidden ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+              <TimeGrid
+                days={dayViewDays}
+                getEventsForDay={getEventsForDay}
+                eventChipClass={eventChipClass}
+                onEventClick={openEventDetails}
+                onSlotClick={handleSlotClick}
+                isToday={isToday}
+                now={now}
+              />
+            </div>
+          )}
+
           {/* Calendar Grid — overflow-x-auto prevents body-level horizontal scroll on mobile */}
+          {viewMode === "month" && (
           <div className="overflow-x-auto">
             <div className={`rounded-xl border overflow-hidden min-w-[640px] ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
               {/* Day headers */}
@@ -746,9 +854,7 @@ function CalendarContent() {
                   return (
                     <div
                       key={idx}
-                      className={`h-[110px] p-1 border-b border-r cursor-pointer transition-colors overflow-hidden ${
-                        isDark ? "border-slate-700" : "border-gray-100"
-                      } ${
+                      className={`h-[110px] p-1 border-b border-r cursor-pointer transition-colors overflow-hidden theme-border-secondary ${
                         day.isCurrentMonth
                           ? isDark ? "bg-slate-800" : "bg-white"
                           : isDark ? "bg-slate-800/50" : "bg-gray-50/80"
@@ -814,6 +920,7 @@ function CalendarContent() {
               </div>
             </div>
           </div>
+          )}
         </div>
 
         {/* ── Create / Edit Event Modal ── */}

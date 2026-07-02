@@ -220,12 +220,12 @@ export default function CalendarHelpModal({ isDark }: { isDark: boolean }) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
           <div className={`absolute inset-0 ${isDark ? "bg-black/70" : "bg-black/40"} backdrop-blur-sm`} />
 
           <div
             onClick={(e) => e.stopPropagation()}
-            className={`relative w-full max-w-2xl mx-4 h-[75vh] rounded-2xl overflow-hidden flex flex-col ${
+            className={`relative w-full max-w-2xl max-h-[90vh] rounded-2xl overflow-hidden flex flex-col ${
               isDark ? "bg-slate-900 border border-slate-700" : "bg-white border border-gray-200 shadow-2xl"
             }`}
           >
