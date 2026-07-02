@@ -9,7 +9,6 @@ import { api } from "@/convex/_generated/api";
 import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
-import SectionHeader from "@/components/ui/SectionHeader";
 
 const SOURCE_TYPES = [
   { code: "OEA07V", label: "OEA07V — Sales Activity" },
