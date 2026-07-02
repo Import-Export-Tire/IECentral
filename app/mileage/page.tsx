@@ -3,11 +3,12 @@
 import { useState, useMemo, useRef } from "react";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
-import { useTheme } from "../theme-context";
 import { useAuth } from "../auth-context";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 
 const DEFAULT_FROM_LOCATION = "Latrobe, PA";
 
@@ -28,9 +29,7 @@ function formatDate(dateStr: string): string {
 }
 
 function MileageContent() {
-  const { theme } = useTheme();
   const { user } = useAuth();
-  const isDark = theme === "dark";
   const printRef = useRef<HTMLDivElement>(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -291,7 +290,7 @@ function MileageContent() {
   };
 
   return (
-    <div className={`flex h-screen theme-bg-primary`}>
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
@@ -340,17 +339,13 @@ function MileageContent() {
         `}</style>
 
         {/* Header */}
-        <header
-          className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-4 no-print ${
-            isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"
-          }`}
-        >
+        <header className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-[var(--theme-border-secondary)] px-4 sm:px-8 py-4 no-print">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">
                 Mileage Tracker
               </h1>
-              <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className="text-sm theme-text-tertiary">
                 IRS Rate: ${currentRate?.toFixed(2)}/mile
               </p>
             </div>
@@ -360,11 +355,7 @@ function MileageContent() {
                 <button
                   onClick={handleSubmitReport}
                   disabled={isSubmitting}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
-                    isDark
-                      ? "bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
-                      : "bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                  }`}
+                  className="px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 bg-green-600 dark:bg-green-500 text-white hover:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <>
@@ -386,11 +377,7 @@ function MileageContent() {
                 <button
                   onClick={handleApproveAll}
                   disabled={isSubmitting}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
-                    isDark
-                      ? "bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
-                      : "bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                  }`}
+                  className="px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 bg-green-600 dark:bg-green-500 text-white hover:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <>
@@ -412,11 +399,7 @@ function MileageContent() {
                 <button
                   onClick={handleMarkPaid}
                   disabled={isSubmitting}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
-                    isDark
-                      ? "bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
-                      : "bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                  }`}
+                  className="px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 bg-green-600 dark:bg-green-500 text-white hover:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <>
@@ -436,30 +419,8 @@ function MileageContent() {
                   )}
                 </button>
               )}
-              <button
-                onClick={handlePrint}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  isDark
-                    ? "bg-slate-700 text-white hover:bg-slate-600"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                Print
-              </button>
-              <button
-                onClick={() => {
-                  resetForm();
-                  setEditingEntry(null);
-                  setShowAddModal(true);
-                }}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  isDark
-                    ? "bg-cyan-500 text-white hover:bg-cyan-600"
-                    : "bg-blue-600 text-white hover:bg-blue-700"
-                }`}
-              >
-                + Add Entry
-              </button>
+              <Button variant="secondary" onClick={handlePrint}>Print</Button>
+              <Button variant="primary" onClick={() => { resetForm(); setEditingEntry(null); setShowAddModal(true); }}>+ Add Entry</Button>
             </div>
           </div>
         </header>
@@ -586,15 +547,11 @@ function MileageContent() {
           </div>
 
           {/* Filters */}
-          <div className={`flex flex-wrap gap-3 mb-6 no-print`}>
+          <div className="flex flex-wrap gap-3 mb-6 no-print">
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className={`px-3 py-2 rounded-lg border ${
-                isDark
-                  ? "bg-slate-800 border-slate-600 text-white"
-                  : "bg-white border-gray-300 text-gray-900"
-              }`}
+              className="theme-input px-3 py-2"
             >
               {years.map((year) => (
                 <option key={year} value={year}>
@@ -606,11 +563,7 @@ function MileageContent() {
             <select
               value={selectedMonth ?? ""}
               onChange={(e) => setSelectedMonth(e.target.value ? parseInt(e.target.value) : null)}
-              className={`px-3 py-2 rounded-lg border ${
-                isDark
-                  ? "bg-slate-800 border-slate-600 text-white"
-                  : "bg-white border-gray-300 text-gray-900"
-              }`}
+              className="theme-input px-3 py-2"
             >
               <option value="">All Months</option>
               {months.map((month) => (
@@ -623,11 +576,7 @@ function MileageContent() {
             <select
               value={selectedStatus ?? ""}
               onChange={(e) => setSelectedStatus(e.target.value || null)}
-              className={`px-3 py-2 rounded-lg border ${
-                isDark
-                  ? "bg-slate-800 border-slate-600 text-white"
-                  : "bg-white border-gray-300 text-gray-900"
-              }`}
+              className="theme-input px-3 py-2"
             >
               <option value="">All Status</option>
               <option value="pending">Pending</option>
@@ -639,82 +588,82 @@ function MileageContent() {
 
           {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 no-print">
-            <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-              <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Total Entries</p>
-              <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+            <Card padding="md">
+              <p className="text-sm theme-text-tertiary">Total Entries</p>
+              <p className="text-2xl font-bold theme-text-primary">
                 {filteredTotalEntries}
               </p>
-            </div>
-            <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-              <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Total Miles</p>
-              <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+            </Card>
+            <Card padding="md">
+              <p className="text-sm theme-text-tertiary">Total Miles</p>
+              <p className="text-2xl font-bold theme-text-primary">
                 {filteredTotalMiles.toFixed(1)}
               </p>
-            </div>
-            <div className={`p-4 rounded-xl border ${isDark ? "bg-cyan-500/10 border-cyan-500/30" : "bg-blue-50 border-blue-200"}`}>
-              <p className={`text-sm ${isDark ? "text-cyan-400" : "text-blue-600"}`}>Total Reimbursement</p>
-              <p className={`text-2xl font-bold ${isDark ? "text-cyan-400" : "text-blue-700"}`}>
+            </Card>
+            <Card padding="md">
+              <p className="text-sm text-blue-600 dark:text-cyan-400">Total Reimbursement</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-cyan-400">
                 {formatCurrency(filteredTotalReimbursement)}
               </p>
-            </div>
-            <div className={`p-4 rounded-xl border ${isDark ? "bg-green-500/10 border-green-500/30" : "bg-green-50 border-green-200"}`}>
-              <p className={`text-sm ${isDark ? "text-green-400" : "text-green-600"}`}>Paid</p>
-              <p className={`text-2xl font-bold ${isDark ? "text-green-400" : "text-green-700"}`}>
+            </Card>
+            <Card padding="md" tone="green">
+              <p className="text-sm theme-text-tertiary">Paid</p>
+              <p className="text-2xl font-bold theme-text-primary">
                 {summary?.byStatus?.paid || 0}
               </p>
-            </div>
+            </Card>
           </div>
 
           {/* Entries Table */}
-          <div className={`rounded-xl border overflow-x-auto no-print ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+          <Card padding="sm" className="overflow-x-auto no-print">
             <table className="w-full">
-              <thead className={isDark ? "bg-slate-700" : "bg-gray-50"}>
+              <thead className="bg-gray-50 dark:bg-slate-700">
                 <tr>
-                  <th className={`px-4 py-3 text-left text-sm font-medium ${isDark ? "text-slate-300" : "text-gray-600"}`}>Date</th>
-                  <th className={`px-4 py-3 text-left text-sm font-medium ${isDark ? "text-slate-300" : "text-gray-600"}`}>From</th>
-                  <th className={`px-4 py-3 text-left text-sm font-medium ${isDark ? "text-slate-300" : "text-gray-600"}`}>To</th>
-                  <th className={`px-4 py-3 text-left text-sm font-medium ${isDark ? "text-slate-300" : "text-gray-600"}`}>Miles</th>
-                  <th className={`px-4 py-3 text-left text-sm font-medium ${isDark ? "text-slate-300" : "text-gray-600"}`}>Vehicle</th>
-                  <th className={`px-4 py-3 text-left text-sm font-medium ${isDark ? "text-slate-300" : "text-gray-600"}`}>Purpose</th>
-                  <th className={`px-4 py-3 text-left text-sm font-medium ${isDark ? "text-slate-300" : "text-gray-600"}`}>Reimbursement</th>
-                  <th className={`px-4 py-3 text-left text-sm font-medium ${isDark ? "text-slate-300" : "text-gray-600"}`}>Status</th>
-                  <th className={`px-4 py-3 text-right text-sm font-medium no-print ${isDark ? "text-slate-300" : "text-gray-600"}`}>Actions</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium theme-text-secondary">Date</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium theme-text-secondary">From</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium theme-text-secondary">To</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium theme-text-secondary">Miles</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium theme-text-secondary">Vehicle</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium theme-text-secondary">Purpose</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium theme-text-secondary">Reimbursement</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium theme-text-secondary">Status</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium theme-text-secondary no-print">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700">
+              <tbody className="divide-y divide-[var(--theme-border-secondary)]">
                 {entries?.map((entry) => (
-                  <tr key={entry._id} className={isDark ? "hover:bg-slate-700/50" : "hover:bg-gray-50"}>
-                    <td className={`px-4 py-3 text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <tr key={entry._id} className="hover:bg-gray-50 dark:hover:bg-slate-700/50">
+                    <td className="px-4 py-3 text-sm theme-text-primary">
                       {formatDate(entry.date)}
                     </td>
-                    <td className={`px-4 py-3 text-sm ${isDark ? "text-slate-300" : "text-gray-600"}`}>
+                    <td className="px-4 py-3 text-sm theme-text-secondary">
                       {entry.fromLocation}
                     </td>
-                    <td className={`px-4 py-3 text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
+                    <td className="px-4 py-3 text-sm theme-text-primary">
                       {entry.toLocation}
                     </td>
-                    <td className={`px-4 py-3 text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
+                    <td className="px-4 py-3 text-sm theme-text-primary">
                       {entry.miles} {entry.isRoundTrip && <span className="text-xs text-slate-500">(RT)</span>}
                     </td>
-                    <td className={`px-4 py-3 text-sm ${isDark ? "text-slate-300" : "text-gray-600"}`}>
+                    <td className="px-4 py-3 text-sm theme-text-secondary">
                       {entry.vehicle || "-"}
                     </td>
-                    <td className={`px-4 py-3 text-sm max-w-[200px] truncate ${isDark ? "text-slate-300" : "text-gray-600"}`}>
+                    <td className="px-4 py-3 text-sm max-w-[200px] truncate theme-text-secondary">
                       {entry.purpose}
                     </td>
-                    <td className={`px-4 py-3 text-sm font-medium ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
+                    <td className="px-4 py-3 text-sm font-medium text-blue-600 dark:text-cyan-400">
                       {formatCurrency(entry.reimbursementAmount)}
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded ${
+                        className={`ui-badge ${
                           entry.status === "paid"
-                            ? "bg-green-500/20 text-green-400"
+                            ? "ui-badge-green"
                             : entry.status === "approved"
-                            ? "bg-blue-500/20 text-blue-400"
+                            ? "ui-badge-blue"
                             : entry.status === "submitted"
-                            ? "bg-purple-500/20 text-purple-400"
-                            : "bg-amber-500/20 text-amber-400"
+                            ? "ui-badge-purple"
+                            : "ui-badge-amber"
                         }`}
                       >
                         {entry.status}
@@ -726,11 +675,7 @@ function MileageContent() {
                           <>
                             <button
                               onClick={() => handleEdit(entry)}
-                              className={`px-2 py-1 text-xs font-medium rounded ${
-                                isDark
-                                  ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                              }`}
+                              className="px-2 py-1 text-xs font-medium rounded bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600"
                             >
                               Edit
                             </button>
@@ -778,23 +723,23 @@ function MileageContent() {
                 ))}
                 {(!entries || entries.length === 0) && (
                   <tr>
-                    <td colSpan={9} className={`px-4 py-8 text-center ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                    <td colSpan={9} className="px-4 py-8 text-center theme-text-tertiary">
                       No mileage entries found. Add your first entry to get started.
                     </td>
                   </tr>
                 )}
               </tbody>
               {entries && entries.length > 0 && (
-                <tfoot className={isDark ? "bg-slate-700" : "bg-gray-50"}>
+                <tfoot className="bg-gray-50 dark:bg-slate-700">
                   <tr>
-                    <td colSpan={3} className={`px-4 py-3 text-sm font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                    <td colSpan={3} className="px-4 py-3 text-sm font-bold theme-text-primary">
                       TOTALS
                     </td>
-                    <td className={`px-4 py-3 text-sm font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                    <td className="px-4 py-3 text-sm font-bold theme-text-primary">
                       {filteredTotalMiles.toFixed(1)}
                     </td>
                     <td colSpan={2}></td>
-                    <td className={`px-4 py-3 text-sm font-bold ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
+                    <td className="px-4 py-3 text-sm font-bold text-blue-600 dark:text-cyan-400">
                       {formatCurrency(filteredTotalReimbursement)}
                     </td>
                     <td colSpan={2}></td>
@@ -802,16 +747,16 @@ function MileageContent() {
                 </tfoot>
               )}
             </table>
-          </div>
+          </Card>
 
         </div>
 
         {/* Add/Edit Modal */}
         {showAddModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 no-print">
-            <div className={`w-full max-w-lg rounded-xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-              <div className={`p-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+            <div className="w-full max-w-lg rounded-xl border border-[var(--theme-border-secondary)] bg-white dark:bg-slate-800">
+              <div className="p-4 border-b border-[var(--theme-border-secondary)]">
+                <h2 className="text-lg font-semibold theme-text-primary">
                   {editingEntry ? "Edit Mileage Entry" : "Add Mileage Entry"}
                 </h2>
               </div>
@@ -819,41 +764,41 @@ function MileageContent() {
               <div className="p-4 space-y-4">
                 {/* Date */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="ui-section-label">
                     Date *
                   </label>
                   <input
                     type="date"
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input w-full px-3 py-2"
                   />
                 </div>
 
                 {/* From Location */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="ui-section-label">
                     From *
                   </label>
                   <input
                     type="text"
                     value={formData.fromLocation}
                     onChange={(e) => setFormData({ ...formData, fromLocation: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input w-full px-3 py-2"
                     placeholder="Latrobe, PA"
                   />
                 </div>
 
                 {/* To Location */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="ui-section-label">
                     To *
                   </label>
                   <input
                     type="text"
                     value={formData.toLocation}
                     onChange={(e) => setFormData({ ...formData, toLocation: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input w-full px-3 py-2"
                     placeholder="Pittsburgh, PA"
                   />
                 </div>
@@ -861,7 +806,7 @@ function MileageContent() {
                 {/* Miles and Round Trip */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    <label className="ui-section-label">
                       Miles (one way) *
                     </label>
                     <input
@@ -869,7 +814,7 @@ function MileageContent() {
                       step="0.1"
                       value={formData.miles}
                       onChange={(e) => setFormData({ ...formData, miles: e.target.value })}
-                      className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                      className="theme-input w-full px-3 py-2"
                       placeholder="45.5"
                     />
                   </div>
@@ -881,15 +826,15 @@ function MileageContent() {
                         onChange={(e) => setFormData({ ...formData, isRoundTrip: e.target.checked })}
                         className="rounded"
                       />
-                      <span className={isDark ? "text-white" : "text-gray-900"}>Round Trip</span>
+                      <span className="theme-text-primary">Round Trip</span>
                     </label>
                   </div>
                 </div>
 
                 {/* Calculated Reimbursement Preview */}
                 {formData.miles && currentRate && (
-                  <div className={`p-3 rounded-lg ${isDark ? "bg-cyan-500/10" : "bg-blue-50"}`}>
-                    <p className={`text-sm ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
+                  <div className="p-3 rounded-lg bg-blue-50 dark:bg-cyan-500/10">
+                    <p className="text-sm text-blue-600 dark:text-cyan-400">
                       Estimated Reimbursement:{" "}
                       <span className="font-bold">
                         {formatCurrency(
@@ -907,65 +852,67 @@ function MileageContent() {
 
                 {/* Purpose */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="ui-section-label">
                     Business Purpose *
                   </label>
                   <input
                     type="text"
                     value={formData.purpose}
                     onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input w-full px-3 py-2"
                     placeholder="Client meeting, site visit, etc."
                   />
                 </div>
 
                 {/* Vehicle */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="ui-section-label">
                     Vehicle
                   </label>
                   <input
                     type="text"
                     value={formData.vehicle}
                     onChange={(e) => setFormData({ ...formData, vehicle: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input w-full px-3 py-2"
                     placeholder="2022 Ford F-150, Personal car, etc."
                   />
                 </div>
 
                 {/* Notes */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="ui-section-label">
                     Notes
                   </label>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     rows={2}
-                    className={`w-full px-3 py-2 rounded-lg border resize-none ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input w-full px-3 py-2 resize-none"
                     placeholder="Additional notes..."
                   />
                 </div>
               </div>
 
-              <div className={`p-4 border-t flex gap-3 ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                <button
+              <div className="p-4 border-t border-[var(--theme-border-secondary)] flex gap-3">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
                   onClick={() => {
                     setShowAddModal(false);
                     setEditingEntry(null);
                     resetForm();
                   }}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
                 >
                   Cancel
-                </button>
-                <button
-                  onClick={handleSubmit}
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
                   disabled={!formData.toLocation || !formData.miles || !formData.purpose}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium disabled:opacity-50 ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
+                  onClick={handleSubmit}
                 >
                   {editingEntry ? "Save Changes" : "Add Entry"}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
