@@ -10,6 +10,8 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import Link from "next/link";
 import CalendarHelpModal from "@/components/CalendarHelpModal";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 
 function formatTime(timestamp: number): string {
   return new Date(timestamp).toLocaleTimeString("en-US", {
@@ -529,29 +531,44 @@ function CalendarContent() {
     );
   };
 
+  // Event chip color classes (data-driven — kept as explicit classes)
+  const eventChipClass = (event: any) => {
+    if ((event as any).myInviteStatus === "pending") return "bg-amber-500/20 text-amber-500";
+    if ((event as any).myInviteStatus === "organizer") return isDark ? "bg-cyan-500/20 text-cyan-400" : "bg-blue-100 text-blue-700";
+    if (viewingSharedCalendar) return isDark ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-700";
+    return isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700";
+  };
+
+  // Invitee status badge classes
+  const inviteStatusClass = (status: string) => {
+    if (status === "accepted") return "bg-green-500/20 text-green-400";
+    if (status === "declined") return "bg-red-500/20 text-red-400";
+    return "bg-amber-500/20 text-amber-400";
+  };
+
+  void showHelp; // reserved
+
   return (
-    <div className="flex h-screen theme-bg-primary">
+    <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
         {/* Mobile Header */}
         <MobileHeader />
 
-        {/* Header */}
-        <header
-          className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-4 ${
-            isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                {viewingSharedCalendar
-                  ? `${sharedWithMe?.find((s) => s.ownerId === viewingSharedCalendar)?.ownerName}'s Calendar`
-                  : "My Calendar"}
-              </h1>
+        {/* Sticky iOS-style page header */}
+        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary truncate">
+                  {viewingSharedCalendar
+                    ? `${sharedWithMe?.find((s) => s.ownerId === viewingSharedCalendar)?.ownerName}'s Calendar`
+                    : "My Calendar"}
+                </h1>
+              </div>
               {pendingInvites && pendingInvites.length > 0 && !viewingSharedCalendar && (
-                <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                <span className="ui-badge ui-badge-red flex-shrink-0">
                   {pendingInvites.length} pending
                 </span>
               )}
@@ -564,11 +581,7 @@ function CalendarContent() {
                       e.target.value ? (e.target.value as Id<"users">) : null
                     )
                   }
-                  className={`px-3 py-1.5 text-sm rounded-lg border ${
-                    isDark
-                      ? "bg-slate-800 border-slate-600 text-white"
-                      : "bg-white border-gray-300 text-gray-900"
-                  }`}
+                  className="theme-input px-3 py-1.5 text-sm"
                 >
                   <option value="">My Calendar</option>
                   {sharedWithMe.map((share) => (
@@ -579,301 +592,283 @@ function CalendarContent() {
                 </select>
               )}
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+
+            <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
               {/* Zoom Sync */}
-              <button
+              <Button
+                variant="ghost"
                 onClick={handleZoomSync}
                 disabled={zoomSyncing}
-                className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 ${
-                  isDark ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                }`}
                 title="Sync Zoom meetings from email"
               >
                 <svg className={`w-4 h-4 ${zoomSyncing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                {zoomSyncing ? "Syncing..." : "Sync Zoom"}
-              </button>
+                <span className="hidden sm:inline">{zoomSyncing ? "Syncing..." : "Sync Zoom"}</span>
+              </Button>
               {zoomSyncResult && (
-                <span className={`text-xs ${zoomSyncResult.synced > 0 ? (isDark ? "text-emerald-400" : "text-emerald-600") : (isDark ? "text-slate-400" : "text-gray-500")}`}>
+                <span className={`text-xs ${zoomSyncResult.synced > 0 ? (isDark ? "text-emerald-400" : "text-emerald-600") : "theme-text-tertiary"}`}>
                   {zoomSyncResult.message}
                 </span>
               )}
+
               {/* Help Button */}
               <CalendarHelpModal isDark={isDark} />
-              <button
+
+              <Button
+                variant="ghost"
                 onClick={() => setShowShareModal(true)}
-                className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
-                  isDark
-                    ? "bg-slate-700 text-white hover:bg-slate-600"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
                 title="Share Calendar"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                 </svg>
-                Share
-              </button>
+                <span className="hidden sm:inline">Share</span>
+              </Button>
+
               {!viewingSharedCalendar && (
-                <button
+                <Button
+                  variant="primary"
                   onClick={() => {
                     resetForm();
                     setShowCreateModal(true);
                   }}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
-                    isDark
-                      ? "bg-cyan-500 text-white hover:bg-cyan-600"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
                 >
                   + New Event
-                </button>
+                </Button>
               )}
             </div>
           </div>
         </header>
 
-        <div className="p-4 sm:p-8">
+        <div className="px-4 sm:px-6 lg:px-8 py-5 space-y-4">
+
           {/* Pending Invites Section */}
           {pendingInvites && pendingInvites.length > 0 && (
-            <div className={`mb-6 p-4 rounded-xl border ${isDark ? "bg-amber-500/10 border-amber-500/30" : "bg-amber-50 border-amber-200"}`}>
-              <h2 className={`font-semibold mb-3 ${isDark ? "text-amber-400" : "text-amber-800"}`}>
+            <Card tone="amber" padding="sm">
+              <h2 className="font-semibold mb-3 text-amber-600 dark:text-amber-400 text-[15px]">
                 Pending Invitations
               </h2>
               <div className="space-y-2">
                 {pendingInvites.map((invite) => (
                   <div
                     key={invite._id}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
-                      isDark ? "bg-slate-800" : "bg-white"
-                    }`}
+                    className="theme-card p-3 flex items-center justify-between gap-3"
                   >
-                    <div>
-                      <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                    <div className="min-w-0">
+                      <p className="font-medium theme-text-primary truncate">
                         {invite.event?.title}
                       </p>
-                      <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      <p className="text-sm theme-text-secondary mt-0.5">
                         {invite.event && formatDate(invite.event.startTime)} at{" "}
                         {invite.event && formatTime(invite.event.startTime)}
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      <button
+                    <div className="flex gap-2 flex-shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleRespondToInvite(invite.eventId, "accepted")}
-                        className="px-3 py-1 text-sm font-medium rounded bg-green-500/20 text-green-400 hover:bg-green-500/30"
+                        className="text-emerald-500 hover:bg-emerald-500/10"
                       >
                         Accept
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleRespondToInvite(invite.eventId, "declined")}
-                        className="px-3 py-1 text-sm font-medium rounded bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                        className="text-red-500 hover:bg-red-500/10"
                       >
                         Decline
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
 
           {/* Calendar Navigation */}
-          <div className={`flex items-center justify-between mb-4 p-4 rounded-xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-            <div className="flex items-center gap-2">
-              <button
+          <div className="theme-card p-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => navigateMonth(-1)}
-                className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-600"}`}
+                aria-label="Previous month"
               >
-                &larr;
-              </button>
-              <h2 className={`text-lg font-semibold text-center ${isDark ? "text-white" : "text-gray-900"}`}>
+                &#8592;
+              </Button>
+              <h2 className="text-base sm:text-lg font-semibold theme-text-primary px-2 min-w-[160px] text-center">
                 {selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
               </h2>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => navigateMonth(1)}
-                className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-600"}`}
+                aria-label="Next month"
               >
-                &rarr;
-              </button>
+                &#8594;
+              </Button>
             </div>
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => setSelectedDate(new Date())}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
             >
               Today
-            </button>
+            </Button>
           </div>
 
-          {/* Calendar Grid */}
+          {/* Calendar Grid — overflow-x-auto prevents body-level horizontal scroll on mobile */}
           <div className="overflow-x-auto">
-          <div className={`rounded-xl border overflow-hidden min-w-[640px] ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-            {/* Day headers */}
-            <div className="grid grid-cols-7">
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                <div
-                  key={day}
-                  className={`p-2 text-center text-sm font-medium border-b ${isDark ? "bg-slate-700 text-slate-300 border-slate-600" : "bg-gray-50 text-gray-600 border-gray-200"}`}
-                >
-                  {day}
-                </div>
-              ))}
-            </div>
-
-            {/* Calendar days */}
-            <div className="grid grid-cols-7">
-              {calendarDays.map((day, idx) => {
-                const dayEvents = getEventsForDay(day.date);
-                const today = isToday(day.date);
-                const maxVisibleEvents = 2; // Show 2 events max, then "+X more"
-                const hasMore = dayEvents.length > maxVisibleEvents;
-
-                return (
+            <div className={`rounded-xl border overflow-hidden min-w-[640px] ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+              {/* Day headers */}
+              <div className="grid grid-cols-7">
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
                   <div
-                    key={idx}
-                    className={`h-[110px] p-1 border-b border-r cursor-pointer transition-colors overflow-hidden ${
-                      isDark ? "border-slate-700" : "border-gray-100"
-                    } ${
-                      day.isCurrentMonth
-                        ? isDark ? "bg-slate-800" : "bg-white"
-                        : isDark ? "bg-slate-800/50" : "bg-gray-50"
-                    } ${
-                      today ? (isDark ? "ring-2 ring-cyan-500 ring-inset" : "ring-2 ring-blue-500 ring-inset") : ""
-                    } hover:${isDark ? "bg-slate-700" : "bg-gray-50"}`}
-                    onClick={() => {
-                      if (dayEvents.length > 0) {
-                        // If there are events, show day detail modal
-                        setSelectedDayDate(day.date);
-                        setShowDayModal(true);
-                      } else {
-                        // If no events, open create modal
-                        const newDate = new Date(day.date);
-                        setFormData({
-                          ...formData,
-                          startTime: formatDateForInput(newDate),
-                          endTime: formatDateForInput(new Date(newDate.getTime() + 60 * 60 * 1000)),
-                        });
-                        setShowCreateModal(true);
-                      }
-                    }}
+                    key={day}
+                    className={`p-2 text-center border-b ${isDark ? "bg-slate-700/60 border-slate-600" : "bg-gray-50 border-gray-200"}`}
                   >
-                    <div
-                      className={`text-sm font-medium mb-1 ${
-                        today
-                          ? "text-cyan-500"
-                          : day.isCurrentMonth
-                          ? isDark ? "text-white" : "text-gray-900"
-                          : isDark ? "text-slate-600" : "text-gray-400"
-                      }`}
-                    >
-                      {day.date.getDate()}
-                    </div>
-                    <div className="space-y-0.5 flex flex-col">
-                      {dayEvents.slice(0, maxVisibleEvents).map((event) => (
-                        <div
-                          key={event._id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEventDetails(event);
-                          }}
-                          className={`text-xs px-1 py-0.5 rounded truncate cursor-pointer flex-shrink-0 ${
-                            (event as any).myInviteStatus === "pending"
-                              ? "bg-amber-500/20 text-amber-400"
-                              : (event as any).myInviteStatus === "organizer"
-                              ? isDark ? "bg-cyan-500/20 text-cyan-400" : "bg-blue-100 text-blue-700"
-                              : viewingSharedCalendar
-                              ? isDark ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-700"
-                              : isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"
-                          }`}
-                        >
-                          {formatTime(event.startTime)} {event.title}
-                        </div>
-                      ))}
-                      {hasMore && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedDayDate(day.date);
-                            setShowDayModal(true);
-                          }}
-                          className={`text-xs font-medium py-0.5 px-1 rounded text-left flex-shrink-0 transition-colors ${
-                            isDark
-                              ? "text-cyan-400 hover:bg-cyan-500/20"
-                              : "text-blue-600 hover:bg-blue-100"
-                          }`}
-                        >
-                          +{dayEvents.length - maxVisibleEvents} more
-                        </button>
-                      )}
-                    </div>
+                    <span className="ui-section-label">{day}</span>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+
+              {/* Calendar days */}
+              <div className="grid grid-cols-7">
+                {calendarDays.map((day, idx) => {
+                  const dayEvents = getEventsForDay(day.date);
+                  const today = isToday(day.date);
+                  const maxVisibleEvents = 2;
+                  const hasMore = dayEvents.length > maxVisibleEvents;
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`h-[110px] p-1 border-b border-r cursor-pointer transition-colors overflow-hidden ${
+                        isDark ? "border-slate-700" : "border-gray-100"
+                      } ${
+                        day.isCurrentMonth
+                          ? isDark ? "bg-slate-800" : "bg-white"
+                          : isDark ? "bg-slate-800/50" : "bg-gray-50/80"
+                      } ${
+                        // today highlight — data-driven, kept explicit
+                        today ? (isDark ? "ring-2 ring-cyan-500 ring-inset" : "ring-2 ring-blue-500 ring-inset") : ""
+                      } ${isDark ? "hover:bg-slate-700/60" : "hover:bg-blue-50/40"}`}
+                      onClick={() => {
+                        if (dayEvents.length > 0) {
+                          setSelectedDayDate(day.date);
+                          setShowDayModal(true);
+                        } else {
+                          const newDate = new Date(day.date);
+                          setFormData({
+                            ...formData,
+                            startTime: formatDateForInput(newDate),
+                            endTime: formatDateForInput(new Date(newDate.getTime() + 60 * 60 * 1000)),
+                          });
+                          setShowCreateModal(true);
+                        }
+                      }}
+                    >
+                      <div
+                        className={`text-sm font-semibold mb-1 w-6 h-6 flex items-center justify-center rounded-full ${
+                          today
+                            ? "bg-[#007AFF] text-white"
+                            : day.isCurrentMonth
+                            ? "theme-text-primary"
+                            : "theme-text-tertiary"
+                        }`}
+                      >
+                        {day.date.getDate()}
+                      </div>
+                      <div className="space-y-0.5 flex flex-col">
+                        {dayEvents.slice(0, maxVisibleEvents).map((event) => (
+                          <div
+                            key={event._id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEventDetails(event);
+                            }}
+                            className={`text-[11px] px-1 py-0.5 rounded truncate cursor-pointer flex-shrink-0 font-medium ${eventChipClass(event)}`}
+                          >
+                            {formatTime(event.startTime)} {event.title}
+                          </div>
+                        ))}
+                        {hasMore && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDayDate(day.date);
+                              setShowDayModal(true);
+                            }}
+                            className="text-[11px] font-medium py-0.5 px-1 rounded text-left flex-shrink-0 transition-colors theme-accent-primary hover:underline"
+                          >
+                            +{dayEvents.length - maxVisibleEvents} more
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
           </div>
         </div>
 
-        {/* Create Event Modal */}
+        {/* ── Create / Edit Event Modal ── */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`w-full max-w-lg rounded-xl border max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-              <div className={`p-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+            <div className={`w-full max-w-lg rounded-2xl border max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+              {/* Modal header */}
+              <div className={`px-5 py-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                <h2 className="text-[17px] font-semibold theme-text-primary">
                   {editingEventId ? "Edit Event" : "Create Event"}
                 </h2>
               </div>
 
-              <div className="p-4 space-y-4">
+              <div className="px-5 py-4 space-y-4">
                 {/* Title */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Title *
-                  </label>
+                  <label className="block text-xs font-medium mb-1 theme-text-tertiary">Title *</label>
                   <input
                     type="text"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                     placeholder="Event title"
                   />
                 </div>
 
                 {/* Date/Time */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Start
-                    </label>
+                    <label className="block text-xs font-medium mb-1 theme-text-tertiary">Start</label>
                     <input
                       type="datetime-local"
                       value={formData.startTime}
                       onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                      className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      End
-                    </label>
+                    <label className="block text-xs font-medium mb-1 theme-text-tertiary">End</label>
                     <input
                       type="datetime-local"
                       value={formData.endTime}
                       onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                      className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                     />
                   </div>
                 </div>
 
                 {/* Meeting Type */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Meeting Type
-                  </label>
+                  <label className="block text-xs font-medium mb-1 theme-text-tertiary">Meeting Type</label>
                   <select
                     value={formData.meetingType}
                     onChange={(e) => setFormData({ ...formData, meetingType: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   >
                     {MEETING_TYPES.map((type) => (
                       <option key={type.value} value={type.value}>
@@ -885,32 +880,30 @@ function CalendarContent() {
 
                 {/* Apply-to-series toggle — only when editing a recurring event */}
                 {editingEventId && editingSeriesId && (
-                  <label className={`flex items-start gap-2 p-3 rounded-lg border cursor-pointer ${isDark ? "bg-slate-900/60 border-slate-700" : "bg-gray-50 border-gray-200"}`}>
+                  <label className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer ${isDark ? "bg-slate-900/60 border-slate-700" : "bg-gray-50 border-gray-200"}`}>
                     <input
                       type="checkbox"
                       checked={formData.applyToSeries}
                       onChange={(e) => setFormData({ ...formData, applyToSeries: e.target.checked })}
                       className="mt-0.5 rounded"
                     />
-                    <span className={`text-sm ${isDark ? "text-slate-200" : "text-gray-700"}`}>
+                    <span className="text-sm theme-text-primary">
                       Apply these changes to every event in this recurring series
-                      <span className={`block text-xs mt-0.5 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                      <span className="block text-xs mt-0.5 theme-text-tertiary">
                         Title, location, link, description &amp; meeting type only. Date and time stay per-occurrence.
                       </span>
                     </span>
                   </label>
                 )}
 
-                {/* Repeat — only visible when creating, not when editing one occurrence */}
+                {/* Repeat — only visible when creating */}
                 {!editingEventId && (
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Repeat
-                    </label>
+                    <label className="block text-xs font-medium mb-1 theme-text-tertiary">Repeat</label>
                     <select
                       value={formData.repeat}
                       onChange={(e) => setFormData({ ...formData, repeat: e.target.value as typeof formData.repeat })}
-                      className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                     >
                       <option value="none">Doesn&apos;t repeat</option>
                       <option value="daily">Daily (next 30 days)</option>
@@ -920,65 +913,59 @@ function CalendarContent() {
                   </div>
                 )}
 
-                {/* Meeting Link / IECentral Meeting Info / Zoom Auto-Create */}
+                {/* Meeting Link / IECentral info / Zoom auto-create */}
                 {formData.meetingType === "iecentral" ? (
-                  <div className={`p-3 rounded-lg border ${isDark ? "bg-cyan-500/10 border-cyan-500/20" : "bg-blue-50 border-blue-100"}`}>
+                  <Card tone="accent" padding="sm" className="!rounded-xl">
                     <div className="flex items-center gap-2 mb-1">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 theme-accent-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
-                      <p className={`text-sm font-medium ${isDark ? "text-cyan-400" : "text-blue-700"}`}>
-                        IECentral Meeting
-                      </p>
+                      <p className="text-sm font-medium theme-accent-primary">IECentral Meeting</p>
                     </div>
-                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <p className="text-xs theme-text-tertiary">
                       A meeting room with a unique join code will be automatically created when you save this event. Invitees can join directly from the event.
                     </p>
-                  </div>
+                  </Card>
                 ) : formData.meetingType === "zoom" && zoomAccount ? (
-                  <div className={`p-3 rounded-lg border ${isDark ? "bg-blue-500/10 border-blue-500/20" : "bg-blue-50 border-blue-100"}`}>
+                  <div className={`p-3 rounded-xl border ${isDark ? "bg-blue-500/10 border-blue-500/20" : "bg-blue-50 border-blue-100"}`}>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-lg">📹</span>
-                      <p className={`text-sm font-medium ${isDark ? "text-blue-400" : "text-blue-700"}`}>
-                        Zoom Meeting
-                      </p>
+                      <p className={`text-sm font-medium ${isDark ? "text-blue-400" : "text-blue-700"}`}>Zoom Meeting</p>
                     </div>
-                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <p className="text-xs theme-text-tertiary">
                       A Zoom meeting link will be automatically created. Connected as {zoomAccount.zoomEmail}.
                     </p>
                   </div>
                 ) : formData.meetingType === "zoom" && !zoomAccount ? (
-                  <div className={`p-3 rounded-lg border ${isDark ? "bg-amber-500/10 border-amber-500/20" : "bg-amber-50 border-amber-100"}`}>
-                    <p className={`text-xs mb-2 ${isDark ? "text-amber-400" : "text-amber-700"}`}>
+                  <Card tone="amber" padding="sm" className="!rounded-xl">
+                    <p className="text-xs mb-2 text-amber-600 dark:text-amber-400">
                       Connect your Zoom account to auto-generate meeting links.
                     </p>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => window.location.assign(`/api/zoom/oauth?userId=${user?._id}`)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium ${isDark ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}
                     >
                       Connect Zoom
-                    </button>
+                    </Button>
                     <div className="mt-2">
                       <input
                         type="url"
                         value={formData.meetingLink}
                         onChange={(e) => setFormData({ ...formData, meetingLink: e.target.value })}
-                        className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                        className="theme-input w-full px-3 py-2 text-sm mt-2"
                         placeholder="Or paste a Zoom link manually"
                       />
                     </div>
-                  </div>
+                  </Card>
                 ) : formData.meetingType !== "in_person" && formData.meetingType !== "phone" ? (
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Meeting Link
-                    </label>
+                    <label className="block text-xs font-medium mb-1 theme-text-tertiary">Meeting Link</label>
                     <input
                       type="url"
                       value={formData.meetingLink}
                       onChange={(e) => setFormData({ ...formData, meetingLink: e.target.value })}
-                      className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                       placeholder="https://zoom.us/j/..."
                     />
                   </div>
@@ -986,138 +973,121 @@ function CalendarContent() {
 
                 {/* Location */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Location
-                  </label>
+                  <label className="block text-xs font-medium mb-1 theme-text-tertiary">Location</label>
                   <input
                     type="text"
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                     placeholder="Conference Room A, or virtual"
                   />
                 </div>
 
                 {/* Description */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Description
-                  </label>
+                  <label className="block text-xs font-medium mb-1 theme-text-tertiary">Description</label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={3}
-                    className={`w-full px-3 py-2 rounded-lg border resize-none ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    className="theme-input w-full px-3 py-2 text-sm resize-none"
                     placeholder="Event details..."
                   />
                 </div>
 
                 {/* Invite Users */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Invite Users
-                  </label>
-                  <div className={`border rounded-lg max-h-40 overflow-y-auto ${isDark ? "border-slate-600" : "border-gray-300"}`}>
+                  <label className="block text-xs font-medium mb-1 theme-text-tertiary">Invite Users</label>
+                  <div className={`border rounded-xl max-h-40 overflow-y-auto ${isDark ? "border-slate-600" : "border-gray-200"}`}>
                     {allUsers
                       ?.filter((u) => u._id !== user?._id)
                       .map((u) => (
                         <label
                           key={u._id}
-                          className={`flex items-center gap-2 p-2 cursor-pointer hover:${isDark ? "bg-slate-700" : "bg-gray-50"}`}
+                          className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-50"}`}
                         >
                           <input
                             type="checkbox"
                             checked={formData.inviteeIds.includes(u._id)}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setFormData({
-                                  ...formData,
-                                  inviteeIds: [...formData.inviteeIds, u._id],
-                                });
+                                setFormData({ ...formData, inviteeIds: [...formData.inviteeIds, u._id] });
                               } else {
-                                setFormData({
-                                  ...formData,
-                                  inviteeIds: formData.inviteeIds.filter((id) => id !== u._id),
-                                });
+                                setFormData({ ...formData, inviteeIds: formData.inviteeIds.filter((id) => id !== u._id) });
                               }
                             }}
                             className="rounded"
                           />
-                          <span className={isDark ? "text-white" : "text-gray-900"}>{u.name}</span>
-                          <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                            {u.email}
-                          </span>
+                          <span className="theme-text-primary text-sm">{u.name}</span>
+                          <span className="text-xs theme-text-tertiary">{u.email}</span>
                         </label>
                       ))}
                   </div>
                   {formData.inviteeIds.length > 0 && (
-                    <p className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <p className="text-xs mt-1 theme-text-tertiary">
                       {formData.inviteeIds.length} user(s) will be invited
                     </p>
                   )}
                 </div>
               </div>
 
-              <div className={`p-4 border-t flex gap-3 ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                <button
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    resetForm();
-                  }}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+              <div className={`px-5 py-4 border-t flex gap-3 ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => { setShowCreateModal(false); resetForm(); }}
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
                   onClick={handleSubmitEvent}
                   disabled={!formData.title || isCreatingEvent}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium disabled:opacity-50 ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
                 >
                   {isCreatingEvent
                     ? (editingEventId ? "Saving..." : "Creating...")
                     : (editingEventId ? "Save Changes" : "Create Event")}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Event Details Modal */}
+        {/* ── Event Details Modal ── */}
         {showEventModal && selectedEvent && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`w-full max-w-lg rounded-xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-              <div className={`p-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+            <div className={`w-full max-w-lg rounded-2xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+              {/* Modal header */}
+              <div className={`px-5 py-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="text-[17px] font-semibold theme-text-primary truncate">
                       {selectedEvent.title}
                     </h2>
-                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                      {formatDate(selectedEvent.startTime)} at {formatTime(selectedEvent.startTime)} - {formatTime(selectedEvent.endTime)}
+                    <p className="text-sm theme-text-secondary mt-0.5">
+                      {formatDate(selectedEvent.startTime)} at {formatTime(selectedEvent.startTime)} – {formatTime(selectedEvent.endTime)}
                     </p>
                   </div>
                   <button
-                    onClick={() => {
-                      setShowEventModal(false);
-                      setSelectedEvent(null);
-                    }}
-                    className={`p-1 rounded hover:${isDark ? "bg-slate-700" : "bg-gray-100"}`}
+                    onClick={() => { setShowEventModal(false); setSelectedEvent(null); }}
+                    className="p-1.5 rounded-lg theme-text-tertiary hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors flex-shrink-0"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
               </div>
 
-              <div className="p-4 space-y-4">
+              <div className="px-5 py-4 space-y-4">
                 {/* Applicant Link (for interview events) */}
                 {selectedEvent.applicationId && (
-                  <div className={`p-3 rounded-lg ${isDark ? "bg-cyan-500/10 border border-cyan-500/20" : "bg-blue-50 border border-blue-100"}`}>
-                    <p className={`text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Applicant Profile</p>
+                  <div className={`p-3 rounded-xl border ${isDark ? "bg-cyan-500/10 border-cyan-500/20" : "bg-blue-50 border-blue-100"}`}>
+                    <p className="text-xs font-medium mb-1 theme-text-tertiary">Applicant Profile</p>
                     <Link
                       href={`/applications/${selectedEvent.applicationId}`}
-                      className={`inline-flex items-center gap-2 font-medium ${isDark ? "text-cyan-400 hover:text-cyan-300" : "text-blue-600 hover:text-blue-700"}`}
+                      className="inline-flex items-center gap-2 text-sm font-medium theme-accent-primary hover:underline"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -1133,16 +1103,12 @@ function CalendarContent() {
                 {/* Meeting Link / Join Meeting */}
                 {selectedEvent.meetingType === "iecentral" && selectedEvent.meetingLink ? (
                   <div>
-                    <p className={`text-sm font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>IECentral Meeting</p>
+                    <p className="text-xs font-medium mb-2 theme-text-tertiary">IECentral Meeting</p>
                     <Link
                       href={selectedEvent.meetingLink}
-                      className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-colors ${
-                        isDark
-                          ? "bg-cyan-500 text-white hover:bg-cyan-600"
-                          : "bg-blue-600 text-white hover:bg-blue-700"
-                      }`}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[9px] font-semibold text-sm theme-btn-primary transition-colors"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
                       Join Meeting
@@ -1150,12 +1116,12 @@ function CalendarContent() {
                   </div>
                 ) : selectedEvent.meetingLink ? (
                   <div>
-                    <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Meeting Link</p>
+                    <p className="text-xs font-medium theme-text-tertiary mb-1">Meeting Link</p>
                     <a
                       href={selectedEvent.meetingLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-cyan-500 hover:underline break-all"
+                      className="theme-accent-primary hover:underline break-all text-sm"
                     >
                       {selectedEvent.meetingLink}
                     </a>
@@ -1165,42 +1131,34 @@ function CalendarContent() {
                 {/* Location */}
                 {selectedEvent.location && (
                   <div>
-                    <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Location</p>
-                    <p className={isDark ? "text-white" : "text-gray-900"}>{selectedEvent.location}</p>
+                    <p className="text-xs font-medium theme-text-tertiary mb-0.5">Location</p>
+                    <p className="text-sm theme-text-primary">{selectedEvent.location}</p>
                   </div>
                 )}
 
                 {/* Description */}
                 {selectedEvent.description && (
                   <div>
-                    <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Description</p>
-                    <p className={isDark ? "text-white" : "text-gray-900"}>{selectedEvent.description}</p>
+                    <p className="text-xs font-medium theme-text-tertiary mb-0.5">Description</p>
+                    <p className="text-sm theme-text-primary">{selectedEvent.description}</p>
                   </div>
                 )}
 
                 {/* Organizer */}
                 <div>
-                  <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Organizer</p>
-                  <p className={isDark ? "text-white" : "text-gray-900"}>{selectedEvent.createdByName}</p>
+                  <p className="text-xs font-medium theme-text-tertiary mb-0.5">Organizer</p>
+                  <p className="text-sm theme-text-primary">{selectedEvent.createdByName}</p>
                 </div>
 
                 {/* Invitees */}
                 {selectedEvent.invitees && selectedEvent.invitees.length > 0 && (
                   <div>
-                    <p className={`text-sm font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Invitees</p>
+                    <p className="text-xs font-medium theme-text-tertiary mb-2">Invitees</p>
                     <div className="space-y-1">
                       {selectedEvent.invitees.map((inv: any) => (
-                        <div key={inv._id} className="flex items-center justify-between text-sm">
-                          <span className={isDark ? "text-white" : "text-gray-900"}>{inv.userName}</span>
-                          <span
-                            className={`px-2 py-0.5 rounded text-xs ${
-                              inv.status === "accepted"
-                                ? "bg-green-500/20 text-green-400"
-                                : inv.status === "declined"
-                                ? "bg-red-500/20 text-red-400"
-                                : "bg-amber-500/20 text-amber-400"
-                            }`}
-                          >
+                        <div key={inv._id} className="flex items-center justify-between text-sm gap-2">
+                          <span className="theme-text-primary">{inv.userName}</span>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${inviteStatusClass(inv.status)}`}>
                             {inv.status}
                           </span>
                         </div>
@@ -1211,33 +1169,24 @@ function CalendarContent() {
 
                 {/* Response buttons for invitees */}
                 {selectedEvent.myInviteStatus === "pending" && (
-                  <div className={`pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                    <p className={`text-sm font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Your Response</p>
+                  <div className={`pt-4 border-t theme-border-secondary`}>
+                    <p className="text-xs font-medium theme-text-tertiary mb-2">Your Response</p>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => {
-                          handleRespondToInvite(selectedEvent._id, "accepted");
-                          setShowEventModal(false);
-                        }}
-                        className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30"
+                        onClick={() => { handleRespondToInvite(selectedEvent._id, "accepted"); setShowEventModal(false); }}
+                        className="flex-1 px-3 py-2 text-sm font-semibold rounded-[9px] bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/25 transition-colors"
                       >
                         Accept
                       </button>
                       <button
-                        onClick={() => {
-                          handleRespondToInvite(selectedEvent._id, "maybe");
-                          setShowEventModal(false);
-                        }}
-                        className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+                        onClick={() => { handleRespondToInvite(selectedEvent._id, "maybe"); setShowEventModal(false); }}
+                        className="flex-1 px-3 py-2 text-sm font-semibold rounded-[9px] bg-amber-500/15 text-amber-500 hover:bg-amber-500/25 transition-colors"
                       >
                         Maybe
                       </button>
                       <button
-                        onClick={() => {
-                          handleRespondToInvite(selectedEvent._id, "declined");
-                          setShowEventModal(false);
-                        }}
-                        className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                        onClick={() => { handleRespondToInvite(selectedEvent._id, "declined"); setShowEventModal(false); }}
+                        className="flex-1 px-3 py-2 text-sm font-semibold rounded-[9px] bg-red-500/15 text-red-500 hover:bg-red-500/25 transition-colors"
                       >
                         Decline
                       </button>
@@ -1247,43 +1196,36 @@ function CalendarContent() {
 
                 {/* Organizer actions */}
                 {selectedEvent.myInviteStatus === "organizer" && (
-                  <div className={`pt-4 border-t space-y-2 ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                    <button
+                  <div className={`pt-4 border-t theme-border-secondary space-y-2`}>
+                    <Button
+                      variant="secondary"
+                      className="w-full"
                       onClick={() => handleStartEdit(selectedEvent)}
-                      className={`w-full px-3 py-2 text-sm font-medium rounded-lg ${
-                        isDark
-                          ? "bg-slate-700 text-white hover:bg-slate-600"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
                     >
                       Edit Event
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedInviteeIds([]);
-                        setShowAddInviteesModal(true);
-                      }}
-                      className={`w-full px-3 py-2 text-sm font-medium rounded-lg ${
-                        isDark
-                          ? "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30"
-                          : "bg-blue-100 text-blue-600 hover:bg-blue-200"
-                      }`}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => { setSelectedInviteeIds([]); setShowAddInviteesModal(true); }}
                     >
                       + Add Invitees
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="danger"
+                      className="w-full"
                       onClick={() => handleCancelEvent(selectedEvent._id)}
-                      className="w-full px-3 py-2 text-sm font-medium rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30"
                     >
                       Cancel This Event
-                    </button>
+                    </Button>
                     {selectedEvent.seriesId && (
-                      <button
+                      <Button
+                        variant="danger"
+                        className="w-full opacity-80"
                         onClick={() => handleCancelSeries(selectedEvent.seriesId)}
-                        className="w-full px-3 py-2 text-sm font-medium rounded-lg bg-red-500/30 text-red-400 hover:bg-red-500/40"
                       >
                         Cancel Entire Series
-                      </button>
+                      </Button>
                     )}
                   </div>
                 )}
@@ -1292,66 +1234,54 @@ function CalendarContent() {
           </div>
         )}
 
-        {/* Day Detail Modal */}
+        {/* ── Day Detail Modal ── */}
         {showDayModal && selectedDayDate && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`w-full max-w-md rounded-xl border max-h-[80vh] flex flex-col ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-              <div className={`p-4 border-b flex-shrink-0 ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+            <div className={`w-full max-w-md rounded-2xl border max-h-[80vh] flex flex-col ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+              <div className={`px-5 py-4 border-b flex-shrink-0 ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="text-[17px] font-semibold theme-text-primary truncate">
                       {selectedDayDate.toLocaleDateString("en-US", {
                         weekday: "long",
                         month: "long",
                         day: "numeric",
                       })}
                     </h2>
-                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <p className="text-sm theme-text-tertiary mt-0.5">
                       {getEventsForDay(selectedDayDate).length} event(s)
                     </p>
                   </div>
                   <button
-                    onClick={() => {
-                      setShowDayModal(false);
-                      setSelectedDayDate(null);
-                    }}
-                    className={`p-1 rounded hover:${isDark ? "bg-slate-700" : "bg-gray-100"}`}
+                    onClick={() => { setShowDayModal(false); setSelectedDayDate(null); }}
+                    className="p-1.5 rounded-lg theme-text-tertiary hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors flex-shrink-0"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
               </div>
 
-              <div className="p-4 overflow-y-auto flex-1">
+              <div className="px-5 py-3 overflow-y-auto flex-1">
                 {getEventsForDay(selectedDayDate).length === 0 ? (
-                  <p className={`text-center py-8 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                    No events scheduled
-                  </p>
+                  <p className="text-center py-8 theme-text-tertiary">No events scheduled</p>
                 ) : (
                   <div className="space-y-2">
                     {getEventsForDay(selectedDayDate).map((event) => (
                       <div
                         key={event._id}
-                        onClick={() => {
-                          setShowDayModal(false);
-                          openEventDetails(event);
-                        }}
-                        className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                          isDark ? "bg-slate-700 hover:bg-slate-600" : "bg-gray-50 hover:bg-gray-100"
-                        }`}
+                        onClick={() => { setShowDayModal(false); openEventDetails(event); }}
+                        className={`p-3 rounded-xl cursor-pointer transition-colors ${isDark ? "bg-slate-700/60 hover:bg-slate-700" : "bg-gray-50 hover:bg-gray-100"}`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <p className={`font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>
-                              {event.title}
-                            </p>
-                            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                              {formatTime(event.startTime)} - {formatTime(event.endTime)}
+                            <p className="font-medium truncate theme-text-primary text-sm">{event.title}</p>
+                            <p className="text-xs theme-text-secondary mt-0.5">
+                              {formatTime(event.startTime)} – {formatTime(event.endTime)}
                             </p>
                             {event.location && (
-                              <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                              <p className="text-xs mt-0.5 theme-text-tertiary">
                                 📍 {event.location}
                               </p>
                             )}
@@ -1360,9 +1290,7 @@ function CalendarContent() {
                               <Link
                                 href={`/applications/${(event as any).applicationId}`}
                                 onClick={(e) => e.stopPropagation()}
-                                className={`inline-flex items-center gap-1 text-xs mt-1 ${
-                                  isDark ? "text-cyan-400 hover:text-cyan-300" : "text-blue-600 hover:text-blue-700"
-                                }`}
+                                className="inline-flex items-center gap-1 text-xs mt-1 theme-accent-primary hover:underline"
                               >
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -1371,17 +1299,7 @@ function CalendarContent() {
                               </Link>
                             )}
                           </div>
-                          <span
-                            className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-medium ${
-                              (event as any).myInviteStatus === "pending"
-                                ? "bg-amber-500/20 text-amber-400"
-                                : (event as any).myInviteStatus === "organizer"
-                                ? isDark ? "bg-cyan-500/20 text-cyan-400" : "bg-blue-100 text-blue-700"
-                                : viewingSharedCalendar
-                                ? isDark ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-700"
-                                : isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"
-                            }`}
-                          >
+                          <span className={`flex-shrink-0 px-2 py-0.5 rounded text-[11px] font-medium ${eventChipClass(event)}`}>
                             {viewingSharedCalendar
                               ? "Shared"
                               : (event as any).myInviteStatus === "organizer"
@@ -1397,8 +1315,10 @@ function CalendarContent() {
                 )}
               </div>
 
-              <div className={`p-4 border-t flex-shrink-0 ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                <button
+              <div className={`px-5 py-4 border-t flex-shrink-0 ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                <Button
+                  variant="primary"
+                  className="w-full"
                   onClick={() => {
                     setShowDayModal(false);
                     const newDate = new Date(selectedDayDate);
@@ -1409,64 +1329,51 @@ function CalendarContent() {
                     });
                     setShowCreateModal(true);
                   }}
-                  className={`w-full px-4 py-2 rounded-lg font-medium ${
-                    isDark
-                      ? "bg-cyan-500 text-white hover:bg-cyan-600"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
                 >
                   + Add Event
-                </button>
+                </Button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Add Invitees Modal */}
+        {/* ── Add Invitees Modal ── */}
         {showAddInviteesModal && selectedEvent && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-            <div className={`w-full max-w-md rounded-xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-              <div className={`p-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                <div className="flex items-center justify-between">
-                  <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                    Add Invitees
-                  </h2>
+            <div className={`w-full max-w-md rounded-2xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+              <div className={`px-5 py-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="text-[17px] font-semibold theme-text-primary">Add Invitees</h2>
+                    <p className="text-sm theme-text-tertiary mt-0.5 truncate">
+                      Select users to invite to: {selectedEvent.title}
+                    </p>
+                  </div>
                   <button
-                    onClick={() => {
-                      setShowAddInviteesModal(false);
-                      setSelectedInviteeIds([]);
-                    }}
-                    className={`p-1 rounded-lg ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}
+                    onClick={() => { setShowAddInviteesModal(false); setSelectedInviteeIds([]); }}
+                    className="p-1.5 rounded-lg theme-text-tertiary hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors flex-shrink-0"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
-                <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                  Select users to invite to: {selectedEvent.title}
-                </p>
               </div>
 
-              <div className="p-4 max-h-80 overflow-y-auto">
-                <div className="space-y-2">
+              <div className="px-5 py-3 max-h-80 overflow-y-auto">
+                <div className="space-y-1">
                   {allUsers
                     ?.filter((u) => {
-                      // Filter out users already invited
                       const existingInviteeIds = selectedEvent.invitees?.map((i: any) => i.userId) || [];
                       return !existingInviteeIds.includes(u._id) && u._id !== selectedEvent.createdBy;
                     })
                     .map((u) => (
                       <label
                         key={u._id}
-                        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
-                          isDark
-                            ? selectedInviteeIds.includes(u._id as Id<"users">)
-                              ? "bg-cyan-500/20"
-                              : "hover:bg-slate-700"
-                            : selectedInviteeIds.includes(u._id as Id<"users">)
-                            ? "bg-blue-50"
-                            : "hover:bg-gray-50"
+                        className={`flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors ${
+                          selectedInviteeIds.includes(u._id as Id<"users">)
+                            ? isDark ? "bg-cyan-500/20" : "bg-blue-50"
+                            : isDark ? "hover:bg-slate-700" : "hover:bg-gray-50"
                         }`}
                       >
                         <input
@@ -1481,90 +1388,69 @@ function CalendarContent() {
                           }}
                           className="rounded"
                         />
-                        <div className="flex-1">
-                          <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                            {u.name}
-                          </p>
-                          <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                            {u.email}
-                          </p>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium theme-text-primary text-sm">{u.name}</p>
+                          <p className="text-xs theme-text-tertiary">{u.email}</p>
                         </div>
                       </label>
                     ))}
                 </div>
               </div>
 
-              <div className={`p-4 border-t flex gap-2 ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                <button
-                  onClick={() => {
-                    setShowAddInviteesModal(false);
-                    setSelectedInviteeIds([]);
-                  }}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${
-                    isDark
-                      ? "bg-slate-700 text-white hover:bg-slate-600"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
+              <div className={`px-5 py-4 border-t flex gap-3 ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => { setShowAddInviteesModal(false); setSelectedInviteeIds([]); }}
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
                   onClick={handleAddInvitees}
                   disabled={selectedInviteeIds.length === 0}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium disabled:opacity-50 ${
-                    isDark
-                      ? "bg-cyan-500 text-white hover:bg-cyan-600"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
                 >
                   Add {selectedInviteeIds.length > 0 ? `(${selectedInviteeIds.length})` : ""}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Share Calendar Modal */}
+        {/* ── Share Calendar Modal ── */}
         {showShareModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-            <div className={`w-full max-w-md rounded-xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-              <div className={`p-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                <div className="flex items-center justify-between">
-                  <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                    Share Calendar
-                  </h2>
+            <div className={`w-full max-w-md rounded-2xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+              <div className={`px-5 py-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-[17px] font-semibold theme-text-primary">Share Calendar</h2>
                   <button
                     onClick={() => setShowShareModal(false)}
-                    className={`p-1 rounded hover:${isDark ? "bg-slate-700" : "bg-gray-100"}`}
+                    className="p-1.5 rounded-lg theme-text-tertiary hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
               </div>
 
-              <div className="p-4 space-y-4">
+              <div className="px-5 py-4 space-y-4">
                 {/* Current shares */}
                 {myShares && myShares.length > 0 && (
                   <div>
-                    <h3 className={`text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                      Shared with
-                    </h3>
+                    <p className="ui-section-label mb-2">Shared with</p>
                     <div className="space-y-2">
                       {myShares.map((share) => (
                         <div
                           key={share._id}
-                          className={`flex items-center justify-between p-2 rounded-lg ${
-                            isDark ? "bg-slate-700" : "bg-gray-100"
-                          }`}
+                          className={`flex items-center justify-between p-3 rounded-xl gap-3 ${isDark ? "bg-slate-700/60" : "bg-gray-50"}`}
                         >
-                          <div>
-                            <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                              {share.sharedWithName}
-                            </p>
-                            <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                              {share.sharedWithEmail} - {share.permission} access
+                          <div className="min-w-0">
+                            <p className="font-medium theme-text-primary text-sm">{share.sharedWithName}</p>
+                            <p className="text-xs theme-text-tertiary mt-0.5">
+                              {share.sharedWithEmail} · {share.permission} access
                             </p>
                           </div>
                           <button
@@ -1572,7 +1458,7 @@ function CalendarContent() {
                               if (!user) return;
                               await removeCalendarShare({ shareId: share._id, requestingUserId: user._id as Id<"users"> });
                             }}
-                            className={`p-1 rounded ${isDark ? "hover:bg-red-500/20 text-red-400" : "hover:bg-red-100 text-red-600"}`}
+                            className="p-1.5 rounded-lg flex-shrink-0 text-red-500 hover:bg-red-500/10 transition-colors"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1586,17 +1472,11 @@ function CalendarContent() {
 
                 {/* Add new share */}
                 <div>
-                  <h3 className={`text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                    Share with someone new
-                  </h3>
+                  <p className="ui-section-label mb-2">Share with someone new</p>
                   <select
                     value={shareUserId}
                     onChange={(e) => setShareUserId(e.target.value as Id<"users"> | "")}
-                    className={`w-full px-3 py-2 rounded-lg border ${
-                      isDark
-                        ? "bg-slate-900 border-slate-600 text-white"
-                        : "bg-white border-gray-300 text-gray-900"
-                    }`}
+                    className="theme-input w-full px-3 py-2 text-sm"
                   >
                     <option value="">Select a person...</option>
                     {allUsers
@@ -1614,21 +1494,18 @@ function CalendarContent() {
                 </div>
               </div>
 
-              <div className={`p-4 border-t flex gap-2 ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                <button
-                  onClick={() => {
-                    setShowShareModal(false);
-                    setShareUserId("");
-                  }}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${
-                    isDark
-                      ? "bg-slate-700 text-white hover:bg-slate-600"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
+              <div className={`px-5 py-4 border-t flex gap-3 ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => { setShowShareModal(false); setShareUserId(""); }}
                 >
                   Close
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
+                  disabled={!shareUserId}
                   onClick={async () => {
                     if (user && shareUserId) {
                       await shareCalendar({
@@ -1639,21 +1516,15 @@ function CalendarContent() {
                       setShareUserId("");
                     }
                   }}
-                  disabled={!shareUserId}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium disabled:opacity-50 ${
-                    isDark
-                      ? "bg-cyan-500 text-white hover:bg-cyan-600"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
                 >
                   Share
-                </button>
+                </Button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Help Modal is now rendered inline by CalendarHelpModal component */}
+        {/* Help Modal is rendered inline by CalendarHelpModal component */}
       </main>
     </div>
   );
