@@ -23,22 +23,22 @@ interface KanbanColumnProps {
 const colorStyles: Record<string, { bg: string; text: string; border: string }> = {
   slate: {
     bg: "bg-slate-500/10",
-    text: "text-slate-400",
+    text: "text-slate-500 dark:text-slate-400",
     border: "border-slate-500/30",
   },
   cyan: {
-    bg: "bg-cyan-500/10",
-    text: "text-cyan-400",
-    border: "border-cyan-500/30",
+    bg: "bg-[#007AFF]/10",
+    text: "text-[#007AFF]",
+    border: "border-[#007AFF]/30",
   },
   amber: {
     bg: "bg-amber-500/10",
-    text: "text-amber-400",
+    text: "text-amber-600 dark:text-amber-400",
     border: "border-amber-500/30",
   },
   green: {
     bg: "bg-green-500/10",
-    text: "text-green-400",
+    text: "text-green-600 dark:text-green-400",
     border: "border-green-500/30",
   },
 };
@@ -57,12 +57,12 @@ export default function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`w-full sm:flex-1 sm:min-w-0 flex flex-col bg-slate-800/30 rounded-xl border ${
-        isOver ? "border-cyan-500" : "border-slate-700"
+      className={`w-full sm:flex-1 sm:min-w-0 flex flex-col bg-[#f2f2f7] dark:bg-slate-800/40 rounded-xl border ${
+        isOver ? "border-[#007AFF]" : "theme-border-secondary"
       } transition-colors`}
     >
       {/* Column Header */}
-      <div className="p-4 border-b border-slate-700/50">
+      <div className="p-4 border-b theme-border-secondary">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span
@@ -70,7 +70,7 @@ export default function KanbanColumn({
             >
               {title}
             </span>
-            <span className="text-sm text-slate-500">{projects.length}</span>
+            <span className="text-sm theme-text-tertiary">{projects.length}</span>
           </div>
         </div>
       </div>
@@ -92,7 +92,7 @@ export default function KanbanColumn({
         </SortableContext>
 
         {projects.length === 0 && (
-          <div className="flex items-center justify-center h-24 text-sm text-slate-500 border-2 border-dashed border-slate-700 rounded-lg">
+          <div className="flex items-center justify-center h-24 text-sm theme-text-tertiary border-2 border-dashed theme-border-secondary rounded-lg">
             Drop projects here
           </div>
         )}
