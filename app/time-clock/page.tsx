@@ -6,8 +6,10 @@ import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useTheme } from "../theme-context";
 import { useAuth } from "../auth-context";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 const TABS = [
   { id: "live", label: "Live Status" },
@@ -38,8 +40,6 @@ function formatDuration(hours: number): string {
 }
 
 function TimeClockContent() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState("live");
@@ -236,23 +236,19 @@ function TimeClockContent() {
   };
 
   return (
-    <div className={`flex h-screen theme-bg-primary`}>
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
         {/* Header */}
-        <div
-          className={`sticky top-0 z-10 backdrop-blur-md ${
-            isDark ? "bg-slate-900/80" : "bg-[#f2f2f7]/80"
-          }`}
-        >
+        <div className="sticky top-0 z-10 bg-[#f2f2f7]/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-[var(--theme-border-secondary)]">
           <div className="px-4 sm:px-8 py-4 sm:py-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">
                   Time Clock
                 </h1>
-                <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <p className="text-sm theme-text-tertiary">
                   Manage employee clock in/out and time entries
                 </p>
               </div>
@@ -261,60 +257,52 @@ function TimeClockContent() {
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className={`px-3 py-2 rounded-lg text-sm ${
-                    isDark
-                      ? "bg-slate-800 border-slate-700 text-white"
-                      : "bg-white border-gray-200 text-gray-900"
-                  } border`}
+                  className="theme-input px-3 py-2 text-sm"
                 />
-                <button
+                <Button
+                  variant="secondary"
                   onClick={() => setSelectedDate(new Date().toISOString().split("T")[0])}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium ${
-                    isDark
-                      ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
                 >
                   Today
-                </button>
+                </Button>
               </div>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 mt-4">
-              <div className={`p-3 rounded-xl ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Clocked In</p>
-                <p className={`text-xl font-bold ${isDark ? "text-green-400" : "text-green-600"}`}>
+              <div className="theme-card p-3">
+                <p className="text-xs theme-text-tertiary">Clocked In</p>
+                <p className="text-xl font-bold text-green-600 dark:text-green-400">
                   {clockedInCount}
                 </p>
               </div>
-              <div className={`p-3 rounded-xl ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>On Break</p>
-                <p className={`text-xl font-bold ${isDark ? "text-amber-400" : "text-amber-600"}`}>
+              <div className="theme-card p-3">
+                <p className="text-xs theme-text-tertiary">On Break</p>
+                <p className="text-xl font-bold text-amber-600 dark:text-amber-400">
                   {onBreakCount}
                 </p>
               </div>
-              <div className={`p-3 rounded-xl ${lateCount > 0 ? (isDark ? "bg-red-500/10 border border-red-500/30" : "bg-red-50 border border-red-200") : (isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm")}`}>
-                <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Late Today</p>
-                <p className={`text-xl font-bold ${lateCount > 0 ? (isDark ? "text-red-400" : "text-red-600") : (isDark ? "text-slate-400" : "text-gray-400")}`}>
+              <div className={`p-3 rounded-xl ${lateCount > 0 ? "bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30" : "theme-card"}`}>
+                <p className="text-xs theme-text-tertiary">Late Today</p>
+                <p className={`text-xl font-bold ${lateCount > 0 ? "text-red-600 dark:text-red-400" : "text-gray-400 dark:text-slate-400"}`}>
                   {lateCount}
                 </p>
               </div>
-              <div className={`p-3 rounded-xl ${graceCount > 0 ? (isDark ? "bg-amber-500/10 border border-amber-500/30" : "bg-amber-50 border border-amber-200") : (isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm")}`}>
-                <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Grace Period</p>
-                <p className={`text-xl font-bold ${graceCount > 0 ? (isDark ? "text-amber-400" : "text-amber-600") : (isDark ? "text-slate-400" : "text-gray-400")}`}>
+              <div className={`p-3 rounded-xl ${graceCount > 0 ? "bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30" : "theme-card"}`}>
+                <p className="text-xs theme-text-tertiary">Grace Period</p>
+                <p className={`text-xl font-bold ${graceCount > 0 ? "text-amber-600 dark:text-amber-400" : "text-gray-400 dark:text-slate-400"}`}>
                   {graceCount}
                 </p>
               </div>
-              <div className={`p-3 rounded-xl ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Total Hours</p>
-                <p className={`text-xl font-bold ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
+              <div className="theme-card p-3">
+                <p className="text-xs theme-text-tertiary">Total Hours</p>
+                <p className="text-xl font-bold text-blue-600 dark:text-cyan-400">
                   {totalHoursToday.toFixed(1)}
                 </p>
               </div>
-              <div className={`p-3 rounded-xl ${unresolvedIssues > 0 ? (isDark ? "bg-red-500/10 border border-red-500/30" : "bg-red-50 border border-red-200") : (isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm")}`}>
-                <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Needs Action</p>
-                <p className={`text-xl font-bold ${unresolvedIssues > 0 ? (isDark ? "text-red-400" : "text-red-600") : (isDark ? "text-slate-400" : "text-gray-400")}`}>
+              <div className={`p-3 rounded-xl ${unresolvedIssues > 0 ? "bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30" : "theme-card"}`}>
+                <p className="text-xs theme-text-tertiary">Needs Action</p>
+                <p className={`text-xl font-bold ${unresolvedIssues > 0 ? "text-red-600 dark:text-red-400" : "text-gray-400 dark:text-slate-400"}`}>
                   {unresolvedIssues}
                 </p>
               </div>
@@ -328,26 +316,18 @@ function TimeClockContent() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                     activeTab === tab.id
-                      ? isDark
-                        ? "bg-cyan-500 text-white"
-                        : "bg-blue-600 text-white"
-                      : isDark
-                        ? "text-slate-400 hover:bg-slate-800"
-                        : "text-gray-600 hover:bg-gray-200"
+                      ? "bg-[#007AFF] text-white dark:bg-cyan-500"
+                      : "text-gray-600 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-800"
                   }`}
                 >
                   {tab.label}
                   {tab.id === "attendance" && unresolvedIssues > 0 && (
-                    <span className={`ml-2 px-1.5 py-0.5 text-xs rounded-full ${
-                      isDark ? "bg-red-500 text-white" : "bg-red-500 text-white"
-                    }`}>
+                    <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-red-500 text-white">
                       {unresolvedIssues}
                     </span>
                   )}
                   {tab.id === "corrections" && pendingCount > 0 && (
-                    <span className={`ml-2 px-1.5 py-0.5 text-xs rounded-full ${
-                      isDark ? "bg-red-500 text-white" : "bg-red-500 text-white"
-                    }`}>
+                    <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-red-500 text-white">
                       {pendingCount}
                     </span>
                   )}
@@ -358,22 +338,22 @@ function TimeClockContent() {
         </div>
 
         {/* Content */}
-        <div className="px-4 sm:px-8 pb-8">
+        <div className="px-4 sm:px-8 pb-8 pt-4">
           {/* Live Status Tab */}
           {activeTab === "live" && (
             <div className="space-y-4">
               {/* Late arrivals alert */}
               {lateCount > 0 && (
-                <div className={`p-4 rounded-xl ${isDark ? "bg-red-500/10 border border-red-500/30" : "bg-red-50 border border-red-200"}`}>
+                <div className="p-4 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? "bg-red-500/20" : "bg-red-100"}`}>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-red-100 dark:bg-red-500/20">
                       <span className="text-xl">⚠️</span>
                     </div>
                     <div>
-                      <h3 className={`font-semibold ${isDark ? "text-red-400" : "text-red-700"}`}>
+                      <h3 className="font-semibold text-red-700 dark:text-red-400">
                         {lateCount} Late Arrival{lateCount > 1 ? "s" : ""} Today
                       </h3>
-                      <p className={`text-sm ${isDark ? "text-red-400/70" : "text-red-600"}`}>
+                      <p className="text-sm text-red-600 dark:text-red-400/70">
                         Review the attendance issues tab to take action
                       </p>
                     </div>
@@ -394,67 +374,63 @@ function TimeClockContent() {
                         key={person.personnelId}
                         className={`p-4 rounded-xl ${
                           isLate
-                            ? isDark ? "bg-red-500/10 border border-red-500/30" : "bg-red-50 border border-red-200"
+                            ? "bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30"
                             : isGrace
-                            ? isDark ? "bg-amber-500/10 border border-amber-500/30" : "bg-amber-50 border border-amber-200"
-                            : isDark
-                            ? "bg-slate-800/50 border border-slate-700"
-                            : "bg-white border border-gray-200 shadow-sm"
+                            ? "bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30"
+                            : "theme-card"
                         }`}
                       >
                         <div className="flex items-start justify-between">
                           <div>
-                            <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <h3 className="font-semibold theme-text-primary">
                               {person.name}
                             </h3>
-                            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <p className="text-sm theme-text-tertiary">
                               {person.position} - {person.department}
                             </p>
                           </div>
                           {/* Status badge */}
                           {person.isClockedIn ? (
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            <span className={`ui-badge ${
                               isLate
-                                ? "bg-red-500/20 text-red-400"
+                                ? "ui-badge-red"
                                 : isGrace
-                                ? "bg-amber-500/20 text-amber-400"
+                                ? "ui-badge-amber"
                                 : person.isOnBreak
-                                ? "bg-amber-500/20 text-amber-400"
-                                : "bg-green-500/20 text-green-400"
+                                ? "ui-badge-amber"
+                                : "ui-badge-green"
                             }`}>
                               {isLate ? `${person.minutesLate}m Late` : isGrace ? "Grace" : person.isOnBreak ? "Break" : "On Time"}
                             </span>
                           ) : (
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${isDark ? "bg-slate-700 text-slate-400" : "bg-gray-100 text-gray-500"}`}>
-                              Not In
-                            </span>
+                            <span className="ui-badge ui-badge-gray">Not In</span>
                           )}
                         </div>
 
                         {/* Time details */}
-                        <div className={`mt-3 pt-3 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                        <div className="mt-3 pt-3 border-t border-[var(--theme-border-secondary)]">
                           {person.scheduledStart && (
                             <div className="flex justify-between text-sm">
-                              <span className={isDark ? "text-slate-400" : "text-gray-500"}>Scheduled:</span>
-                              <span className={isDark ? "text-white" : "text-gray-900"}>{person.scheduledStart}</span>
+                              <span className="theme-text-tertiary">Scheduled:</span>
+                              <span className="theme-text-primary">{person.scheduledStart}</span>
                             </div>
                           )}
                           {person.isClockedIn && (
                             <>
                               <div className="flex justify-between text-sm mt-1">
-                                <span className={isDark ? "text-slate-400" : "text-gray-500"}>Clocked In:</span>
+                                <span className="theme-text-tertiary">Clocked In:</span>
                                 <span className={`font-medium ${
-                                  isLate ? (isDark ? "text-red-400" : "text-red-600")
-                                  : isGrace ? (isDark ? "text-amber-400" : "text-amber-600")
-                                  : (isDark ? "text-green-400" : "text-green-600")
+                                  isLate ? "text-red-600 dark:text-red-400"
+                                  : isGrace ? "text-amber-600 dark:text-amber-400"
+                                  : "text-green-600 dark:text-green-400"
                                 }`}>
                                   {person.actualStart}
                                 </span>
                               </div>
                               {person.clockInTime && (
                                 <div className="flex justify-between text-sm mt-1">
-                                  <span className={isDark ? "text-slate-400" : "text-gray-500"}>Working:</span>
-                                  <span className={`font-medium ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
+                                  <span className="theme-text-tertiary">Working:</span>
+                                  <span className="font-medium text-blue-600 dark:text-cyan-400">
                                     {formatDuration((Date.now() - person.clockInTime) / (1000 * 60 * 60))}
                                   </span>
                                 </div>
@@ -465,23 +441,20 @@ function TimeClockContent() {
 
                         {/* Actions */}
                         {person.isClockedIn && (
-                          <button
+                          <Button
+                            variant="secondary"
+                            className="mt-3 w-full"
                             onClick={() => handleForceClockOut(person.personnelId)}
-                            className={`mt-3 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                              isDark
-                                ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}
                           >
                             Force Clock Out
-                          </button>
+                          </Button>
                         )}
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                <div className="text-center py-12 theme-text-tertiary">
                   No employees with schedules today
                 </div>
               )}
@@ -492,20 +465,20 @@ function TimeClockContent() {
           {activeTab === "attendance" && (
             <div className="space-y-4">
               {/* Info box */}
-              <div className={`p-4 rounded-xl ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-blue-50 border border-blue-200"}`}>
-                <h3 className={`font-semibold mb-1 ${isDark ? "text-white" : "text-blue-900"}`}>
+              <Card padding="md">
+                <h3 className="font-semibold mb-1 theme-text-primary">
                   Attendance Write-Up Progression
                 </h3>
-                <p className={`text-sm ${isDark ? "text-slate-400" : "text-blue-700"}`}>
+                <p className="text-sm theme-text-secondary">
                   Click "Write Up" to automatically create a disciplinary action based on how many attendance issues this employee has had in the last 6 months:
                 </p>
-                <ul className={`text-sm mt-2 space-y-1 ${isDark ? "text-slate-400" : "text-blue-700"}`}>
+                <ul className="text-sm mt-2 space-y-1 theme-text-secondary">
                   <li>• 1st offense → Verbal Warning</li>
                   <li>• 2nd offense → Written Warning</li>
                   <li>• 3rd offense → Final Warning</li>
                   <li>• 4th+ offense → Suspension</li>
                 </ul>
-              </div>
+              </Card>
 
               {/* Issues list */}
               {attendanceIssues && attendanceIssues.length > 0 ? (
@@ -515,46 +488,44 @@ function TimeClockContent() {
                       key={issue._id}
                       className={`p-4 rounded-xl ${
                         issue.hasLinkedWriteUp
-                          ? isDark ? "bg-slate-800/30 border border-slate-700/50" : "bg-gray-50 border border-gray-200"
+                          ? "bg-gray-50 dark:bg-slate-800/30 border border-gray-200 dark:border-slate-700/50"
                           : issue.status === "no_call_no_show"
-                          ? isDark ? "bg-red-500/10 border border-red-500/30" : "bg-red-50 border border-red-200"
-                          : isDark ? "bg-amber-500/10 border border-amber-500/30" : "bg-amber-50 border border-amber-200"
+                          ? "bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30"
+                          : "bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30"
                       }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <h3 className="font-semibold theme-text-primary">
                               {issue.personnelName}
                             </h3>
-                            <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                            <span className={`ui-badge ${
                               issue.status === "no_call_no_show"
-                                ? "bg-red-500/20 text-red-400"
-                                : "bg-amber-500/20 text-amber-400"
+                                ? "ui-badge-red"
+                                : "ui-badge-amber"
                             }`}>
                               {issue.status === "no_call_no_show" ? "NO CALL/NO SHOW" : `${issue.minutesLate}min LATE`}
                             </span>
                             {issue.hasLinkedWriteUp && (
-                              <span className={`px-2 py-0.5 text-xs font-medium rounded ${isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"}`}>
-                                ✓ Write-up created
-                              </span>
+                              <span className="ui-badge ui-badge-green">✓ Write-up created</span>
                             )}
                           </div>
-                          <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                          <p className="text-sm mt-1 theme-text-secondary">
                             {issue.date} • {issue.department}
                           </p>
                           {issue.scheduledStart && issue.actualStart && (
-                            <p className={`text-sm ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                            <p className="text-sm theme-text-tertiary">
                               Scheduled: {issue.scheduledStart} → Arrived: {issue.actualStart}
                             </p>
                           )}
                           {!issue.hasLinkedWriteUp && (
-                            <p className={`text-xs mt-2 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                            <p className="text-xs mt-2 theme-text-tertiary">
                               {issue.writeUpsIn6Months} attendance write-up{issue.writeUpsIn6Months !== 1 ? "s" : ""} in last 6 months •
                               <span className={`font-medium ${
-                                issue.recommendedSeverity === "suspension" ? (isDark ? "text-red-400" : "text-red-600")
-                                : issue.recommendedSeverity === "final_warning" ? (isDark ? "text-amber-400" : "text-amber-600")
-                                : (isDark ? "text-slate-300" : "text-gray-700")
+                                issue.recommendedSeverity === "suspension" ? "text-red-600 dark:text-red-400"
+                                : issue.recommendedSeverity === "final_warning" ? "text-amber-600 dark:text-amber-400"
+                                : "text-gray-700 dark:text-slate-300"
                               }`}>
                                 {" "}Next: {issue.severityLabel}
                               </span>
@@ -564,25 +535,23 @@ function TimeClockContent() {
 
                         {/* Write-up button */}
                         {!issue.hasLinkedWriteUp && (
-                          <button
+                          <Button
+                            variant={
+                              issue.recommendedSeverity === "suspension" ? "danger"
+                              : "primary"
+                            }
                             onClick={() => handleCreateWriteUp(issue._id)}
-                            className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
-                              issue.recommendedSeverity === "suspension"
-                                ? isDark ? "bg-red-500 text-white hover:bg-red-400" : "bg-red-600 text-white hover:bg-red-700"
-                                : issue.recommendedSeverity === "final_warning"
-                                ? isDark ? "bg-amber-500 text-white hover:bg-amber-400" : "bg-amber-600 text-white hover:bg-amber-700"
-                                : isDark ? "bg-cyan-500 text-white hover:bg-cyan-400" : "bg-blue-600 text-white hover:bg-blue-700"
-                            }`}
+                            className="whitespace-nowrap"
                           >
                             Write Up
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                <div className="text-center py-12 theme-text-tertiary">
                   <div className="text-4xl mb-3">✅</div>
                   <p>No attendance issues to address</p>
                 </div>
@@ -597,11 +566,7 @@ function TimeClockContent() {
                 <select
                   value={filterDepartment}
                   onChange={(e) => setFilterDepartment(e.target.value)}
-                  className={`px-3 py-2 rounded-lg text-sm ${
-                    isDark
-                      ? "bg-slate-800 border-slate-700 text-white"
-                      : "bg-white border-gray-200 text-gray-900"
-                  } border`}
+                  className="theme-input px-3 py-2 text-sm"
                 >
                   <option value="all">All Departments</option>
                   {departments.map((dept) => (
@@ -610,146 +575,123 @@ function TimeClockContent() {
                     </option>
                   ))}
                 </select>
-                <button
+                <Button
+                  variant="primary"
                   onClick={() => setShowAddEntryModal(true)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    isDark
-                      ? "bg-cyan-500 hover:bg-cyan-400 text-white"
-                      : "bg-blue-600 hover:bg-blue-700 text-white"
-                  }`}
                 >
                   Add Entry
-                </button>
+                </Button>
               </div>
 
               {filteredSummary && filteredSummary.length > 0 ? (
                 <div className="space-y-4">
                   {filteredSummary.map((summary) => (
-                    <div
-                      key={summary.personnelId}
-                      className={`rounded-xl overflow-hidden ${
-                        isDark
-                          ? "bg-slate-800/50 border border-slate-700"
-                          : "bg-white border border-gray-200 shadow-sm"
-                      }`}
-                    >
-                      <div className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                              {summary.personnelName}
-                            </h3>
-                            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                              {summary.position} - {summary.department}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className={`text-lg font-bold ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
-                              {formatDuration(summary.totalHours)}
-                            </p>
-                            {summary.breakMinutes > 0 && (
-                              <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                                ({summary.breakMinutes}m break)
-                              </p>
-                            )}
-                          </div>
+                    <Card key={summary.personnelId} padding="md">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold theme-text-primary">
+                            {summary.personnelName}
+                          </h3>
+                          <p className="text-sm theme-text-tertiary">
+                            {summary.position} - {summary.department}
+                          </p>
                         </div>
-                        <div className={`grid grid-cols-2 sm:grid-cols-4 gap-4 mt-3 pt-3 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                          <div>
-                            <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>Clock In</p>
-                            <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                              {summary.clockIn ? formatTime(summary.clockIn) : "-"}
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-blue-600 dark:text-cyan-400">
+                            {formatDuration(summary.totalHours)}
+                          </p>
+                          {summary.breakMinutes > 0 && (
+                            <p className="text-xs theme-text-tertiary">
+                              ({summary.breakMinutes}m break)
                             </p>
-                          </div>
-                          <div>
-                            <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>Clock Out</p>
-                            <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                              {summary.clockOut ? formatTime(summary.clockOut) : "-"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>Break Time</p>
-                            <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                              {summary.breakMinutes > 0 ? `${summary.breakMinutes}m` : "-"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>Status</p>
-                            <span
-                              className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
-                                summary.isComplete
-                                  ? "bg-green-500/20 text-green-400"
-                                  : "bg-amber-500/20 text-amber-400"
-                              }`}
-                            >
-                              {summary.isComplete ? "Complete" : "In Progress"}
-                            </span>
-                          </div>
+                          )}
                         </div>
-
-                        {/* Individual Entries */}
-                        {summary.entries.length > 0 && (
-                          <div className={`mt-3 pt-3 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                            <p className={`text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                              Entries
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {summary.entries.map((entry) => (
-                                <div
-                                  key={entry._id}
-                                  className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${
-                                    isDark ? "bg-slate-700" : "bg-gray-100"
-                                  }`}
-                                >
-                                  <span className={isDark ? "text-slate-300" : "text-gray-700"}>
-                                    {entry.type.replace("_", " ")}
-                                  </span>
-                                  <span className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                                    {formatTime(entry.timestamp)}
-                                  </span>
-                                  {entry.editedBy && (
-                                    <span className={`${isDark ? "text-amber-400" : "text-amber-600"}`}>
-                                      (edited)
-                                    </span>
-                                  )}
-                                  <button
-                                    onClick={() =>
-                                      openEditModal({
-                                        _id: entry._id,
-                                        timestamp: entry.timestamp,
-                                        type: entry.type,
-                                        personnelName: summary.personnelName,
-                                      })
-                                    }
-                                    className={`p-0.5 rounded hover:bg-slate-600 ${
-                                      isDark ? "text-slate-400" : "text-gray-400"
-                                    }`}
-                                  >
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                    </svg>
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteEntry(entry._id)}
-                                    className={`p-0.5 rounded hover:bg-red-500/20 ${
-                                      isDark ? "text-slate-400 hover:text-red-400" : "text-gray-400 hover:text-red-600"
-                                    }`}
-                                  >
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
-                    </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-3 pt-3 border-t border-[var(--theme-border-secondary)]">
+                        <div>
+                          <p className="text-xs theme-text-tertiary">Clock In</p>
+                          <p className="font-medium theme-text-primary">
+                            {summary.clockIn ? formatTime(summary.clockIn) : "-"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs theme-text-tertiary">Clock Out</p>
+                          <p className="font-medium theme-text-primary">
+                            {summary.clockOut ? formatTime(summary.clockOut) : "-"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs theme-text-tertiary">Break Time</p>
+                          <p className="font-medium theme-text-primary">
+                            {summary.breakMinutes > 0 ? `${summary.breakMinutes}m` : "-"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs theme-text-tertiary">Status</p>
+                          <span className={`ui-badge ${
+                            summary.isComplete ? "ui-badge-green" : "ui-badge-amber"
+                          }`}>
+                            {summary.isComplete ? "Complete" : "In Progress"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Individual Entries */}
+                      {summary.entries.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-[var(--theme-border-secondary)]">
+                          <p className="text-xs font-medium mb-2 theme-text-tertiary">
+                            Entries
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {summary.entries.map((entry) => (
+                              <div
+                                key={entry._id}
+                                className="flex items-center gap-2 px-2 py-1 rounded bg-gray-100 dark:bg-slate-700 text-xs"
+                              >
+                                <span className="theme-text-secondary">
+                                  {entry.type.replace("_", " ")}
+                                </span>
+                                <span className="font-medium theme-text-primary">
+                                  {formatTime(entry.timestamp)}
+                                </span>
+                                {entry.editedBy && (
+                                  <span className="text-amber-600 dark:text-amber-400">
+                                    (edited)
+                                  </span>
+                                )}
+                                <button
+                                  onClick={() =>
+                                    openEditModal({
+                                      _id: entry._id,
+                                      timestamp: entry.timestamp,
+                                      type: entry.type,
+                                      personnelName: summary.personnelName,
+                                    })
+                                  }
+                                  className="p-0.5 rounded hover:bg-slate-600 theme-text-tertiary"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteEntry(entry._id)}
+                                  className="p-0.5 rounded hover:bg-red-500/20 theme-text-tertiary hover:text-red-600 dark:hover:text-red-400"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </Card>
                   ))}
                 </div>
               ) : (
-                <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                <div className="text-center py-12 theme-text-tertiary">
                   No time entries for this date
                 </div>
               )}
@@ -761,34 +703,27 @@ function TimeClockContent() {
             <div className="space-y-4">
               {/* Pending Corrections */}
               <div>
-                <h2 className={`text-lg font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Pending Corrections
-                </h2>
+                <SectionHeader title="Pending Corrections" />
                 {pendingCorrections && pendingCorrections.length > 0 ? (
                   <div className="space-y-3">
                     {pendingCorrections.map((correction) => (
-                      <div
-                        key={correction._id}
-                        className={`p-4 rounded-xl ${
-                          isDark
-                            ? "bg-slate-800/50 border border-slate-700"
-                            : "bg-white border border-gray-200 shadow-sm"
-                        }`}
-                      >
+                      <Card key={correction._id} padding="md">
                         <div className="flex items-start justify-between">
                           <div>
-                            <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <h3 className="font-semibold theme-text-primary">
                               {correction.personnelName}
                             </h3>
-                            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <p className="text-sm theme-text-tertiary">
                               {correction.date} - {correction.requestType.replace("_", " ")}
                             </p>
-                            <p className={`text-sm mt-1 ${isDark ? "text-slate-300" : "text-gray-600"}`}>
+                            <p className="text-sm mt-1 theme-text-secondary">
                               {correction.reason}
                             </p>
                           </div>
                           <div className="flex gap-2">
-                            <button
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               onClick={() =>
                                 openCorrectionModal({
                                   _id: correction._id,
@@ -801,21 +736,16 @@ function TimeClockContent() {
                                   currentTimestamp: correction.currentTimestamp,
                                 })
                               }
-                              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                                isDark
-                                  ? "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30"
-                                  : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                              }`}
                             >
                               Review
-                            </button>
+                            </Button>
                           </div>
                         </div>
-                      </div>
+                      </Card>
                     ))}
                   </div>
                 ) : (
-                  <div className={`text-center py-8 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                  <div className="text-center py-8 theme-text-tertiary">
                     No pending corrections
                   </div>
                 )}
@@ -823,60 +753,49 @@ function TimeClockContent() {
 
               {/* Recent Corrections */}
               <div className="mt-8">
-                <h2 className={`text-lg font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Recent Corrections
-                </h2>
+                <SectionHeader title="Recent Corrections" />
                 {allCorrections && allCorrections.filter((c) => c.status !== "pending").length > 0 ? (
                   <div className="space-y-3">
                     {allCorrections
                       .filter((c) => c.status !== "pending")
                       .slice(0, 10)
                       .map((correction) => (
-                        <div
-                          key={correction._id}
-                          className={`p-4 rounded-xl ${
-                            isDark
-                              ? "bg-slate-800/30 border border-slate-700/50"
-                              : "bg-gray-50 border border-gray-200"
-                          }`}
-                        >
+                        <Card key={correction._id} padding="md">
                           <div className="flex items-start justify-between">
                             <div>
                               <div className="flex items-center gap-2">
-                                <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                                <h3 className="font-semibold theme-text-primary">
                                   {correction.personnelName}
                                 </h3>
-                                <span
-                                  className={`px-2 py-0.5 text-xs font-medium rounded ${
-                                    correction.status === "approved"
-                                      ? "bg-green-500/20 text-green-400"
-                                      : "bg-red-500/20 text-red-400"
-                                  }`}
-                                >
+                                <span className={`ui-badge ${
+                                  correction.status === "approved"
+                                    ? "ui-badge-green"
+                                    : "ui-badge-red"
+                                }`}>
                                   {correction.status}
                                 </span>
                               </div>
-                              <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              <p className="text-sm theme-text-tertiary">
                                 {correction.date} - {correction.requestType.replace("_", " ")}
                               </p>
-                              <p className={`text-sm mt-1 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                              <p className="text-sm mt-1 theme-text-tertiary">
                                 {correction.reason}
                               </p>
                               {correction.reviewNotes && (
-                                <p className={`text-sm mt-1 italic ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                                <p className="text-sm mt-1 italic theme-text-tertiary">
                                   Note: {correction.reviewNotes}
                                 </p>
                               )}
                             </div>
-                            <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                            <p className="text-xs theme-text-tertiary">
                               by {correction.reviewerName}
                             </p>
                           </div>
-                        </div>
+                        </Card>
                       ))}
                   </div>
                 ) : (
-                  <div className={`text-center py-8 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                  <div className="text-center py-8 theme-text-tertiary">
                     No recent corrections
                   </div>
                 )}
@@ -887,20 +806,20 @@ function TimeClockContent() {
 
         {/* Add Entry Modal */}
         {showAddEntryModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
-              <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md theme-card rounded-xl p-6">
+              <h2 className="text-lg font-semibold mb-4 theme-text-primary">
                 Add Time Entry
               </h2>
               <div className="space-y-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className="ui-section-label block mb-1">
                     Employee
                   </label>
                   <select
                     value={addEntryForm.personnelId}
                     onChange={(e) => setAddEntryForm({ ...addEntryForm, personnelId: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-200 text-gray-900"} border`}
+                    className="theme-input w-full px-3 py-2"
                   >
                     <option value="">Select employee...</option>
                     {activePersonnel.map((p) => (
@@ -912,36 +831,36 @@ function TimeClockContent() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <label className="ui-section-label block mb-1">
                       Date
                     </label>
                     <input
                       type="date"
                       value={addEntryForm.date}
                       onChange={(e) => setAddEntryForm({ ...addEntryForm, date: e.target.value })}
-                      className={`w-full px-3 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-200 text-gray-900"} border`}
+                      className="theme-input w-full px-3 py-2"
                     />
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <label className="ui-section-label block mb-1">
                       Time
                     </label>
                     <input
                       type="time"
                       value={addEntryForm.time}
                       onChange={(e) => setAddEntryForm({ ...addEntryForm, time: e.target.value })}
-                      className={`w-full px-3 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-200 text-gray-900"} border`}
+                      className="theme-input w-full px-3 py-2"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className="ui-section-label block mb-1">
                     Entry Type
                   </label>
                   <select
                     value={addEntryForm.type}
                     onChange={(e) => setAddEntryForm({ ...addEntryForm, type: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-200 text-gray-900"} border`}
+                    className="theme-input w-full px-3 py-2"
                   >
                     {ENTRY_TYPES.map((type) => (
                       <option key={type.value} value={type.value}>
@@ -951,7 +870,7 @@ function TimeClockContent() {
                   </select>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className="ui-section-label block mb-1">
                     Reason
                   </label>
                   <input
@@ -959,24 +878,26 @@ function TimeClockContent() {
                     value={addEntryForm.reason}
                     onChange={(e) => setAddEntryForm({ ...addEntryForm, reason: e.target.value })}
                     placeholder="e.g., Forgot to clock in"
-                    className={`w-full px-3 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-200 text-gray-900"} border`}
+                    className="theme-input w-full px-3 py-2"
                   />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
-                <button
+                <Button
+                  variant="secondary"
+                  className="flex-1"
                   onClick={() => setShowAddEntryModal(false)}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${isDark ? "bg-slate-700 text-white" : "bg-gray-200 text-gray-900"}`}
                 >
                   Cancel
-                </button>
-                <button
-                  onClick={handleAddEntry}
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
                   disabled={!addEntryForm.personnelId || !addEntryForm.reason}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-400" : "bg-blue-600 text-white hover:bg-blue-700"} disabled:opacity-50`}
+                  onClick={handleAddEntry}
                 >
                   Add Entry
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -984,28 +905,28 @@ function TimeClockContent() {
 
         {/* Edit Entry Modal */}
         {showEditEntryModal && selectedEntry && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
-              <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md theme-card rounded-xl p-6">
+              <h2 className="text-lg font-semibold mb-4 theme-text-primary">
                 Edit Time Entry
               </h2>
-              <p className={`text-sm mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className="text-sm mb-4 theme-text-tertiary">
                 {selectedEntry.personnelName} - {selectedEntry.type.replace("_", " ")}
               </p>
               <div className="space-y-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className="ui-section-label block mb-1">
                     New Time
                   </label>
                   <input
                     type="time"
                     value={editEntryForm.time}
                     onChange={(e) => setEditEntryForm({ ...editEntryForm, time: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-200 text-gray-900"} border`}
+                    className="theme-input w-full px-3 py-2"
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className="ui-section-label block mb-1">
                     Reason for Edit
                   </label>
                   <input
@@ -1013,27 +934,29 @@ function TimeClockContent() {
                     value={editEntryForm.reason}
                     onChange={(e) => setEditEntryForm({ ...editEntryForm, reason: e.target.value })}
                     placeholder="e.g., Correcting clock-in time"
-                    className={`w-full px-3 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-200 text-gray-900"} border`}
+                    className="theme-input w-full px-3 py-2"
                   />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
-                <button
+                <Button
+                  variant="secondary"
+                  className="flex-1"
                   onClick={() => {
                     setShowEditEntryModal(false);
                     setSelectedEntry(null);
                   }}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${isDark ? "bg-slate-700 text-white" : "bg-gray-200 text-gray-900"}`}
                 >
                   Cancel
-                </button>
-                <button
-                  onClick={handleEditEntry}
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
                   disabled={!editEntryForm.reason}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-400" : "bg-blue-600 text-white hover:bg-blue-700"} disabled:opacity-50`}
+                  onClick={handleEditEntry}
                 >
                   Save Changes
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -1041,47 +964,47 @@ function TimeClockContent() {
 
         {/* Correction Review Modal */}
         {showCorrectionModal && selectedCorrection && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
-              <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md theme-card rounded-xl p-6">
+              <h2 className="text-lg font-semibold mb-4 theme-text-primary">
                 Review Correction Request
               </h2>
-              <div className={`space-y-3 p-4 rounded-lg mb-4 ${isDark ? "bg-slate-700" : "bg-gray-100"}`}>
+              <div className="space-y-3 p-4 rounded-lg mb-4 bg-[#f2f2f7] dark:bg-slate-700/50 border border-[var(--theme-border-secondary)]">
                 <div>
-                  <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Employee:</span>
-                  <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <span className="text-sm theme-text-tertiary">Employee:</span>
+                  <p className="font-medium theme-text-primary">
                     {selectedCorrection.personnelName}
                   </p>
                 </div>
                 <div>
-                  <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Date:</span>
-                  <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <span className="text-sm theme-text-tertiary">Date:</span>
+                  <p className="font-medium theme-text-primary">
                     {selectedCorrection.date}
                   </p>
                 </div>
                 <div>
-                  <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Request Type:</span>
-                  <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <span className="text-sm theme-text-tertiary">Request Type:</span>
+                  <p className="font-medium theme-text-primary">
                     {selectedCorrection.requestType.replace("_", " ")}
                   </p>
                 </div>
                 <div>
-                  <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Reason:</span>
-                  <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <span className="text-sm theme-text-tertiary">Reason:</span>
+                  <p className="font-medium theme-text-primary">
                     {selectedCorrection.reason}
                   </p>
                 </div>
                 {selectedCorrection.requestedTimestamp && (
                   <div>
-                    <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Requested Time:</span>
-                    <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                    <span className="text-sm theme-text-tertiary">Requested Time:</span>
+                    <p className="font-medium theme-text-primary">
                       {formatTime(selectedCorrection.requestedTimestamp)}
                     </p>
                   </div>
                 )}
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <label className="ui-section-label block mb-1">
                   Review Notes (optional)
                 </label>
                 <textarea
@@ -1089,31 +1012,34 @@ function TimeClockContent() {
                   onChange={(e) => setCorrectionReviewForm({ notes: e.target.value })}
                   placeholder="Add any notes about this decision..."
                   rows={2}
-                  className={`w-full px-3 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-200 text-gray-900"} border`}
+                  className="theme-input w-full px-3 py-2"
                 />
               </div>
               <div className="flex gap-3 mt-6">
-                <button
+                <Button
+                  variant="secondary"
+                  className="flex-1"
                   onClick={() => {
                     setShowCorrectionModal(false);
                     setSelectedCorrection(null);
                   }}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${isDark ? "bg-slate-700 text-white" : "bg-gray-200 text-gray-900"}`}
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="danger"
+                  className="flex-1"
                   onClick={() => handleReviewCorrection("denied")}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${isDark ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-red-50 text-red-600 hover:bg-red-100"}`}
                 >
                   Deny
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
                   onClick={() => handleReviewCorrection("approved")}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${isDark ? "bg-green-500/20 text-green-400 hover:bg-green-500/30" : "bg-green-50 text-green-600 hover:bg-green-100"}`}
                 >
                   Approve
-                </button>
+                </Button>
               </div>
             </div>
           </div>
