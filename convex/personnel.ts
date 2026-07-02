@@ -727,25 +727,22 @@ export const terminate = mutation({
       const interviewer = await ctx.db.get(INTERVIEWER_ID);
       let calendarEventId: Id<"events"> | undefined;
       if (interviewer) {
+        // Create as a personal REMINDER on the interviewer's own calendar,
+        // not a shared event: it shows on their day but is excluded from
+        // shared-calendar views (isReminder). The interviewer owns it via
+        // createdBy, so no invite is needed and none is created (reminders
+        // are personal — this matches the create()/createRecurring guards).
         calendarEventId = await ctx.db.insert("events", {
           title: `Exit Interview: ${existing.firstName} ${existing.lastName}`,
           description: `Auto-scheduled exit interview for ${existing.firstName} ${existing.lastName} (${existing.position || "—"}, ${existing.department || "—"}). Termed ${args.terminationDate} — reason: ${args.terminationReason}. Conduct via /exit-interviews.`,
           startTime: interviewStart.getTime(),
           endTime: interviewEnd.getTime(),
           isAllDay: false,
+          isReminder: true,
           createdBy: interviewer._id,
           createdByName: interviewer.name,
           createdAt: now,
           updatedAt: now,
-        });
-        // Invite Andy (the interviewer) so it lands in his calendar view
-        await ctx.db.insert("eventInvites", {
-          eventId: calendarEventId,
-          userId: interviewer._id,
-          status: "accepted",
-          isRead: false,
-          notifiedAt: now,
-          createdAt: now,
         });
       }
 

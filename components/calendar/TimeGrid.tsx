@@ -162,6 +162,17 @@ export default function TimeGrid({
                     const widthPct = 100 / p.colCount;
                     const leftPct = widthPct * p.colIndex;
                     const event = p.event;
+                    // Block height in px (height stays duration-accurate). Short
+                    // blocks can't fit the two-line time/title stack without
+                    // clipping the title, so collapse them to a single line —
+                    // same approach Google Calendar uses for brief events.
+                    const pxHeight = (p.heightPct / 100) * GRID_HEIGHT;
+                    const compact = pxHeight < 34;
+                    const timeLabel = new Date(event.startTime).toLocaleTimeString("en-US", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
+                    });
                     return (
                       <div
                         key={event._id ?? idx}
@@ -176,16 +187,18 @@ export default function TimeGrid({
                           left: `calc(${leftPct}% + ${gutter}px)`,
                           width: `calc(${widthPct}% - ${gutter * 2}px)`,
                         }}
-                        title={event.title}
+                        title={`${timeLabel} ${event.title}`}
                       >
-                        <div className="truncate">
-                          {new Date(event.startTime).toLocaleTimeString("en-US", {
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          })}
-                        </div>
-                        <div className="truncate">{event.title}</div>
+                        {compact ? (
+                          <div className="truncate">
+                            <span className="opacity-70">{timeLabel}</span> {event.title}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="truncate">{timeLabel}</div>
+                            <div className="truncate">{event.title}</div>
+                          </>
+                        )}
                       </div>
                     );
                   })}
