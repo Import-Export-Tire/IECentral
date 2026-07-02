@@ -104,6 +104,17 @@ crons.daily(
   {}
 );
 
+// ============ OUTLOOK / M365 CALENDAR SYNC ============
+
+// Pull Outlook -> IECentral every 15 minutes. Dormant-safe: only touches
+// outlookAccounts rows, which are empty until a user connects. Overlap-guarded
+// per account, with per-account failure isolation.
+crons.interval(
+  "outlook calendar sync",
+  { minutes: 15 },
+  internal.outlookSync.pullAll
+);
+
 // ============ SCANNER MDM CRONS ============
 
 // Clean up expired scanner provision codes (null out cert data)

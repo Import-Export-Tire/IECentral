@@ -1909,6 +1909,11 @@ export default defineSchema({
     isCancelled: v.optional(v.boolean()),
     cancelledAt: v.optional(v.number()),
     cancelledBy: v.optional(v.id("users")),
+    // Outlook / M365 two-way sync (Phase 2 pull). Additive + optional; no backfill.
+    outlookEventId: v.optional(v.string()),   // Graph event id (this mailbox)
+    outlookICalUId: v.optional(v.string()),   // stable cross-mailbox id
+    outlookWeblink: v.optional(v.string()),   // deep link to Outlook
+    syncSource: v.optional(v.string()),       // "iecentral" | "outlook"
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -1916,7 +1921,8 @@ export default defineSchema({
     .index("by_created_by", ["createdBy"])
     .index("by_created", ["createdAt"])
     .index("by_application", ["applicationId"])
-    .index("by_series", ["seriesId"]),
+    .index("by_series", ["seriesId"])
+    .index("by_outlook_event", ["outlookEventId"]),
 
   // Event invitations (who's invited and their response)
   eventInvites: defineTable({
@@ -3568,6 +3574,8 @@ export default defineSchema({
     isActive: v.boolean(),
     lastSyncAt: v.optional(v.number()),
     syncError: v.optional(v.string()),
+    syncStatus: v.optional(v.string()),   // "syncing" | "idle" — overlap guard for the pull cron
+    syncStartedAt: v.optional(v.number()), // when the current sync began (stale-lock recovery)
     connectedAt: v.number(),
     updatedAt: v.number(),
   })
