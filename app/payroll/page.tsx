@@ -463,7 +463,7 @@ function PayrollContent() {
                               {employee.dailyBreakdown.map((day) => (
                                 <div
                                   key={day.date}
-                                  className="p-2 rounded-lg text-sm rounded-lg bg-[#f2f2f7] dark:bg-slate-700/50"
+                                  className="p-2 rounded-lg text-sm bg-[#f2f2f7] dark:bg-slate-700/50"
                                 >
                                   <p className="font-medium theme-text-primary">
                                     {new Date(day.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
