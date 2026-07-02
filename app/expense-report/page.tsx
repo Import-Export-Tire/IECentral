@@ -3,11 +3,13 @@
 import { useState, useRef } from "react";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
-import { useTheme } from "../theme-context";
 import { useAuth } from "../auth-context";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 interface ExpenseItem {
   id: string;
@@ -43,9 +45,7 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
 };
 
 function ExpenseReportContent() {
-  const { theme } = useTheme();
   const { user } = useAuth();
-  const isDark = theme === "dark";
   const printRef = useRef<HTMLDivElement>(null);
 
   const [viewMode, setViewMode] = useState<"new" | "history">("new");
@@ -242,34 +242,30 @@ function ExpenseReportContent() {
   };
 
   return (
-    <div className={`flex h-screen theme-bg-primary`}>
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
       <main className="flex-1 overflow-auto print:overflow-visible">
         <MobileHeader />
         {/* Header - Hidden when printing */}
-        <header className={`sticky top-0 z-10 px-4 sm:px-6 py-4 border-b print:hidden print-hide ${isDark ? "bg-slate-900/95 backdrop-blur border-slate-700" : "bg-[#f2f2f7]/95 backdrop-blur border-gray-200"}`}>
+        <header className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-[var(--theme-border-secondary)] px-4 sm:px-6 py-4 print:hidden print-hide">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h1 className="text-2xl font-bold theme-text-primary">
                 Expense Report
               </h1>
-              <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className="text-sm mt-1 theme-text-tertiary">
                 Create, save, and track expense reimbursement requests
               </p>
             </div>
             <div className="flex items-center gap-3">
               {/* View Mode Toggle */}
-              <div className={`flex rounded-lg p-1 ${isDark ? "bg-slate-800" : "bg-gray-200"}`}>
+              <div className="flex rounded-lg p-1 bg-gray-200 dark:bg-slate-800">
                 <button
                   onClick={() => setViewMode("new")}
                   className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     viewMode === "new"
-                      ? isDark
-                        ? "bg-cyan-500 text-white"
-                        : "bg-white text-gray-900 shadow-sm"
-                      : isDark
-                        ? "text-slate-400 hover:text-white"
-                        : "text-gray-600 hover:text-gray-900"
+                      ? "bg-white dark:bg-[var(--accent-primary)] text-gray-900 dark:text-white shadow-sm"
+                      : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
                   }`}
                 >
                   New Report
@@ -278,12 +274,8 @@ function ExpenseReportContent() {
                   onClick={() => setViewMode("history")}
                   className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     viewMode === "history"
-                      ? isDark
-                        ? "bg-cyan-500 text-white"
-                        : "bg-white text-gray-900 shadow-sm"
-                      : isDark
-                        ? "text-slate-400 hover:text-white"
-                        : "text-gray-600 hover:text-gray-900"
+                      ? "bg-white dark:bg-[var(--accent-primary)] text-gray-900 dark:text-white shadow-sm"
+                      : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
                   }`}
                 >
                   History {myReports && myReports.length > 0 && `(${myReports.length})`}
@@ -298,46 +290,46 @@ function ExpenseReportContent() {
           {viewMode === "history" && (
             <div className="print:hidden print-hide space-y-4">
               {!myReports || myReports.length === 0 ? (
-                <div className={`text-center py-12 rounded-xl ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200"}`}>
-                  <svg className={`w-12 h-12 mx-auto mb-4 ${isDark ? "text-slate-600" : "text-gray-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <p className={`text-lg font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                    No expense reports yet
-                  </p>
-                  <p className={`text-sm mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                    Create your first expense report to get started
-                  </p>
-                  <button
-                    onClick={() => setViewMode("new")}
-                    className={`mt-4 px-4 py-2 rounded-lg font-medium ${isDark ? "bg-cyan-500 text-white" : "bg-blue-600 text-white"}`}
-                  >
-                    Create Report
-                  </button>
-                </div>
+                <Card padding="md">
+                  <div className="text-center py-8">
+                    <svg className="w-12 h-12 mx-auto mb-4 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p className="text-lg font-medium theme-text-secondary">
+                      No expense reports yet
+                    </p>
+                    <p className="text-sm mt-1 theme-text-tertiary">
+                      Create your first expense report to get started
+                    </p>
+                    <Button
+                      variant="primary"
+                      className="mt-4"
+                      onClick={() => setViewMode("new")}
+                    >
+                      Create Report
+                    </Button>
+                  </div>
+                </Card>
               ) : (
                 <div className="space-y-3">
                   {myReports.map((report) => {
                     const status = STATUS_STYLES[report.status] || STATUS_STYLES.draft;
                     return (
-                      <div
-                        key={report._id}
-                        className={`rounded-xl p-4 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}
-                      >
+                      <Card key={report._id} padding="md">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                              <h3 className="font-semibold theme-text-primary">
                                 ${report.totalAmount.toFixed(2)}
                               </h3>
                               <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${status.bg} ${status.text}`}>
                                 {status.label}
                               </span>
                             </div>
-                            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <p className="text-sm theme-text-tertiary">
                               {report.department} &middot; {new Date(report.periodStart).toLocaleDateString()} - {new Date(report.periodEnd).toLocaleDateString()}
                             </p>
-                            <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                            <p className="text-xs mt-1 theme-text-tertiary">
                               {report.items.length} items &middot; {report.purpose || "No description"}
                             </p>
                             {report.status === "rejected" && report.rejectionReason && (
@@ -346,7 +338,7 @@ function ExpenseReportContent() {
                               </p>
                             )}
                             {report.status === "approved" && report.approvedByName && (
-                              <p className={`text-xs mt-2 ${isDark ? "text-green-400" : "text-green-600"}`}>
+                              <p className="text-xs mt-2 text-green-600 dark:text-green-400">
                                 Approved by {report.approvedByName}
                               </p>
                             )}
@@ -354,7 +346,9 @@ function ExpenseReportContent() {
                           <div className="flex items-center gap-2">
                             {report.status === "draft" && (
                               <>
-                                <button
+                                <Button
+                                  variant="primary"
+                                  size="sm"
                                   onClick={async () => {
                                     try {
                                       await submitReport({ reportId: report._id });
@@ -362,10 +356,9 @@ function ExpenseReportContent() {
                                       console.error(e);
                                     }
                                   }}
-                                  className={`px-3 py-1.5 text-sm rounded-lg font-medium ${isDark ? "bg-cyan-500 hover:bg-cyan-400 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
                                 >
                                   Submit
-                                </button>
+                                </Button>
                                 <button
                                   onClick={async () => {
                                     if (confirm("Delete this draft?")) {
@@ -373,7 +366,7 @@ function ExpenseReportContent() {
                                       await removeReport({ reportId: report._id, requestingUserId: user._id });
                                     }
                                   }}
-                                  className={`p-1.5 rounded-lg ${isDark ? "hover:bg-slate-700 text-slate-400 hover:text-red-400" : "hover:bg-gray-100 text-gray-400 hover:text-red-500"}`}
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 theme-text-tertiary hover:text-red-500 dark:hover:text-red-400 transition-colors"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -382,21 +375,22 @@ function ExpenseReportContent() {
                               </>
                             )}
                             {report.status === "rejected" && (
-                              <button
+                              <Button
+                                variant="secondary"
+                                size="sm"
                                 onClick={async () => {
                                   await revertToDraft({ reportId: report._id });
                                 }}
-                                className={`px-3 py-1.5 text-sm rounded-lg font-medium ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
                               >
-                                Edit & Resubmit
-                              </button>
+                                Edit &amp; Resubmit
+                              </Button>
                             )}
                             <button
                               onClick={() => {
                                 loadReportForPrint(report);
                                 setTimeout(() => handlePrint(), 100);
                               }}
-                              className={`p-1.5 rounded-lg ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-400"}`}
+                              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 theme-text-tertiary transition-colors"
                               title="Print"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -405,7 +399,7 @@ function ExpenseReportContent() {
                             </button>
                           </div>
                         </div>
-                      </div>
+                      </Card>
                     );
                   })}
                 </div>
@@ -417,30 +411,24 @@ function ExpenseReportContent() {
           {viewMode === "new" && (
             <div className="print:hidden print-hide space-y-6">
               {/* Report Info */}
-              <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Report Information
-                </h2>
+              <Card padding="md">
+                <SectionHeader label="REPORT" title="Report Information" />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                      Employee Name *
-                    </label>
+                    <label className="block ui-section-label mb-1">Employee Name *</label>
                     <input
                       type="text"
                       value={reportInfo.employeeName}
                       onChange={(e) => setReportInfo({ ...reportInfo, employeeName: e.target.value })}
-                      className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                      Department *
-                    </label>
+                    <label className="block ui-section-label mb-1">Department *</label>
                     <select
                       value={reportInfo.department}
                       onChange={(e) => setReportInfo({ ...reportInfo, department: e.target.value })}
-                      className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                     >
                       <option value="">Select Department</option>
                       <option value="Executive">Executive</option>
@@ -452,112 +440,93 @@ function ExpenseReportContent() {
                     </select>
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                      Report Date
-                    </label>
+                    <label className="block ui-section-label mb-1">Report Date</label>
                     <input
                       type="date"
                       value={reportInfo.reportDate}
                       onChange={(e) => setReportInfo({ ...reportInfo, reportDate: e.target.value })}
-                      className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                      Period Start *
-                    </label>
+                    <label className="block ui-section-label mb-1">Period Start *</label>
                     <input
                       type="date"
                       value={reportInfo.periodStart}
                       onChange={(e) => setReportInfo({ ...reportInfo, periodStart: e.target.value })}
-                      className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                      Period End *
-                    </label>
+                    <label className="block ui-section-label mb-1">Period End *</label>
                     <input
                       type="date"
                       value={reportInfo.periodEnd}
                       onChange={(e) => setReportInfo({ ...reportInfo, periodEnd: e.target.value })}
-                      className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                      Purpose / Business Reason
-                    </label>
+                    <label className="block ui-section-label mb-1">Purpose / Business Reason</label>
                     <input
                       type="text"
                       value={reportInfo.purpose}
                       onChange={(e) => setReportInfo({ ...reportInfo, purpose: e.target.value })}
                       placeholder="e.g., Client visit, Trade show, Training"
-                      className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                     />
                   </div>
                 </div>
-              </div>
+              </Card>
 
               {/* Expense Items */}
-              <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+              <Card padding="md">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                    Expense Items
-                  </h2>
-                  <button
-                    onClick={addExpense}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
-                  >
+                  <SectionHeader label="EXPENSES" title="Expense Items" className="mb-0" />
+                  <Button variant="secondary" size="sm" onClick={addExpense}>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
                     Add Item
-                  </button>
+                  </Button>
                 </div>
 
                 <div className="space-y-4">
                   {expenses.map((expense, index) => (
                     <div
                       key={expense.id}
-                      className={`p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}
+                      className="p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-700/50"
                     >
                       <div className="flex items-start gap-4">
-                        <span className={`text-sm font-medium w-6 pt-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <span className="text-sm font-medium w-6 pt-2 theme-text-tertiary">
                           {index + 1}.
                         </span>
                         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                           <div>
-                            <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                              Date
-                            </label>
+                            <label className="block ui-section-label mb-1">Date</label>
                             <input
                               type="date"
                               value={expense.date}
                               onChange={(e) => updateExpense(expense.id, "date", e.target.value)}
-                              className={`w-full px-3 py-2 rounded-lg text-sm ${isDark ? "bg-slate-800 border-slate-600 text-white" : "bg-white border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                              className="theme-input w-full px-3 py-2 text-sm"
                             />
                           </div>
                           <div className="lg:col-span-2">
-                            <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                              Description
-                            </label>
+                            <label className="block ui-section-label mb-1">Description</label>
                             <input
                               type="text"
                               value={expense.description}
                               onChange={(e) => updateExpense(expense.id, "description", e.target.value)}
                               placeholder="What was the expense for?"
-                              className={`w-full px-3 py-2 rounded-lg text-sm ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                              className="theme-input w-full px-3 py-2 text-sm"
                             />
                           </div>
                           <div>
-                            <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                              Category
-                            </label>
+                            <label className="block ui-section-label mb-1">Category</label>
                             <select
                               value={expense.category}
                               onChange={(e) => updateExpense(expense.id, "category", e.target.value)}
-                              className={`w-full px-3 py-2 rounded-lg text-sm ${isDark ? "bg-slate-800 border-slate-600 text-white" : "bg-white border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                              className="theme-input w-full px-3 py-2 text-sm"
                             >
                               {EXPENSE_CATEGORIES.map((cat) => (
                                 <option key={cat} value={cat}>{cat}</option>
@@ -565,9 +534,7 @@ function ExpenseReportContent() {
                             </select>
                           </div>
                           <div>
-                            <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                              Amount ($)
-                            </label>
+                            <label className="block ui-section-label mb-1">Amount ($)</label>
                             <input
                               type="number"
                               step="0.01"
@@ -575,7 +542,7 @@ function ExpenseReportContent() {
                               value={expense.amount || ""}
                               onChange={(e) => updateExpense(expense.id, "amount", parseFloat(e.target.value) || 0)}
                               placeholder="0.00"
-                              className={`w-full px-3 py-2 rounded-lg text-sm ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                              className="theme-input w-full px-3 py-2 text-sm"
                             />
                           </div>
                           <div className="flex items-end gap-2">
@@ -586,20 +553,12 @@ function ExpenseReportContent() {
                                 onChange={(e) => updateExpense(expense.id, "receipt", e.target.checked)}
                                 className="w-4 h-4 rounded border-gray-300 text-cyan-500 focus:ring-cyan-500"
                               />
-                              <span className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                                Receipt
-                              </span>
+                              <span className="text-xs theme-text-tertiary">Receipt</span>
                             </label>
                             <button
                               onClick={() => removeExpense(expense.id)}
                               disabled={expenses.length === 1}
-                              className={`p-2 rounded-lg transition-colors ${
-                                expenses.length === 1
-                                  ? "opacity-30 cursor-not-allowed"
-                                  : isDark
-                                    ? "hover:bg-slate-600 text-slate-400 hover:text-red-400"
-                                    : "hover:bg-gray-200 text-gray-400 hover:text-red-500"
-                              }`}
+                              className="p-2 rounded-lg transition-colors theme-text-tertiary hover:text-red-500 dark:hover:text-red-400 hover:bg-gray-200 dark:hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -613,50 +572,44 @@ function ExpenseReportContent() {
                 </div>
 
                 {/* Total & Actions */}
-                <div className={`mt-6 pt-4 border-t ${isDark ? "border-slate-600" : "border-gray-200"}`}>
+                <div className="mt-6 pt-4 border-t border-[var(--theme-border-secondary)]">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <button
-                        onClick={clearAll}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
-                      >
+                      <Button variant="secondary" onClick={clearAll}>
                         Clear
-                      </button>
-                      <button
-                        onClick={handlePrint}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
-                      >
+                      </Button>
+                      <Button variant="secondary" onClick={handlePrint}>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                         </svg>
                         Print
-                      </button>
+                      </Button>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Total:</span>
-                        <span className={`text-2xl font-bold ml-2 ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
+                        <span className="text-sm theme-text-tertiary">Total:</span>
+                        <span className="text-2xl font-bold ml-2 text-blue-600 dark:text-cyan-400">
                           ${total.toFixed(2)}
                         </span>
                       </div>
-                      <button
+                      <Button
+                        variant="secondary"
                         onClick={handleSaveDraft}
                         disabled={isSaving}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-700"}`}
                       >
                         {isSaving ? "Saving..." : "Save Draft"}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="primary"
                         onClick={handleSubmit}
                         disabled={isSaving}
-                        className={`px-6 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-cyan-500 hover:bg-cyan-400 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
                       >
                         {isSaving ? "Submitting..." : "Submit for Approval"}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             </div>
           )}
 
