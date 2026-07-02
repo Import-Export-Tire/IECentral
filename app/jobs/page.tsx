@@ -7,8 +7,9 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
-import { useTheme } from "../theme-context";
 import { useAuth } from "../auth-context";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 
 const STATUS_OPTIONS = [
   { value: "open", label: "Accepting Applications", color: "bg-green-500/20 text-green-400 border-green-500/30" },
@@ -81,8 +82,6 @@ const getEffectiveBadgeType = (job: Job): string => {
 };
 
 export default function JobsPage() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const { user } = useAuth();
   const router = useRouter();
   const jobs = useQuery(api.jobs.getAll);
@@ -108,8 +107,8 @@ export default function JobsPage() {
   // Show nothing while redirecting warehouse manager
   if (isWarehouseManager) {
     return (
-      <div className={`flex h-screen items-center justify-center ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
-        <div className={`text-center ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+      <div className="flex h-screen items-center justify-center bg-[#f2f2f7] dark:bg-slate-900">
+        <div className="text-center theme-text-tertiary">
           <p>You do not have access to this page.</p>
           <p className="text-sm mt-2">Redirecting...</p>
         </div>
@@ -330,27 +329,24 @@ export default function JobsPage() {
 
   return (
     <Protected minTier={4}>
-      <div className={`min-h-screen flex ${isDark ? "bg-slate-900 text-white" : "bg-[#f2f2f7] text-gray-900"}`}>
+      <div className="min-h-screen flex bg-[#f2f2f7] dark:bg-slate-900">
         <Sidebar />
         <main className="flex-1 overflow-auto">
           <MobileHeader />
           {/* Header */}
-          <div className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-[#f2f2f7]/80 border-gray-200"}`}>
+          <div className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-[var(--theme-border-secondary)] px-4 sm:px-8 py-4">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <h1 className={`text-xl sm:text-2xl font-bold truncate ${isDark ? "text-white" : "text-gray-900"}`}>Job Listings</h1>
-                <p className={`text-xs sm:text-sm mt-1 hidden sm:block ${isDark ? "text-slate-400" : "text-gray-500"}`}>Manage positions for IE Tire careers page</p>
+                <h1 className="text-xl sm:text-2xl font-bold truncate theme-text-primary">Job Listings</h1>
+                <p className="text-xs sm:text-sm mt-1 hidden sm:block theme-text-tertiary">Manage positions for IE Tire careers page</p>
               </div>
-              <button
-                onClick={openAddModal}
-                className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg transition-colors flex-shrink-0 ${isDark ? "bg-cyan-500 hover:bg-cyan-600" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
-              >
+              <Button variant="primary" onClick={openAddModal}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
                 <span className="hidden sm:inline">Add Job</span>
                 <span className="sm:hidden">Add</span>
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -360,7 +356,7 @@ export default function JobsPage() {
               <select
                 value={filterDepartment}
                 onChange={(e) => setFilterDepartment(e.target.value)}
-                className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 text-sm sm:text-base rounded-lg focus:outline-none ${isDark ? "bg-slate-800 border border-slate-700 text-white focus:border-cyan-500" : "bg-white border border-gray-200 text-gray-900 focus:border-blue-600"}`}
+                className="theme-input flex-1 sm:flex-initial px-3 sm:px-4 py-2 text-sm sm:text-base"
               >
                 <option value="all">All Departments</option>
                 {departments.map((dept) => (
@@ -372,7 +368,7 @@ export default function JobsPage() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 text-sm sm:text-base rounded-lg focus:outline-none ${isDark ? "bg-slate-800 border border-slate-700 text-white focus:border-cyan-500" : "bg-white border border-gray-200 text-gray-900 focus:border-blue-600"}`}
+                className="theme-input flex-1 sm:flex-initial px-3 sm:px-4 py-2 text-sm sm:text-base"
               >
                 <option value="all">All Statuses</option>
                 {STATUS_OPTIONS.map((status) => (
@@ -385,176 +381,172 @@ export default function JobsPage() {
 
             {/* Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-              <div className={`p-2 sm:p-4 rounded-lg text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                <p className={`text-lg sm:text-2xl font-bold`}>{jobs?.length || 0}</p>
-                <p className={`text-[10px] sm:text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Total Jobs</p>
-              </div>
-              <div className={`p-2 sm:p-4 rounded-lg text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+              <Card padding="sm" className="text-center">
+                <p className="text-lg sm:text-2xl font-bold theme-text-primary">{jobs?.length || 0}</p>
+                <p className="text-[10px] sm:text-xs theme-text-tertiary">Total Jobs</p>
+              </Card>
+              <Card padding="sm" className="text-center">
                 <p className="text-lg sm:text-2xl font-bold text-green-400">
                   {jobs?.filter((j) => j.isActive).length || 0}
                 </p>
-                <p className={`text-[10px] sm:text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Active</p>
-              </div>
-              <div className={`p-2 sm:p-4 rounded-lg text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                <p className="text-[10px] sm:text-xs theme-text-tertiary">Active</p>
+              </Card>
+              <Card padding="sm" className="text-center">
                 <p className="text-lg sm:text-2xl font-bold text-red-400">
                   {jobs?.filter((j) => getEffectiveBadgeType(j) === "urgently_hiring").length || 0}
                 </p>
-                <p className={`text-[10px] sm:text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Urgent</p>
-              </div>
-              <div className={`p-2 sm:p-4 rounded-lg text-center ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                <p className={`text-lg sm:text-2xl font-bold ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <p className="text-[10px] sm:text-xs theme-text-tertiary">Urgent</p>
+              </Card>
+              <Card padding="sm" className="text-center">
+                <p className="text-lg sm:text-2xl font-bold theme-text-secondary">
                   {jobs?.filter((j) => !j.isActive).length || 0}
                 </p>
-                <p className={`text-[10px] sm:text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Inactive</p>
-              </div>
+                <p className="text-[10px] sm:text-xs theme-text-tertiary">Inactive</p>
+              </Card>
             </div>
 
             {/* Jobs Table - Desktop */}
-            <div className={`hidden sm:block rounded-lg overflow-hidden ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <table className="w-full">
-                <thead className={isDark ? "bg-slate-800" : "bg-gray-50"}>
-                  <tr>
-                    <th className={`px-6 py-4 text-left text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Title</th>
-                    <th className={`px-6 py-4 text-left text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Department</th>
-                    <th className={`px-6 py-4 text-left text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Position Type</th>
-                    <th className={`px-6 py-4 text-center text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Badge Type</th>
-                    <th className={`px-6 py-4 text-center text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Active</th>
-                    <th className={`px-6 py-4 text-right text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody className={`divide-y ${isDark ? "divide-slate-700" : "divide-gray-200"}`}>
-                  {filteredJobs?.map((job) => (
-                    <tr key={job._id} className={`transition-colors ${isDark ? "hover:bg-slate-800/50" : "hover:bg-gray-50"}`}>
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-medium">{job.title}</p>
-                          <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`} title={job.locations?.join(", ") || job.location}>{getLocationsDisplay(job)}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="px-2 py-1 text-xs rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                          {job.department}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 text-xs rounded-full border ${
-                          job.positionType === "management"
-                            ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
-                            : job.positionType === "salaried"
-                            ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"
-                            : "bg-slate-500/20 text-slate-400 border-slate-500/30"
-                        }`}>
-                          {job.positionType || "hourly"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <select
-                          value={getEffectiveBadgeType(job)}
-                          onChange={(e) => handleBadgeTypeChange(job, e.target.value)}
-                          className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-1 ${
-                            getEffectiveBadgeType(job) === "urgently_hiring"
-                              ? isDark
-                                ? "bg-red-500/20 text-red-400 border-red-500/30 focus:ring-red-500/50"
-                                : "bg-red-100 text-red-700 border-red-300 focus:ring-red-500"
-                              : getEffectiveBadgeType(job) === "accepting_applications"
-                              ? isDark
-                                ? "bg-blue-500/20 text-blue-400 border-blue-500/30 focus:ring-blue-500/50"
-                                : "bg-blue-100 text-blue-700 border-blue-300 focus:ring-blue-500"
-                              : isDark
-                                ? "bg-green-500/20 text-green-400 border-green-500/30 focus:ring-green-500/50"
-                                : "bg-green-100 text-green-700 border-green-300 focus:ring-green-500"
-                          }`}
-                        >
-                          {BADGE_TYPE_OPTIONS.map((badge) => (
-                            <option key={badge.value} value={badge.value} className={isDark ? "bg-slate-800 text-white" : "bg-white text-gray-900"}>
-                              {badge.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        {job.isActive ? (
-                          <span className="inline-flex items-center gap-1 text-green-400">
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            Active
-                          </span>
-                        ) : (
-                          <span className="text-slate-500">Inactive</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => openCopyModal(job)}
-                            className={`p-2 transition-colors ${isDark ? "text-slate-400 hover:text-green-400" : "text-gray-500 hover:text-green-600"}`}
-                            title="Copy job"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                              />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => openEditModal(job)}
-                            className={`p-2 transition-colors ${isDark ? "text-slate-400 hover:text-cyan-400" : "text-gray-500 hover:text-blue-600"}`}
-                            title="Edit job"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                              />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => setShowDeleteConfirm(job)}
-                            className={`p-2 transition-colors ${isDark ? "text-slate-400" : "text-gray-500"} hover:text-red-400`}
-                            title="Delete job"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      </td>
+            <div className="hidden sm:block">
+              <Card padding="sm" className="overflow-hidden !p-0">
+                <table className="w-full">
+                  <thead className="bg-gray-50 dark:bg-slate-800">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-sm font-medium theme-text-tertiary">Title</th>
+                      <th className="px-6 py-4 text-left text-sm font-medium theme-text-tertiary">Department</th>
+                      <th className="px-6 py-4 text-left text-sm font-medium theme-text-tertiary">Position Type</th>
+                      <th className="px-6 py-4 text-center text-sm font-medium theme-text-tertiary">Badge Type</th>
+                      <th className="px-6 py-4 text-center text-sm font-medium theme-text-tertiary">Active</th>
+                      <th className="px-6 py-4 text-right text-sm font-medium theme-text-tertiary">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--theme-border-secondary)]">
+                    {filteredJobs?.map((job) => (
+                      <tr key={job._id} className="transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                        <td className="px-6 py-4">
+                          <div>
+                            <p className="font-medium theme-text-primary">{job.title}</p>
+                            <p className="text-sm theme-text-tertiary" title={job.locations?.join(", ") || job.location}>{getLocationsDisplay(job)}</p>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="ui-badge ui-badge-blue">
+                            {job.department}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-1 text-xs rounded-full border ${
+                            job.positionType === "management"
+                              ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                              : job.positionType === "salaried"
+                              ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                              : "bg-slate-500/20 text-slate-400 border-slate-500/30"
+                          }`}>
+                            {job.positionType || "hourly"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <select
+                            value={getEffectiveBadgeType(job)}
+                            onChange={(e) => handleBadgeTypeChange(job, e.target.value)}
+                            className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-1 ${
+                              getEffectiveBadgeType(job) === "urgently_hiring"
+                                ? "bg-red-500/20 text-red-400 border-red-500/30 focus:ring-red-500/50 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30"
+                                : getEffectiveBadgeType(job) === "accepting_applications"
+                                ? "bg-blue-500/20 text-blue-400 border-blue-500/30 focus:ring-blue-500/50 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30"
+                                : "bg-green-500/20 text-green-400 border-green-500/30 focus:ring-green-500/50 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30"
+                            }`}
+                          >
+                            {BADGE_TYPE_OPTIONS.map((badge) => (
+                              <option key={badge.value} value={badge.value} className="bg-white dark:bg-slate-800 text-gray-900 dark:text-white">
+                                {badge.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          {job.isActive ? (
+                            <span className="inline-flex items-center gap-1 text-green-400">
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                              Active
+                            </span>
+                          ) : (
+                            <span className="text-slate-500">Inactive</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => openCopyModal(job)}
+                              className="p-2 transition-colors theme-text-tertiary hover:text-green-400 dark:hover:text-green-400"
+                              title="Copy job"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => openEditModal(job)}
+                              className="p-2 transition-colors theme-text-tertiary hover:text-blue-600 dark:hover:text-cyan-400"
+                              title="Edit job"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => setShowDeleteConfirm(job)}
+                              className="p-2 transition-colors theme-text-tertiary hover:text-red-400"
+                              title="Delete job"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
 
-              {filteredJobs?.length === 0 && (
-                <div className={`text-center py-12 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                  No jobs found matching your filters
-                </div>
-              )}
+                {filteredJobs?.length === 0 && (
+                  <div className="text-center py-12 theme-text-tertiary">
+                    No jobs found matching your filters
+                  </div>
+                )}
+              </Card>
             </div>
 
             {/* Jobs Cards - Mobile */}
             <div className="sm:hidden space-y-3">
               {filteredJobs?.map((job) => (
-                <div key={job._id} className={`rounded-lg p-4 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                <Card key={job._id} padding="sm">
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">{job.title}</p>
-                      <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`} title={job.locations?.join(", ") || job.location}>{getLocationsDisplay(job)}</p>
+                      <p className="font-medium truncate theme-text-primary">{job.title}</p>
+                      <p className="text-xs theme-text-tertiary" title={job.locations?.join(", ") || job.location}>{getLocationsDisplay(job)}</p>
                     </div>
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => openCopyModal(job)}
-                        className={`p-1.5 transition-colors ${isDark ? "text-slate-400 hover:text-green-400" : "text-gray-500 hover:text-green-600"}`}
+                        className="p-1.5 transition-colors theme-text-tertiary hover:text-green-400 dark:hover:text-green-400"
                         title="Copy job"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -563,7 +555,7 @@ export default function JobsPage() {
                       </button>
                       <button
                         onClick={() => openEditModal(job)}
-                        className={`p-1.5 transition-colors ${isDark ? "text-slate-400 hover:text-cyan-400" : "text-gray-500 hover:text-blue-600"}`}
+                        className="p-1.5 transition-colors theme-text-tertiary hover:text-blue-600 dark:hover:text-cyan-400"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -571,7 +563,7 @@ export default function JobsPage() {
                       </button>
                       <button
                         onClick={() => setShowDeleteConfirm(job)}
-                        className={`p-1.5 transition-colors ${isDark ? "text-slate-400" : "text-gray-500"} hover:text-red-400`}
+                        className="p-1.5 transition-colors theme-text-tertiary hover:text-red-400"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -580,14 +572,14 @@ export default function JobsPage() {
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 mb-3">
-                    <span className="px-2 py-0.5 text-[10px] rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                    <span className="ui-badge ui-badge-blue">
                       {job.department}
                     </span>
                     <span className={`px-2 py-0.5 text-[10px] rounded-full border ${
                       job.positionType === "management"
                         ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
                         : job.positionType === "salaried"
-                        ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"
+                        ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
                         : "bg-slate-500/20 text-slate-400 border-slate-500/30"
                     }`}>
                       {job.positionType || "hourly"}
@@ -608,28 +600,22 @@ export default function JobsPage() {
                     onChange={(e) => handleBadgeTypeChange(job, e.target.value)}
                     className={`w-full px-3 py-2 text-xs rounded-lg border cursor-pointer focus:outline-none ${
                       getEffectiveBadgeType(job) === "urgently_hiring"
-                        ? isDark
-                          ? "bg-red-500/20 text-red-400 border-red-500/30"
-                          : "bg-red-100 text-red-700 border-red-300"
+                        ? "bg-red-500/20 text-red-400 border-red-500/30"
                         : getEffectiveBadgeType(job) === "accepting_applications"
-                        ? isDark
-                          ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                          : "bg-blue-100 text-blue-700 border-blue-300"
-                        : isDark
-                          ? "bg-green-500/20 text-green-400 border-green-500/30"
-                          : "bg-green-100 text-green-700 border-green-300"
+                        ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                        : "bg-green-500/20 text-green-400 border-green-500/30"
                     }`}
                   >
                     {BADGE_TYPE_OPTIONS.map((badge) => (
-                      <option key={badge.value} value={badge.value} className={isDark ? "bg-slate-800 text-white" : "bg-white text-gray-900"}>
+                      <option key={badge.value} value={badge.value} className="bg-white dark:bg-slate-800 text-gray-900 dark:text-white">
                         {badge.label}
                       </option>
                     ))}
                   </select>
-                </div>
+                </Card>
               ))}
               {filteredJobs?.length === 0 && (
-                <div className={`text-center py-12 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <div className="text-center py-12 theme-text-tertiary">
                   No jobs found matching your filters
                 </div>
               )}
@@ -639,26 +625,26 @@ export default function JobsPage() {
           {/* Add/Edit Modal */}
           {showModal && (
             <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-              <div className={`rounded-t-xl sm:rounded-lg p-4 sm:p-6 w-full sm:max-w-2xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">
+              <div className="bg-white dark:bg-slate-800 border border-[var(--theme-border-secondary)] rounded-t-xl sm:rounded-2xl p-4 sm:p-6 w-full sm:max-w-2xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto shadow-xl">
+                <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 theme-text-primary">
                   {editingJob ? "Edit Job" : "Add New Job"}
                 </h2>
                 <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-700"}`}>
+                      <label className="block ui-section-label mb-1">
                         Job Title *
                       </label>
                       <input
                         type="text"
                         value={formData.title}
                         onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                        className={`w-full px-4 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-300 text-gray-900 focus:border-blue-600"}`}
+                        className="theme-input w-full px-4 py-2"
                         required
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-700"}`}>
+                      <label className="block ui-section-label mb-1">
                         Locations *
                       </label>
                       {/* Location tags */}
@@ -667,7 +653,7 @@ export default function JobsPage() {
                           {formData.locations.map((loc) => (
                             <span
                               key={loc}
-                              className={`inline-flex items-center gap-1 px-2 py-1 text-sm rounded-full ${isDark ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-blue-100 text-blue-700 border border-blue-300"}`}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-sm rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30"
                             >
                               {loc}
                               <button
@@ -696,19 +682,20 @@ export default function JobsPage() {
                             }
                           }}
                           placeholder="Add location (e.g., Bensenville, IL)"
-                          className={`flex-1 px-4 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-300 text-gray-900 focus:border-blue-600"}`}
+                          className="theme-input flex-1 px-4 py-2"
                         />
-                        <button
+                        <Button
                           type="button"
+                          variant="secondary"
+                          size="sm"
                           onClick={addLocation}
-                          className={`px-3 py-2 rounded-lg transition-colors ${isDark ? "bg-slate-600 hover:bg-slate-500 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-700"}`}
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                           </svg>
-                        </button>
+                        </Button>
                       </div>
-                      <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                      <p className="text-xs mt-1 theme-text-tertiary">
                         Add one or more locations. Press Enter or click + to add.
                       </p>
                     </div>
@@ -716,13 +703,13 @@ export default function JobsPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                     <div>
-                      <label className={`block text-xs sm:text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-700"}`}>
+                      <label className="block ui-section-label mb-1">
                         Department *
                       </label>
                       <select
                         value={formData.department}
                         onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                        className={`w-full px-4 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-300 text-gray-900 focus:border-blue-600"}`}
+                        className="theme-input w-full px-4 py-2"
                       >
                         {DEPARTMENT_OPTIONS.map((dept) => (
                           <option key={dept} value={dept}>
@@ -732,13 +719,13 @@ export default function JobsPage() {
                       </select>
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-700"}`}>
+                      <label className="block ui-section-label mb-1">
                         Employment Type *
                       </label>
                       <select
                         value={formData.type}
                         onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                        className={`w-full px-4 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-300 text-gray-900 focus:border-blue-600"}`}
+                        className="theme-input w-full px-4 py-2"
                       >
                         {TYPE_OPTIONS.map((type) => (
                           <option key={type} value={type}>
@@ -748,13 +735,13 @@ export default function JobsPage() {
                       </select>
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-700"}`}>
+                      <label className="block ui-section-label mb-1">
                         Position Type *
                       </label>
                       <select
                         value={formData.positionType}
                         onChange={(e) => setFormData({ ...formData, positionType: e.target.value })}
-                        className={`w-full px-4 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-300 text-gray-900 focus:border-blue-600"}`}
+                        className="theme-input w-full px-4 py-2"
                       >
                         {POSITION_TYPE_OPTIONS.map((pt) => (
                           <option key={pt.value} value={pt.value}>
@@ -767,13 +754,13 @@ export default function JobsPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className={`block text-xs sm:text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-700"}`}>
+                      <label className="block ui-section-label mb-1">
                         Badge Type
                       </label>
                       <select
                         value={formData.badgeType}
                         onChange={(e) => setFormData({ ...formData, badgeType: e.target.value })}
-                        className={`w-full px-4 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-300 text-gray-900 focus:border-blue-600"}`}
+                        className="theme-input w-full px-4 py-2"
                       >
                         {BADGE_TYPE_OPTIONS.map((badge) => (
                           <option key={badge.value} value={badge.value}>
@@ -781,7 +768,7 @@ export default function JobsPage() {
                           </option>
                         ))}
                       </select>
-                      <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                      <p className="text-xs mt-1 theme-text-tertiary">
                         Badge displayed on the careers page
                       </p>
                     </div>
@@ -792,11 +779,11 @@ export default function JobsPage() {
                             type="checkbox"
                             checked={formData.isActive}
                             onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                            className={`w-5 h-5 rounded focus:ring-cyan-500 ${isDark ? "border-slate-600 bg-slate-700 text-cyan-500" : "border-gray-300 bg-white text-blue-600"}`}
+                            className="w-5 h-5 rounded border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-blue-600 dark:text-cyan-500 focus:ring-cyan-500"
                           />
                           <div>
-                            <span className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Active</span>
-                            <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Visible on IE Tire website</p>
+                            <span className="text-sm font-medium theme-text-primary">Active</span>
+                            <p className="text-xs theme-text-tertiary">Visible on IE Tire website</p>
                           </div>
                         </label>
                       </div>
@@ -804,20 +791,20 @@ export default function JobsPage() {
                   </div>
 
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-700"}`}>
+                    <label className="block ui-section-label mb-1">
                       Description *
                     </label>
                     <textarea
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       rows={4}
-                      className={`w-full px-4 py-2 rounded-lg focus:outline-none resize-none ${isDark ? "bg-slate-700 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-300 text-gray-900 focus:border-blue-600"}`}
+                      className="theme-input w-full px-4 py-2 resize-none"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-700"}`}>
+                    <label className="block ui-section-label mb-1">
                       Benefits (comma-separated)
                     </label>
                     <input
@@ -825,12 +812,12 @@ export default function JobsPage() {
                       value={formData.benefits}
                       onChange={(e) => setFormData({ ...formData, benefits: e.target.value })}
                       placeholder="Health Insurance, 401k Match, Paid Time Off"
-                      className={`w-full px-4 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-300 text-gray-900 focus:border-blue-600"}`}
+                      className="theme-input w-full px-4 py-2"
                     />
                   </div>
 
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-700"}`}>
+                    <label className="block ui-section-label mb-1">
                       Keywords for AI Matching (comma-separated)
                     </label>
                     <input
@@ -838,30 +825,27 @@ export default function JobsPage() {
                       value={formData.keywords}
                       onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
                       placeholder="warehouse, logistics, leadership, forklift"
-                      className={`w-full px-4 py-2 rounded-lg focus:outline-none ${isDark ? "bg-slate-700 border border-slate-600 text-white focus:border-cyan-500" : "bg-gray-50 border border-gray-300 text-gray-900 focus:border-blue-600"}`}
+                      className="theme-input w-full px-4 py-2"
                     />
-                    <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                    <p className="text-xs mt-1 theme-text-tertiary">
                       These keywords help the AI match resumes to this position
                     </p>
                   </div>
 
                   <div className="flex justify-end gap-3 pt-4">
-                    <button
+                    <Button
                       type="button"
+                      variant="secondary"
                       onClick={() => {
                         setShowModal(false);
                         resetForm();
                       }}
-                      className={`px-4 py-2 rounded-lg transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-900"}`}
                     >
                       Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className={`px-4 py-2 rounded-lg transition-colors ${isDark ? "bg-cyan-500 hover:bg-cyan-600 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
-                    >
+                    </Button>
+                    <Button type="submit" variant="primary">
                       {editingJob ? "Save Changes" : "Create Job"}
-                    </button>
+                    </Button>
                   </div>
                 </form>
               </div>
@@ -871,25 +855,22 @@ export default function JobsPage() {
           {/* Delete Confirmation Modal */}
           {showDeleteConfirm && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className={`rounded-lg p-4 sm:p-6 w-full max-w-md ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Delete Job</h2>
-                <p className={`text-sm sm:text-base mb-4 sm:mb-6 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+              <div className="bg-white dark:bg-slate-800 border border-[var(--theme-border-secondary)] rounded-2xl p-4 sm:p-6 w-full max-w-md shadow-xl">
+                <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 theme-text-primary">Delete Job</h2>
+                <p className="text-sm sm:text-base mb-4 sm:mb-6 theme-text-secondary">
                   Are you sure you want to delete <strong>{showDeleteConfirm.title}</strong>? This
                   action cannot be undone.
                 </p>
                 <div className="flex justify-end gap-3">
-                  <button
+                  <Button
+                    variant="secondary"
                     onClick={() => setShowDeleteConfirm(null)}
-                    className={`px-4 py-2 rounded-lg transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-900"}`}
                   >
                     Cancel
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg transition-colors text-white"
-                  >
+                  </Button>
+                  <Button variant="danger" onClick={handleDelete}>
                     Delete
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
