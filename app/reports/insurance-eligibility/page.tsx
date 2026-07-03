@@ -8,6 +8,9 @@ import Protected from "@/app/protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useTheme } from "@/app/theme-context";
 import Link from "next/link";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -34,7 +37,7 @@ function formatDateShort(d: Date | null): string {
 
 function InsuranceEligibilityContent() {
   const { theme } = useTheme();
-  const isDark = theme === "dark";
+  void theme;
 
   const personnel = useQuery(api.personnel.listAll, { status: "active" });
   const locations = useQuery(api.locations.list) || [];
@@ -159,41 +162,40 @@ function InsuranceEligibilityContent() {
   };
 
   return (
-    <div className="flex h-screen theme-bg-primary">
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+        <header className="sticky top-0 z-10 border-b px-4 sm:px-6 py-3 sm:py-4 backdrop-blur-sm bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
           <div className="flex items-center gap-3">
             <Link
               href="/reports"
-              className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}
+              className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5 flex-shrink-0"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </Link>
             <div>
-              <h1 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                60-Day Insurance Eligibility
-              </h1>
-              <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <h1 className="text-xl font-bold theme-text-primary">60-Day Insurance Eligibility</h1>
+              <p className="text-xs mt-0.5 theme-text-tertiary">
                 Eligible the 1st of the month following their 60-day mark
               </p>
             </div>
           </div>
         </header>
 
-        <div className="p-4 sm:p-8 max-w-5xl">
+        <div className="px-4 sm:px-6 py-5 max-w-5xl space-y-4">
           {/* Filters */}
-          <div className={`rounded-2xl border p-5 mb-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card>
+            <SectionHeader label="Filters" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               <div>
-                <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Location</label>
+                <label className="block ui-section-label mb-1">Location</label>
                 <select
                   value={locationFilter}
                   onChange={(e) => setLocationFilter(e.target.value as Id<"locations"> | "")}
-                  className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                  className="theme-input w-full px-3 py-2"
                 >
                   <option value="">All locations</option>
                   {locations.map((loc) => (
@@ -202,67 +204,66 @@ function InsuranceEligibilityContent() {
                 </select>
               </div>
               <div>
-                <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Days before milestone</label>
+                <label className="block ui-section-label mb-1">Days before milestone</label>
                 <input
                   type="number"
                   min={0}
                   max={60}
                   value={daysBefore}
                   onChange={(e) => setDaysBefore(Math.max(0, Math.min(60, Number(e.target.value) || 0)))}
-                  className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                  className="theme-input w-full px-3 py-2"
                 />
               </div>
               <div>
-                <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Days after milestone (catch-up)</label>
+                <label className="block ui-section-label mb-1">Days after milestone (catch-up)</label>
                 <input
                   type="number"
                   min={0}
                   max={365}
                   value={daysAfter}
                   onChange={(e) => setDaysAfter(Math.max(0, Math.min(365, Number(e.target.value) || 0)))}
-                  className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                  className="theme-input w-full px-3 py-2"
                 />
               </div>
             </div>
-            <div className="mt-4 flex items-center justify-between flex-wrap gap-3">
-              <div className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                <span className="font-semibold">{rows.length}</span> in window
-                <span className={`ml-3 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+            <div className="flex items-center justify-between flex-wrap gap-3 pt-3 border-t theme-border-secondary">
+              <p className="text-sm theme-text-secondary">
+                <span className="font-semibold theme-text-primary">{rows.length}</span> in window
+                <span className="ml-3 theme-text-tertiary">
                   · {approachingCount} approaching · {crossedCount} just crossed
                 </span>
-              </div>
-              <button
+              </p>
+              <Button
+                variant="primary"
                 onClick={handleGeneratePDF}
                 disabled={rows.length === 0 || generating}
-                className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
-                style={{ backgroundColor: "#007AFF" }}
               >
                 {generating ? "Generating…" : "Print PDF"}
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
 
           {/* Table */}
-          <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
+          <div className="theme-card overflow-hidden p-0">
             {personnel === undefined ? (
-              <div className={`p-8 text-center text-sm ${isDark ? "text-slate-500" : "text-gray-500"}`}>Loading…</div>
+              <div className="p-8 text-center text-sm theme-text-tertiary">Loading…</div>
             ) : rows.length === 0 ? (
-              <div className={`p-8 text-center text-sm ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+              <div className="p-8 text-center text-sm theme-text-tertiary">
                 No personnel currently in the {daysBefore}-day / +{daysAfter}-day window.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className={isDark ? "bg-slate-900/60" : "bg-gray-50"}>
-                    <tr className={isDark ? "text-slate-400" : "text-gray-600"}>
-                      <th className="text-left px-4 py-2 font-medium w-8"></th>
-                      <th className="text-left px-4 py-2 font-medium">Name</th>
-                      <th className="text-left px-4 py-2 font-medium">Position</th>
-                      <th className="text-left px-4 py-2 font-medium">Location</th>
-                      <th className="text-left px-4 py-2 font-medium">Hire Date</th>
-                      <th className="text-center px-4 py-2 font-medium">Days In</th>
-                      <th className="text-center px-4 py-2 font-medium">Milestone</th>
-                      <th className="text-left px-4 py-2 font-medium">Eligible Date</th>
+                  <thead className="bg-black/[0.03] dark:bg-white/[0.03]">
+                    <tr className="border-b theme-border-secondary">
+                      <th className="text-left px-4 py-2 font-semibold theme-text-tertiary w-8"></th>
+                      <th className="text-left px-4 py-2 font-semibold theme-text-tertiary">Name</th>
+                      <th className="text-left px-4 py-2 font-semibold theme-text-tertiary">Position</th>
+                      <th className="text-left px-4 py-2 font-semibold theme-text-tertiary">Location</th>
+                      <th className="text-left px-4 py-2 font-semibold theme-text-tertiary">Hire Date</th>
+                      <th className="text-center px-4 py-2 font-semibold theme-text-tertiary">Days In</th>
+                      <th className="text-center px-4 py-2 font-semibold theme-text-tertiary">Milestone</th>
+                      <th className="text-left px-4 py-2 font-semibold theme-text-tertiary">Eligible Date</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -271,43 +272,43 @@ function InsuranceEligibilityContent() {
                       return (
                         <tr
                           key={r.id}
-                          className={`border-t ${isDark ? "border-slate-700/40" : "border-gray-100"}`}
+                          className="border-t theme-border-secondary"
                         >
                           <td className="px-4 py-2">
                             <span
                               className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
                                 approaching
-                                  ? isDark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-700"
-                                  : isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"
+                                  ? "bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400"
+                                  : "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400"
                               }`}
                             >
                               {approaching ? "→" : "✓"}
                             </span>
                           </td>
-                          <td className={`px-4 py-2 font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                          <td className="px-4 py-2 font-medium theme-text-primary">
                             <Link
                               href={`/personnel/${r.id}`}
-                              className={isDark ? "hover:text-cyan-400" : "hover:text-blue-600"}
+                              className="hover:text-[#007AFF]"
                             >
                               {r.name}
                             </Link>
                           </td>
-                          <td className={`px-4 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.position}</td>
-                          <td className={`px-4 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.locationName}</td>
-                          <td className={`px-4 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                          <td className="px-4 py-2 theme-text-secondary">{r.position}</td>
+                          <td className="px-4 py-2 theme-text-secondary">{r.locationName}</td>
+                          <td className="px-4 py-2 theme-text-secondary">
                             {new Date(r.hireDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                           </td>
-                          <td className={`px-4 py-2 text-center font-mono ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                          <td className="px-4 py-2 text-center font-mono theme-text-secondary">
                             {r.totalDays}
                           </td>
                           <td className={`px-4 py-2 text-center font-semibold ${
                             approaching
-                              ? isDark ? "text-amber-400" : "text-amber-700"
-                              : isDark ? "text-green-400" : "text-green-700"
+                              ? "text-amber-700 dark:text-amber-400"
+                              : "text-green-700 dark:text-green-400"
                           }`}>
                             {r.daysToEligibility > 0 ? `in ${r.daysToEligibility}d` : `${Math.abs(r.daysToEligibility)}d ago`}
                           </td>
-                          <td className={`px-4 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                          <td className="px-4 py-2 theme-text-secondary">
                             {r.eligibilityDate}
                           </td>
                         </tr>
