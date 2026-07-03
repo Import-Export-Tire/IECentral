@@ -54,11 +54,24 @@ async function loadImageForPdf(url: string): Promise<{ dataUrl: string; w: numbe
   }
 }
 
-function barcodePngForPdf(value: string): { dataUrl: string; w: number; h: number } | null {
+function barcodePngForPdf(value: string, rotate90 = false): { dataUrl: string; w: number; h: number } | null {
   try {
     const canvas = document.createElement("canvas");
     JsBarcode(canvas, value, { format: "CODE128", width: 2, height: 60, displayValue: true, fontSize: 16, font: "monospace", margin: 6 });
-    return { dataUrl: canvas.toDataURL("image/png"), w: canvas.width, h: canvas.height };
+    if (!rotate90) return { dataUrl: canvas.toDataURL("image/png"), w: canvas.width, h: canvas.height };
+    // Rotate 90° for portrait labels so the barcode runs down the label ("ladder")
+    // instead of overflowing a narrow 2"-wide label.
+    const rc = document.createElement("canvas");
+    rc.width = canvas.height;
+    rc.height = canvas.width;
+    const ctx = rc.getContext("2d");
+    if (!ctx) return { dataUrl: canvas.toDataURL("image/png"), w: canvas.width, h: canvas.height };
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, rc.width, rc.height);
+    ctx.translate(rc.width / 2, rc.height / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+    return { dataUrl: rc.toDataURL("image/png"), w: rc.width, h: rc.height };
   } catch {
     return null;
   }
@@ -202,7 +215,9 @@ export default function BinLabelsPage() {
         }
       }
     });
-  }, [labels]);
+    // binOrientation is a dep because the barcode <svg> remounts when the layout
+    // switches (portrait wraps it in a rotated container), so JsBarcode must re-run.
+  }, [labels, binOrientation]);
 
   // Generate tire barcodes when tire labels change
   useEffect(() => {
@@ -353,7 +368,8 @@ export default function BinLabelsPage() {
       const l = items[i];
       if (i > 0) doc.addPage(fmt, orient);
       doc.setTextColor(0, 0, 0);
-      const bc = barcodePngForPdf(l.locationId);
+      // Portrait: rotate the barcode 90° so it runs down the narrow label.
+      const bc = barcodePngForPdf(l.locationId, portrait);
 
       const drawName = (cx: number, cy: number, maxW: number) => {
         if (!l.locationName) return;
@@ -842,11 +858,23 @@ export default function BinLabelsPage() {
                                     </div>
                                   )}
 
-                                  {/* Barcode */}
-                                  <svg
-                                    ref={(el) => { barcodeRefs.current[index] = el; }}
-                                    className="flex-shrink-0"
-                                  />
+                                  {/* Barcode — rotated 90° in portrait so it runs down the label */}
+                                  {binOrientation === "portrait" ? (
+                                    <div
+                                      className="flex-shrink-0 flex items-center justify-center overflow-hidden"
+                                      style={{ width: 150, height: 340 }}
+                                    >
+                                      <svg
+                                        ref={(el) => { barcodeRefs.current[index] = el; }}
+                                        style={{ transform: "rotate(90deg)", transformOrigin: "center" }}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <svg
+                                      ref={(el) => { barcodeRefs.current[index] = el; }}
+                                      className="flex-shrink-0"
+                                    />
+                                  )}
 
                                   {/* Location name (landscape: to the right of the barcode) */}
                                   {binOrientation !== "portrait" && label.locationName && (
