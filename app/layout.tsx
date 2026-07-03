@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import ServiceWorkerRefresher from "@/components/ServiceWorkerRefresher";
+import UpdateBanner from "@/components/UpdateBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -72,6 +73,7 @@ export default function RootLayout({
       >
         <Providers>
           <ServiceWorkerRefresher />
+          <UpdateBanner />
           {children}
         </Providers>
       </body>
