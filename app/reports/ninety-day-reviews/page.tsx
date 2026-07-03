@@ -464,22 +464,22 @@ function NinetyDayReviewsContent() {
     accentClass: string,
     isOverdue: boolean,
   ) => (
-    <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-      <div className={`px-5 py-3 border-b flex items-center justify-between ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-        <h2 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+    <div className="theme-card overflow-hidden">
+      <div className="px-5 py-3 border-b theme-border-secondary flex items-center justify-between">
+        <h2 className="text-sm font-semibold theme-text-primary">
           <span className={accentClass}>{label}</span>
-          <span className={`ml-2 font-normal ${isDark ? "text-slate-500" : "text-gray-500"}`}>{items.length}</span>
+          <span className="ml-2 font-normal theme-text-tertiary">{items.length}</span>
         </h2>
       </div>
       {items.length === 0 ? (
-        <div className={`p-5 text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+        <div className="p-5 text-sm theme-text-tertiary">
           {isOverdue ? "None overdue — nice." : "None in this window."}
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className={isDark ? "bg-slate-900/40" : "bg-gray-50"}>
-              <tr className={isDark ? "text-slate-400" : "text-gray-600"}>
+            <thead className="bg-gray-50 dark:bg-slate-900/40">
+              <tr className="theme-text-secondary">
                 <th className="text-left px-5 py-2 font-medium">Name</th>
                 <th className="text-left px-5 py-2 font-medium">Position</th>
                 <th className="text-left px-5 py-2 font-medium">Location</th>
@@ -491,18 +491,18 @@ function NinetyDayReviewsContent() {
             </thead>
             <tbody>
               {items.map((r) => (
-                <tr key={r.id} className={`border-t ${isDark ? "border-slate-700/40" : "border-gray-100"}`}>
-                  <td className={`px-5 py-2 font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                    <Link href={`/personnel/${r.id}`} className={isDark ? "hover:text-cyan-400" : "hover:text-blue-600"}>
+                <tr key={r.id} className="border-t theme-border-secondary">
+                  <td className="px-5 py-2 font-medium theme-text-primary">
+                    <Link href={`/personnel/${r.id}`} className="hover:text-blue-600 dark:hover:text-cyan-400">
                       {r.name}
                     </Link>
                   </td>
-                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.position}</td>
-                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.locationName}</td>
-                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <td className="px-5 py-2 theme-text-secondary">{r.position}</td>
+                  <td className="px-5 py-2 theme-text-secondary">{r.locationName}</td>
+                  <td className="px-5 py-2 theme-text-secondary">
                     {new Date(r.hireDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                   </td>
-                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.reviewDueDate}</td>
+                  <td className="px-5 py-2 theme-text-secondary">{r.reviewDueDate}</td>
                   <td className={`px-5 py-2 ${accentClass} font-medium`}>
                     {r.review
                       ? `✓ by ${r.review.completedByName} on ${new Date(r.review.completedAt).toLocaleDateString()}`
@@ -513,7 +513,7 @@ function NinetyDayReviewsContent() {
                   <td className="px-5 py-2 text-right">
                     <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
                     {(() => { const er = reviewByPersonnel.get(r.id as unknown as string); return er && er.averageScore != null ? (
-                      <span className={`text-xs self-center ${isDark ? "text-slate-300" : "text-gray-600"}`}>avg {er.averageScore.toFixed(1)}{er.decision !== "pending" ? ` · ${er.decision}` : ""}</span>
+                      <span className="text-xs self-center theme-text-secondary">avg {er.averageScore.toFixed(1)}{er.decision !== "pending" ? ` · ${er.decision}` : ""}</span>
                     ) : null; })()}
                     {canManagePersonnel && (
                       <button
@@ -529,7 +529,7 @@ function NinetyDayReviewsContent() {
                     {canManagePersonnel && (
                       <button
                         onClick={() => printSingle(r)}
-                        className={`text-xs font-medium px-2.5 py-1 rounded-lg ${isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                        className="text-xs font-medium px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
                         title="Print this one pre-filled review form"
                       >
                         Print
@@ -550,7 +550,7 @@ function NinetyDayReviewsContent() {
                       <button
                         onClick={() => handleClearNinety(r.id)}
                         disabled={savingId === r.id}
-                        className={`text-xs font-medium px-2.5 py-1 rounded-lg disabled:opacity-50 ${isDark ? "bg-slate-700 hover:bg-red-500/30 text-slate-300 hover:text-red-300" : "bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-600"}`}
+                        className="text-xs font-medium px-2.5 py-1 rounded-lg disabled:opacity-50 bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-600 dark:bg-slate-700 dark:hover:bg-red-500/30 dark:text-slate-300 dark:hover:text-red-300"
                         title="Remove this 90-day review record"
                       >
                         Remove
@@ -560,7 +560,7 @@ function NinetyDayReviewsContent() {
                       <button
                         onClick={() => handleExclude(r.id, true)}
                         disabled={savingId === r.id}
-                        className={`text-xs font-medium px-2.5 py-1 rounded-lg disabled:opacity-50 ${isDark ? "text-slate-400 hover:text-amber-300 hover:bg-amber-500/10" : "text-gray-500 hover:text-amber-700 hover:bg-amber-50"}`}
+                        className="text-xs font-medium px-2.5 py-1 rounded-lg disabled:opacity-50 text-gray-500 hover:text-amber-700 hover:bg-amber-50 dark:text-slate-400 dark:hover:text-amber-300 dark:hover:bg-amber-500/10"
                         title="Exclude from reviews (corporate/management)"
                       >
                         Exclude
@@ -583,20 +583,20 @@ function NinetyDayReviewsContent() {
     accentClass: string,
     emptyMessage: string,
   ) => (
-    <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-      <div className={`px-5 py-3 border-b flex items-center justify-between ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-        <h2 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+    <div className="theme-card overflow-hidden">
+      <div className="px-5 py-3 border-b theme-border-secondary flex items-center justify-between">
+        <h2 className="text-sm font-semibold theme-text-primary">
           <span className={accentClass}>{label}</span>
-          <span className={`ml-2 font-normal ${isDark ? "text-slate-500" : "text-gray-500"}`}>{items.length}</span>
+          <span className="ml-2 font-normal theme-text-tertiary">{items.length}</span>
         </h2>
       </div>
       {items.length === 0 ? (
-        <div className={`p-5 text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>{emptyMessage}</div>
+        <div className="p-5 text-sm theme-text-tertiary">{emptyMessage}</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className={isDark ? "bg-slate-900/40" : "bg-gray-50"}>
-              <tr className={isDark ? "text-slate-400" : "text-gray-600"}>
+            <thead className="bg-gray-50 dark:bg-slate-900/40">
+              <tr className="theme-text-secondary">
                 <th className="text-left px-5 py-2 font-medium">Name</th>
                 <th className="text-left px-5 py-2 font-medium">Position</th>
                 <th className="text-left px-5 py-2 font-medium">Location</th>
@@ -610,22 +610,22 @@ function NinetyDayReviewsContent() {
             </thead>
             <tbody>
               {items.map((r) => (
-                <tr key={r.id} className={`border-t ${isDark ? "border-slate-700/40" : "border-gray-100"}`}>
-                  <td className={`px-5 py-2 font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
-                    <Link href={`/personnel/${r.id}`} className={isDark ? "hover:text-cyan-400" : "hover:text-blue-600"}>
+                <tr key={r.id} className="border-t theme-border-secondary">
+                  <td className="px-5 py-2 font-medium theme-text-primary">
+                    <Link href={`/personnel/${r.id}`} className="hover:text-blue-600 dark:hover:text-cyan-400">
                       {r.name}
                     </Link>
                   </td>
-                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.position}</td>
-                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.locationName}</td>
-                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <td className="px-5 py-2 theme-text-secondary">{r.position}</td>
+                  <td className="px-5 py-2 theme-text-secondary">{r.locationName}</td>
+                  <td className="px-5 py-2 theme-text-secondary">
                     {new Date(r.hireDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                   </td>
-                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <td className="px-5 py-2 theme-text-secondary">
                     {r.nextDue.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                   </td>
-                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>{r.cycleYear}</td>
-                  <td className={`px-5 py-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <td className="px-5 py-2 theme-text-secondary">{r.cycleYear}</td>
+                  <td className="px-5 py-2 theme-text-secondary">
                     {r.lastCompleted ? (
                       <span className="inline-flex items-center gap-2">
                         {r.lastCompleted.cycleYear} — {r.lastCompleted.completedByName}
@@ -633,7 +633,7 @@ function NinetyDayReviewsContent() {
                           <button
                             onClick={() => handleClearAnnual(r.id, r.lastCompleted!.cycleYear)}
                             disabled={savingId === r.id}
-                            className={`text-xs px-1.5 py-0.5 rounded disabled:opacity-50 ${isDark ? "text-slate-500 hover:text-red-400 hover:bg-red-500/10" : "text-gray-400 hover:text-red-500 hover:bg-red-50"}`}
+                            className="text-xs px-1.5 py-0.5 rounded disabled:opacity-50 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-500/10"
                             title={`Remove the ${r.lastCompleted.cycleYear} annual review record`}
                           >
                             ✕
@@ -649,7 +649,7 @@ function NinetyDayReviewsContent() {
                   </td>
                   <td className="px-5 py-2 text-right whitespace-nowrap">
                     {(() => { const er = reviewByPersonnel.get(r.id as unknown as string); return er && er.averageScore != null ? (
-                      <span className={`mr-2 text-xs ${isDark ? "text-slate-300" : "text-gray-600"}`}>avg {er.averageScore.toFixed(1)}{er.decision !== "pending" ? ` · ${er.decision}` : ""}</span>
+                      <span className="mr-2 text-xs theme-text-secondary">avg {er.averageScore.toFixed(1)}{er.decision !== "pending" ? ` · ${er.decision}` : ""}</span>
                     ) : null; })()}
                     {canManagePersonnel && (
                       <button
@@ -665,7 +665,7 @@ function NinetyDayReviewsContent() {
                     {canManagePersonnel && (
                       <button
                         onClick={() => printSingle(r)}
-                        className={`text-xs font-medium px-2.5 py-1 rounded-lg mr-2 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                        className="text-xs font-medium px-2.5 py-1 rounded-lg mr-2 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
                         title="Print this one pre-filled review form"
                       >
                         Print
@@ -686,7 +686,7 @@ function NinetyDayReviewsContent() {
                       <button
                         onClick={() => handleExclude(r.id, true)}
                         disabled={savingId === r.id}
-                        className={`text-xs font-medium px-2.5 py-1 rounded-lg disabled:opacity-50 ${isDark ? "text-slate-400 hover:text-amber-300 hover:bg-amber-500/10" : "text-gray-500 hover:text-amber-700 hover:bg-amber-50"}`}
+                        className="text-xs font-medium px-2.5 py-1 rounded-lg disabled:opacity-50 text-gray-500 hover:text-amber-700 hover:bg-amber-50 dark:text-slate-400 dark:hover:text-amber-300 dark:hover:bg-amber-500/10"
                         title="Exclude from reviews (corporate/management)"
                       >
                         Exclude
@@ -710,9 +710,7 @@ function NinetyDayReviewsContent() {
         className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
           active
             ? "bg-[#007AFF] text-white shadow-sm"
-            : isDark
-              ? "theme-text-secondary hover:theme-text-primary theme-bg-hover"
-              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            : "theme-text-secondary hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700/50"
         }`}
       >
         {label}
@@ -722,25 +720,25 @@ function NinetyDayReviewsContent() {
   };
 
   return (
-    <div className="flex h-screen theme-bg-primary">
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+        <header className="sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-4 bg-white/80 border-gray-200 dark:bg-slate-900/80 dark:border-slate-700">
           <div className="flex items-center gap-3">
             <Link
               href="/reports"
-              className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}
+              className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-gray-100 dark:hover:bg-slate-700"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </Link>
             <div>
-              <h1 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h1 className="text-xl font-semibold theme-text-primary">
                 Review Tracker
               </h1>
-              <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className="text-xs theme-text-tertiary">
                 90-day reviews and annual reviews — who's overdue, who's coming up, and who's done
               </p>
             </div>
@@ -749,20 +747,20 @@ function NinetyDayReviewsContent() {
 
         <div className="p-4 sm:p-8 max-w-6xl space-y-5">
           {/* Tabs */}
-          <div className={`inline-flex items-center gap-1 rounded-full p-1 ${isDark ? "bg-slate-800/60 border border-slate-700" : "bg-gray-100"}`}>
+          <div className="inline-flex items-center gap-1 rounded-full p-1 bg-gray-100 dark:bg-slate-800/60 dark:border dark:border-slate-700">
             {tabButton("ninety", "90-Day", ninetyRows.length)}
             {tabButton("annual", "Annual", annualRows.length)}
           </div>
 
           {/* Filters */}
-          <div className={`rounded-2xl border p-5 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
+          <div className="theme-card p-5">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>Location</label>
+                <label className="block ui-section-label mb-1">Location</label>
                 <select
                   value={locationFilter}
                   onChange={(e) => setLocationFilter(e.target.value as Id<"locations"> | "")}
-                  className={`w-full px-3 py-2 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                  className="theme-input w-full px-3 py-2"
                 >
                   <option value="">All locations</option>
                   {locations.map((loc) => (
@@ -772,7 +770,7 @@ function NinetyDayReviewsContent() {
               </div>
               <div className="flex items-end gap-4">
                 {tab === "ninety" ? (
-                  <label className={`flex items-center gap-2 text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className="flex items-center gap-2 text-sm theme-text-secondary">
                     <input
                       type="checkbox"
                       checked={showCompleted}
@@ -782,7 +780,7 @@ function NinetyDayReviewsContent() {
                     Show completed reviews
                   </label>
                 ) : null}
-                <label className={`flex items-center gap-2 text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                <label className="flex items-center gap-2 text-sm theme-text-secondary">
                   <input
                     type="checkbox"
                     checked={showExcluded}
@@ -796,7 +794,7 @@ function NinetyDayReviewsContent() {
                 <button
                   onClick={() => printForms("due")}
                   disabled={overdue.length + dueSoon.length === 0}
-                  className={`px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 ${isDark ? "bg-orange-500 hover:bg-orange-400 text-white" : "bg-orange-600 hover:bg-orange-700 text-white"}`}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50 bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-400"
                   title="Print a pre-filled blank form for each person due (overdue + due-soon)"
                 >
                   Print Forms ({overdue.length + dueSoon.length})
@@ -804,7 +802,7 @@ function NinetyDayReviewsContent() {
                 <button
                   onClick={() => { setPrintSummary(true); setTimeout(() => window.print(), 80); }}
                   disabled={!(empReviews && empReviews.some((r) => r.averageScore != null))}
-                  className={`px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 ${isDark ? "bg-slate-600 hover:bg-slate-500 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"}`}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-slate-600 dark:hover:bg-slate-500 dark:text-white"
                   title="Print a scores + recommended-raise summary for Terry"
                 >
                   Print Summary
@@ -819,17 +817,17 @@ function NinetyDayReviewsContent() {
                 </button>
               </div>
             </div>
-            <div className={`mt-3 text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-              <span className={`font-semibold ${isDark ? "text-red-400" : "text-red-600"}`}>{overdue.length}</span> overdue
-              <span className={`mx-3 ${isDark ? "text-slate-600" : "text-gray-300"}`}>·</span>
-              <span className={`font-semibold ${isDark ? "text-amber-400" : "text-amber-600"}`}>{dueSoon.length}</span>
+            <div className="mt-3 text-sm theme-text-secondary">
+              <span className="font-semibold text-red-600 dark:text-red-400">{overdue.length}</span> overdue
+              <span className="mx-3 text-gray-300 dark:text-slate-600">·</span>
+              <span className="font-semibold text-amber-600 dark:text-amber-400">{dueSoon.length}</span>
               {" "}due within {tab === "ninety" ? "14" : ANNUAL_DUE_SOON_DAYS} days
-              <span className={`mx-3 ${isDark ? "text-slate-600" : "text-gray-300"}`}>·</span>
-              <span className={`font-semibold ${isDark ? "text-slate-400" : "text-gray-500"}`}>{upcoming.length}</span> upcoming
+              <span className="mx-3 text-gray-300 dark:text-slate-600">·</span>
+              <span className="font-semibold text-gray-500 dark:text-slate-400">{upcoming.length}</span> upcoming
               {tab === "ninety" && (
                 <>
-                  <span className={`mx-3 ${isDark ? "text-slate-600" : "text-gray-300"}`}>·</span>
-                  <span className={`font-semibold ${isDark ? "text-green-400" : "text-green-600"}`}>{completed.length}</span> completed
+                  <span className="mx-3 text-gray-300 dark:text-slate-600">·</span>
+                  <span className="font-semibold text-green-600 dark:text-green-400">{completed.length}</span> completed
                 </>
               )}
             </div>
@@ -837,40 +835,40 @@ function NinetyDayReviewsContent() {
 
           {tab === "ninety" ? (
             <>
-              {ninetySection("Overdue", overdue as typeof ninetyRows, isDark ? "text-red-400" : "text-red-600", true)}
-              {ninetySection("Due Within 14 Days", dueSoon as typeof ninetyRows, isDark ? "text-amber-400" : "text-amber-600", false)}
-              {ninetySection("Upcoming", upcoming as typeof ninetyRows, isDark ? "text-slate-400" : "text-gray-500", false)}
-              {showCompleted && ninetySection("Completed", completed, isDark ? "text-green-400" : "text-green-600", false)}
+              {ninetySection("Overdue", overdue as typeof ninetyRows, "text-red-600 dark:text-red-400", true)}
+              {ninetySection("Due Within 14 Days", dueSoon as typeof ninetyRows, "text-amber-600 dark:text-amber-400", false)}
+              {ninetySection("Upcoming", upcoming as typeof ninetyRows, "text-gray-500 dark:text-slate-400", false)}
+              {showCompleted && ninetySection("Completed", completed, "text-green-600 dark:text-green-400", false)}
             </>
           ) : (
             <>
-              {annualSection("Overdue", overdue as typeof annualRows, isDark ? "text-red-400" : "text-red-600", "None overdue — nice.")}
-              {annualSection(`Due Within ${ANNUAL_DUE_SOON_DAYS} Days`, dueSoon as typeof annualRows, isDark ? "text-amber-400" : "text-amber-600", "None in this window.")}
-              {annualSection("Upcoming", upcoming as typeof annualRows, isDark ? "text-slate-400" : "text-gray-500", "No upcoming anniversaries (or no one with 1+ year tenure).")}
+              {annualSection("Overdue", overdue as typeof annualRows, "text-red-600 dark:text-red-400", "None overdue — nice.")}
+              {annualSection(`Due Within ${ANNUAL_DUE_SOON_DAYS} Days`, dueSoon as typeof annualRows, "text-amber-600 dark:text-amber-400", "None in this window.")}
+              {annualSection("Upcoming", upcoming as typeof annualRows, "text-gray-500 dark:text-slate-400", "No upcoming anniversaries (or no one with 1+ year tenure).")}
             </>
           )}
 
           {/* Excluded (corporate/management) — hidden from the cycle, shown here to re-include */}
           {showExcluded && (
-            <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-              <div className={`px-5 py-3 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                <h2 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                  <span className={isDark ? "text-slate-400" : "text-gray-500"}>Excluded from reviews</span>
-                  <span className={`ml-2 font-normal ${isDark ? "text-slate-500" : "text-gray-500"}`}>{excludedRows.length}</span>
+            <div className="theme-card overflow-hidden">
+              <div className="px-5 py-3 border-b theme-border-secondary">
+                <h2 className="text-sm font-semibold theme-text-primary">
+                  <span className="text-gray-500 dark:text-slate-400">Excluded from reviews</span>
+                  <span className="ml-2 font-normal theme-text-tertiary">{excludedRows.length}</span>
                 </h2>
               </div>
               {excludedRows.length === 0 ? (
-                <div className={`p-5 text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>No one excluded.</div>
+                <div className="p-5 text-sm theme-text-tertiary">No one excluded.</div>
               ) : (
-                <div className="divide-y divide-slate-700/30">
+                <div className="divide-y divide-gray-100 dark:divide-slate-700/30">
                   {excludedRows.map((r) => (
                     <div key={r.id} className="flex items-center justify-between px-5 py-2 text-sm">
-                      <span className={isDark ? "text-slate-300" : "text-gray-700"}>{r.name} <span className={isDark ? "text-slate-500" : "text-gray-400"}>· {r.position} · {r.locationName}</span></span>
+                      <span className="theme-text-secondary">{r.name} <span className="theme-text-tertiary">· {r.position} · {r.locationName}</span></span>
                       {canManagePersonnel && (
                         <button
                           onClick={() => handleExclude(r.id, false)}
                           disabled={savingId === r.id}
-                          className={`text-xs font-medium px-2.5 py-1 rounded-lg disabled:opacity-50 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                          className="text-xs font-medium px-2.5 py-1 rounded-lg disabled:opacity-50 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
                         >
                           Include
                         </button>
