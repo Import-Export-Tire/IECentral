@@ -4,10 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import Protected from "../../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
-import { useTheme } from "../../theme-context";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 
 interface CompletionRecord {
   _id: string;
@@ -33,9 +34,6 @@ interface CompletionRecord {
 }
 
 function ManagerContent() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
-
   // State
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [selectedLocation, setSelectedLocation] = useState<Id<"locations"> | "all">("all");
@@ -353,66 +351,67 @@ function ManagerContent() {
   };
 
   return (
-    <div className={`flex h-screen theme-bg-primary`}>
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
         {/* Header */}
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+        <header className="sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-4 bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <Link
                 href="/equipment"
-                className={`p-2 -ml-2 rounded-lg transition-colors ${isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+                className="p-2 -ml-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </Link>
               <div>
-              <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                Safety Check Manager
-              </h1>
-              <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                Monitor and verify safety checklist compliance
-              </p>
+                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">
+                  Safety Check Manager
+                </h1>
+                <p className="text-xs sm:text-sm mt-1 theme-text-secondary">
+                  Monitor and verify safety checklist compliance
+                </p>
               </div>
             </div>
             {completions && completions.length > 0 && (
-              <button
+              <Button
+                variant="primary"
+                size="md"
                 onClick={printDailyReport}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${isDark ? "bg-cyan-500 text-white hover:bg-cyan-600" : "bg-blue-600 text-white hover:bg-blue-700"}`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
                 Print Daily Report
-              </button>
+              </Button>
             )}
           </div>
 
           {/* Filters */}
           <div className="flex flex-wrap gap-4 mt-4">
             <div>
-              <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <label className="block text-xs font-medium mb-1 ui-section-label">
                 Date
               </label>
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className={`px-3 py-2 text-sm rounded-lg border focus:outline-none ${isDark ? "bg-slate-800 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                className="theme-input px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <label className="block text-xs font-medium mb-1 ui-section-label">
                 Location
               </label>
               <select
                 value={selectedLocation}
                 onChange={(e) => setSelectedLocation(e.target.value as Id<"locations"> | "all")}
-                className={`px-3 py-2 text-sm rounded-lg border focus:outline-none ${isDark ? "bg-slate-800 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                className="theme-input px-3 py-2 text-sm"
               >
                 <option value="all">All Locations</option>
                 {locations?.map((loc) => (
@@ -426,42 +425,42 @@ function ManagerContent() {
         <div className="p-4 sm:p-8">
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className={`rounded-xl p-4 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Total Checks</p>
-              <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{totalCompletions}</p>
-            </div>
-            <div className={`rounded-xl p-4 ${isDark ? "bg-green-500/10 border border-green-500/30" : "bg-green-50 border border-green-200"}`}>
-              <p className={`text-xs ${isDark ? "text-green-400" : "text-green-600"}`}>All Passed</p>
-              <p className={`text-2xl font-bold ${isDark ? "text-green-400" : "text-green-600"}`}>{passedCount}</p>
-            </div>
-            <div className={`rounded-xl p-4 ${isDark ? "bg-red-500/10 border border-red-500/30" : "bg-red-50 border border-red-200"}`}>
-              <p className={`text-xs ${isDark ? "text-red-400" : "text-red-600"}`}>With Issues</p>
-              <p className={`text-2xl font-bold ${isDark ? "text-red-400" : "text-red-600"}`}>{failedCount}</p>
-            </div>
+            <Card padding="sm">
+              <p className="text-xs ui-section-label">Total Checks</p>
+              <p className="text-2xl font-bold theme-text-primary">{totalCompletions}</p>
+            </Card>
+            <Card padding="sm" tone="green">
+              <p className="text-xs text-green-700 dark:text-green-400 font-medium">All Passed</p>
+              <p className="text-2xl font-bold text-green-700 dark:text-green-400">{passedCount}</p>
+            </Card>
+            <Card padding="sm" tone="red">
+              <p className="text-xs text-red-700 dark:text-red-400 font-medium">With Issues</p>
+              <p className="text-2xl font-bold text-red-700 dark:text-red-400">{failedCount}</p>
+            </Card>
           </div>
 
           {/* Completions List */}
           {!completions ? (
-            <div className={`text-center py-12 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+            <div className="text-center py-12 theme-text-secondary">
               Loading...
             </div>
           ) : completions.length === 0 ? (
-            <div className={`text-center py-12 border rounded-xl ${isDark ? "bg-slate-800/50 border-slate-700 text-slate-400" : "bg-white border-gray-200 text-gray-500"}`}>
-              <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <Card padding="md" className="text-center">
+              <svg className="w-12 h-12 mx-auto mb-4 theme-text-tertiary opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
               </svg>
-              <p>No safety checks completed for {selectedDate}</p>
-            </div>
+              <p className="theme-text-secondary">No safety checks completed for {selectedDate}</p>
+            </Card>
           ) : (
             <div className="space-y-3">
               {completions.map((completion) => (
                 <div
                   key={completion._id}
-                  className={`border rounded-xl overflow-hidden ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"}`}
+                  className="theme-card overflow-hidden p-0"
                 >
                   {/* Summary Row */}
                   <div
-                    className="p-4 cursor-pointer hover:bg-slate-700/30 transition-colors"
+                    className="p-4 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                     onClick={() => setExpandedId(expandedId === completion._id ? null : completion._id)}
                   >
                     <div className="flex items-center justify-between gap-4">
@@ -469,8 +468,8 @@ function ManagerContent() {
                         {/* Status Badge */}
                         <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center ${
                           completion.allPassed
-                            ? "bg-green-500/20 text-green-400"
-                            : "bg-red-500/20 text-red-400"
+                            ? "bg-green-500/20 text-green-500"
+                            : "bg-red-500/20 text-red-500"
                         }`}>
                           {completion.allPassed ? (
                             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -485,10 +484,10 @@ function ManagerContent() {
 
                         {/* Info */}
                         <div className="min-w-0">
-                          <p className={`font-semibold truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                          <p className="font-semibold truncate theme-text-primary">
                             {completion.personnelName}
                           </p>
-                          <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          <p className="text-sm theme-text-secondary">
                             Picker #{completion.equipmentNumber}
                           </p>
                         </div>
@@ -496,16 +495,16 @@ function ManagerContent() {
 
                       <div className="flex items-center gap-4 flex-shrink-0">
                         <div className="text-right">
-                          <p className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                          <p className="text-sm font-medium theme-text-primary">
                             {formatTime(completion.completedAt)}
                           </p>
-                          <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          <p className="text-xs theme-text-tertiary">
                             {formatDuration(completion.totalTimeSpent)}
                           </p>
                         </div>
 
                         <svg
-                          className={`w-5 h-5 text-slate-400 transition-transform ${
+                          className={`w-5 h-5 theme-text-tertiary transition-transform ${
                             expandedId === completion._id ? "rotate-180" : ""
                           }`}
                           fill="none"
@@ -523,13 +522,13 @@ function ManagerContent() {
                         {completion.issues.slice(0, 3).map((issue, idx) => (
                           <span
                             key={idx}
-                            className={`px-2 py-1 text-xs rounded ${isDark ? "bg-red-500/20 text-red-400" : "bg-red-50 text-red-600"}`}
+                            className="ui-badge ui-badge-red"
                           >
                             {issue.description.length > 30 ? issue.description.substring(0, 30) + "..." : issue.description}
                           </span>
                         ))}
                         {completion.issues.length > 3 && (
-                          <span className={`px-2 py-1 text-xs rounded ${isDark ? "bg-slate-700 text-slate-400" : "bg-gray-100 text-gray-500"}`}>
+                          <span className="ui-badge ui-badge-gray">
                             +{completion.issues.length - 3} more
                           </span>
                         )}
@@ -539,24 +538,25 @@ function ManagerContent() {
 
                   {/* Expanded Details */}
                   {expandedId === completion._id && (
-                    <div className={`border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                    <div className="border-t theme-border-secondary">
                       <div className="p-4 space-y-3">
                         <div className="flex items-center justify-between">
-                          <h4 className={`font-medium text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                          <h4 className="font-medium text-sm theme-text-secondary">
                             Checklist Responses
                           </h4>
-                          <button
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
                               printRecord(completion as CompletionRecord);
                             }}
-                            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
                           >
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                             </svg>
                             Print Record
-                          </button>
+                          </Button>
                         </div>
                         <div className="space-y-2">
                           {completion.responses.map((r, idx) => (
@@ -564,8 +564,8 @@ function ManagerContent() {
                               key={idx}
                               className={`flex items-start gap-3 p-3 rounded-lg ${
                                 r.passed
-                                  ? isDark ? "bg-green-500/10" : "bg-green-50"
-                                  : isDark ? "bg-red-500/10" : "bg-red-50"
+                                  ? "bg-green-50 dark:bg-green-500/10"
+                                  : "bg-red-50 dark:bg-red-500/10"
                               }`}
                             >
                               <div className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center ${
@@ -582,16 +582,16 @@ function ManagerContent() {
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                                <p className="text-sm theme-text-secondary">
                                   {r.question}
                                 </p>
                                 {r.notes && (
-                                  <p className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                                  <p className="text-xs mt-1 theme-text-tertiary">
                                     Note: {r.notes}
                                   </p>
                                 )}
                               </div>
-                              <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                              <span className="text-xs theme-text-tertiary">
                                 {r.timeSpent}s
                               </span>
                             </div>
