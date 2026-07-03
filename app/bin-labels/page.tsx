@@ -10,6 +10,9 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import JsBarcode from "jsbarcode";
 import { brandLogoSrc } from "@/lib/brandLogo";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 // ── jsPDF helpers (tire labels print as an exact 4x6 PDF so they print
 //    identically on any label printer — Zebra, LabelRange BT320, etc. —
@@ -562,18 +565,19 @@ export default function BinLabelsPage() {
 
   return (
     <Protected>
-      <div className={`flex h-screen theme-bg-primary`}>
+      <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
         <Sidebar />
         <main className="flex-1 overflow-auto print:overflow-visible">
           <MobileHeader />
+
           {/* Header - Hidden when printing */}
-          <header className={`sticky top-0 z-10 p-4 sm:p-6 border-b print:hidden no-print ${isDark ? "bg-slate-900/95 backdrop-blur border-slate-700" : "bg-[#f2f2f7]/95 backdrop-blur border-gray-200"}`}>
+          <header className="sticky top-0 z-10 px-4 sm:px-8 py-3 sm:py-4 border-b print:hidden no-print bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-gray-200 dark:border-slate-700">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">
                   {isTire ? "Tire Label Printer" : "Bin Label Printer"}
                 </h1>
-                <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <p className="text-xs sm:text-sm mt-1 theme-text-tertiary">
                   {isTire
                     ? 'Print replacement labels for tires missing them (4" × 6" shipping labels)'
                     : 'Generate Code 128 barcode labels for warehouse bins (6" × 2" thermal labels)'}
@@ -581,57 +585,48 @@ export default function BinLabelsPage() {
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 {/* Mode toggle - segmented control */}
-                <div className={`flex items-center p-1 rounded-lg ${isDark ? "bg-slate-700" : "bg-gray-100"}`}>
+                <div className="flex items-center p-1 rounded-lg bg-gray-100 dark:bg-slate-700">
                   {(["bin", "tire"] as Mode[]).map((m) => (
                     <button
                       key={m}
                       onClick={() => setMode(m)}
                       className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
                         mode === m
-                          ? isDark
-                            ? "bg-cyan-500 text-white"
-                            : "bg-white text-gray-900 shadow-sm"
-                          : isDark
-                            ? "text-slate-300 hover:text-white"
-                            : "text-gray-500 hover:text-gray-700"
+                          ? "bg-white dark:bg-cyan-500 text-gray-900 dark:text-white shadow-sm"
+                          : "text-gray-500 dark:text-slate-300 hover:text-gray-700 dark:hover:text-white"
                       }`}
                     >
                       {m === "bin" ? "Bin Labels" : "Tire Labels"}
                     </button>
                   ))}
                 </div>
-                <button
-                  onClick={clearAll}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
-                >
+
+                <Button variant="secondary" onClick={clearAll}>
                   Clear All
-                </button>
+                </Button>
+
                 <div className="flex items-center gap-2">
-                  <button
+                  <Button
+                    variant="primary"
                     onClick={handlePrint}
                     disabled={!canPrint}
-                    className={`px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                      canPrint
-                        ? isDark
-                          ? "bg-cyan-500 hover:bg-cyan-400 text-white"
-                          : "bg-blue-600 hover:bg-blue-700 text-white"
-                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    }`}
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                     </svg>
                     Print Labels
-                  </button>
+                  </Button>
+
+                  {/* Print Setup Tips tooltip */}
                   <div className="relative group">
-                    <button className={`p-2 rounded-lg ${isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}>
+                    <button className="p-2 rounded-[9px] text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </button>
-                    <div className={`absolute right-0 top-full mt-2 w-72 p-4 rounded-lg shadow-xl border z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}>
-                      <p className={`font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>Print Setup Tips:</p>
-                      <ol className={`text-sm space-y-1.5 ${isDark ? "text-slate-300" : "text-gray-600"}`}>
+                    <div className="absolute right-0 top-full mt-2 w-72 p-4 rounded-xl shadow-xl border z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all theme-card">
+                      <p className="font-semibold mb-2 theme-text-primary">Print Setup Tips:</p>
+                      <ol className="text-sm space-y-1.5 theme-text-secondary">
                         <li>1. Select your label printer</li>
                         <li>2. Set paper size to <strong>{isTire ? '4" × 6"' : '6" × 2"'}</strong></li>
                         <li>3. Set margins to <strong>None</strong></li>
@@ -645,53 +640,50 @@ export default function BinLabelsPage() {
             </div>
           </header>
 
-          <div className="p-4 sm:p-6 print:p-0">
+          <div className="p-4 sm:p-6 space-y-4 print:p-0">
             {mode === "bin" && (
               <>
-                {/* Input Form - Hidden when printing */}
-                <div className={`rounded-xl p-4 sm:p-6 mb-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-                    <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                      Label Details
-                    </h2>
-                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-                      <div className="flex items-center gap-2">
-                        <label className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                          Copies per label:
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="50"
-                          value={copies}
-                          onChange={(e) => setCopies(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
-                          className={`w-20 px-3 py-1.5 rounded-lg text-center ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                        />
+                {/* Bin Label Details Card - Hidden when printing */}
+                <Card className="print:hidden no-print">
+                  <SectionHeader
+                    title="Label Details"
+                    actions={
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <label className="text-sm font-medium theme-text-secondary">
+                            Copies per label:
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="50"
+                            value={copies}
+                            onChange={(e) => setCopies(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
+                            className="theme-input w-20 px-3 py-1.5 text-center"
+                          />
+                        </div>
+                        <Button variant="secondary" onClick={addLabel}>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Add Label
+                        </Button>
                       </div>
-                      <button
-                        onClick={addLabel}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Label
-                      </button>
-                    </div>
-                  </div>
+                    }
+                  />
 
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {labels.map((label, index) => (
                       <div
                         key={index}
-                        className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}
+                        className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-700/50"
                       >
-                        <span className={`text-sm font-medium w-8 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <span className="text-sm font-medium w-8 theme-text-tertiary">
                           #{index + 1}
                         </span>
                         <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                           <div>
-                            <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <label className="block text-xs font-medium mb-1 theme-text-tertiary">
                               Location ID (Barcode Value)
                             </label>
                             <input
@@ -699,11 +691,11 @@ export default function BinLabelsPage() {
                               value={label.locationId}
                               onChange={(e) => updateLabel(index, "locationId", e.target.value.toUpperCase())}
                               placeholder="e.g., A01-B02-C03"
-                              className={`w-full px-4 py-2 rounded-lg font-mono ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                              className="theme-input w-full font-mono"
                             />
                           </div>
                           <div>
-                            <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <label className="block text-xs font-medium mb-1 theme-text-tertiary">
                               Location Name (Human Readable)
                             </label>
                             <input
@@ -711,49 +703,42 @@ export default function BinLabelsPage() {
                               value={label.locationName}
                               onChange={(e) => updateLabel(index, "locationName", e.target.value)}
                               placeholder="e.g., Aisle 1, Bay 2, Shelf 3"
-                              className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                              className="theme-input w-full"
                             />
                           </div>
                         </div>
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => removeLabel(index)}
                           disabled={labels.length === 1}
-                          className={`p-2 rounded-lg transition-colors ${
-                            labels.length === 1
-                              ? "opacity-30 cursor-not-allowed"
-                              : isDark
-                                ? "hover:bg-slate-600 text-slate-400 hover:text-red-400"
-                                : "hover:bg-gray-200 text-gray-400 hover:text-red-500"
-                          }`}
+                          className="text-gray-400 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
-                        </button>
+                        </Button>
                       </div>
                     ))}
                   </div>
-                </div>
+                </Card>
 
-                {/* Preview Section - Hidden when printing */}
-                <div className={`rounded-xl p-4 sm:p-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
-                    <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                      Print Preview ({labelsWithCopies.filter(l => l.locationId).length} label{labelsWithCopies.filter(l => l.locationId).length !== 1 ? "s" : ""})
-                    </h2>
-                    <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                      Actual size: 6" × 2" (horizontal)
-                    </span>
-                  </div>
+                {/* Bin Preview Card - Hidden when printing */}
+                <Card className="print:hidden no-print">
+                  <SectionHeader
+                    title={`Print Preview (${labelsWithCopies.filter(l => l.locationId).length} label${labelsWithCopies.filter(l => l.locationId).length !== 1 ? "s" : ""})`}
+                    actions={
+                      <span className="text-sm theme-text-tertiary">Actual size: 6&quot; × 2&quot; (horizontal)</span>
+                    }
+                  />
 
                   {labels.some(l => l.locationId) ? (
-                    <div className={`p-4 sm:p-8 rounded-lg overflow-x-auto ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
+                    <div className="p-4 sm:p-8 rounded-xl overflow-x-auto bg-[#f2f2f7] dark:bg-slate-900/50">
                       <div className="flex flex-col gap-6 items-center min-w-min">
                         {labels.map((label, index) => (
                           label.locationId && (
                             <div key={index} className="flex flex-col items-center w-full">
-                              {/* Label number indicator */}
-                              <span className={`text-xs font-medium mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                              <span className="text-xs font-medium mb-2 theme-text-tertiary">
                                 Label #{index + 1} {copies > 1 && `(×${copies})`}
                               </span>
 
@@ -806,82 +791,75 @@ export default function BinLabelsPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className={`text-center py-16 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
+                    <div className="text-center py-16 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50">
                       <svg className="w-20 h-20 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                       </svg>
-                      <p className={`text-lg font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      <p className="text-lg font-medium theme-text-secondary">
                         Enter a Location ID to preview label
                       </p>
-                      <p className={`text-sm mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                      <p className="text-sm mt-1 theme-text-tertiary">
                         The barcode will be generated using Code 128 format
                       </p>
                     </div>
                   )}
-                </div>
+                </Card>
               </>
             )}
 
             {mode === "tire" && (
               <>
-                {/* Tire Input Form - Hidden when printing */}
-                <div ref={tireFormRef} className={`rounded-xl p-4 sm:p-6 mb-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-                    <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                      Tire Details
-                    </h2>
-                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-                      <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                        Set <strong>Qty</strong> on each tire for the number of copies
-                      </span>
-                      <label className={`flex items-center gap-2 text-sm cursor-pointer ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                        <input
-                          type="checkbox"
-                          checked={includeItemId}
-                          onChange={(e) => setIncludeItemId(e.target.checked)}
-                          className="w-4 h-4 accent-cyan-500"
-                        />
-                        Add Item&nbsp;ID barcode
-                      </label>
-                      <button
-                        onClick={addTireLabel}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Tire
-                      </button>
-                    </div>
-                  </div>
+                {/* Tire Input Form Card - Hidden when printing */}
+                <div ref={tireFormRef}>
+                <Card className="print:hidden no-print">
+                  <SectionHeader
+                    title="Tire Details"
+                    actions={
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-sm theme-text-tertiary">
+                          Set <strong>Qty</strong> on each tire for the number of copies
+                        </span>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer theme-text-secondary">
+                          <input
+                            type="checkbox"
+                            checked={includeItemId}
+                            onChange={(e) => setIncludeItemId(e.target.checked)}
+                            className="w-4 h-4 accent-cyan-500"
+                          />
+                          Add Item&nbsp;ID barcode
+                        </label>
+                        <Button variant="secondary" onClick={addTireLabel}>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Add Tire
+                        </Button>
+                      </div>
+                    }
+                  />
 
                   {/* Save as Work Order */}
-                  <div className={`flex flex-col sm:flex-row sm:items-center gap-3 mb-4 pb-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5 pb-5 border-b theme-border-secondary">
                     <input
                       type="text"
                       value={woTitle}
                       onChange={(e) => setWoTitle(e.target.value)}
                       placeholder="Work order name (optional — will prompt if blank)"
-                      className={`flex-1 px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                      className="theme-input flex-1"
                     />
-                    <button
+                    <Button
+                      variant="primary"
                       onClick={saveWorkOrder}
                       disabled={!tireLabels.some(tireIsPrintable) || woSaving}
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
-                        !tireLabels.some(tireIsPrintable) || woSaving
-                          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                          : isDark
-                            ? "bg-emerald-500 hover:bg-emerald-400 text-white"
-                            : "bg-emerald-600 hover:bg-emerald-700 text-white"
-                      }`}
+                      className="whitespace-nowrap bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                       {woSaving ? "Saving…" : "Save as Work Order"}
-                    </button>
+                    </Button>
                     {woSaved && (
-                      <span className={`text-sm font-medium ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
+                      <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
                         Saved ✓
                       </span>
                     )}
@@ -891,23 +869,23 @@ export default function BinLabelsPage() {
                     {tireLabels.map((label, index) => (
                       <div
                         key={index}
-                        className={`flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}
+                        className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-700/50"
                       >
-                        <span className={`text-sm font-medium w-8 pt-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <span className="text-sm font-medium w-8 pt-2 theme-text-tertiary">
                           #{index + 1}
                         </span>
                         <div className="flex-1 space-y-4">
                           {/* Find tire by sidewall (brand/size/model) — for untagged tires */}
                           <TireSearchBox isDark={isDark} onSelect={(r) => fillTireFromSearch(index, r)} />
-                          <div className={`flex items-center gap-2 text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                            <span className={`flex-1 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`} />
+                          <div className="flex items-center gap-2 text-xs theme-text-tertiary">
+                            <span className="flex-1 border-t theme-border-secondary" />
                             or enter Item ID
-                            <span className={`flex-1 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`} />
+                            <span className="flex-1 border-t theme-border-secondary" />
                           </div>
                           {/* Item ID + Look up */}
                           <div className="flex flex-wrap items-end gap-3">
                             <div className="flex-1 min-w-[180px]">
-                              <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              <label className="block text-xs font-medium mb-1 theme-text-tertiary">
                                 Item ID (for lookup)
                               </label>
                               <input
@@ -915,24 +893,18 @@ export default function BinLabelsPage() {
                                 value={label.itemId}
                                 onChange={(e) => updateTireLabel(index, "itemId", e.target.value.toUpperCase())}
                                 placeholder="e.g., 12345"
-                                className={`w-full px-4 py-2 rounded-lg font-mono ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                                className="theme-input w-full font-mono"
                               />
                             </div>
-                            <button
+                            <Button
+                              variant="primary"
                               onClick={() => lookupTire(index)}
                               disabled={!label.itemId.trim() || lookupLoading === index}
-                              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
-                                !label.itemId.trim() || lookupLoading === index
-                                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                                  : isDark
-                                    ? "bg-cyan-500 hover:bg-cyan-400 text-white"
-                                    : "bg-blue-600 hover:bg-blue-700 text-white"
-                              }`}
                             >
                               {lookupLoading === index ? "Looking up…" : "Look up"}
-                            </button>
+                            </Button>
                             <div>
-                              <label className={`block text-xs font-medium mb-1 text-center ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              <label className="block text-xs font-medium mb-1 text-center theme-text-tertiary">
                                 Qty
                               </label>
                               <input
@@ -942,19 +914,19 @@ export default function BinLabelsPage() {
                                 value={label.qty}
                                 onChange={(e) => updateTireQty(index, parseInt(e.target.value, 10))}
                                 title="Number of copies of this label to print"
-                                className={`w-16 px-3 py-2 rounded-lg text-center font-medium ${isDark ? "bg-slate-800 border-slate-600 text-white" : "bg-white border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                                className="theme-input w-16 text-center font-medium"
                               />
                             </div>
                           </div>
                           {lookupNotFound[index] && (
-                            <p className={`text-xs ${isDark ? "text-amber-400" : "text-amber-600"}`}>
+                            <p className="text-xs text-amber-600 dark:text-amber-400">
                               Not found — enter manually below.
                             </p>
                           )}
                           {/* Brand / Model / Size */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                             <div>
-                              <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              <label className="block text-xs font-medium mb-1 theme-text-tertiary">
                                 Brand
                               </label>
                               <input
@@ -962,11 +934,11 @@ export default function BinLabelsPage() {
                                 value={label.brand}
                                 onChange={(e) => updateTireLabel(index, "brand", e.target.value)}
                                 placeholder="e.g., Goodyear"
-                                className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                                className="theme-input w-full"
                               />
                             </div>
                             <div>
-                              <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              <label className="block text-xs font-medium mb-1 theme-text-tertiary">
                                 Model
                               </label>
                               <input
@@ -974,11 +946,11 @@ export default function BinLabelsPage() {
                                 value={label.model}
                                 onChange={(e) => updateTireLabel(index, "model", e.target.value)}
                                 placeholder="e.g., Assurance MaxLife"
-                                className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                                className="theme-input w-full"
                               />
                             </div>
                             <div>
-                              <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              <label className="block text-xs font-medium mb-1 theme-text-tertiary">
                                 Size / Description
                               </label>
                               <input
@@ -986,13 +958,13 @@ export default function BinLabelsPage() {
                                 value={label.sizeDesc}
                                 onChange={(e) => updateTireLabel(index, "sizeDesc", e.target.value)}
                                 placeholder="e.g., 215/55R17 94V"
-                                className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                                className="theme-input w-full"
                               />
                             </div>
                           </div>
                           {/* MPN — this is what prints AS the barcode. Auto-filled by search/lookup; editable. */}
                           <div>
-                            <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <label className="block text-xs font-medium mb-1 theme-text-tertiary">
                               MPN (prints as barcode)
                             </label>
                             <input
@@ -1000,68 +972,64 @@ export default function BinLabelsPage() {
                               value={label.mpn}
                               onChange={(e) => updateTireLabel(index, "mpn", e.target.value.toUpperCase())}
                               placeholder="Auto-filled from lookup — falls back to Item ID if blank"
-                              className={`w-full px-4 py-2 rounded-lg font-mono ${isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500" : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                              className="theme-input w-full font-mono"
                             />
                           </div>
                           {/* D-Class — appended to the barcode so it scans exactly (AB1234 -> AB1234[) */}
                           <div>
-                            <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <label className="block text-xs font-medium mb-1 theme-text-tertiary">
                               D-Class (barcode suffix)
                             </label>
                             <select
                               value={label.dclass}
                               onChange={(e) => updateTireLabel(index, "dclass", e.target.value)}
-                              className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-800 border-slate-600 text-white" : "bg-white border-gray-200 text-gray-900"} border focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                              className="theme-input w-full"
                             >
                               {DCLASS_OPTIONS.map((o) => (
                                 <option key={o.name} value={o.symbol}>{o.name}</option>
                               ))}
                             </select>
                             {tireBarcodeValue(label) && (
-                              <p className={`mt-1 text-xs font-mono ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
+                              <p className="mt-1 text-xs font-mono text-blue-600 dark:text-cyan-400">
                                 Barcode: {tireBarcodeValue(label)}
                               </p>
                             )}
                           </div>
                         </div>
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => removeTireLabel(index)}
                           disabled={tireLabels.length === 1}
-                          className={`p-2 mt-6 rounded-lg transition-colors ${
-                            tireLabels.length === 1
-                              ? "opacity-30 cursor-not-allowed"
-                              : isDark
-                                ? "hover:bg-slate-600 text-slate-400 hover:text-red-400"
-                                : "hover:bg-gray-200 text-gray-400 hover:text-red-500"
-                          }`}
+                          className="mt-6 text-gray-400 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
-                        </button>
+                        </Button>
                       </div>
                     ))}
                   </div>
+                </Card>
                 </div>
 
-                {/* Tire Preview Section - Hidden when printing */}
-                <div ref={tirePreviewRef} className={`rounded-xl p-4 sm:p-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
-                    <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                      Print Preview ({tireLabelsWithCopies.filter(tireIsPrintable).length} label{tireLabelsWithCopies.filter(tireIsPrintable).length !== 1 ? "s" : ""})
-                    </h2>
-                    <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                      Actual size: 4" × 6" (portrait)
-                    </span>
-                  </div>
+                {/* Tire Preview Card - Hidden when printing */}
+                <div ref={tirePreviewRef}>
+                <Card className="print:hidden no-print">
+                  <SectionHeader
+                    title={`Print Preview (${tireLabelsWithCopies.filter(tireIsPrintable).length} label${tireLabelsWithCopies.filter(tireIsPrintable).length !== 1 ? "s" : ""})`}
+                    actions={
+                      <span className="text-sm theme-text-tertiary">Actual size: 4&quot; × 6&quot; (portrait)</span>
+                    }
+                  />
 
                   {tireLabels.some(tireIsPrintable) ? (
-                    <div className={`p-4 sm:p-8 rounded-lg overflow-x-auto ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
+                    <div className="p-4 sm:p-8 rounded-xl overflow-x-auto bg-[#f2f2f7] dark:bg-slate-900/50">
                       <div className="flex flex-wrap gap-6 items-start justify-center min-w-min">
                         {tireLabels.map((label, index) => (
                           tireIsPrintable(label) && (
                             <div key={index} className="flex flex-col items-center w-full">
-                              <span className={`text-xs font-medium mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                              <span className="text-xs font-medium mb-2 theme-text-tertiary">
                                 Label #{index + 1} {(label.qty || 1) > 1 && `(×${label.qty} copies)`}
                               </span>
 
@@ -1137,42 +1105,43 @@ export default function BinLabelsPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className={`text-center py-16 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
+                    <div className="text-center py-16 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50">
                       <svg className="w-20 h-20 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                       </svg>
-                      <p className={`text-lg font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      <p className="text-lg font-medium theme-text-secondary">
                         Enter an Item ID or Brand to preview label
                       </p>
-                      <p className={`text-sm mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                        Use "Look up" to auto-fill, or type details manually
+                      <p className="text-sm mt-1 theme-text-tertiary">
+                        Use &quot;Look up&quot; to auto-fill, or type details manually
                       </p>
                     </div>
                   )}
+                </Card>
                 </div>
 
                 {/* Work Orders Panel - Hidden when printing */}
-                <div className={`rounded-xl p-6 mt-6 print:hidden no-print ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
-                    <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                      Work Orders
-                    </h2>
-                    <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                      {workOrders ? `${workOrders.length} saved` : "Loading…"}
-                    </span>
-                  </div>
+                <Card className="print:hidden no-print">
+                  <SectionHeader
+                    title="Work Orders"
+                    actions={
+                      <span className="text-sm theme-text-tertiary">
+                        {workOrders ? `${workOrders.length} saved` : "Loading…"}
+                      </span>
+                    }
+                  />
 
                   {workOrders === undefined ? (
-                    <div className={`text-center py-10 rounded-lg ${isDark ? "bg-slate-900/50 text-slate-400" : "bg-gray-100 text-gray-500"}`}>
+                    <div className="text-center py-10 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50 theme-text-tertiary">
                       Loading work orders…
                     </div>
                   ) : workOrders.length === 0 ? (
-                    <div className={`text-center py-10 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-100"}`}>
-                      <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <div className="text-center py-10 rounded-xl bg-[#f2f2f7] dark:bg-slate-900/50">
+                      <p className="text-sm font-medium theme-text-secondary">
                         No saved work orders yet.
                       </p>
-                      <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                        Fill in tire details above and click "Save as Work Order".
+                      <p className="text-xs mt-1 theme-text-tertiary">
+                        Fill in tire details above and click &quot;Save as Work Order&quot;.
                       </p>
                     </div>
                   ) : (
@@ -1183,58 +1152,62 @@ export default function BinLabelsPage() {
                         return (
                           <div
                             key={wo._id}
-                            className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"} ${isLoaded ? (isDark ? "ring-2 ring-cyan-500" : "ring-2 ring-blue-500") : ""}`}
+                            className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 rounded-xl bg-[#f2f2f7] dark:bg-slate-700/50 ${isLoaded ? "ring-2 ring-blue-500 dark:ring-cyan-500" : ""}`}
                           >
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <p className={`font-semibold truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                                <p className="font-semibold truncate theme-text-primary">
                                   {wo.title}
                                 </p>
                                 {isPrinted ? (
-                                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                                  <span className="ui-badge ui-badge-green">
                                     Printed{wo.printedByName ? ` · ${wo.printedByName}` : ""}
                                   </span>
                                 ) : (
-                                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-amber-100 text-amber-700"}`}>
+                                  <span className="ui-badge ui-badge-amber">
                                     Open
                                   </span>
                                 )}
                               </div>
-                              <p className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              <p className="text-xs mt-1 theme-text-tertiary">
                                 {wo.labels.length} tire{wo.labels.length !== 1 ? "s" : ""} · {wo.labels.reduce((s, l) => s + (l.qty ?? wo.copies ?? 1), 0)} labels · {wo.createdByName} · {formatWoDate(wo.createdAt)}
                               </p>
                             </div>
                             <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
-                              <button
+                              <Button
+                                variant="primary"
+                                size="sm"
                                 onClick={() => loadWorkOrder(wo)}
-                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-cyan-500 hover:bg-cyan-400 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
                               >
                                 Open to print/edit
-                              </button>
+                              </Button>
                               {!isPrinted && (
-                                <button
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
                                   onClick={() => handleMarkPrinted(wo._id)}
-                                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-slate-600 hover:bg-slate-500 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
                                 >
                                   Mark printed
-                                </button>
+                                </Button>
                               )}
-                              <button
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => handleDeleteWorkOrder(wo._id, wo.title)}
-                                className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-600 text-slate-400 hover:text-red-400" : "hover:bg-gray-200 text-gray-400 hover:text-red-500"}`}
                                 aria-label="Delete work order"
+                                className="text-gray-400 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400"
                               >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
-                              </button>
+                              </Button>
                             </div>
                           </div>
                         );
                       })}
                     </div>
                   )}
-                </div>
+                </Card>
               </>
             )}
           </div>
