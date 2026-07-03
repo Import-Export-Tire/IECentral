@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useTheme } from "@/app/theme-context";
 import { useAuth } from "@/app/auth-context";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -15,12 +14,11 @@ import { useVirtualBackground } from "@/lib/webrtc/useVirtualBackground";
 import VideoGrid from "@/components/meetings/VideoGrid";
 import MeetingControls from "@/components/meetings/MeetingControls";
 import { ControlRequestModal, ControlGrantedNotification } from "@/components/meetings/ControlRequestModal";
+import Button from "@/components/ui/Button";
 
 export default function MeetingRoomPage() {
   const params = useParams();
   const router = useRouter();
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const { user } = useAuth();
 
   const meetingId = params.meetingId as string;
@@ -397,22 +395,10 @@ export default function MeetingRoomPage() {
   // Error state
   if (error) {
     return (
-      <div
-        className={`min-h-screen flex items-center justify-center ${
-          isDark ? "bg-slate-900" : "bg-gray-50"
-        }`}
-      >
-        <div
-          className={`text-center border rounded-xl p-8 max-w-md ${
-            isDark
-              ? "bg-slate-800/50 border-slate-700"
-              : "bg-white border-gray-200 shadow-sm"
-          }`}
-        >
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
+        <div className="text-center theme-card p-8 max-w-md">
           <svg
-            className={`w-16 h-16 mx-auto mb-4 ${
-              isDark ? "text-slate-500" : "text-gray-400"
-            }`}
+            className="w-16 h-16 mx-auto mb-4 text-gray-400 dark:text-slate-500"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -424,23 +410,12 @@ export default function MeetingRoomPage() {
               d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
             />
           </svg>
-          <h2
-            className={`text-xl font-semibold mb-2 ${
-              isDark ? "text-white" : "text-gray-900"
-            }`}
-          >
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
             {error}
           </h2>
-          <button
-            onClick={() => router.push("/meetings")}
-            className={`mt-4 px-5 py-2 rounded-lg font-medium transition-colors ${
-              isDark
-                ? "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30"
-                : "bg-blue-100 text-blue-600 hover:bg-blue-200"
-            }`}
-          >
+          <Button variant="primary" onClick={() => router.push("/meetings")}>
             Back to Meetings
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -449,14 +424,10 @@ export default function MeetingRoomPage() {
   // Loading state — wait for meeting data; participant record will come reactively
   if (!meeting || !hasJoined) {
     return (
-      <div
-        className={`min-h-screen flex items-center justify-center ${
-          isDark ? "bg-slate-900" : "bg-gray-50"
-        }`}
-      >
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto mb-4" />
-          <p className={isDark ? "text-slate-400" : "text-gray-500"}>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#007AFF] mx-auto mb-4" />
+          <p className="text-gray-500 dark:text-slate-400">
             Joining meeting...
           </p>
         </div>
@@ -481,37 +452,23 @@ export default function MeetingRoomPage() {
   const someoneElseIsScreenSharing = !!screenSharer;
 
   return (
-    <div
-      className={`h-screen flex flex-col ${
-        isDark ? "bg-slate-900" : "bg-gray-100"
-      }`}
-    >
+    <div className="h-screen flex flex-col bg-gray-100 dark:bg-slate-900">
       {/* Top bar — minimal */}
-      <div
-        className={`flex items-center justify-between px-4 py-2 ${
-          isDark ? "bg-slate-800/80" : "bg-white/80"
-        } backdrop-blur-sm z-10`}
-      >
+      <div className="flex items-center justify-between px-4 py-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-b border-gray-200/70 dark:border-slate-700/60 z-10">
         <div className="flex items-center gap-3">
           <button
             onClick={handleLeave}
-            className={`p-1.5 rounded-lg transition-colors ${
-              isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-200 text-gray-500"
-            }`}
+            className="p-1.5 rounded-lg transition-colors text-gray-500 hover:bg-gray-200 dark:text-slate-400 dark:hover:bg-slate-700"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </button>
-          <h1
-            className={`text-sm font-medium truncate ${
-              isDark ? "text-white" : "text-gray-900"
-            }`}
-          >
+          <h1 className="text-sm font-semibold truncate text-gray-900 dark:text-white">
             {meeting.title}
           </h1>
           {meeting.isNotedMeeting && (
-            <span className="flex items-center gap-1 text-xs text-red-400">
+            <span className="flex items-center gap-1 text-xs font-medium text-red-500 dark:text-red-400">
               <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
               Noting
             </span>
@@ -519,28 +476,21 @@ export default function MeetingRoomPage() {
         </div>
         <div className="flex items-center gap-2">
           {meeting.joinCode && (
-            <span
-              className={`text-xs font-mono ${
-                isDark ? "text-slate-500" : "text-gray-400"
-              }`}
-            >
+            <span className="text-xs font-mono text-gray-400 dark:text-slate-500">
               {meeting.joinCode}
             </span>
           )}
           {isHost && (
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() => setShowInviteModal(true)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                isDark
-                  ? "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30"
-                  : "bg-blue-100 text-blue-600 hover:bg-blue-200"
-              }`}
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
               </svg>
               Invite
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -574,26 +524,14 @@ export default function MeetingRoomPage() {
 
       {/* Participant side panel */}
       {showParticipantList && (
-        <div
-          className={`fixed top-0 right-0 bottom-0 w-full sm:w-72 z-40 border-l ${
-            isDark
-              ? "bg-slate-800 border-slate-700"
-              : "bg-white border-gray-200"
-          } shadow-xl`}
-        >
-          <div className="flex items-center justify-between p-4 border-b ${isDark ? 'border-slate-700' : 'border-gray-200'}">
-            <h3
-              className={`font-semibold ${
-                isDark ? "text-white" : "text-gray-900"
-              }`}
-            >
+        <div className="fixed top-0 right-0 bottom-0 w-full sm:w-72 z-40 border-l shadow-xl bg-white border-gray-200 dark:bg-slate-800 dark:border-slate-700">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700">
+            <h3 className="font-semibold text-gray-900 dark:text-white">
               Participants ({(participants ?? []).length})
             </h3>
             <button
               onClick={() => setShowParticipantList(false)}
-              className={`p-1 rounded ${
-                isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-200 text-gray-500"
-              }`}
+              className="p-1 rounded text-gray-500 hover:bg-gray-200 dark:text-slate-400 dark:hover:bg-slate-700"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -604,13 +542,11 @@ export default function MeetingRoomPage() {
             {enrichedParticipants.map((p: any) => (
               <div
                 key={String(p._id)}
-                className={`flex items-center gap-3 p-2 rounded-lg ${
-                  isDark ? "bg-slate-700/50" : "bg-gray-50"
-                }`}
+                className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 dark:bg-slate-700/50"
               >
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white ${
-                    p.userId === user?._id ? "bg-cyan-600" : "bg-slate-500"
+                    p.userId === user?._id ? "bg-[#007AFF]" : "bg-slate-500"
                   }`}
                 >
                   {(p.displayName || "?")
@@ -621,11 +557,7 @@ export default function MeetingRoomPage() {
                     .toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p
-                    className={`text-sm font-medium truncate ${
-                      isDark ? "text-white" : "text-gray-900"
-                    }`}
-                  >
+                  <p className="text-sm font-medium truncate text-gray-900 dark:text-white">
                     {p.displayName}
                     {p.userId === user?._id && " (You)"}
                   </p>
@@ -686,24 +618,10 @@ export default function MeetingRoomPage() {
             }}
           />
           {/* Modal */}
-          <div
-            className={`relative w-full max-w-lg rounded-2xl border shadow-2xl ${
-              isDark
-                ? "bg-slate-800 border-slate-700"
-                : "bg-white border-gray-200"
-            }`}
-          >
+          <div className="relative w-full max-w-lg rounded-2xl border shadow-2xl bg-white border-gray-200 dark:bg-slate-800 dark:border-slate-700">
             {/* Header */}
-            <div
-              className={`flex items-center justify-between px-6 py-4 border-b ${
-                isDark ? "border-slate-700" : "border-gray-200"
-              }`}
-            >
-              <h2
-                className={`text-lg font-semibold ${
-                  isDark ? "text-white" : "text-gray-900"
-                }`}
-              >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-slate-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Invite to Meeting
               </h2>
               <button
@@ -712,11 +630,7 @@ export default function MeetingRoomPage() {
                   setInviteSuccess(null);
                   setInviteError(null);
                 }}
-                className={`p-1.5 rounded-lg transition-colors ${
-                  isDark
-                    ? "hover:bg-slate-700 text-slate-400"
-                    : "hover:bg-gray-100 text-gray-500"
-                }`}
+                className="p-1.5 rounded-lg transition-colors text-gray-500 hover:bg-gray-100 dark:text-slate-400 dark:hover:bg-slate-700"
               >
                 <svg
                   className="w-5 h-5"
@@ -737,31 +651,19 @@ export default function MeetingRoomPage() {
             <div className="px-6 py-5 space-y-6">
               {/* Join Code */}
               <div>
-                <label
-                  className={`block text-sm font-medium mb-2 ${
-                    isDark ? "text-slate-300" : "text-gray-700"
-                  }`}
-                >
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
                   Join Code
                 </label>
                 <div className="flex items-center gap-2">
-                  <div
-                    className={`flex-1 flex items-center justify-center py-3 rounded-lg font-mono text-2xl font-bold tracking-[0.3em] ${
-                      isDark
-                        ? "bg-slate-900 text-cyan-400 border border-slate-700"
-                        : "bg-gray-50 text-blue-600 border border-gray-200"
-                    }`}
-                  >
+                  <div className="flex-1 flex items-center justify-center py-3 rounded-lg font-mono text-2xl font-bold tracking-[0.3em] bg-gray-50 text-[#007AFF] border border-gray-200 dark:bg-slate-900 dark:text-cyan-400 dark:border-slate-700">
                     {meeting.joinCode}
                   </div>
                   <button
                     onClick={handleCopyCode}
                     className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                       codeCopied
-                        ? "bg-emerald-500/20 text-emerald-400"
-                        : isDark
-                        ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
                     }`}
                   >
                     {codeCopied ? (
@@ -805,21 +707,11 @@ export default function MeetingRoomPage() {
 
               {/* Join URL */}
               <div>
-                <label
-                  className={`block text-sm font-medium mb-2 ${
-                    isDark ? "text-slate-300" : "text-gray-700"
-                  }`}
-                >
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
                   Join URL
                 </label>
                 <div className="flex items-center gap-2">
-                  <div
-                    className={`flex-1 px-3 py-2.5 rounded-lg text-sm truncate ${
-                      isDark
-                        ? "bg-slate-900 text-slate-300 border border-slate-700"
-                        : "bg-gray-50 text-gray-600 border border-gray-200"
-                    }`}
-                  >
+                  <div className="flex-1 px-3 py-2.5 rounded-lg text-sm truncate bg-gray-50 text-gray-600 border border-gray-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700">
                     {typeof window !== "undefined"
                       ? `${window.location.origin}/join/${meeting.joinCode}`
                       : `/join/${meeting.joinCode}`}
@@ -828,10 +720,8 @@ export default function MeetingRoomPage() {
                     onClick={handleCopyUrl}
                     className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                       urlCopied
-                        ? "bg-emerald-500/20 text-emerald-400"
-                        : isDark
-                        ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
                     }`}
                   >
                     {urlCopied ? (
@@ -875,25 +765,11 @@ export default function MeetingRoomPage() {
 
               {/* Divider */}
               <div className="relative">
-                <div
-                  className={`absolute inset-0 flex items-center ${
-                    isDark ? "border-slate-700" : "border-gray-200"
-                  }`}
-                >
-                  <div
-                    className={`w-full border-t ${
-                      isDark ? "border-slate-700" : "border-gray-200"
-                    }`}
-                  />
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200 dark:border-slate-700" />
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span
-                    className={`px-3 ${
-                      isDark
-                        ? "bg-slate-800 text-slate-500"
-                        : "bg-white text-gray-400"
-                    }`}
-                  >
+                  <span className="px-3 bg-white text-gray-400 dark:bg-slate-800 dark:text-slate-500">
                     or send an email invite
                   </span>
                 </div>
@@ -902,17 +778,9 @@ export default function MeetingRoomPage() {
               {/* Email Invite Form */}
               <div className="space-y-3">
                 <div>
-                  <label
-                    className={`block text-sm font-medium mb-1.5 ${
-                      isDark ? "text-slate-300" : "text-gray-700"
-                    }`}
-                  >
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-slate-300">
                     Name{" "}
-                    <span
-                      className={`font-normal ${
-                        isDark ? "text-slate-500" : "text-gray-400"
-                      }`}
-                    >
+                    <span className="font-normal text-gray-400 dark:text-slate-500">
                       (optional)
                     </span>
                   </label>
@@ -921,38 +789,26 @@ export default function MeetingRoomPage() {
                     value={inviteName}
                     onChange={(e) => setInviteName(e.target.value)}
                     placeholder="Guest name"
-                    className={`w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 transition-colors ${
-                      isDark
-                        ? "bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:ring-cyan-500/50 focus:border-cyan-500"
-                        : "bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-blue-500/50 focus:border-blue-500"
-                    }`}
+                    className="w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 transition-colors bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-[#007AFF]/50 focus:border-[#007AFF] dark:bg-slate-900 dark:border-slate-700 dark:text-white dark:placeholder-slate-500 dark:focus:ring-cyan-500/50 dark:focus:border-cyan-500"
                   />
                 </div>
                 <div>
-                  <label
-                    className={`block text-sm font-medium mb-1.5 ${
-                      isDark ? "text-slate-300" : "text-gray-700"
-                    }`}
-                  >
-                    Email <span className="text-red-400">*</span>
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-slate-300">
+                    Email <span className="text-red-500 dark:text-red-400">*</span>
                   </label>
                   <input
                     type="email"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="guest@example.com"
-                    className={`w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 transition-colors ${
-                      isDark
-                        ? "bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:ring-cyan-500/50 focus:border-cyan-500"
-                        : "bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-blue-500/50 focus:border-blue-500"
-                    }`}
+                    className="w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 transition-colors bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-[#007AFF]/50 focus:border-[#007AFF] dark:bg-slate-900 dark:border-slate-700 dark:text-white dark:placeholder-slate-500 dark:focus:ring-cyan-500/50 dark:focus:border-cyan-500"
                   />
                 </div>
 
                 {inviteSuccess && (
-                  <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                  <div className="ui-callout-green rounded-lg flex items-center gap-2 p-3">
                     <svg
-                      className="w-4 h-4 text-emerald-400 flex-shrink-0"
+                      className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -964,14 +820,14 @@ export default function MeetingRoomPage() {
                         d="M5 13l4 4L19 7"
                       />
                     </svg>
-                    <p className="text-sm text-emerald-400">{inviteSuccess}</p>
+                    <p className="text-sm text-emerald-600 dark:text-emerald-400">{inviteSuccess}</p>
                   </div>
                 )}
 
                 {inviteError && (
-                  <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                  <div className="ui-callout-red rounded-lg flex items-center gap-2 p-3">
                     <svg
-                      className="w-4 h-4 text-red-400 flex-shrink-0"
+                      className="w-4 h-4 text-red-500 dark:text-red-400 flex-shrink-0"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -983,18 +839,15 @@ export default function MeetingRoomPage() {
                         d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                       />
                     </svg>
-                    <p className="text-sm text-red-400">{inviteError}</p>
+                    <p className="text-sm text-red-500 dark:text-red-400">{inviteError}</p>
                   </div>
                 )}
 
-                <button
+                <Button
+                  variant="primary"
                   onClick={handleSendInvite}
                   disabled={inviteSending || !inviteEmail.trim()}
-                  className={`w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                    isDark
-                      ? "bg-cyan-500 hover:bg-cyan-600 disabled:bg-cyan-500/30 text-white disabled:text-cyan-300/50"
-                      : "bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white"
-                  } disabled:cursor-not-allowed`}
+                  className="w-full"
                 >
                   {inviteSending ? (
                     <>
@@ -1037,43 +890,33 @@ export default function MeetingRoomPage() {
                       Send Email Invite
                     </>
                   )}
-                </button>
+                </Button>
               </div>
 
               {/* Sent Invites List */}
               {meetingInvites && meetingInvites.length > 0 && (
                 <div>
-                  <label
-                    className={`block text-sm font-medium mb-2 ${
-                      isDark ? "text-slate-300" : "text-gray-700"
-                    }`}
-                  >
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
                     Sent Invites
                   </label>
                   <div className="space-y-1.5 max-h-32 overflow-y-auto">
                     {meetingInvites.map((inv: any) => (
                       <div
                         key={String(inv._id)}
-                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm ${
-                          isDark ? "bg-slate-900/50" : "bg-gray-50"
-                        }`}
+                        className="flex items-center justify-between px-3 py-2 rounded-lg text-sm bg-gray-50 dark:bg-slate-900/50"
                       >
                         <div className="min-w-0">
-                          <span
-                            className={`truncate block ${
-                              isDark ? "text-slate-300" : "text-gray-700"
-                            }`}
-                          >
+                          <span className="truncate block text-gray-700 dark:text-slate-300">
                             {inv.name ? `${inv.name} (${inv.email})` : inv.email}
                           </span>
                         </div>
                         <span
                           className={`ml-2 flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${
                             inv.status === "joined"
-                              ? "bg-emerald-500/20 text-emerald-400"
+                              ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
                               : inv.status === "opened"
-                              ? "bg-amber-500/20 text-amber-400"
-                              : "bg-slate-500/20 text-slate-400"
+                              ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                              : "bg-slate-500/20 text-slate-500 dark:text-slate-400"
                           }`}
                         >
                           {inv.status}
