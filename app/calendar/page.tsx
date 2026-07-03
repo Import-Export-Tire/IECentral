@@ -662,15 +662,18 @@ function CalendarContent() {
     return `${first.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${last.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${last.getFullYear()}`;
   }, [viewMode, selectedDate, weekDays]);
 
-  // Empty-slot click in Day/Week grid → open create modal prefilled for that
-  // day + hour, mirroring the month click-to-create flow.
-  const handleSlotClick = (dayDate: Date, hour: number) => {
+  // Click-drag in Day/Week grid → open create modal prefilled with the drawn
+  // range (minutes-from-midnight, snapped to 15). A plain click yields a
+  // 60-minute default from TimeGrid. Mirrors the month click-to-create flow.
+  const handleSlotCreate = (dayDate: Date, startMinutes: number, endMinutes: number) => {
     const start = new Date(dayDate);
-    start.setHours(hour, 0, 0, 0);
+    start.setHours(0, startMinutes, 0, 0);
+    const end = new Date(dayDate);
+    end.setHours(0, endMinutes, 0, 0);
     setFormData({
       ...formData,
       startTime: formatDateForInput(start),
-      endTime: formatDateForInput(new Date(start.getTime() + 60 * 60 * 1000)),
+      endTime: formatDateForInput(end),
     });
     setShowCreateModal(true);
   };
@@ -960,7 +963,7 @@ function CalendarContent() {
                 getEventsForDay={getEventsForDay}
                 eventChipClass={eventChipClass}
                 onEventClick={openEventDetails}
-                onSlotClick={handleSlotClick}
+                onSlotCreate={handleSlotCreate}
                 isToday={isToday}
                 now={now}
               />
@@ -974,7 +977,7 @@ function CalendarContent() {
                 getEventsForDay={getEventsForDay}
                 eventChipClass={eventChipClass}
                 onEventClick={openEventDetails}
-                onSlotClick={handleSlotClick}
+                onSlotCreate={handleSlotCreate}
                 isToday={isToday}
                 now={now}
               />

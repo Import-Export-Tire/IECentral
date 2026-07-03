@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { layoutDayEvents } from "./eventLayout";
 
 const HOUR_HEIGHT = 48; // px per hour row
@@ -12,9 +12,31 @@ interface TimeGridProps {
   getEventsForDay: (d: Date) => any[];
   eventChipClass: (e: any) => string;
   onEventClick: (e: any) => void;
-  onSlotClick: (dayDate: Date, hour: number) => void; // click empty slot to create
+  // Drag (or click) an empty region to create an event with a prefilled range.
+  // startMinutes/endMinutes are minutes-from-midnight, snapped to 15.
+  onSlotCreate: (dayDate: Date, startMinutes: number, endMinutes: number) => void;
   isToday: (d: Date) => boolean;
   now: Date; // from useNowMinute
+}
+
+// Convert a Y pixel offset within the 1152px grid to minutes-from-midnight.
+function yToMinutes(y: number): number {
+  return (y / GRID_HEIGHT) * 1440;
+}
+
+// Snap minutes to the nearest 15-minute increment.
+function snap15(m: number): number {
+  return Math.round(m / 15) * 15;
+}
+
+function clampMin(m: number): number {
+  return Math.max(0, Math.min(1440, m));
+}
+
+interface DragState {
+  dayIndex: number;
+  startMin: number;
+  endMin: number;
 }
 
 function hourLabel(hour: number): string {
@@ -33,11 +55,14 @@ export default function TimeGrid({
   getEventsForDay,
   eventChipClass,
   onEventClick,
-  onSlotClick,
+  onSlotCreate,
   isToday,
   now,
 }: TimeGridProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // One ref per day column so we can compute an accurate Y within the grid.
+  const columnRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const [drag, setDrag] = useState<DragState | null>(null);
 
   // On mount, scroll so ~7 AM is near the top (GCal behavior).
   useEffect(() => {
@@ -45,6 +70,58 @@ export default function TimeGrid({
       scrollRef.current.scrollTop = 7 * HOUR_HEIGHT;
     }
   }, []);
+
+  // Cancel an in-progress selection on Escape.
+  useEffect(() => {
+    if (!drag) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrag(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drag]);
+
+  const minutesFromPointer = (e: React.PointerEvent, dayIndex: number): number => {
+    const col = columnRefs.current[dayIndex];
+    if (!col) return 0;
+    const rect = col.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    return clampMin(snap15(yToMinutes(y)));
+  };
+
+  const handlePointerDown = (e: React.PointerEvent, dayIndex: number) => {
+    // Only respond to primary button / touch / pen.
+    if (e.button !== 0) return;
+    const m = minutesFromPointer(e, dayIndex);
+    setDrag({ dayIndex, startMin: m, endMin: m });
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* setPointerCapture can throw if the pointer is already released */
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent, dayIndex: number) => {
+    if (!drag || drag.dayIndex !== dayIndex) return;
+    const m = minutesFromPointer(e, dayIndex);
+    setDrag((prev) => (prev ? { ...prev, endMin: m } : prev));
+  };
+
+  const handlePointerUp = (e: React.PointerEvent, dayIndex: number) => {
+    if (!drag || drag.dayIndex !== dayIndex) return;
+    let a = Math.min(drag.startMin, drag.endMin);
+    let b = Math.max(drag.startMin, drag.endMin);
+    // A no-drag click (or a sub-slot smudge) → default 60-minute block.
+    if (b - a < 15) {
+      b = Math.min(1440, a + 60);
+      // If clamping at the bottom of the day left no room, shift start up.
+      if (b - a < 60) a = Math.max(0, b - 60);
+    }
+    onSlotCreate(days[dayIndex], a, b);
+    setDrag(null);
+  };
+
+  const cancelDrag = () => setDrag(null);
 
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const nowTopPct = (nowMinutes / 1440) * 100;
@@ -111,7 +188,7 @@ export default function TimeGrid({
                 <div
                   key={event._id}
                   onClick={() => onEventClick(event)}
-                  className={`text-[11px] px-1.5 py-0.5 rounded truncate cursor-pointer font-medium ${eventChipClass(event)}`}
+                  className={`text-[11px] px-1.5 py-0.5 rounded-md ring-1 ring-black/5 truncate cursor-pointer font-medium ${eventChipClass(event)}`}
                   title={event.title}
                 >
                   {event.title}
@@ -144,21 +221,47 @@ export default function TimeGrid({
             {/* Day columns */}
             {perDay.map(({ day, positioned }, i) => {
               const today = isToday(day);
+              const dragActive = drag?.dayIndex === i;
+              const dragTopMin = dragActive ? Math.min(drag!.startMin, drag!.endMin) : 0;
+              const dragBotMin = dragActive ? Math.max(drag!.startMin, drag!.endMin) : 0;
               return (
                 <div key={i} className="relative border-r theme-border-secondary">
-                  {/* Hour gridlines + clickable slot layers */}
+                  {/* Hour gridlines (visual only) */}
                   {Array.from({ length: 24 }, (_, h) => (
                     <div
                       key={h}
-                      onClick={() => onSlotClick(day, h)}
-                      className="absolute left-0 right-0 border-t theme-border-secondary cursor-pointer"
+                      className="absolute left-0 right-0 border-t theme-border-secondary pointer-events-none"
                       style={{ top: h * HOUR_HEIGHT, height: HOUR_HEIGHT }}
                     />
                   ))}
 
+                  {/* Drag-select overlay: full-height, sits below event blocks
+                      (z-0) so clicking an existing event still hits the event
+                      (event blocks are z-10). Handles both click + drag. */}
+                  <div
+                    ref={(el) => {
+                      columnRefs.current[i] = el;
+                    }}
+                    className="absolute inset-0 z-0 cursor-pointer touch-none"
+                    onPointerDown={(e) => handlePointerDown(e, i)}
+                    onPointerMove={(e) => handlePointerMove(e, i)}
+                    onPointerUp={(e) => handlePointerUp(e, i)}
+                    onPointerLeave={cancelDrag}
+                    onPointerCancel={cancelDrag}
+                  >
+                    {dragActive && dragBotMin > dragTopMin && (
+                      <div
+                        className="absolute left-0.5 right-0.5 rounded-md bg-[#007AFF]/20 border border-[#007AFF]/40 pointer-events-none"
+                        style={{
+                          top: (dragTopMin / 1440) * GRID_HEIGHT,
+                          height: ((dragBotMin - dragTopMin) / 1440) * GRID_HEIGHT,
+                        }}
+                      />
+                    )}
+                  </div>
+
                   {/* Positioned timed events */}
                   {positioned.map((p, idx) => {
-                    const gutter = 2; // px between columns
                     const widthPct = 100 / p.colCount;
                     const leftPct = widthPct * p.colIndex;
                     const event = p.event;
@@ -176,16 +279,23 @@ export default function TimeGrid({
                     return (
                       <div
                         key={event._id ?? idx}
+                        onPointerDown={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.stopPropagation();
                           onEventClick(event);
                         }}
-                        className={`absolute rounded px-1 py-0.5 overflow-hidden cursor-pointer text-[11px] leading-tight font-medium ${eventChipClass(event)}`}
+                        className={`absolute z-10 rounded-md px-1.5 py-0.5 overflow-hidden cursor-pointer text-[11px] leading-tight font-medium ring-1 ring-black/5 shadow-sm ${eventChipClass(event)}`}
                         style={{
+                          // top/height stay duration-accurate; horizontal +2px
+                          // left inset and -6px width give a GCal inter-column
+                          // gap + right margin; ~1px vertical margin gives a
+                          // hairline gap between consecutive events.
                           top: `${p.topPct}%`,
                           height: `${p.heightPct}%`,
-                          left: `calc(${leftPct}% + ${gutter}px)`,
-                          width: `calc(${widthPct}% - ${gutter * 2}px)`,
+                          left: `calc(${leftPct}% + 2px)`,
+                          width: `calc(${widthPct}% - 6px)`,
+                          marginTop: "1px",
+                          marginBottom: "1px",
                         }}
                         title={`${timeLabel} ${event.title}`}
                       >
@@ -195,8 +305,8 @@ export default function TimeGrid({
                           </div>
                         ) : (
                           <>
-                            <div className="truncate">{timeLabel}</div>
-                            <div className="truncate">{event.title}</div>
+                            <div className="truncate opacity-70 text-[10px]">{timeLabel}</div>
+                            <div className="truncate font-semibold">{event.title}</div>
                           </>
                         )}
                       </div>
