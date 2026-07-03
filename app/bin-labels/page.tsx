@@ -157,6 +157,9 @@ export default function BinLabelsPage() {
     { itemId: "", mpn: "", brand: "", model: "", sizeDesc: "", qty: 1, dclass: "" },
   ]);
   const [copies, setCopies] = useState(1);
+  // Bin-label print orientation. Physical label is 2"×6"; landscape prints it
+  // 6 wide × 2 tall (barcode + name side by side), portrait 2 wide × 6 tall (stacked).
+  const [binOrientation, setBinOrientation] = useState<"landscape" | "portrait">("landscape");
   const [includeItemId, setIncludeItemId] = useState(false); // add a 2nd Item-ID barcode
   const [lookupLoading, setLookupLoading] = useState<number | null>(null);
   const [lookupNotFound, setLookupNotFound] = useState<Record<number, boolean>>({});
@@ -336,35 +339,61 @@ export default function BinLabelsPage() {
     const items = labelsWithCopies.filter((l) => l.locationId);
     if (items.length === 0) return;
     const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF({ unit: "in", format: [6, 2], orientation: "landscape" });
+    // Physical label is 2"×6". Landscape = 6 wide × 2 tall; portrait = 2 wide × 6 tall.
+    const portrait = binOrientation === "portrait";
+    const pageW = portrait ? 2 : 6;
+    const pageH = portrait ? 6 : 2;
+    const fmt: [number, number] = [pageW, pageH];
+    const orient: "portrait" | "landscape" = portrait ? "portrait" : "landscape";
+    // Edge margin (in) so nothing prints flush to the label edge.
+    const M = 0.22;
+    const doc = new jsPDF({ unit: "in", format: fmt, orientation: orient });
 
     for (let i = 0; i < items.length; i++) {
       const l = items[i];
-      if (i > 0) doc.addPage([6, 2], "landscape");
+      if (i > 0) doc.addPage(fmt, orient);
       doc.setTextColor(0, 0, 0);
-
-      // Barcode (Code 128 of the bin/location id, value printed beneath) on the left.
       const bc = barcodePngForPdf(l.locationId);
-      if (bc) {
-        let bw = 3.5, bh = (bw * bc.h) / bc.w;
-        if (bh > 1.6) { bh = 1.6; bw = (bh * bc.w) / bc.h; }
-        const bx = 0.2 + (3.5 - bw) / 2;
-        const by = (2 - bh) / 2;
-        doc.addImage(bc.dataUrl, "PNG", bx, by, bw, bh);
-      }
 
-      // Location name (right), auto-fit so long names never overflow the label.
-      if (l.locationName) {
-        const nameCx = 4.75; // center of the right region (~3.7in .. 5.8in)
-        const maxNameW = 2.0;
+      const drawName = (cx: number, cy: number, maxW: number) => {
+        if (!l.locationName) return;
         doc.setFont("helvetica", "bold");
         let fs = 30;
         doc.setFontSize(fs);
-        while (fs > 10 && doc.getTextWidth(l.locationName) > maxNameW) {
+        while (fs > 10 && doc.getTextWidth(l.locationName) > maxW) {
           fs -= 1;
           doc.setFontSize(fs);
         }
-        doc.text(l.locationName, nameCx, 1.05, { align: "center", baseline: "middle", maxWidth: 2.1 });
+        doc.text(l.locationName, cx, cy, { align: "center", baseline: "middle", maxWidth: maxW });
+      };
+
+      if (portrait) {
+        // Stacked: location name near the top, barcode filling the space below.
+        const contentW = pageW - 2 * M;              // ~1.56"
+        const nameBandH = 1.0;                        // top band reserved for the name
+        drawName(pageW / 2, M + nameBandH / 2, contentW);
+        if (bc) {
+          const availH = (pageH - M) - (M + nameBandH); // barcode region height
+          let bw = contentW, bh = (bw * bc.h) / bc.w;
+          if (bh > availH) { bh = availH; bw = (bh * bc.w) / bc.h; }
+          const bx = (pageW - bw) / 2;
+          const by = (M + nameBandH) + (availH - bh) / 2;
+          doc.addImage(bc.dataUrl, "PNG", bx, by, bw, bh);
+        }
+      } else {
+        // Side by side: barcode on the left, name on the right, inset on all edges.
+        const split = 3.5;                            // boundary between barcode / name
+        const availH = pageH - 2 * M;                 // ~1.56"
+        if (bc) {
+          const leftW = split - M;                    // barcode region width
+          let bw = leftW, bh = (bw * bc.h) / bc.w;
+          if (bh > availH) { bh = availH; bw = (bh * bc.w) / bc.h; }
+          const bx = M + (leftW - bw) / 2;
+          const by = (pageH - bh) / 2;
+          doc.addImage(bc.dataUrl, "PNG", bx, by, bw, bh);
+        }
+        const rightW = (pageW - M) - split;           // name region width (~2.28")
+        drawName(split + rightW / 2, pageH / 2, rightW);
       }
     }
 
@@ -651,6 +680,27 @@ export default function BinLabelsPage() {
                       <div className="flex flex-wrap items-center gap-3">
                         <div className="flex items-center gap-2">
                           <label className="text-sm font-medium theme-text-secondary">
+                            Orientation:
+                          </label>
+                          <div className="inline-flex">
+                            <button
+                              type="button"
+                              onClick={() => setBinOrientation("landscape")}
+                              className={`ui-segment rounded-l-lg ${binOrientation === "landscape" ? "ui-segment-on" : ""}`}
+                            >
+                              Landscape
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setBinOrientation("portrait")}
+                              className={`ui-segment rounded-r-lg -ml-px ${binOrientation === "portrait" ? "ui-segment-on" : ""}`}
+                            >
+                              Portrait
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-sm font-medium theme-text-secondary">
                             Copies per label:
                           </label>
                           <input
@@ -728,7 +778,9 @@ export default function BinLabelsPage() {
                   <SectionHeader
                     title={`Print Preview (${labelsWithCopies.filter(l => l.locationId).length} label${labelsWithCopies.filter(l => l.locationId).length !== 1 ? "s" : ""})`}
                     actions={
-                      <span className="text-sm theme-text-tertiary">Actual size: 6&quot; × 2&quot; (horizontal)</span>
+                      <span className="text-sm theme-text-tertiary">
+                        Actual size: {binOrientation === "portrait" ? "2” × 6” (portrait)" : "6” × 2” (landscape)"}
+                      </span>
                     }
                   />
 
@@ -744,14 +796,21 @@ export default function BinLabelsPage() {
 
                               {/* Scale wrapper: on small screens shrink to fit container */}
                               <div className="w-full overflow-hidden flex justify-center">
-                              <div className="origin-top scale-[0.58] sm:scale-100" style={{ width: 576, height: 192, flexShrink: 0 }}>
+                              <div
+                                className="origin-top scale-[0.58] sm:scale-100"
+                                style={{
+                                  width: binOrientation === "portrait" ? 192 : 576,
+                                  height: binOrientation === "portrait" ? 576 : 192,
+                                  flexShrink: 0,
+                                }}
+                              >
 
-                              {/* Thermal label mockup - HORIZONTAL 6" x 2" */}
+                              {/* Thermal label mockup - 2" x 6" (orientation-aware) */}
                               <div
                                 className="relative bg-white shadow-xl rounded-sm"
                                 style={{
-                                  width: "576px",  // 6 inches at 96dpi
-                                  height: "192px", // 2 inches at 96dpi
+                                  width: binOrientation === "portrait" ? "192px" : "576px",
+                                  height: binOrientation === "portrait" ? "576px" : "192px",
                                   boxShadow: "0 4px 20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)"
                                 }}
                               >
@@ -763,16 +822,26 @@ export default function BinLabelsPage() {
                                   }}
                                 />
 
-                                {/* Label content - horizontal layout */}
-                                <div className="relative h-full flex items-center justify-center gap-6 px-6 text-black">
+                                {/* Label content — stacked (portrait) or side-by-side (landscape) */}
+                                <div
+                                  className={`relative h-full flex items-center justify-center gap-6 text-black ${
+                                    binOrientation === "portrait" ? "flex-col py-6 px-4" : "px-6"
+                                  }`}
+                                >
+                                  {binOrientation === "portrait" && label.locationName && (
+                                    <div className="text-center flex-shrink-0">
+                                      <p className="text-2xl font-bold leading-tight text-black">{label.locationName}</p>
+                                    </div>
+                                  )}
+
                                   {/* Barcode */}
                                   <svg
                                     ref={(el) => { barcodeRefs.current[index] = el; }}
                                     className="flex-shrink-0"
                                   />
 
-                                  {/* Location name */}
-                                  {label.locationName && (
+                                  {/* Location name (landscape: to the right of the barcode) */}
+                                  {binOrientation !== "portrait" && label.locationName && (
                                     <div className="text-center flex-shrink-0">
                                       <p className="text-2xl font-bold leading-tight text-black">{label.locationName}</p>
                                     </div>
