@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Protected from "@/app/protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
-import { useTheme } from "@/app/theme-context";
 import { useAuth } from "@/app/auth-context";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 
 function formatDateTime(timestamp: number): string {
   return new Date(timestamp).toLocaleString("en-US", {
@@ -31,21 +32,19 @@ function formatDuration(seconds: number): string {
   return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`;
 }
 
-const STATUS_LABELS: Record<string, { label: string; color: string; bgColor: string }> = {
-  recording: { label: "Recording", color: "text-red-400", bgColor: "bg-red-500/20" },
-  uploading: { label: "Uploading Audio", color: "text-amber-400", bgColor: "bg-amber-500/20" },
-  transcribing: { label: "Transcribing", color: "text-blue-400", bgColor: "bg-blue-500/20" },
-  generating: { label: "Generating Notes", color: "text-purple-400", bgColor: "bg-purple-500/20" },
-  complete: { label: "Complete", color: "text-emerald-400", bgColor: "bg-emerald-500/20" },
-  error: { label: "Error", color: "text-red-400", bgColor: "bg-red-500/20" },
+const STATUS_LABELS: Record<string, { label: string; badgeClass: string }> = {
+  recording:   { label: "Recording",        badgeClass: "ui-badge ui-badge-red" },
+  uploading:   { label: "Uploading Audio",   badgeClass: "ui-badge ui-badge-amber" },
+  transcribing:{ label: "Transcribing",      badgeClass: "ui-badge ui-badge-blue" },
+  generating:  { label: "Generating Notes",  badgeClass: "ui-badge" },
+  complete:    { label: "Complete",          badgeClass: "ui-badge ui-badge-green" },
+  error:       { label: "Error",             badgeClass: "ui-badge ui-badge-red" },
 };
 
 export default function MeetingNotesPage() {
   const params = useParams();
   const router = useRouter();
-  const { theme } = useTheme();
   const { user } = useAuth();
-  const isDark = theme === "dark";
 
   const meetingId = params.meetingId as string;
   const typedMeetingId = meetingId as unknown as Id<"meetings">;
@@ -122,13 +121,13 @@ ${notes.transcript ? `<h2>Transcript</h2><div class="transcript">${notes.transcr
   if (meeting === undefined || notes === undefined) {
     return (
       <Protected>
-        <div className={`flex h-screen theme-bg-primary`}>
+        <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
           <Sidebar />
           <main className="flex-1 overflow-y-auto">
             <MobileHeader />
             <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
               <div className="flex justify-center py-20">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500" />
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#007AFF]" />
               </div>
             </div>
           </main>
@@ -140,25 +139,20 @@ ${notes.transcript ? `<h2>Transcript</h2><div class="transcript">${notes.transcr
   if (!meeting) {
     return (
       <Protected>
-        <div className={`flex h-screen theme-bg-primary`}>
+        <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
           <Sidebar />
           <main className="flex-1 overflow-y-auto">
             <MobileHeader />
             <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
               <div className="text-center py-20">
-                <h2 className={`text-xl font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Meeting Not Found
-                </h2>
-                <button
+                <h2 className="text-xl font-semibold theme-text-primary mb-2">Meeting Not Found</h2>
+                <Button
+                  variant="secondary"
                   onClick={() => router.push("/meetings")}
-                  className={`mt-4 px-5 py-2 rounded-lg font-medium transition-colors ${
-                    isDark
-                      ? "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30"
-                      : "bg-blue-100 text-blue-600 hover:bg-blue-200"
-                  }`}
+                  className="mt-4"
                 >
                   Back to Meetings
-                </button>
+                </Button>
               </div>
             </div>
           </main>
@@ -175,67 +169,56 @@ ${notes.transcript ? `<h2>Transcript</h2><div class="transcript">${notes.transcr
 
   return (
     <Protected>
-      <div className={`flex h-screen theme-bg-primary`}>
+      <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
         <Sidebar />
         <main className="flex-1 overflow-y-auto">
           <MobileHeader />
-          <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-3">
+
+          {/* Sticky Header */}
+          <header className="sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
+            <div className="max-w-4xl mx-auto flex items-center gap-3">
               <button
                 onClick={() => router.push("/meetings")}
-                className={`p-2 rounded-lg transition-colors ${
-                  isDark ? "hover:bg-slate-800 text-slate-400" : "hover:bg-gray-200 text-gray-500"
-                }`}
+                className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-slate-800 theme-text-tertiary"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
               </button>
-              <div className="flex-1">
-                <h1 className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary truncate">
                   {meeting.title}
                 </h1>
-                <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                  Meeting Notes
-                </p>
+                <p className="text-xs theme-text-tertiary mt-0.5">Meeting Notes</p>
               </div>
               {/* Save to DocHub button */}
               {notes?.status === "complete" && (
-                <button
+                <Button
+                  variant={savedToDocHub ? "secondary" : "primary"}
+                  size="sm"
                   onClick={handleSaveToDocHub}
                   disabled={savingToDocHub || savedToDocHub}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
-                    savedToDocHub
-                      ? isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"
-                      : isDark ? "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30" : "bg-blue-100 text-blue-600 hover:bg-blue-200"
-                  }`}
                 >
                   {savedToDocHub ? "Saved to DocHub" : savingToDocHub ? "Saving..." : "Save to DocHub"}
-                </button>
+                </Button>
               )}
             </div>
+          </header>
+
+          <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
 
             {/* Meeting Info Card */}
-            <div
-              className={`border rounded-xl p-4 sm:p-6 ${
-                isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"
-              }`}
-            >
+            <Card>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                  <p className={`text-xs font-medium uppercase tracking-wider ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                    Date
-                  </p>
-                  <p className={`text-sm mt-1 ${isDark ? "text-slate-200" : "text-gray-900"}`}>
+                  <p className="ui-section-label mb-1">Date</p>
+                  <p className="text-sm theme-text-primary">
                     {meeting.startedAt ? formatDateTime(meeting.startedAt) : formatDateTime(meeting.createdAt)}
                   </p>
                 </div>
                 <div>
-                  <p className={`text-xs font-medium uppercase tracking-wider ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                    Duration
-                  </p>
-                  <p className={`text-sm mt-1 ${isDark ? "text-slate-200" : "text-gray-900"}`}>
+                  <p className="ui-section-label mb-1">Duration</p>
+                  <p className="text-sm theme-text-primary">
                     {notes?.duration
                       ? formatDuration(notes.duration)
                       : meeting.startedAt && meeting.endedAt
@@ -244,109 +227,89 @@ ${notes.transcript ? `<h2>Transcript</h2><div class="transcript">${notes.transcr
                   </p>
                 </div>
                 <div>
-                  <p className={`text-xs font-medium uppercase tracking-wider ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                    Participants
-                  </p>
-                  <p className={`text-sm mt-1 ${isDark ? "text-slate-200" : "text-gray-900"}`}>
+                  <p className="ui-section-label mb-1">Participants</p>
+                  <p className="text-sm theme-text-primary">
                     {participantNames.length > 0 ? participantNames.join(", ") : "N/A"}
                   </p>
                 </div>
                 <div>
-                  <p className={`text-xs font-medium uppercase tracking-wider ${isDark ? "text-slate-500" : "text-gray-400"}`}>
-                    Status
-                  </p>
+                  <p className="ui-section-label mb-1">Status</p>
                   {statusInfo ? (
-                    <span
-                      className={`inline-flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.color} ${statusInfo.bgColor}`}
-                    >
+                    <span className={`${statusInfo.badgeClass} inline-flex items-center gap-1.5`}>
                       {isProcessing && (
                         <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
                       )}
                       {statusInfo.label}
                     </span>
                   ) : (
-                    <p className={`text-sm mt-1 ${isDark ? "text-slate-200" : "text-gray-900"}`}>
-                      No notes
-                    </p>
+                    <p className="text-sm theme-text-primary">No notes</p>
                   )}
                 </div>
               </div>
-            </div>
+            </Card>
 
             {/* Processing indicator */}
             {isProcessing && (
-              <div
-                className={`border rounded-xl p-6 text-center ${
-                  isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"
-                }`}
-              >
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-cyan-500 mx-auto mb-4" />
-                <h3 className={`text-lg font-semibold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  Processing Your Meeting
-                </h3>
-                <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                  {notes.status === "recording" && "Recording in progress..."}
-                  {notes.status === "uploading" && "Uploading audio file..."}
-                  {notes.status === "transcribing" && "Transcribing audio with AI..."}
-                  {notes.status === "generating" && "Generating meeting notes with AI..."}
-                </p>
-                {/* Progress steps */}
-                <div className="flex items-center justify-center gap-2 mt-4">
-                  {["recording", "uploading", "transcribing", "generating", "complete"].map((step, idx) => {
-                    const steps = ["recording", "uploading", "transcribing", "generating", "complete"];
-                    const currentIdx = steps.indexOf(notes.status);
-                    const isComplete = idx < currentIdx;
-                    const isCurrent = idx === currentIdx;
-                    return (
-                      <div key={step} className="flex items-center gap-2">
-                        <div
-                          className={`w-2.5 h-2.5 rounded-full ${
-                            isComplete
-                              ? "bg-emerald-500"
-                              : isCurrent
-                              ? "bg-cyan-500 animate-pulse"
-                              : isDark
-                              ? "bg-slate-600"
-                              : "bg-gray-300"
-                          }`}
-                        />
-                        {idx < steps.length - 1 && (
+              <Card>
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#007AFF] mx-auto mb-4" />
+                  <h3 className="text-[17px] font-semibold theme-text-primary mb-1">
+                    Processing Your Meeting
+                  </h3>
+                  <p className="text-sm theme-text-secondary">
+                    {notes.status === "recording" && "Recording in progress..."}
+                    {notes.status === "uploading" && "Uploading audio file..."}
+                    {notes.status === "transcribing" && "Transcribing audio with AI..."}
+                    {notes.status === "generating" && "Generating meeting notes with AI..."}
+                  </p>
+                  {/* Progress steps */}
+                  <div className="flex items-center justify-center gap-2 mt-4">
+                    {["recording", "uploading", "transcribing", "generating", "complete"].map((step, idx) => {
+                      const steps = ["recording", "uploading", "transcribing", "generating", "complete"];
+                      const currentIdx = steps.indexOf(notes.status);
+                      const isComplete = idx < currentIdx;
+                      const isCurrent = idx === currentIdx;
+                      return (
+                        <div key={step} className="flex items-center gap-2">
                           <div
-                            className={`w-8 h-0.5 ${
+                            className={`w-2.5 h-2.5 rounded-full ${
                               isComplete
                                 ? "bg-emerald-500"
-                                : isDark
-                                ? "bg-slate-600"
-                                : "bg-gray-300"
+                                : isCurrent
+                                ? "bg-[#007AFF] animate-pulse"
+                                : "bg-gray-300 dark:bg-slate-600"
                             }`}
                           />
-                        )}
-                      </div>
-                    );
-                  })}
+                          {idx < steps.length - 1 && (
+                            <div
+                              className={`w-8 h-0.5 ${
+                                isComplete ? "bg-emerald-500" : "bg-gray-300 dark:bg-slate-600"
+                              }`}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              </Card>
             )}
 
             {/* Error state */}
             {notes?.status === "error" && (
-              <div
-                className={`border rounded-xl p-6 ${
-                  isDark ? "bg-red-900/20 border-red-800/50" : "bg-red-50 border-red-200"
-                }`}
-              >
+              <Card tone="red">
                 <div className="flex items-start gap-3">
-                  <svg className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div>
-                    <h3 className="text-red-400 font-semibold">Processing Error</h3>
-                    <p className={`text-sm mt-1 ${isDark ? "text-red-300/70" : "text-red-600"}`}>
+                    <h3 className="font-semibold text-red-700 dark:text-red-400">Processing Error</h3>
+                    <p className="text-sm mt-1 text-red-600 dark:text-red-300/70">
                       {notes.errorMessage || "An error occurred while processing your meeting notes."}
                     </p>
                   </div>
                 </div>
-              </div>
+              </Card>
             )}
 
             {/* Notes content — only show when complete */}
@@ -354,46 +317,36 @@ ${notes.transcript ? `<h2>Transcript</h2><div class="transcript">${notes.transcr
               <>
                 {/* Summary */}
                 {notes.summary && (
-                  <div
-                    className={`border rounded-xl p-4 sm:p-6 ${
-                      isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"
-                    }`}
-                  >
-                    <h2 className={`text-lg font-semibold mb-3 flex items-center gap-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-                      <svg className="w-5 h-5 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <Card>
+                    <h2 className="text-[17px] font-semibold theme-text-primary mb-3 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-[#007AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                       Summary
                     </h2>
-                    <div className={`text-sm leading-relaxed whitespace-pre-wrap ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap theme-text-secondary">
                       {notes.summary}
                     </div>
-                  </div>
+                  </Card>
                 )}
 
                 {/* Action Items */}
                 {notes.actionItems && notes.actionItems.length > 0 && (
-                  <div
-                    className={`border rounded-xl p-4 sm:p-6 ${
-                      isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"
-                    }`}
-                  >
-                    <h2 className={`text-lg font-semibold mb-3 flex items-center gap-2 ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <Card>
+                    <h2 className="text-[17px] font-semibold theme-text-primary mb-3 flex items-center gap-2">
                       <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                       </svg>
                       Action Items
-                      <span className={`text-sm font-normal ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                      <span className="text-sm font-normal theme-text-tertiary">
                         ({notes.actionItems.filter((a) => a.completed).length}/{notes.actionItems.length})
                       </span>
                     </h2>
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       {notes.actionItems.map((item, index) => (
                         <div
                           key={index}
-                          className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
-                            isDark ? "hover:bg-slate-700/50" : "hover:bg-gray-50"
-                          }`}
+                          className="flex items-start gap-3 p-3 rounded-xl transition-colors hover:bg-[#f2f2f7] dark:hover:bg-slate-800/40"
                         >
                           <button
                             onClick={() =>
@@ -405,9 +358,7 @@ ${notes.transcript ? `<h2>Transcript</h2><div class="transcript">${notes.transcr
                             className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                               item.completed
                                 ? "bg-emerald-500 border-emerald-500"
-                                : isDark
-                                ? "border-slate-500 hover:border-cyan-500"
-                                : "border-gray-300 hover:border-blue-500"
+                                : "border-gray-300 dark:border-slate-500 hover:border-[#007AFF]"
                             }`}
                           >
                             {item.completed && (
@@ -420,24 +371,20 @@ ${notes.transcript ? `<h2>Transcript</h2><div class="transcript">${notes.transcr
                             <p
                               className={`text-sm ${
                                 item.completed
-                                  ? isDark
-                                    ? "text-slate-500 line-through"
-                                    : "text-gray-400 line-through"
-                                  : isDark
-                                  ? "text-slate-200"
-                                  : "text-gray-900"
+                                  ? "theme-text-tertiary line-through"
+                                  : "theme-text-primary"
                               }`}
                             >
                               {item.text}
                             </p>
                             <div className="flex items-center gap-3 mt-1">
                               {item.assignee && (
-                                <span className={`text-xs ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
+                                <span className="text-xs text-[#007AFF]">
                                   @{item.assignee}
                                 </span>
                               )}
                               {item.dueDate && (
-                                <span className={`text-xs ${isDark ? "text-amber-400" : "text-amber-600"}`}>
+                                <span className="text-xs text-amber-600 dark:text-amber-400">
                                   Due: {item.dueDate}
                                 </span>
                               )}
@@ -446,17 +393,13 @@ ${notes.transcript ? `<h2>Transcript</h2><div class="transcript">${notes.transcr
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </Card>
                 )}
 
                 {/* Decisions */}
                 {notes.decisions && notes.decisions.length > 0 && (
-                  <div
-                    className={`border rounded-xl p-4 sm:p-6 ${
-                      isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"
-                    }`}
-                  >
-                    <h2 className={`text-lg font-semibold mb-3 flex items-center gap-2 ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <Card>
+                    <h2 className="text-[17px] font-semibold theme-text-primary mb-3 flex items-center gap-2">
                       <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
@@ -465,25 +408,19 @@ ${notes.transcript ? `<h2>Transcript</h2><div class="transcript">${notes.transcr
                     <ul className="space-y-2">
                       {notes.decisions.map((decision, index) => (
                         <li key={index} className="flex items-start gap-2">
-                          <span className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 bg-emerald-500`} />
-                          <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                            {decision}
-                          </span>
+                          <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 bg-emerald-500" />
+                          <span className="text-sm theme-text-secondary">{decision}</span>
                         </li>
                       ))}
                     </ul>
-                  </div>
+                  </Card>
                 )}
 
                 {/* Follow-ups */}
                 {notes.followUps && notes.followUps.length > 0 && (
-                  <div
-                    className={`border rounded-xl p-4 sm:p-6 ${
-                      isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"
-                    }`}
-                  >
-                    <h2 className={`text-lg font-semibold mb-3 flex items-center gap-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-                      <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <Card>
+                    <h2 className="text-[17px] font-semibold theme-text-primary mb-3 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-[#007AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                       </svg>
                       Follow-ups
@@ -491,24 +428,18 @@ ${notes.transcript ? `<h2>Transcript</h2><div class="transcript">${notes.transcr
                     <ul className="space-y-2">
                       {notes.followUps.map((followUp, index) => (
                         <li key={index} className="flex items-start gap-2">
-                          <span className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-500`} />
-                          <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                            {followUp}
-                          </span>
+                          <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 bg-[#007AFF]" />
+                          <span className="text-sm theme-text-secondary">{followUp}</span>
                         </li>
                       ))}
                     </ul>
-                  </div>
+                  </Card>
                 )}
 
                 {/* Key Topics */}
                 {notes.keyTopics && notes.keyTopics.length > 0 && (
-                  <div
-                    className={`border rounded-xl p-4 sm:p-6 ${
-                      isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"
-                    }`}
-                  >
-                    <h2 className={`text-lg font-semibold mb-3 flex items-center gap-2 ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <Card>
+                    <h2 className="text-[17px] font-semibold theme-text-primary mb-3 flex items-center gap-2">
                       <svg className="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                       </svg>
@@ -518,42 +449,30 @@ ${notes.transcript ? `<h2>Transcript</h2><div class="transcript">${notes.transcr
                       {notes.keyTopics.map((topic, index) => (
                         <span
                           key={index}
-                          className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            isDark
-                              ? "bg-slate-700 text-slate-300"
-                              : "bg-gray-100 text-gray-700"
-                          }`}
+                          className="ui-badge ui-badge-gray"
                         >
                           {topic}
                         </span>
                       ))}
                     </div>
-                  </div>
+                  </Card>
                 )}
 
                 {/* Full Transcript (collapsible) */}
                 {notes.transcript && (
-                  <div
-                    className={`border rounded-xl overflow-hidden ${
-                      isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"
-                    }`}
-                  >
+                  <Card padding="sm">
                     <button
                       onClick={() => setShowTranscript(!showTranscript)}
-                      className={`w-full flex items-center justify-between p-4 sm:p-6 transition-colors ${
-                        isDark ? "hover:bg-slate-700/30" : "hover:bg-gray-50"
-                      }`}
+                      className="w-full flex items-center justify-between px-1 py-1 transition-colors"
                     >
-                      <h2 className={`text-lg font-semibold flex items-center gap-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-                        <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <h2 className="text-[17px] font-semibold theme-text-primary flex items-center gap-2">
+                        <svg className="w-5 h-5 theme-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                         </svg>
                         Full Transcript
                       </h2>
                       <svg
-                        className={`w-5 h-5 transition-transform ${showTranscript ? "rotate-180" : ""} ${
-                          isDark ? "text-slate-400" : "text-gray-500"
-                        }`}
+                        className={`w-5 h-5 transition-transform theme-text-tertiary ${showTranscript ? "rotate-180" : ""}`}
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -563,45 +482,38 @@ ${notes.transcript ? `<h2>Transcript</h2><div class="transcript">${notes.transcr
                       </svg>
                     </button>
                     {showTranscript && (
-                      <div className={`px-4 sm:px-6 pb-4 sm:pb-6 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                        <div
-                          className={`mt-4 text-sm leading-relaxed whitespace-pre-wrap max-h-96 overflow-y-auto ${
-                            isDark ? "text-slate-300" : "text-gray-700"
-                          }`}
-                        >
+                      <div className="mt-3 pt-3 border-t theme-border-secondary">
+                        <div className="text-sm leading-relaxed whitespace-pre-wrap max-h-96 overflow-y-auto theme-text-secondary">
                           {notes.transcript}
                         </div>
                       </div>
                     )}
-                  </div>
+                  </Card>
                 )}
               </>
             )}
 
             {/* No notes available */}
             {!notes && (
-              <div
-                className={`border rounded-xl p-8 text-center ${
-                  isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200 shadow-sm"
-                }`}
-              >
-                <svg
-                  className={`w-16 h-16 mx-auto mb-4 ${isDark ? "text-slate-600" : "text-gray-300"}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <h3 className={`text-lg font-semibold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  No Notes Available
-                </h3>
-                <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-                  This meeting does not have AI-generated notes.
-                </p>
-              </div>
+              <Card>
+                <div className="text-center py-8">
+                  <svg
+                    className="w-16 h-16 mx-auto mb-4 theme-text-tertiary opacity-40"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h3 className="text-[17px] font-semibold theme-text-primary mb-1">No Notes Available</h3>
+                  <p className="text-sm theme-text-tertiary">
+                    This meeting does not have AI-generated notes.
+                  </p>
+                </div>
+              </Card>
             )}
+
           </div>
         </main>
       </div>
