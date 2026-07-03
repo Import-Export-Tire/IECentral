@@ -4,12 +4,13 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
-import { useTheme } from "../theme-context";
 import { useAuth } from "../auth-context";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import MeetingsHelpModal from "@/components/meetings/HelpModal";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 
 function formatDateTime(timestamp: number): string {
   return new Date(timestamp).toLocaleString("en-US", {
@@ -31,8 +32,6 @@ function formatDuration(start: number, end: number): string {
 }
 
 export default function MeetingsPage() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const { user } = useAuth();
   const router = useRouter();
 
@@ -123,50 +122,47 @@ export default function MeetingsPage() {
 
   return (
     <Protected>
-      <div className="flex h-screen theme-bg-primary">
+      <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
         <Sidebar />
         <main className="flex-1 overflow-y-auto">
           {/* Mobile Header */}
           <MobileHeader />
-          <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <h1
-                className={`text-2xl sm:text-3xl font-bold ${
-                  isDark ? "text-white" : "text-gray-900"
-                }`}
-              >
-                Meetings
-              </h1>
-              <div className="flex items-center gap-2">
-                <MeetingsHelpModal isDark={isDark} />
-                <button
+
+          {/* Sticky Header */}
+          <header className="sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
+            <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Meetings</h1>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <MeetingsHelpModal isDark={false} />
+                <Button
+                  variant={showNewMeeting ? "secondary" : "primary"}
                   onClick={() => setShowNewMeeting(!showNewMeeting)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    isDark
-                      ? "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30"
-                      : "bg-blue-100 text-blue-600 hover:bg-blue-200"
-                  }`}
                 >
                   {showNewMeeting ? "Cancel" : "New Meeting"}
-                </button>
+                </Button>
               </div>
             </div>
+          </header>
+
+          <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
 
             {/* Info Panel */}
             {showInfo && (
-              <div className={`border rounded-xl p-5 sm:p-6 ${isDark ? "bg-gradient-to-br from-slate-800/80 to-slate-800/40 border-slate-700" : "bg-gradient-to-br from-blue-50 to-white border-blue-200 shadow-sm"}`}>
+              <Card>
                 <div className="flex items-start justify-between mb-4">
-                  <h2 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                    Why IE Meetings?
-                  </h2>
-                  <button onClick={() => setShowInfo(false)} className={`${isDark ? "text-slate-400 hover:text-slate-300" : "text-gray-400 hover:text-gray-600"}`}>
+                  <h2 className="text-[17px] font-semibold theme-text-primary">Why IE Meetings?</h2>
+                  <button
+                    onClick={() => setShowInfo(false)}
+                    className="p-1 rounded-lg theme-text-tertiary hover:theme-text-secondary transition-colors"
+                  >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
-                <p className={`text-sm mb-4 ${isDark ? "text-slate-300" : "text-gray-600"}`}>
+                <p className="text-sm theme-text-secondary mb-4">
                   IE Meetings is built into IE Central with features designed specifically for our team. No extra accounts, no monthly fees, no third-party data sharing.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -178,55 +174,44 @@ export default function MeetingsPage() {
                     { icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z", title: "Private & Secure", desc: "All data stays in our infrastructure. No Zoom, no Teams, no third parties recording or storing your calls." },
                     { icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z", title: "Zero Cost", desc: "No per-user fees, no meeting limits, no time caps. It's part of IE Central — already included." },
                   ].map((item, i) => (
-                    <div key={i} className={`flex gap-3 p-3 rounded-lg ${isDark ? "bg-slate-700/30" : "bg-white/80"}`}>
-                      <svg className={`w-5 h-5 mt-0.5 flex-shrink-0 ${isDark ? "text-cyan-400" : "text-blue-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div key={i} className="flex gap-3 p-3 rounded-xl bg-[#f2f2f7] dark:bg-slate-800/60">
+                      <svg className="w-5 h-5 mt-0.5 flex-shrink-0 text-[#007AFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
                       </svg>
                       <div>
-                        <h3 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{item.title}</h3>
-                        <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-gray-500"}`}>{item.desc}</p>
+                        <h3 className="text-sm font-semibold theme-text-primary">{item.title}</h3>
+                        <p className="text-xs mt-0.5 theme-text-tertiary">{item.desc}</p>
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
+              </Card>
             )}
 
             {/* New Meeting Form */}
             {showNewMeeting && (
-              <div
-                className={`border rounded-xl p-4 sm:p-6 ${
-                  isDark
-                    ? "bg-slate-800/50 border-slate-700"
-                    : "bg-white border-gray-200 shadow-sm"
-                }`}
-              >
-                <h2
-                  className={`text-lg font-semibold mb-4 ${
-                    isDark ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  New Meeting
-                </h2>
+              <Card>
+                <div className="ui-section-label mb-1">Create</div>
+                <h2 className="text-[17px] font-semibold theme-text-primary mb-4">New Meeting</h2>
                 <div className="space-y-4">
                   {/* Mode Toggle */}
                   <div className="flex gap-2">
                     <button
                       onClick={() => setMeetingMode("instant")}
-                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      className={`flex-1 px-3 py-2 rounded-[9px] text-sm font-semibold transition-colors border ${
                         meetingMode === "instant"
-                          ? isDark ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40" : "bg-blue-100 text-blue-700 border border-blue-300"
-                          : isDark ? "text-slate-400 border border-slate-700 hover:border-slate-600" : "text-gray-500 border border-gray-200 hover:border-gray-300"
+                          ? "bg-[#007AFF] text-white border-[#007AFF]"
+                          : "theme-text-secondary border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600"
                       }`}
                     >
                       Start Now
                     </button>
                     <button
                       onClick={() => setMeetingMode("scheduled")}
-                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      className={`flex-1 px-3 py-2 rounded-[9px] text-sm font-semibold transition-colors border ${
                         meetingMode === "scheduled"
-                          ? isDark ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40" : "bg-blue-100 text-blue-700 border border-blue-300"
-                          : isDark ? "text-slate-400 border border-slate-700 hover:border-slate-600" : "text-gray-500 border border-gray-200 hover:border-gray-300"
+                          ? "bg-[#007AFF] text-white border-[#007AFF]"
+                          : "theme-text-secondary border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600"
                       }`}
                     >
                       Schedule for Later
@@ -234,7 +219,7 @@ export default function MeetingsPage() {
                   </div>
 
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    <label className="block text-sm font-medium theme-text-secondary mb-1">
                       Meeting Title
                     </label>
                     <input
@@ -242,11 +227,7 @@ export default function MeetingsPage() {
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="e.g. Weekly Team Standup"
-                      className={`w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 ${
-                        isDark
-                          ? "bg-slate-700 border-slate-600 text-white focus:ring-cyan-500 placeholder-slate-400"
-                          : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500 placeholder-gray-400"
-                      }`}
+                      className="theme-input w-full px-3 py-2"
                       onKeyDown={(e) => { if (e.key === "Enter" && meetingMode === "instant") handleCreateMeeting(); }}
                     />
                   </div>
@@ -255,37 +236,31 @@ export default function MeetingsPage() {
                   {meetingMode === "scheduled" && (
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
-                        <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Date</label>
+                        <label className="block text-sm font-medium theme-text-secondary mb-1">Date</label>
                         <input
                           type="date"
                           value={scheduledDate}
                           onChange={(e) => setScheduledDate(e.target.value)}
                           min={new Date().toISOString().split("T")[0]}
-                          className={`w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 ${
-                            isDark ? "bg-slate-700 border-slate-600 text-white focus:ring-cyan-500" : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"
-                          }`}
+                          className="theme-input w-full px-3 py-2"
                         />
                       </div>
                       <div>
-                        <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>Start Time</label>
+                        <label className="block text-sm font-medium theme-text-secondary mb-1">Start Time</label>
                         <input
                           type="time"
                           value={scheduledStartTime}
                           onChange={(e) => setScheduledStartTime(e.target.value)}
-                          className={`w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 ${
-                            isDark ? "bg-slate-700 border-slate-600 text-white focus:ring-cyan-500" : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"
-                          }`}
+                          className="theme-input w-full px-3 py-2"
                         />
                       </div>
                       <div>
-                        <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>End Time</label>
+                        <label className="block text-sm font-medium theme-text-secondary mb-1">End Time</label>
                         <input
                           type="time"
                           value={scheduledEndTime}
                           onChange={(e) => setScheduledEndTime(e.target.value)}
-                          className={`w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 ${
-                            isDark ? "bg-slate-700 border-slate-600 text-white focus:ring-cyan-500" : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"
-                          }`}
+                          className="theme-input w-full px-3 py-2"
                         />
                       </div>
                     </div>
@@ -296,41 +271,28 @@ export default function MeetingsPage() {
                       type="checkbox"
                       checked={isNotedMeeting}
                       onChange={(e) => setIsNotedMeeting(e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-cyan-500 focus:ring-cyan-500"
+                      className="w-4 h-4 rounded border-gray-300 text-[#007AFF] focus:ring-[#007AFF]"
                     />
-                    <span className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    <span className="text-sm theme-text-secondary">
                       Noted Meeting (AI transcription + notes)
                     </span>
                   </label>
 
-                  <button
+                  <Button
+                    variant="primary"
                     onClick={handleCreateMeeting}
                     disabled={!title.trim() || creating || (meetingMode === "scheduled" && (!scheduledDate || !scheduledStartTime))}
-                    className={`px-5 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 ${
-                      isDark ? "bg-cyan-600 text-white hover:bg-cyan-700" : "bg-blue-600 text-white hover:bg-blue-700"
-                    }`}
                   >
                     {creating ? (meetingMode === "instant" ? "Starting..." : "Scheduling...") : meetingMode === "instant" ? "Start Now" : "Schedule Meeting"}
-                  </button>
+                  </Button>
                 </div>
-              </div>
+              </Card>
             )}
 
             {/* Join Meeting */}
-            <div
-              className={`border rounded-xl p-4 sm:p-6 ${
-                isDark
-                  ? "bg-slate-800/50 border-slate-700"
-                  : "bg-white border-gray-200 shadow-sm"
-              }`}
-            >
-              <h2
-                className={`text-lg font-semibold mb-3 ${
-                  isDark ? "text-white" : "text-gray-900"
-                }`}
-              >
-                Join a Meeting
-              </h2>
+            <Card>
+              <div className="ui-section-label mb-1">Join</div>
+              <h2 className="text-[17px] font-semibold theme-text-primary mb-3">Join a Meeting</h2>
               <div className="flex gap-3">
                 <input
                   type="text"
@@ -340,49 +302,31 @@ export default function MeetingsPage() {
                     setJoinError("");
                   }}
                   placeholder="Enter meeting code"
-                  className={`flex-1 px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white focus:ring-cyan-500 placeholder-slate-400"
-                      : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500 placeholder-gray-400"
-                  }`}
+                  className="theme-input flex-1 px-3 py-2"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleJoin();
                   }}
                 />
-                <button
+                <Button
+                  variant="primary"
                   onClick={handleJoin}
                   disabled={!joinCode.trim() || joining}
-                  className={`px-5 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 ${
-                    isDark
-                      ? "bg-cyan-600 text-white hover:bg-cyan-700"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
                 >
                   {joining ? "Joining..." : "Join"}
-                </button>
+                </Button>
               </div>
               {joinError && (
-                <p className="mt-2 text-sm text-red-400">{joinError}</p>
+                <p className="mt-2 text-sm text-red-500 dark:text-red-400">{joinError}</p>
               )}
-            </div>
+            </Card>
 
             {/* Companion App Download */}
-            <div
-              className={`border rounded-xl p-4 sm:p-6 ${
-                isDark
-                  ? "bg-slate-800/50 border-slate-700"
-                  : "bg-white border-gray-200 shadow-sm"
-              }`}
-            >
+            <Card>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      isDark ? "bg-cyan-500/20" : "bg-blue-100"
-                    }`}
-                  >
+                  <div className="w-10 h-10 rounded-xl bg-[#007AFF]/10 dark:bg-[#007AFF]/20 flex items-center justify-center">
                     <svg
-                      className={`w-5 h-5 ${isDark ? "text-cyan-400" : "text-blue-600"}`}
+                      className="w-5 h-5 text-[#007AFF]"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -396,18 +340,10 @@ export default function MeetingsPage() {
                     </svg>
                   </div>
                   <div>
-                    <h3
-                      className={`font-semibold text-sm ${
-                        isDark ? "text-white" : "text-gray-900"
-                      }`}
-                    >
+                    <h3 className="font-semibold text-sm theme-text-primary">
                       IECentral Companion App
                     </h3>
-                    <p
-                      className={`text-xs ${
-                        isDark ? "text-slate-400" : "text-gray-500"
-                      }`}
-                    >
+                    <p className="text-xs theme-text-tertiary">
                       Enable full remote desktop control during meetings
                     </p>
                   </div>
@@ -415,210 +351,123 @@ export default function MeetingsPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span
                     title="macOS build coming soon"
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-not-allowed select-none opacity-60 ${
-                      isDark
-                        ? "bg-slate-800 text-slate-500 border border-slate-700"
-                        : "bg-gray-50 text-gray-400 border border-gray-200"
-                    }`}
+                    className="px-3 py-1.5 rounded-[9px] text-xs font-medium cursor-not-allowed select-none opacity-50 ui-badge ui-badge-gray"
                   >
                     macOS · Coming soon
                   </span>
                   <a
                     href="https://iecentral-downloads.s3.amazonaws.com/IECentral-Companion.exe"
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                      isDark
-                        ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
+                    className="px-3 py-1.5 rounded-[9px] text-xs font-semibold transition-colors theme-btn-secondary"
                   >
                     Windows
                   </a>
                 </div>
               </div>
-            </div>
+            </Card>
 
             {/* Upcoming Meetings */}
-            <div
-              className={`border rounded-xl p-4 sm:p-6 ${
-                isDark
-                  ? "bg-slate-800/50 border-slate-700"
-                  : "bg-white border-gray-200 shadow-sm"
-              }`}
-            >
-              <h2
-                className={`text-lg font-semibold mb-3 ${
-                  isDark ? "text-white" : "text-gray-900"
-                }`}
-              >
-                Upcoming Meetings
-              </h2>
+            <Card>
+              <div className="ui-section-label mb-1">Scheduled</div>
+              <h2 className="text-[17px] font-semibold theme-text-primary mb-3">Upcoming Meetings</h2>
               {!upcomingMeetings ? (
                 <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500" />
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#007AFF]" />
                 </div>
               ) : upcomingMeetings.length === 0 ? (
-                <p className={isDark ? "text-slate-400" : "text-gray-500"}>
-                  No upcoming meetings.
-                </p>
+                <p className="text-sm theme-text-tertiary">No upcoming meetings.</p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {upcomingMeetings.map((meeting: any) => (
                     <div
                       key={meeting._id}
-                      className={`flex items-center justify-between p-3 rounded-lg border ${
-                        isDark
-                          ? "bg-slate-700/50 border-slate-600"
-                          : "bg-gray-50 border-gray-200"
-                      }`}
+                      className="flex items-center justify-between p-3 rounded-xl border theme-border-secondary bg-[#f2f2f7] dark:bg-slate-800/40"
                     >
                       <div>
-                        <h3
-                          className={`font-medium ${
-                            isDark ? "text-white" : "text-gray-900"
-                          }`}
-                        >
+                        <h3 className="font-semibold text-sm theme-text-primary">
                           {meeting.title}
                         </h3>
                         {meeting.scheduledStart && (
-                          <p
-                            className={`text-sm ${
-                              isDark ? "text-slate-400" : "text-gray-500"
-                            }`}
-                          >
+                          <p className="text-xs theme-text-tertiary mt-0.5">
                             {formatDateTime(meeting.scheduledStart)}
                           </p>
                         )}
                         <div className="flex items-center gap-2 mt-1">
                           {meeting.isNotedMeeting && (
-                            <span className="inline-flex items-center gap-1 text-xs text-cyan-400">
-                              <span className="w-2 h-2 bg-cyan-400 rounded-full" />
-                              Noted
-                            </span>
+                            <span className="ui-badge ui-badge-blue">Noted</span>
                           )}
                           {meeting.joinCode && (
-                            <span
-                              className={`text-xs font-mono ${
-                                isDark ? "text-slate-500" : "text-gray-400"
-                              }`}
-                            >
+                            <span className="text-xs font-mono theme-text-tertiary">
                               Code: {meeting.joinCode}
                             </span>
                           )}
                         </div>
                       </div>
-                      <button
-                        onClick={() =>
-                          router.push(`/meetings/room/${meeting._id}`)
-                        }
-                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          isDark
-                            ? "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30"
-                            : "bg-blue-100 text-blue-600 hover:bg-blue-200"
-                        }`}
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => router.push(`/meetings/room/${meeting._id}`)}
                       >
                         Join
-                      </button>
+                      </Button>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
 
             {/* Past Meetings */}
-            <div
-              className={`border rounded-xl p-4 sm:p-6 ${
-                isDark
-                  ? "bg-slate-800/50 border-slate-700"
-                  : "bg-white border-gray-200 shadow-sm"
-              }`}
-            >
+            <Card padding="sm">
               <button
                 onClick={() => setShowPast(!showPast)}
-                className="flex items-center justify-between w-full"
+                className="flex items-center justify-between w-full px-1 py-1"
               >
-                <h2
-                  className={`text-lg font-semibold ${
-                    isDark ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  Past Meetings
-                </h2>
+                <h2 className="text-[17px] font-semibold theme-text-primary">Past Meetings</h2>
                 <svg
-                  className={`w-5 h-5 transition-transform ${
-                    showPast ? "rotate-180" : ""
-                  } ${isDark ? "text-slate-400" : "text-gray-500"}`}
+                  className={`w-5 h-5 transition-transform theme-text-tertiary ${showPast ? "rotate-180" : ""}`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                   strokeWidth={2}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M19 9l-7 7-7-7"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
               {showPast && (
-                <div className="mt-3">
+                <div className="mt-3 pt-3 border-t theme-border-secondary">
                   {!pastMeetings ? (
                     <div className="flex justify-center py-6">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500" />
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#007AFF]" />
                     </div>
                   ) : pastMeetings.length === 0 ? (
-                    <p
-                      className={isDark ? "text-slate-400" : "text-gray-500"}
-                    >
-                      No past meetings.
-                    </p>
+                    <p className="text-sm theme-text-tertiary">No past meetings.</p>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {pastMeetings.map((meeting: any) => (
                         <div
                           key={meeting._id}
-                          className={`p-3 rounded-lg border ${
-                            isDark
-                              ? "bg-slate-700/50 border-slate-600"
-                              : "bg-gray-50 border-gray-200"
-                          }`}
+                          className="p-3 rounded-xl border theme-border-secondary bg-[#f2f2f7] dark:bg-slate-800/40"
                         >
                           <div className="flex items-center justify-between">
-                            <h3
-                              className={`font-medium ${
-                                isDark ? "text-white" : "text-gray-900"
-                              }`}
-                            >
+                            <h3 className="font-semibold text-sm theme-text-primary">
                               {meeting.title}
                             </h3>
                             <div className="flex items-center gap-2">
                               {meeting.isNotedMeeting && (
-                                <span className="text-xs text-cyan-400">
-                                  Noted
-                                </span>
+                                <span className="ui-badge ui-badge-blue">Noted</span>
                               )}
                               {meeting.isNotedMeeting && meeting.meetingNotesId && (
-                                <button
-                                  onClick={() =>
-                                    router.push(`/meetings/notes/${meeting._id}`)
-                                  }
-                                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                                    isDark
-                                      ? "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30"
-                                      : "bg-blue-100 text-blue-600 hover:bg-blue-200"
-                                  }`}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => router.push(`/meetings/notes/${meeting._id}`)}
                                 >
                                   View Notes
-                                </button>
+                                </Button>
                               )}
                             </div>
                           </div>
-                          <div
-                            className={`text-sm mt-1 ${
-                              isDark ? "text-slate-400" : "text-gray-500"
-                            }`}
-                          >
-                            {meeting.startedAt &&
-                              formatDateTime(meeting.startedAt)}
+                          <div className="text-xs theme-text-tertiary mt-1">
+                            {meeting.startedAt && formatDateTime(meeting.startedAt)}
                             {meeting.startedAt && meeting.endedAt && (
                               <span className="ml-2">
                                 ({formatDuration(meeting.startedAt, meeting.endedAt)})
@@ -631,7 +480,8 @@ export default function MeetingsPage() {
                   )}
                 </div>
               )}
-            </div>
+            </Card>
+
           </div>
         </main>
       </div>
