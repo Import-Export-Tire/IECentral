@@ -679,28 +679,36 @@ export default function BinLabelsPage() {
                     actions={
                       <div className="flex flex-wrap items-center gap-3">
                         <div className="flex items-center gap-2">
-                          <label className="text-sm font-medium theme-text-secondary">
+                          <label className="text-sm font-medium theme-text-secondary whitespace-nowrap">
                             Orientation:
                           </label>
-                          <div className="inline-flex">
+                          <div className="inline-flex rounded-lg border theme-border-secondary overflow-hidden">
                             <button
                               type="button"
                               onClick={() => setBinOrientation("landscape")}
-                              className={`ui-segment rounded-l-lg ${binOrientation === "landscape" ? "ui-segment-on" : ""}`}
+                              className={`px-3 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors ${
+                                binOrientation === "landscape"
+                                  ? "bg-[#007AFF] text-white"
+                                  : "theme-card theme-text-secondary"
+                              }`}
                             >
                               Landscape
                             </button>
                             <button
                               type="button"
                               onClick={() => setBinOrientation("portrait")}
-                              className={`ui-segment rounded-r-lg -ml-px ${binOrientation === "portrait" ? "ui-segment-on" : ""}`}
+                              className={`px-3 py-1.5 text-sm font-semibold whitespace-nowrap border-l theme-border-secondary transition-colors ${
+                                binOrientation === "portrait"
+                                  ? "bg-[#007AFF] text-white"
+                                  : "theme-card theme-text-secondary"
+                              }`}
                             >
                               Portrait
                             </button>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <label className="text-sm font-medium theme-text-secondary">
+                          <label className="text-sm font-medium theme-text-secondary whitespace-nowrap">
                             Copies per label:
                           </label>
                           <input
