@@ -14,6 +14,29 @@ export default function UpdateBanner() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
+  // A plain reload can be served the OLD bundle from the service-worker cache,
+  // so the user "refreshes" but stays on the stale version — the classic
+  // "keeps asking me to refresh" bug. Update the SW and drop caches first so a
+  // single click reliably lands the new build.
+  const hardRefresh = useCallback(async () => {
+    try {
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.update().catch(() => {})));
+      }
+      if (typeof caches !== "undefined") {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+    } catch {
+      // best-effort — fall through to the reload regardless
+    }
+    // Cache-busting query param defeats any lingering HTTP/document cache.
+    const url = new URL(window.location.href);
+    url.searchParams.set("_v", Date.now().toString());
+    window.location.replace(url.toString());
+  }, []);
+
   const check = useCallback(async () => {
     try {
       const res = await fetch("/api/version", { cache: "no-store" });
@@ -57,10 +80,10 @@ export default function UpdateBanner() {
         </svg>
         <span className="font-medium">A new version of IE Central is available.</span>
         <button
-          onClick={() => window.location.reload()}
+          onClick={() => { void hardRefresh(); }}
           className="flex-shrink-0 rounded-md bg-white/95 hover:bg-white text-[#007AFF] font-semibold px-3 py-1 transition-colors"
         >
-          Refresh
+          Refresh now
         </button>
         <button
           onClick={() => setDismissed(true)}
