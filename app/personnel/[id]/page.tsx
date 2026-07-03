@@ -13,18 +13,7 @@ import { isTemp, computeTempEligibleDate, tempEligibilityLabel } from "@/lib/tem
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import SectionHeader from "@/components/ui/SectionHeader";
-
-const STATUS_OPTIONS = [
-  { value: "active", label: "Active", color: "green" },
-  { value: "on_leave", label: "On Leave", color: "amber" },
-  { value: "terminated", label: "Terminated", color: "red" },
-];
-
-const statusColors: Record<string, string> = {
-  active: "bg-green-500/20 text-green-400 border-green-500/30",
-  on_leave: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  terminated: "bg-red-500/20 text-red-400 border-red-500/30",
-};
+import StatusBadge from "@/components/ui/StatusBadge";
 
 const TABS = [
   { id: "overview", label: "Profile" },
@@ -93,29 +82,29 @@ function getTenureMilestones(hireDate: string, totalDays: number): {
   };
 }
 
-// Write-up severity colors
+// Write-up severity colors (theme-aware)
 const severityColors: Record<string, string> = {
-  verbal: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-  written: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-  final: "bg-red-500/20 text-red-400 border-red-500/30",
-  termination: "bg-red-700/20 text-red-500 border-red-700/30",
+  verbal: "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30",
+  written: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/20 dark:text-orange-400 dark:border-orange-500/30",
+  final: "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30",
+  termination: "bg-red-200 text-red-800 border-red-300 dark:bg-red-700/20 dark:text-red-500 dark:border-red-700/30",
 };
 
-// Attendance status colors
+// Attendance status colors (theme-aware)
 const attendanceStatusColors: Record<string, string> = {
-  present: "bg-green-500/20 text-green-400 border-green-500/30",
-  absent: "bg-red-500/20 text-red-400 border-red-500/30",
-  late: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  excused: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  no_call_no_show: "bg-red-700/20 text-red-500 border-red-700/30",
+  present: "bg-green-100 text-green-700 border-green-200 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30",
+  absent: "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30",
+  late: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30",
+  excused: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30",
+  no_call_no_show: "bg-red-200 text-red-800 border-red-300 dark:bg-red-700/20 dark:text-red-500 dark:border-red-700/30",
 };
 
-// Merit type colors
+// Merit type colors (theme-aware)
 const meritTypeColors: Record<string, string> = {
-  commendation: "bg-green-500/20 text-green-400 border-green-500/30",
-  achievement: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  recognition: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-  bonus: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  commendation: "bg-green-100 text-green-700 border-green-200 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30",
+  achievement: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30",
+  recognition: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-500/20 dark:text-purple-400 dark:border-purple-500/30",
+  bonus: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30",
 };
 
 // Helper to format schedule times
@@ -197,12 +186,10 @@ function AttendanceAttachmentItem({
   return (
     <div
       className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
-        isDark
-          ? "bg-slate-700/50 border border-slate-600"
-          : "bg-gray-100 border border-gray-200"
+        "bg-gray-100 border border-gray-200 dark:bg-slate-700/50 dark:border dark:border-slate-600"
       }`}
     >
-      <span className={isDark ? "text-slate-400" : "text-gray-500"}>
+      <span className="theme-text-tertiary">
         {getFileIcon(attachment.fileType)}
       </span>
       <a
@@ -210,7 +197,7 @@ function AttendanceAttachmentItem({
         target="_blank"
         rel="noopener noreferrer"
         className={`hover:underline truncate max-w-[150px] ${
-          isDark ? "text-cyan-400" : "text-blue-600"
+          "text-blue-600 dark:text-cyan-400"
         }`}
         title={attachment.fileName}
       >
@@ -220,7 +207,7 @@ function AttendanceAttachmentItem({
         <button
           onClick={() => onDelete(attendanceId, attachment.storageId)}
           className={`p-1 rounded hover:bg-red-500/20 transition-colors ${
-            isDark ? "text-slate-500 hover:text-red-400" : "text-gray-400 hover:text-red-600"
+            "text-gray-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-red-400"
           }`}
           title="Delete attachment"
         >
@@ -281,12 +268,10 @@ function AttachmentItem({
   return (
     <div
       className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
-        isDark
-          ? "bg-slate-700/50 border border-slate-600"
-          : "bg-gray-100 border border-gray-200"
+        "bg-gray-100 border border-gray-200 dark:bg-slate-700/50 dark:border dark:border-slate-600"
       }`}
     >
-      <span className={isDark ? "text-slate-400" : "text-gray-500"}>
+      <span className="theme-text-tertiary">
         {getFileIcon(attachment.fileType)}
       </span>
       <a
@@ -294,7 +279,7 @@ function AttachmentItem({
         target="_blank"
         rel="noopener noreferrer"
         className={`hover:underline truncate max-w-[150px] ${
-          isDark ? "text-cyan-400" : "text-blue-600"
+          "text-blue-600 dark:text-cyan-400"
         }`}
         title={attachment.fileName}
       >
@@ -304,7 +289,7 @@ function AttachmentItem({
         <button
           onClick={() => onDelete(writeUpId, attachment.storageId)}
           className={`p-1 rounded hover:bg-red-500/20 transition-colors ${
-            isDark ? "text-slate-500 hover:text-red-400" : "text-gray-400 hover:text-red-600"
+            "text-gray-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-red-400"
           }`}
           title="Delete attachment"
         >
@@ -542,10 +527,10 @@ function PersonnelDetailContent() {
           <MobileHeader />
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h1 className={`text-2xl font-bold theme-text-primary`}>
                 Access Denied
               </h1>
-              <p className={`mt-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className={`mt-2 theme-text-tertiary`}>
                 You don&apos;t have permission to view this page.
               </p>
             </div>
@@ -562,7 +547,7 @@ function PersonnelDetailContent() {
         <main className="flex-1 flex flex-col">
           <MobileHeader />
           <div className="flex-1 flex items-center justify-center">
-            <div className={`animate-pulse ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+            <div className={`animate-pulse theme-text-tertiary`}>
               Loading...
             </div>
           </div>
@@ -958,26 +943,26 @@ function PersonnelDetailContent() {
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
         {/* Header */}
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700`}>
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => router.push("/personnel")}
-                className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}
+                className={`p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5`}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
               <div className="flex items-center gap-4">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl text-white font-bold ${isDark ? "bg-gradient-to-br from-cyan-400 to-blue-500" : "bg-gradient-to-br from-blue-500 to-blue-600"}`}>
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl text-white font-bold bg-gradient-to-br from-blue-500 to-blue-600 dark:bg-gradient-to-br dark:from-cyan-400 dark:to-blue-500`}>
                   {personnel.firstName.charAt(0)}{personnel.lastName.charAt(0)}
                 </div>
                 <div>
-                  <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <h1 className={`text-2xl font-bold theme-text-primary`}>
                     {personnel.firstName} {personnel.lastName}
                   </h1>
-                  <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <p className={`text-sm theme-text-tertiary`}>
                     {personnel.position} • {personnel.department}
                     {personnel.locationId && locations?.find(l => l._id === personnel.locationId) && (
                       <span> • {locations.find(l => l._id === personnel.locationId)?.name}</span>
@@ -986,9 +971,7 @@ function PersonnelDetailContent() {
                 </div>
               </div>
             </div>
-            <span className={`px-3 py-1 text-sm font-medium rounded border ${statusColors[personnel.status] || statusColors.active}`}>
-              {STATUS_OPTIONS.find((s) => s.value === personnel.status)?.label || personnel.status}
-            </span>
+            <StatusBadge status={personnel.status} kind="personnel" />
           </div>
 
           {/* Summary bar — always-visible essentials so users don't have to
@@ -1254,9 +1237,7 @@ function PersonnelDetailContent() {
                       }}
                       disabled={isCreatingPortalLogin}
                       className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                        isDark
-                          ? "bg-cyan-500 hover:bg-cyan-400 text-white"
-                          : "bg-blue-600 hover:bg-blue-700 text-white"
+                        "theme-btn-primary"
                       } disabled:opacity-50`}
                     >
                       {isCreatingPortalLogin ? (
@@ -1305,9 +1286,7 @@ function PersonnelDetailContent() {
                           }}
                           disabled={isResettingPassword}
                           className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                            isDark
-                              ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
-                              : "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                            "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:hover:bg-amber-500/30"
                           } disabled:opacity-50`}
                         >
                           {isResettingPassword ? (
@@ -1421,16 +1400,16 @@ function PersonnelDetailContent() {
                       <div
                         key={override._id}
                         className={`p-4 rounded-lg flex items-center justify-between ${
-                          isDark ? "bg-slate-700/50" : "bg-gray-50"
+                          "bg-gray-50 dark:bg-slate-700/50"
                         }`}
                       >
                         <div className="flex items-center gap-4">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                             override.overrideType === "day_off"
-                              ? isDark ? "bg-red-500/20" : "bg-red-100"
+                              ? "bg-red-100 dark:bg-red-500/20"
                               : override.overrideType === "modified_hours"
-                              ? isDark ? "bg-amber-500/20" : "bg-amber-100"
-                              : isDark ? "bg-green-500/20" : "bg-green-100"
+                              ? "bg-amber-100 dark:bg-amber-500/20"
+                              : "bg-green-100 dark:bg-green-500/20"
                           }`}>
                             {override.overrideType === "day_off" ? (
                               <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1447,7 +1426,7 @@ function PersonnelDetailContent() {
                             )}
                           </div>
                           <div>
-                            <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <p className={`font-medium theme-text-primary`}>
                               {new Date(override.date + "T00:00:00").toLocaleDateString("en-US", {
                                 weekday: "short",
                                 month: "short",
@@ -1459,7 +1438,7 @@ function PersonnelDetailContent() {
                               {override.overrideType === "extra_shift" && `Extra Shift (${override.startTime} - ${override.endTime})`}
                             </p>
                             {override.reason && (
-                              <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              <p className={`text-sm theme-text-tertiary`}>
                                 {override.reason}
                               </p>
                             )}
@@ -1491,9 +1470,7 @@ function PersonnelDetailContent() {
                                 }
                               }}
                               className={`p-1 rounded-lg transition-colors ${
-                                isDark
-                                  ? "text-red-400 hover:bg-red-500/20"
-                                  : "text-red-600 hover:bg-red-50"
+                                "text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/20"
                               }`}
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1516,19 +1493,19 @@ function PersonnelDetailContent() {
               </Card>
 
               {/* Training Badges Section - IE Tire Badges of Honor */}
-              <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+              <div className={`rounded-xl p-6 theme-card`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? "bg-amber-500/20" : "bg-amber-100"}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center bg-amber-100 dark:bg-amber-500/20`}>
                       <svg className="w-6 h-6 text-amber-500" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
                       </svg>
                     </div>
                     <div>
-                      <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                      <h2 className={`text-lg font-semibold theme-text-primary`}>
                         IE Tire Badges of Honor
                       </h2>
-                      <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      <p className={`text-sm theme-text-tertiary`}>
                         {personnel.trainingRecords?.length || personnel.completedTraining?.length || 0} of {TRAINING_AREAS.length} certifications earned
                       </p>
                     </div>
@@ -1563,28 +1540,22 @@ function PersonnelDetailContent() {
                           canManagePersonnel ? "cursor-pointer hover:scale-105 active:scale-95" : "cursor-not-allowed"
                         } ${
                           isCompleted
-                            ? isDark
-                              ? "bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-2 border-amber-500/50 shadow-lg shadow-amber-500/10"
-                              : "bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-400 shadow-lg shadow-amber-200/50"
-                            : isDark
-                              ? "bg-slate-700/30 border border-slate-600/50 hover:border-slate-500 opacity-60"
-                              : "bg-gray-50 border border-gray-200 hover:border-gray-300 opacity-60"
+                            ? "bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-400 shadow-lg shadow-amber-200/50 dark:bg-gradient-to-br dark:from-amber-500/20 dark:to-orange-500/20 dark:border-2 dark:border-amber-500/50 dark:shadow-lg dark:shadow-amber-500/10"
+                            : "bg-gray-50 border border-gray-200 hover:border-gray-300 opacity-60 dark:bg-slate-700/30 dark:border dark:border-slate-600/50 dark:hover:border-slate-500 dark:opacity-60"
                         }`}
                       >
                         {/* Badge Icon */}
                         <div className={`w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center ${
                           isCompleted
                             ? "bg-gradient-to-br from-amber-400 to-orange-500 shadow-md"
-                            : isDark
-                              ? "bg-slate-600/50"
-                              : "bg-gray-200"
+                            : "bg-gray-200 dark:bg-slate-600/50"
                         }`}>
                           {isCompleted ? (
                             <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
                               <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
                             </svg>
                           ) : (
-                            <svg className={`w-6 h-6 ${isDark ? "text-slate-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className={`w-6 h-6 theme-text-tertiary`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
                             </svg>
                           )}
@@ -1593,15 +1564,15 @@ function PersonnelDetailContent() {
                         {/* Badge Title */}
                         <p className={`text-xs font-semibold leading-tight ${
                           isCompleted
-                            ? isDark ? "text-amber-300" : "text-amber-700"
-                            : isDark ? "text-slate-400" : "text-gray-500"
+                            ? "text-amber-700 dark:text-amber-300"
+                            : "text-gray-500 dark:text-slate-400"
                         }`}>
                           {area}
                         </p>
 
                         {/* Completion Date */}
                         {isCompleted && (
-                          <p className={`text-[10px] mt-1 ${isDark ? "text-amber-400/70" : "text-amber-600/70"}`}>
+                          <p className={`text-[10px] mt-1 text-amber-600/70 dark:text-amber-400/70`}>
                             {completedDate || "Earned"}
                           </p>
                         )}
@@ -1609,7 +1580,7 @@ function PersonnelDetailContent() {
                         {/* Earned Ribbon */}
                         {isCompleted && (
                           <div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center ${
-                            isDark ? "bg-emerald-500" : "bg-emerald-500"
+                            "bg-emerald-500 dark:bg-emerald-500"
                           } shadow-md`}>
                             <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -1621,18 +1592,18 @@ function PersonnelDetailContent() {
                   })}
                 </div>
                 {!canManagePersonnel && (
-                  <p className={`text-xs mt-4 text-center ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                  <p className={`text-xs mt-4 text-center theme-text-tertiary`}>
                     Only managers can award badges
                   </p>
                 )}
               </div>
 
             {/* Video Training (TIA) */}
-            <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
-              <h3 className={`text-lg font-semibold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>Video Training</h3>
+            <div className={`rounded-xl p-6 theme-card`}>
+              <h3 className={`text-lg font-semibold mb-1 theme-text-primary`}>Video Training</h3>
               {canManagePersonnel && (
                 <div className="flex items-center gap-2 mt-2 mb-3">
-                  <select value={assignSeg} onChange={(e) => setAssignSeg(e.target.value)} className={`px-2 py-1 text-xs rounded border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "border-gray-300"}`}>
+                  <select value={assignSeg} onChange={(e) => setAssignSeg(e.target.value)} className={`px-2 py-1 text-xs rounded border border-gray-300 dark:bg-slate-900 dark:border-slate-600 dark:text-white`}>
                     <option value="">Assign a program…</option>
                     {segments.map((s) => <option key={s._id} value={s._id}>{s.title}</option>)}
                   </select>
@@ -1640,17 +1611,17 @@ function PersonnelDetailContent() {
                 </div>
               )}
               {trainingProgress.length === 0 ? (
-                <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>No video training assigned or completed yet.</p>
+                <p className={`text-sm theme-text-tertiary`}>No video training assigned or completed yet.</p>
               ) : (
                 <div className="space-y-4 mt-3">
                   {trainingProgress.map((seg) => (
                     <div key={seg.segmentId}>
-                      <div className={`text-sm font-medium ${isDark ? "text-slate-200" : "text-gray-800"}`}>
+                      <div className={`text-sm font-medium theme-text-primary`}>
                         {seg.title} — {seg.completedCount} of {seg.totalVideos} videos
                       </div>
                       <ul className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
                         {seg.videos.map((v) => (
-                          <li key={v.videoId} className={`text-xs flex items-center gap-1.5 ${v.completed ? (isDark ? "text-green-400" : "text-green-700") : (isDark ? "text-slate-500" : "text-gray-500")}`}>
+                          <li key={v.videoId} className={`text-xs flex items-center gap-1.5 ${v.completed ? ("text-green-700 dark:text-green-400") : ("text-gray-500 dark:text-slate-500")}`}>
                             <span>{v.completed ? "✓" : v.assigned ? "○" : "·"}</span> {v.title}
                             {canManagePersonnel && v.assigned && !v.completed && (
                               <button onClick={async () => { if (user) await unassignVideo({ personnelId, videoId: v.videoId, requestingUserId: user._id }); }} className="ml-1 text-[10px] text-red-500">remove</button>
@@ -1666,17 +1637,15 @@ function PersonnelDetailContent() {
 
               {/* Linked Application Card */}
               {personnel.applicationId && (
-                <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                <div className={`rounded-xl p-6 theme-card`}>
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                    <h2 className={`text-lg font-semibold theme-text-primary`}>
                       Original Application
                     </h2>
                     <button
                       onClick={() => router.push(`/applications/${personnel.applicationId}`)}
                       className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                        isDark
-                          ? "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30"
-                          : "bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200"
+                        "bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 dark:bg-cyan-500/20 dark:hover:bg-cyan-500/30 dark:text-cyan-400 dark:border dark:border-cyan-500/30"
                       }`}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1688,25 +1657,23 @@ function PersonnelDetailContent() {
                   {linkedApplication ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>Applied Position</p>
-                        <p className={`${isDark ? "text-white" : "text-gray-900"}`}>{linkedApplication.appliedJobTitle}</p>
+                        <p className={`text-xs font-medium theme-text-tertiary`}>Applied Position</p>
+                        <p className={`theme-text-primary`}>{linkedApplication.appliedJobTitle}</p>
                       </div>
                       <div>
-                        <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>Applied On</p>
-                        <p className={`${isDark ? "text-white" : "text-gray-900"}`}>
+                        <p className={`text-xs font-medium theme-text-tertiary`}>Applied On</p>
+                        <p className={`theme-text-primary`}>
                           {new Date(linkedApplication.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                       <div>
-                        <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>Application Status</p>
-                        <span className={`px-2 py-1 text-xs font-medium rounded border ${statusColors.active}`}>
-                          Hired
-                        </span>
+                        <p className={`text-xs font-medium theme-text-tertiary`}>Application Status</p>
+                        <span className="ui-badge ui-badge-green">Hired</span>
                       </div>
                       {linkedApplication.aiAnalysis && (
                         <div>
-                          <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>AI Match Score</p>
-                          <p className={`${isDark ? "text-white" : "text-gray-900"}`}>
+                          <p className={`text-xs font-medium theme-text-tertiary`}>AI Match Score</p>
+                          <p className={`theme-text-primary`}>
                             {linkedApplication.aiAnalysis.matchScore}%
                           </p>
                         </div>
@@ -1714,14 +1681,14 @@ function PersonnelDetailContent() {
                       {linkedApplication.candidateAnalysis && (
                         <>
                           <div>
-                            <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>Overall Score</p>
-                            <p className={`${isDark ? "text-white" : "text-gray-900"}`}>
+                            <p className={`text-xs font-medium theme-text-tertiary`}>Overall Score</p>
+                            <p className={`theme-text-primary`}>
                               {linkedApplication.candidateAnalysis.overallScore}/100
                             </p>
                           </div>
                           <div>
-                            <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>Prior Experience</p>
-                            <p className={`${isDark ? "text-white" : "text-gray-900"}`}>
+                            <p className={`text-xs font-medium theme-text-tertiary`}>Prior Experience</p>
+                            <p className={`theme-text-primary`}>
                               {linkedApplication.candidateAnalysis.totalYearsExperience.toFixed(1)} years
                             </p>
                           </div>
@@ -1729,7 +1696,7 @@ function PersonnelDetailContent() {
                       )}
                     </div>
                   ) : (
-                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <p className={`text-sm theme-text-tertiary`}>
                       Loading application data...
                     </p>
                   )}
@@ -1737,16 +1704,14 @@ function PersonnelDetailContent() {
               )}
 
               {/* Tenure & Employment Card */}
-              <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+              <div className={`rounded-xl p-6 theme-card`}>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <h2 className={`text-lg font-semibold theme-text-primary`}>
                     Tenure & Employment
                   </h2>
                   {personnel.status === "terminated" && (
                     <span className={`px-3 py-1 text-sm font-medium rounded-full ${
-                      isDark
-                        ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                        : "bg-red-50 text-red-600 border border-red-200"
+                      "bg-red-50 text-red-600 border border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border dark:border-red-500/30"
                     }`}>
                       Terminated
                     </span>
@@ -1758,23 +1723,23 @@ function PersonnelDetailContent() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                        <p className={`text-xs font-medium theme-text-tertiary`}>
                           {personnel.status === "terminated" ? "Total Employment" : "Current Tenure"}
                         </p>
-                        <p className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                        <p className={`text-xl font-bold theme-text-primary`}>
                           {tenure.display}
                         </p>
                       </div>
                       <div>
-                        <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>Hire Date</p>
-                        <p className={`${isDark ? "text-white" : "text-gray-900"}`}>
+                        <p className={`text-xs font-medium theme-text-tertiary`}>Hire Date</p>
+                        <p className={`theme-text-primary`}>
                           {new Date(personnel.hireDate).toLocaleDateString()}
                         </p>
                       </div>
                       {personnel.status === "terminated" && personnel.terminationDate && (
                         <div>
-                          <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>Termination Date</p>
-                          <p className={`${isDark ? "text-white" : "text-gray-900"}`}>
+                          <p className={`text-xs font-medium theme-text-tertiary`}>Termination Date</p>
+                          <p className={`theme-text-primary`}>
                             {new Date(personnel.terminationDate).toLocaleDateString()}
                           </p>
                         </div>
@@ -1783,45 +1748,41 @@ function PersonnelDetailContent() {
 
                     {/* Termination Reason (if terminated) */}
                     {personnel.status === "terminated" && personnel.terminationReason && (
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-red-500/10 border border-red-500/20" : "bg-red-50 border border-red-200"}`}>
-                        <p className={`text-xs font-medium mb-1 ${isDark ? "text-red-400" : "text-red-600"}`}>Termination Reason</p>
-                        <p className={`text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>{personnel.terminationReason}</p>
+                      <div className={`p-4 rounded-lg bg-red-50 border border-red-200 dark:bg-red-500/10 dark:border dark:border-red-500/20`}>
+                        <p className={`text-xs font-medium mb-1 text-red-600 dark:text-red-400`}>Termination Reason</p>
+                        <p className={`text-sm theme-text-secondary`}>{personnel.terminationReason}</p>
                       </div>
                     )}
 
                     {/* Milestones (only for active employees) */}
                     {personnel.status !== "terminated" && milestones && (
-                      <div className={`p-4 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
-                        <p className={`text-xs font-medium mb-3 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Tenure Milestones</p>
+                      <div className={`p-4 rounded-lg bg-black/[0.03] dark:bg-white/[0.04]`}>
+                        <p className={`text-xs font-medium mb-3 theme-text-secondary`}>Tenure Milestones</p>
                         <div className="flex flex-wrap gap-3">
                           {/* Insurance Eligibility (60 days) */}
                           <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
                             milestones.insuranceEligible
-                              ? isDark
-                                ? "bg-green-500/20 border border-green-500/30"
-                                : "bg-green-50 border border-green-200"
-                              : isDark
-                                ? "bg-slate-600/50 border border-slate-500/30"
-                                : "bg-gray-100 border border-gray-200"
+                              ? "bg-green-50 border border-green-200 dark:bg-green-500/20 dark:border dark:border-green-500/30"
+                              : "bg-gray-100 border border-gray-200 dark:bg-slate-600/50 dark:border dark:border-slate-500/30"
                           }`}>
                             {milestones.insuranceEligible ? (
                               <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             ) : (
-                              <svg className={`w-5 h-5 ${isDark ? "text-slate-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className={`w-5 h-5 theme-text-tertiary`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             )}
                             <div>
                               <p className={`text-sm font-medium ${
                                 milestones.insuranceEligible
-                                  ? isDark ? "text-green-400" : "text-green-600"
-                                  : isDark ? "text-slate-400" : "text-gray-600"
+                                  ? "text-green-600 dark:text-green-400"
+                                  : "text-gray-600 dark:text-slate-400"
                               }`}>
                                 Insurance Eligible
                               </p>
-                              <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                              <p className={`text-xs theme-text-tertiary`}>
                                 {milestones.insuranceEligible
                                   ? `Effective ${milestones.insuranceEligibilityDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`
                                   : `Eligible ${milestones.insuranceEligibilityDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} · ${milestones.daysToInsurance} days`}
@@ -1832,31 +1793,27 @@ function PersonnelDetailContent() {
                           {/* Vacation Eligibility (1 year) */}
                           <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
                             milestones.vacationEligible
-                              ? isDark
-                                ? "bg-green-500/20 border border-green-500/30"
-                                : "bg-green-50 border border-green-200"
-                              : isDark
-                                ? "bg-slate-600/50 border border-slate-500/30"
-                                : "bg-gray-100 border border-gray-200"
+                              ? "bg-green-50 border border-green-200 dark:bg-green-500/20 dark:border dark:border-green-500/30"
+                              : "bg-gray-100 border border-gray-200 dark:bg-slate-600/50 dark:border dark:border-slate-500/30"
                           }`}>
                             {milestones.vacationEligible ? (
                               <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             ) : (
-                              <svg className={`w-5 h-5 ${isDark ? "text-slate-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className={`w-5 h-5 theme-text-tertiary`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             )}
                             <div>
                               <p className={`text-sm font-medium ${
                                 milestones.vacationEligible
-                                  ? isDark ? "text-green-400" : "text-green-600"
-                                  : isDark ? "text-slate-400" : "text-gray-600"
+                                  ? "text-green-600 dark:text-green-400"
+                                  : "text-gray-600 dark:text-slate-400"
                               }`}>
                                 Vacation Time
                               </p>
-                              <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                              <p className={`text-xs theme-text-tertiary`}>
                                 {milestones.vacationEligible
                                   ? "Eligible after 1 year"
                                   : `${milestones.daysToVacation} days remaining`}
@@ -1873,9 +1830,7 @@ function PersonnelDetailContent() {
                         <button
                           onClick={() => setShowTerminateModal(true)}
                           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                            isDark
-                              ? "bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30"
-                              : "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
+                            "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 dark:bg-red-500/20 dark:hover:bg-red-500/30 dark:text-red-400 dark:border dark:border-red-500/30"
                           }`}
                         >
                           Terminate Employee
@@ -1884,9 +1839,7 @@ function PersonnelDetailContent() {
                           <button
                             onClick={() => { setDeleteConfirmText(""); setShowDeleteModal(true); }}
                             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                              isDark
-                                ? "bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-600/40"
-                                : "bg-red-100 hover:bg-red-200 text-red-700 border border-red-300"
+                              "bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 dark:bg-red-600/20 dark:hover:bg-red-600/30 dark:text-red-300 dark:border dark:border-red-600/40"
                             }`}
                             title="Super-admin only. Permanently delete this record and all associated write-ups, attendance, merits, and reviews. Cannot be undone."
                           >
@@ -1902,9 +1855,7 @@ function PersonnelDetailContent() {
                         <button
                           onClick={() => { setDeleteConfirmText(""); setShowDeleteModal(true); }}
                           className={`px-4 py-2 rounded-lg font-medium transition-colors text-xs ${
-                            isDark
-                              ? "bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-600/40"
-                              : "bg-red-100 hover:bg-red-200 text-red-700 border border-red-300"
+                            "bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 dark:bg-red-600/20 dark:hover:bg-red-600/30 dark:text-red-300 dark:border dark:border-red-600/40"
                           }`}
                         >
                           Delete Permanently
@@ -1928,9 +1879,7 @@ function PersonnelDetailContent() {
                             setShowRehireModal(true);
                           }}
                           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                            isDark
-                              ? "bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30"
-                              : "bg-green-50 hover:bg-green-100 text-green-600 border border-green-200"
+                            "bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 dark:bg-green-500/20 dark:hover:bg-green-500/30 dark:text-green-400 dark:border dark:border-green-500/30"
                           }`}
                         >
                           Rehire Employee
@@ -1967,32 +1916,32 @@ function PersonnelDetailContent() {
                   await clearNinetyDayReview({ personnelId: personnel._id, requestingUserId: user._id });
                 };
                 return (
-                  <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                  <div className={`rounded-xl p-6 theme-card`}>
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                           review
-                            ? isDark ? "bg-green-500/20" : "bg-green-100"
+                            ? "bg-green-100 dark:bg-green-500/20"
                             : isDue
-                              ? isDark ? "bg-red-500/20" : "bg-red-100"
+                              ? "bg-red-100 dark:bg-red-500/20"
                               : isUpcoming
-                                ? isDark ? "bg-amber-500/20" : "bg-amber-100"
-                                : isDark ? "bg-slate-700" : "bg-gray-100"
+                                ? "bg-amber-100 dark:bg-amber-500/20"
+                                : "bg-gray-100 dark:bg-slate-700"
                         }`}>
                           <svg className={`w-5 h-5 ${
-                            review ? (isDark ? "text-green-400" : "text-green-600")
-                              : isDue ? (isDark ? "text-red-400" : "text-red-600")
-                              : isUpcoming ? (isDark ? "text-amber-400" : "text-amber-600")
-                              : (isDark ? "text-slate-400" : "text-gray-500")
+                            review ? ("text-green-600 dark:text-green-400")
+                              : isDue ? ("text-red-600 dark:text-red-400")
+                              : isUpcoming ? ("text-amber-600 dark:text-amber-400")
+                              : ("text-gray-500 dark:text-slate-400")
                           }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                           </svg>
                         </div>
                         <div>
-                          <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                          <h2 className={`text-lg font-semibold theme-text-primary`}>
                             90-Day Review
                           </h2>
-                          <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          <p className={`text-xs theme-text-tertiary`}>
                             {review
                               ? "Completed"
                               : isDue
@@ -2006,7 +1955,7 @@ function PersonnelDetailContent() {
                       {review && canManagePersonnel && (
                         <button
                           onClick={handleClear}
-                          className={`text-xs font-medium ${isDark ? "text-slate-500 hover:text-red-400" : "text-gray-400 hover:text-red-600"}`}
+                          className={`text-xs font-medium text-gray-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-red-400`}
                         >
                           Clear
                         </button>
@@ -2014,16 +1963,16 @@ function PersonnelDetailContent() {
                     </div>
 
                     {review ? (
-                      <div className={`rounded-lg p-4 ${isDark ? "bg-green-500/10 border border-green-500/20" : "bg-green-50 border border-green-200"}`}>
-                        <p className={`text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
+                      <div className={`rounded-lg p-4 bg-green-50 border border-green-200 dark:bg-green-500/10 dark:border dark:border-green-500/20`}>
+                        <p className={`text-sm theme-text-primary`}>
                           Reviewed by <span className="font-semibold">{review.completedByName}</span> on{" "}
                           <span className="font-semibold">
                             {new Date(review.completedAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
                           </span>
                         </p>
                         {review.notes && (
-                          <p className={`text-sm mt-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                            <span className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-gray-500"}`}>Notes: </span>
+                          <p className={`text-sm mt-2 theme-text-secondary`}>
+                            <span className={`text-xs font-medium theme-text-tertiary`}>Notes: </span>
                             {review.notes}
                           </p>
                         )}
@@ -2035,7 +1984,7 @@ function PersonnelDetailContent() {
                           onChange={(e) => setNinetyReviewNotes(e.target.value)}
                           placeholder="Optional notes from the review (performance, attendance, attitude, training gaps)"
                           rows={3}
-                          className={`w-full px-3 py-2 rounded-lg border resize-none text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                          className={`w-full px-3 py-2 rounded-lg border resize-none text-sm bg-white border-gray-300 text-gray-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white`}
                         />
                         <div className="flex gap-2">
                           <button
@@ -2048,7 +1997,7 @@ function PersonnelDetailContent() {
                           </button>
                           <button
                             onClick={() => { setShowNinetyReviewForm(false); setNinetyReviewNotes(""); }}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium ${isDark ? "bg-slate-700 text-slate-200 hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600`}
                           >
                             Cancel
                           </button>
@@ -2059,7 +2008,7 @@ function PersonnelDetailContent() {
                         Record 90-Day Review
                       </Button>
                     ) : (
-                      <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      <p className={`text-sm theme-text-tertiary`}>
                         Review not yet recorded. Ask a manager to complete it.
                       </p>
                     )}
@@ -2069,19 +2018,19 @@ function PersonnelDetailContent() {
 
               {/* Tenure Check-Ins Section (only for active employees) */}
               {personnel.status !== "terminated" && tenure && (
-                <div className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}>
+                <div className={`rounded-xl p-6 theme-card`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? "bg-blue-500/20" : "bg-blue-100"}`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center bg-blue-100 dark:bg-blue-500/20`}>
                         <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                         </svg>
                       </div>
                       <div>
-                        <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                        <h2 className={`text-lg font-semibold theme-text-primary`}>
                           Tenure Check-Ins
                         </h2>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <p className={`text-sm theme-text-tertiary`}>
                           {personnel.tenureCheckIns?.length || 0} of 5 milestones completed
                         </p>
                       </div>
@@ -2106,16 +2055,10 @@ function PersonnelDetailContent() {
                           key={milestone.key}
                           className={`flex items-center justify-between p-4 rounded-lg transition-all ${
                             checkIn
-                              ? isDark
-                                ? "bg-green-500/10 border border-green-500/30"
-                                : "bg-green-50 border border-green-200"
+                              ? "bg-green-50 border border-green-200 dark:bg-green-500/10 dark:border dark:border-green-500/30"
                               : isPastDue
-                                ? isDark
-                                  ? "bg-amber-500/10 border border-amber-500/30"
-                                  : "bg-amber-50 border border-amber-200"
-                                : isDark
-                                  ? "bg-slate-700/30 border border-slate-600/50"
-                                  : "bg-gray-50 border border-gray-200"
+                                ? "bg-amber-50 border border-amber-200 dark:bg-amber-500/10 dark:border dark:border-amber-500/30"
+                                : "bg-gray-50 border border-gray-200 dark:bg-slate-700/30 dark:border dark:border-slate-600/50"
                           }`}
                         >
                           <div className="flex items-center gap-3">
@@ -2124,19 +2067,19 @@ function PersonnelDetailContent() {
                               checkIn
                                 ? "bg-green-500"
                                 : isPastDue
-                                  ? isDark ? "bg-amber-500/20" : "bg-amber-100"
-                                  : isDark ? "bg-slate-600/50" : "bg-gray-200"
+                                  ? "bg-amber-100 dark:bg-amber-500/20"
+                                  : "bg-gray-200 dark:bg-slate-600/50"
                             }`}>
                               {checkIn ? (
                                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : isPastDue ? (
-                                <svg className={`w-5 h-5 ${isDark ? "text-amber-400" : "text-amber-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className={`w-5 h-5 text-amber-600 dark:text-amber-400`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                               ) : (
-                                <span className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                                <span className={`text-xs font-medium theme-text-tertiary`}>
                                   {milestone.dayThreshold - tenure.totalDays}d
                                 </span>
                               )}
@@ -2146,26 +2089,26 @@ function PersonnelDetailContent() {
                             <div>
                               <p className={`font-medium ${
                                 checkIn
-                                  ? isDark ? "text-green-400" : "text-green-700"
+                                  ? "text-green-700 dark:text-green-400"
                                   : isPastDue
-                                    ? isDark ? "text-amber-400" : "text-amber-700"
-                                    : isDark ? "text-slate-300" : "text-gray-700"
+                                    ? "text-amber-700 dark:text-amber-400"
+                                    : "text-gray-700 dark:text-slate-300"
                               }`}>
                                 {milestone.label} Check-In
                               </p>
                               {checkIn ? (
-                                <div className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                                <div className={`text-xs theme-text-tertiary`}>
                                   Completed by {checkIn.completedByName} on {new Date(checkIn.completedAt).toLocaleDateString()}
                                   {checkIn.notes && (
                                     <span className="block mt-1 italic">&quot;{checkIn.notes}&quot;</span>
                                   )}
                                 </div>
                               ) : isPastDue ? (
-                                <p className={`text-xs ${isDark ? "text-amber-400/70" : "text-amber-600"}`}>
+                                <p className={`text-xs text-amber-600 dark:text-amber-400/70`}>
                                   Overdue - was due on day {milestone.dayThreshold}
                                 </p>
                               ) : (
-                                <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                                <p className={`text-xs theme-text-tertiary`}>
                                   Due in {milestone.dayThreshold - tenure.totalDays} days
                                 </p>
                               )}
@@ -2181,12 +2124,8 @@ function PersonnelDetailContent() {
                               }}
                               className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
                                 isPastDue
-                                  ? isDark
-                                    ? "bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30"
-                                    : "bg-amber-100 hover:bg-amber-200 text-amber-700 border border-amber-300"
-                                  : isDark
-                                    ? "bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30"
-                                    : "bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200"
+                                  ? "bg-amber-100 hover:bg-amber-200 text-amber-700 border border-amber-300 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 dark:text-amber-400 dark:border dark:border-amber-500/30"
+                                  : "bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 dark:bg-blue-500/20 dark:hover:bg-blue-500/30 dark:text-blue-400 dark:border dark:border-blue-500/30"
                               }`}
                             >
                               {isPastDue ? "Complete Now" : "Mark Complete"}
@@ -2198,7 +2137,7 @@ function PersonnelDetailContent() {
                   </div>
 
                   {!canManagePersonnel && (
-                    <p className={`text-xs mt-4 text-center ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                    <p className={`text-xs mt-4 text-center theme-text-tertiary`}>
                       Only managers can record check-ins
                     </p>
                   )}
@@ -2215,9 +2154,7 @@ function PersonnelDetailContent() {
                   <button
                     onClick={() => setShowWriteUpModal(true)}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      isDark
-                        ? "bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30"
-                        : "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
+                      "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 dark:bg-red-500/20 dark:hover:bg-red-500/30 dark:text-red-400 dark:border dark:border-red-500/30"
                     }`}
                   >
                     Add Write-Up
@@ -2232,12 +2169,8 @@ function PersonnelDetailContent() {
                       key={writeUp._id}
                       className={`rounded-xl p-6 ${
                         writeUp.isDeprecated
-                          ? isDark
-                            ? "bg-slate-800/30 border border-slate-700/50"
-                            : "bg-gray-50 border border-gray-200"
-                          : isDark
-                            ? "bg-slate-800/50 border border-slate-700"
-                            : "bg-white border border-gray-200 shadow-sm"
+                          ? "bg-gray-50 border border-gray-200 dark:bg-slate-800/30 dark:border dark:border-slate-700/50"
+                          : "bg-white border border-gray-200 shadow-sm dark:bg-slate-800/50 dark:border dark:border-slate-700"
                       }`}
                     >
                       <div className="flex items-start justify-between">
@@ -2246,42 +2179,38 @@ function PersonnelDetailContent() {
                             <span className={`px-2 py-1 text-xs font-medium rounded border ${severityColors[writeUp.severity] || severityColors.verbal}`}>
                               {writeUp.severity.charAt(0).toUpperCase() + writeUp.severity.slice(1)}
                             </span>
-                            <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <span className={`text-sm theme-text-tertiary`}>
                               {new Date(writeUp.date).toLocaleDateString()}
                             </span>
                             {writeUp.isDeprecated && (
                               <span className={`px-2 py-1 text-xs font-medium rounded border ${
-                                isDark
-                                  ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
-                                  : "bg-amber-100 text-amber-700 border-amber-200"
+                                "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30"
                               }`}>
                                 Deprecated ({writeUp.daysSinceIssued}+ days)
                               </span>
                             )}
                           </div>
-                          <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                          <h3 className={`font-semibold theme-text-primary`}>
                             {writeUp.category}
                           </h3>
-                          <p className={`mt-2 text-sm ${isDark ? "text-slate-300" : "text-gray-600"}`}>
+                          <p className={`mt-2 text-sm theme-text-secondary`}>
                             {writeUp.description}
                           </p>
                           {writeUp.followUpDate && (
-                            <p className={`mt-2 text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                            <p className={`mt-2 text-xs theme-text-tertiary`}>
                               Follow-up: {new Date(writeUp.followUpDate).toLocaleDateString()}
                             </p>
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-2 ml-4">
-                          <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                          <p className={`text-xs theme-text-tertiary`}>
                             By: {writeUp.issuerName}
                           </p>
                           {canDeleteRecords && (
                             <button
                               onClick={() => handleDeleteWriteUp(writeUp._id)}
                               className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
-                                isDark
-                                  ? "bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30"
-                                  : "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
+                                "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 dark:bg-red-500/20 dark:hover:bg-red-500/30 dark:text-red-400 dark:border dark:border-red-500/30"
                               }`}
                             >
                               Delete
@@ -2291,21 +2220,17 @@ function PersonnelDetailContent() {
                       </div>
 
                       {/* Attachments Section */}
-                      <div className={`mt-4 pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                      <div className={`mt-4 pt-4 border-t theme-border-secondary`}>
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          <h4 className={`text-sm font-medium theme-text-tertiary`}>
                             Attachments
                           </h4>
                           {canManagePersonnel && (
                             <label
                               className={`px-3 py-1.5 text-xs font-medium rounded cursor-pointer transition-colors flex items-center gap-1 ${
                                 isUploading && uploadingWriteUpId === writeUp._id
-                                  ? isDark
-                                    ? "bg-slate-600 text-slate-400"
-                                    : "bg-gray-200 text-gray-400"
-                                  : isDark
-                                    ? "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30"
-                                    : "bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200"
+                                  ? "bg-gray-200 text-gray-400 dark:bg-slate-600 dark:text-slate-400"
+                                  : "bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 dark:bg-cyan-500/20 dark:hover:bg-cyan-500/30 dark:text-cyan-400 dark:border dark:border-cyan-500/30"
                               }`}
                             >
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2337,7 +2262,7 @@ function PersonnelDetailContent() {
                             ))}
                           </div>
                         ) : (
-                          <p className={`text-xs ${isDark ? "text-slate-600" : "text-gray-400"}`}>
+                          <p className={`text-xs theme-text-tertiary`}>
                             No attachments
                           </p>
                         )}
@@ -2346,7 +2271,7 @@ function PersonnelDetailContent() {
                   ))}
                 </div>
               ) : (
-                <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                <div className={`text-center py-12 theme-text-tertiary`}>
                   No write-ups on record
                 </div>
               )}
@@ -2361,9 +2286,7 @@ function PersonnelDetailContent() {
                   <button
                     onClick={() => setShowAttendanceModal(true)}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      isDark
-                        ? "bg-cyan-500 hover:bg-cyan-400 text-white"
-                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                      "theme-btn-primary"
                     }`}
                   >
                     Add Attendance Record
@@ -2376,7 +2299,7 @@ function PersonnelDetailContent() {
                   {attendance.map((record) => (
                     <div
                       key={record._id}
-                      className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}
+                      className={`rounded-xl p-6 theme-card`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -2384,26 +2307,26 @@ function PersonnelDetailContent() {
                             <span className={`px-2 py-1 text-xs font-medium rounded border ${attendanceStatusColors[record.status] || attendanceStatusColors.present}`}>
                               {record.status.replace("_", " ").charAt(0).toUpperCase() + record.status.replace("_", " ").slice(1)}
                             </span>
-                            <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <span className={`text-sm theme-text-tertiary`}>
                               {new Date(record.date).toLocaleDateString()}
                             </span>
                           </div>
-                          <div className={`grid grid-cols-3 gap-4 mt-3 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                          <div className={`grid grid-cols-3 gap-4 mt-3 theme-text-secondary`}>
                             <div>
-                              <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>Time In</span>
+                              <span className={`text-xs theme-text-tertiary`}>Time In</span>
                               <p className="font-medium">{record.actualStart || "-"}</p>
                             </div>
                             <div>
-                              <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>Time Out</span>
+                              <span className={`text-xs theme-text-tertiary`}>Time Out</span>
                               <p className="font-medium">{record.actualEnd || "-"}</p>
                             </div>
                             <div>
-                              <span className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>Hours</span>
+                              <span className={`text-xs theme-text-tertiary`}>Hours</span>
                               <p className="font-medium">{record.hoursWorked?.toFixed(1) || "-"}</p>
                             </div>
                           </div>
                           {record.notes && (
-                            <p className={`mt-3 text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                            <p className={`mt-3 text-sm theme-text-secondary`}>
                               {record.notes}
                             </p>
                           )}
@@ -2413,9 +2336,7 @@ function PersonnelDetailContent() {
                             <button
                               onClick={() => handleEditAttendance(record)}
                               className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
-                                isDark
-                                  ? "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30"
-                                  : "bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200"
+                                "bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 dark:bg-cyan-500/20 dark:hover:bg-cyan-500/30 dark:text-cyan-400 dark:border dark:border-cyan-500/30"
                               }`}
                             >
                               Edit
@@ -2425,9 +2346,7 @@ function PersonnelDetailContent() {
                             <button
                               onClick={() => handleDeleteAttendance(record._id)}
                               className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
-                                isDark
-                                  ? "bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30"
-                                  : "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
+                                "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 dark:bg-red-500/20 dark:hover:bg-red-500/30 dark:text-red-400 dark:border dark:border-red-500/30"
                               }`}
                             >
                               Delete
@@ -2437,21 +2356,17 @@ function PersonnelDetailContent() {
                       </div>
 
                       {/* Attachments Section */}
-                      <div className={`mt-4 pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                      <div className={`mt-4 pt-4 border-t theme-border-secondary`}>
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          <h4 className={`text-sm font-medium theme-text-tertiary`}>
                             Documents (Doctor&apos;s Notes, etc.)
                           </h4>
                           {canManagePersonnel && (
                             <label
                               className={`px-3 py-1.5 text-xs font-medium rounded cursor-pointer transition-colors flex items-center gap-1 ${
                                 isUploadingAttendance && uploadingAttendanceId === record._id
-                                  ? isDark
-                                    ? "bg-slate-600 text-slate-400"
-                                    : "bg-gray-200 text-gray-400"
-                                  : isDark
-                                    ? "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30"
-                                    : "bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200"
+                                  ? "bg-gray-200 text-gray-400 dark:bg-slate-600 dark:text-slate-400"
+                                  : "bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 dark:bg-cyan-500/20 dark:hover:bg-cyan-500/30 dark:text-cyan-400 dark:border dark:border-cyan-500/30"
                               }`}
                             >
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2483,7 +2398,7 @@ function PersonnelDetailContent() {
                             ))}
                           </div>
                         ) : (
-                          <p className={`text-xs ${isDark ? "text-slate-600" : "text-gray-400"}`}>
+                          <p className={`text-xs theme-text-tertiary`}>
                             No attachments
                           </p>
                         )}
@@ -2492,7 +2407,7 @@ function PersonnelDetailContent() {
                   ))}
                 </div>
               ) : (
-                <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                <div className={`text-center py-12 theme-text-tertiary`}>
                   No attendance records
                 </div>
               )}
@@ -2507,9 +2422,7 @@ function PersonnelDetailContent() {
                   <button
                     onClick={() => setShowMeritModal(true)}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      isDark
-                        ? "bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30"
-                        : "bg-green-50 hover:bg-green-100 text-green-600 border border-green-200"
+                      "bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 dark:bg-green-500/20 dark:hover:bg-green-500/30 dark:text-green-400 dark:border dark:border-green-500/30"
                     }`}
                   >
                     Add Merit
@@ -2522,7 +2435,7 @@ function PersonnelDetailContent() {
                   {merits.map((merit) => (
                     <div
                       key={merit._id}
-                      className={`rounded-xl p-6 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}
+                      className={`rounded-xl p-6 theme-card`}
                     >
                       <div className="flex items-start justify-between">
                         <div>
@@ -2530,18 +2443,18 @@ function PersonnelDetailContent() {
                             <span className={`px-2 py-1 text-xs font-medium rounded border ${meritTypeColors[merit.type] || meritTypeColors.commendation}`}>
                               {merit.type.charAt(0).toUpperCase() + merit.type.slice(1)}
                             </span>
-                            <span className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <span className={`text-sm theme-text-tertiary`}>
                               {new Date(merit.date).toLocaleDateString()}
                             </span>
                           </div>
-                          <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                          <h3 className={`font-semibold theme-text-primary`}>
                             {merit.title}
                           </h3>
-                          <p className={`mt-2 text-sm ${isDark ? "text-slate-300" : "text-gray-600"}`}>
+                          <p className={`mt-2 text-sm theme-text-secondary`}>
                             {merit.description}
                           </p>
                         </div>
-                        <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                        <p className={`text-xs theme-text-tertiary`}>
                           By: {merit.issuerName}
                         </p>
                       </div>
@@ -2549,7 +2462,7 @@ function PersonnelDetailContent() {
                   ))}
                 </div>
               ) : (
-                <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                <div className={`text-center py-12 theme-text-tertiary`}>
                   No merits on record
                 </div>
               )}
@@ -2559,7 +2472,7 @@ function PersonnelDetailContent() {
           {/* Equipment Tab */}
           {activeTab === "equipment" && (
             <div className="space-y-6">
-              <h3 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h3 className={`text-lg font-semibold theme-text-primary`}>
                 Assigned Equipment
               </h3>
 
@@ -2571,50 +2484,50 @@ function PersonnelDetailContent() {
                     return (
                       <div
                         key={scanner._id}
-                        className={`rounded-lg p-4 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}
+                        className={`rounded-lg p-4 theme-card`}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? "bg-cyan-500/20" : "bg-blue-100"}`}>
-                              <svg className={`w-5 h-5 ${isDark ? "text-cyan-400" : "text-blue-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-blue-100 dark:bg-cyan-500/20`}>
+                              <svg className={`w-5 h-5 text-blue-600 dark:text-cyan-400`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                               </svg>
                             </div>
                             <div>
-                              <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                              <p className={`font-medium theme-text-primary`}>
                                 Scanner #{scanner.number}
                               </p>
-                              <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              <p className={`text-sm theme-text-tertiary`}>
                                 {scanner.model || "Unknown Model"}
                               </p>
                             </div>
                           </div>
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
                             scanner.status === "assigned"
-                              ? isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"
-                              : isDark ? "bg-slate-600 text-slate-300" : "bg-gray-100 text-gray-600"
+                              ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400"
+                              : "bg-gray-100 text-gray-600 dark:bg-slate-600 dark:text-slate-300"
                           }`}>
                             {scanner.status}
                           </span>
                         </div>
-                        <div className={`mt-3 pt-3 border-t space-y-1 ${isDark ? "border-slate-700" : "border-gray-100"}`}>
+                        <div className={`mt-3 pt-3 border-t space-y-1 theme-border-secondary`}>
                           {location && (
-                            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <p className={`text-sm theme-text-tertiary`}>
                               <span className="font-medium">Location:</span> {location.name}
                             </p>
                           )}
                           {scanner.serialNumber && (
-                            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <p className={`text-sm theme-text-tertiary`}>
                               <span className="font-medium">S/N:</span> {scanner.serialNumber}
                             </p>
                           )}
                           {scanner.assignedAt && (
-                            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <p className={`text-sm theme-text-tertiary`}>
                               <span className="font-medium">Assigned:</span> {new Date(scanner.assignedAt).toLocaleDateString()}
                             </p>
                           )}
                           {scanner.conditionNotes && (
-                            <p className={`text-sm ${isDark ? "text-amber-400" : "text-amber-600"}`}>
+                            <p className={`text-sm text-amber-600 dark:text-amber-400`}>
                               <span className="font-medium">Condition:</span> {scanner.conditionNotes}
                             </p>
                           )}
@@ -2629,50 +2542,50 @@ function PersonnelDetailContent() {
                     return (
                       <div
                         key={picker._id}
-                        className={`rounded-lg p-4 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}
+                        className={`rounded-lg p-4 theme-card`}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? "bg-purple-500/20" : "bg-purple-100"}`}>
-                              <svg className={`w-5 h-5 ${isDark ? "text-purple-400" : "text-purple-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-purple-100 dark:bg-purple-500/20`}>
+                              <svg className={`w-5 h-5 text-purple-600 dark:text-purple-400`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                               </svg>
                             </div>
                             <div>
-                              <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                              <p className={`font-medium theme-text-primary`}>
                                 Picker #{picker.number}
                               </p>
-                              <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              <p className={`text-sm theme-text-tertiary`}>
                                 {picker.model || "Unknown Model"}
                               </p>
                             </div>
                           </div>
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
                             picker.status === "assigned"
-                              ? isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"
-                              : isDark ? "bg-slate-600 text-slate-300" : "bg-gray-100 text-gray-600"
+                              ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400"
+                              : "bg-gray-100 text-gray-600 dark:bg-slate-600 dark:text-slate-300"
                           }`}>
                             {picker.status}
                           </span>
                         </div>
-                        <div className={`mt-3 pt-3 border-t space-y-1 ${isDark ? "border-slate-700" : "border-gray-100"}`}>
+                        <div className={`mt-3 pt-3 border-t space-y-1 theme-border-secondary`}>
                           {location && (
-                            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <p className={`text-sm theme-text-tertiary`}>
                               <span className="font-medium">Location:</span> {location.name}
                             </p>
                           )}
                           {picker.serialNumber && (
-                            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <p className={`text-sm theme-text-tertiary`}>
                               <span className="font-medium">S/N:</span> {picker.serialNumber}
                             </p>
                           )}
                           {picker.assignedAt && (
-                            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <p className={`text-sm theme-text-tertiary`}>
                               <span className="font-medium">Assigned:</span> {new Date(picker.assignedAt).toLocaleDateString()}
                             </p>
                           )}
                           {picker.conditionNotes && (
-                            <p className={`text-sm ${isDark ? "text-amber-400" : "text-amber-600"}`}>
+                            <p className={`text-sm text-amber-600 dark:text-amber-400`}>
                               <span className="font-medium">Condition:</span> {picker.conditionNotes}
                             </p>
                           )}
@@ -2682,7 +2595,7 @@ function PersonnelDetailContent() {
                   })}
                 </div>
               ) : (
-                <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                <div className={`text-center py-12 theme-text-tertiary`}>
                   No equipment assigned
                 </div>
               )}
@@ -2690,71 +2603,71 @@ function PersonnelDetailContent() {
               {/* Signed Agreements Section */}
               {equipmentAgreements && equipmentAgreements.length > 0 && (
                 <div className="mt-8">
-                  <h3 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <h3 className={`text-lg font-semibold mb-4 theme-text-primary`}>
                     Signed Equipment Agreements
                   </h3>
                   <div className="space-y-4">
                     {equipmentAgreements.map((agreement) => (
                       <div
                         key={agreement._id}
-                        className={`rounded-lg p-4 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}
+                        className={`rounded-lg p-4 theme-card`}
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                               agreement.revokedAt
-                                ? isDark ? "bg-slate-600" : "bg-gray-200"
-                                : isDark ? "bg-green-500/20" : "bg-green-100"
+                                ? "bg-gray-200 dark:bg-slate-600"
+                                : "bg-green-100 dark:bg-green-500/20"
                             }`}>
                               <svg className={`w-5 h-5 ${
                                 agreement.revokedAt
-                                  ? isDark ? "text-slate-400" : "text-gray-500"
-                                  : isDark ? "text-green-400" : "text-green-600"
+                                  ? "text-gray-500 dark:text-slate-400"
+                                  : "text-green-600 dark:text-green-400"
                               }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             </div>
                             <div>
-                              <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                              <p className={`font-medium theme-text-primary`}>
                                 {agreement.equipmentType === "scanner" ? "Scanner" : "Picker"} #{agreement.equipmentNumber}
                               </p>
-                              <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                              <p className={`text-sm theme-text-tertiary`}>
                                 {agreement.serialNumber ? `S/N: ${agreement.serialNumber}` : "No serial number"}
                               </p>
                             </div>
                           </div>
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
                             agreement.revokedAt
-                              ? isDark ? "bg-slate-600 text-slate-300" : "bg-gray-100 text-gray-600"
-                              : isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"
+                              ? "bg-gray-100 text-gray-600 dark:bg-slate-600 dark:text-slate-300"
+                              : "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400"
                           }`}>
                             {agreement.revokedAt ? "Returned" : "Active"}
                           </span>
                         </div>
 
-                        <div className={`space-y-2 text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <div className={`space-y-2 text-sm theme-text-tertiary`}>
                           <div className="flex justify-between">
                             <span>Equipment Value:</span>
-                            <span className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <span className={`font-medium theme-text-primary`}>
                               ${agreement.equipmentValue.toFixed(2)}
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span>Signed:</span>
-                            <span className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <span className={`font-medium theme-text-primary`}>
                               {new Date(agreement.signedAt).toLocaleDateString()} at {new Date(agreement.signedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span>Witnessed by:</span>
-                            <span className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <span className={`font-medium theme-text-primary`}>
                               {agreement.witnessedByName}
                             </span>
                           </div>
                           {agreement.revokedAt && (
                             <div className="flex justify-between">
                               <span>Returned:</span>
-                              <span className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                              <span className={`font-medium theme-text-primary`}>
                                 {new Date(agreement.revokedAt).toLocaleDateString()}
                               </span>
                             </div>
@@ -2762,11 +2675,11 @@ function PersonnelDetailContent() {
                         </div>
 
                         {/* Signature Preview and View Button */}
-                        <div className={`mt-3 pt-3 border-t flex items-end justify-between ${isDark ? "border-slate-700" : "border-gray-100"}`}>
+                        <div className={`mt-3 pt-3 border-t flex items-end justify-between theme-border-secondary`}>
                           <div>
-                            <p className={`text-xs mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Signature:</p>
+                            <p className={`text-xs mb-2 theme-text-tertiary`}>Signature:</p>
                             {agreement.signatureData ? (
-                              <div className={`inline-block rounded border p-2 ${isDark ? "bg-white border-slate-600" : "bg-white border-gray-200"}`}>
+                              <div className={`inline-block rounded border p-2 bg-white border-gray-200 dark:bg-white dark:border-slate-600`}>
                                 <img
                                   src={agreement.signatureData}
                                   alt="Employee signature"
@@ -2774,7 +2687,7 @@ function PersonnelDetailContent() {
                                 />
                               </div>
                             ) : (
-                              <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Signed copy uploaded</p>
+                              <p className={`text-xs theme-text-tertiary`}>Signed copy uploaded</p>
                             )}
                           </div>
                           <button
@@ -2784,7 +2697,7 @@ function PersonnelDetailContent() {
                               signedAt: agreement.signedAt,
                               witnessedByName: agreement.witnessedByName,
                             })}
-                            className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                            className={`px-3 py-1.5 text-xs font-medium rounded transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600`}
                           >
                             View Full Agreement
                           </button>
@@ -2800,16 +2713,16 @@ function PersonnelDetailContent() {
           {/* Safety Tab */}
           {activeTab === "safety" && (
             <div className="space-y-6">
-              <h3 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h3 className={`text-lg font-semibold theme-text-primary`}>
                 Safety Checklist History
               </h3>
 
               {!safetyCompletions ? (
-                <div className={`text-center py-12 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <div className={`text-center py-12 theme-text-tertiary`}>
                   Loading...
                 </div>
               ) : safetyCompletions.length === 0 ? (
-                <div className={`text-center py-12 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                <div className={`text-center py-12 theme-text-tertiary`}>
                   No safety checklists completed yet
                 </div>
               ) : (
@@ -2817,53 +2730,53 @@ function PersonnelDetailContent() {
                   {safetyCompletions.map((completion) => (
                     <div
                       key={completion._id}
-                      className={`rounded-lg p-4 ${isDark ? "bg-slate-800/50 border border-slate-700" : "bg-white border border-gray-200 shadow-sm"}`}
+                      className={`rounded-lg p-4 theme-card`}
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                             completion.allPassed
-                              ? isDark ? "bg-green-500/20" : "bg-green-100"
-                              : isDark ? "bg-red-500/20" : "bg-red-100"
+                              ? "bg-green-100 dark:bg-green-500/20"
+                              : "bg-red-100 dark:bg-red-500/20"
                           }`}>
                             {completion.allPassed ? (
-                              <svg className={`w-5 h-5 ${isDark ? "text-green-400" : "text-green-600"}`} fill="currentColor" viewBox="0 0 20 20">
+                              <svg className={`w-5 h-5 text-green-600 dark:text-green-400`} fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
                             ) : (
-                              <svg className={`w-5 h-5 ${isDark ? "text-red-400" : "text-red-600"}`} fill="currentColor" viewBox="0 0 20 20">
+                              <svg className={`w-5 h-5 text-red-600 dark:text-red-400`} fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                               </svg>
                             )}
                           </div>
                           <div>
-                            <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <p className={`font-medium theme-text-primary`}>
                               Picker #{completion.equipmentNumber}
                             </p>
-                            <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                            <p className={`text-sm theme-text-tertiary`}>
                               {new Date(completion.completedAt).toLocaleDateString()} at {new Date(completion.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
                         </div>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
                           completion.allPassed
-                            ? isDark ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"
-                            : isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700"
+                            ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400"
+                            : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
                         }`}>
                           {completion.allPassed ? "All Passed" : "Issues Found"}
                         </span>
                       </div>
 
-                      <div className={`space-y-2 text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      <div className={`space-y-2 text-sm theme-text-tertiary`}>
                         <div className="flex justify-between">
                           <span>Total Time:</span>
-                          <span className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                          <span className={`font-medium theme-text-primary`}>
                             {Math.floor(completion.totalTimeSpent / 60)}m {completion.totalTimeSpent % 60}s
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span>Items Checked:</span>
-                          <span className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                          <span className={`font-medium theme-text-primary`}>
                             {completion.responses.filter((r: { passed: boolean }) => r.passed).length}/{completion.responses.length} passed
                           </span>
                         </div>
@@ -2871,11 +2784,11 @@ function PersonnelDetailContent() {
 
                       {/* Show issues if any */}
                       {completion.issues && completion.issues.length > 0 && (
-                        <div className={`mt-3 pt-3 border-t ${isDark ? "border-slate-700" : "border-gray-100"}`}>
-                          <p className={`text-xs font-medium mb-2 ${isDark ? "text-red-400" : "text-red-600"}`}>Issues Reported:</p>
+                        <div className={`mt-3 pt-3 border-t theme-border-secondary`}>
+                          <p className={`text-xs font-medium mb-2 text-red-600 dark:text-red-400`}>Issues Reported:</p>
                           <div className="space-y-1">
                             {completion.issues.map((issue: { itemId: string; description: string }, idx: number) => (
-                              <p key={idx} className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                              <p key={idx} className={`text-sm theme-text-secondary`}>
                                 • {issue.description}
                               </p>
                             ))}
@@ -2893,30 +2806,30 @@ function PersonnelDetailContent() {
         {/* Write-Up Modal */}
         {showWriteUpModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
-              <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
+            <div className={`w-full max-w-md rounded-xl p-6 theme-card`}>
+              <h2 className={`text-lg font-semibold mb-4 theme-text-primary`}>
                 Add Write-Up
               </h2>
               <div className="space-y-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Date
                   </label>
                   <input
                     type="date"
                     value={writeUpForm.date}
                     onChange={(e) => setWriteUpForm({ ...writeUpForm, date: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Severity
                   </label>
                   <select
                     value={writeUpForm.severity}
                     onChange={(e) => setWriteUpForm({ ...writeUpForm, severity: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   >
                     <option value="verbal">Verbal Warning</option>
                     <option value="written">Written Warning</option>
@@ -2925,13 +2838,13 @@ function PersonnelDetailContent() {
                   </select>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Category
                   </label>
                   <select
                     value={writeUpForm.category}
                     onChange={(e) => setWriteUpForm({ ...writeUpForm, category: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   >
                     <option value="">Select category...</option>
                     <option value="attendance">Attendance</option>
@@ -2942,7 +2855,7 @@ function PersonnelDetailContent() {
                   </select>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Description
                   </label>
                   <textarea
@@ -2950,25 +2863,25 @@ function PersonnelDetailContent() {
                     onChange={(e) => setWriteUpForm({ ...writeUpForm, description: e.target.value })}
                     placeholder="Detailed description of the incident"
                     rows={3}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Follow-up Date (Optional)
                   </label>
                   <input
                     type="date"
                     value={writeUpForm.followUpDate}
                     onChange={(e) => setWriteUpForm({ ...writeUpForm, followUpDate: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Attachments (Optional)
                   </label>
-                  <div className={`relative border-2 border-dashed rounded-lg p-4 text-center transition-colors ${isDark ? "border-slate-600 hover:border-slate-500" : "border-gray-300 hover:border-gray-400"}`}>
+                  <div className={`relative border-2 border-dashed rounded-lg p-4 text-center transition-colors border-gray-300 hover:border-gray-400 dark:border-slate-600 dark:hover:border-slate-500`}>
                     <input
                       type="file"
                       multiple
@@ -2981,7 +2894,7 @@ function PersonnelDetailContent() {
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
                     <svg
-                      className={`mx-auto h-8 w-8 ${isDark ? "text-slate-500" : "text-gray-400"}`}
+                      className={`mx-auto h-8 w-8 theme-text-tertiary`}
                       stroke="currentColor"
                       fill="none"
                       viewBox="0 0 48 48"
@@ -2993,10 +2906,10 @@ function PersonnelDetailContent() {
                         strokeLinejoin="round"
                       />
                     </svg>
-                    <p className={`mt-1 text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <p className={`mt-1 text-sm theme-text-tertiary`}>
                       Click or drag files to upload
                     </p>
-                    <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                    <p className={`text-xs theme-text-tertiary`}>
                       PDF, Word, or images
                     </p>
                   </div>
@@ -3005,15 +2918,15 @@ function PersonnelDetailContent() {
                       {writeUpFiles.map((file, index) => (
                         <div
                           key={index}
-                          className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm ${isDark ? "bg-slate-700/50" : "bg-gray-100"}`}
+                          className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm bg-gray-100 dark:bg-slate-700/50`}
                         >
-                          <span className={`truncate ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                          <span className={`truncate theme-text-secondary`}>
                             {file.name}
                           </span>
                           <button
                             type="button"
                             onClick={() => setWriteUpFiles(writeUpFiles.filter((_, i) => i !== index))}
-                            className={`ml-2 p-1 rounded hover:bg-red-500/20 ${isDark ? "text-slate-400 hover:text-red-400" : "text-gray-500 hover:text-red-600"}`}
+                            className={`ml-2 p-1 rounded hover:bg-red-500/20 text-gray-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400`}
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -3032,14 +2945,14 @@ function PersonnelDetailContent() {
                     setWriteUpFiles([]);
                   }}
                   disabled={isCreatingWriteUp}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"} disabled:opacity-50`}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors theme-btn-secondary disabled:opacity-50`}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCreateWriteUp}
                   disabled={isCreatingWriteUp}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-red-500 hover:bg-red-400 text-white" : "bg-red-600 hover:bg-red-700 text-white"} disabled:opacity-50`}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ui-btn-danger disabled:opacity-50`}
                 >
                   {isCreatingWriteUp ? "Creating..." : "Add Write-Up"}
                 </button>
@@ -3051,30 +2964,30 @@ function PersonnelDetailContent() {
         {/* Merit Modal */}
         {showMeritModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
-              <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
+            <div className={`w-full max-w-md rounded-xl p-6 theme-card`}>
+              <h2 className={`text-lg font-semibold mb-4 theme-text-primary`}>
                 Add Merit
               </h2>
               <div className="space-y-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Date
                   </label>
                   <input
                     type="date"
                     value={meritForm.date}
                     onChange={(e) => setMeritForm({ ...meritForm, date: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Type
                   </label>
                   <select
                     value={meritForm.type}
                     onChange={(e) => setMeritForm({ ...meritForm, type: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   >
                     <option value="commendation">Commendation</option>
                     <option value="achievement">Achievement</option>
@@ -3083,7 +2996,7 @@ function PersonnelDetailContent() {
                   </select>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Title
                   </label>
                   <input
@@ -3091,11 +3004,11 @@ function PersonnelDetailContent() {
                     value={meritForm.title}
                     onChange={(e) => setMeritForm({ ...meritForm, title: e.target.value })}
                     placeholder="Merit title"
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Description
                   </label>
                   <textarea
@@ -3103,20 +3016,20 @@ function PersonnelDetailContent() {
                     onChange={(e) => setMeritForm({ ...meritForm, description: e.target.value })}
                     placeholder="Describe the achievement or recognition"
                     rows={3}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => setShowMeritModal(false)}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors theme-btn-secondary`}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCreateMerit}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-green-500 hover:bg-green-400 text-white" : "bg-green-600 hover:bg-green-700 text-white"}`}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors bg-green-600 hover:bg-green-700 text-white dark:bg-green-500 dark:hover:bg-green-400 dark:text-white`}
                 >
                   Add Merit
                 </button>
@@ -3128,30 +3041,30 @@ function PersonnelDetailContent() {
         {/* Attendance Modal */}
         {showAttendanceModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={`w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
-              <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
+            <div className={`w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl p-6 theme-card`}>
+              <h2 className={`text-lg font-semibold mb-4 theme-text-primary`}>
                 {editingAttendanceId ? "Edit Attendance Record" : "Record Attendance"}
               </h2>
               <div className="space-y-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Date
                   </label>
                   <input
                     type="date"
                     value={attendanceForm.date}
                     onChange={(e) => setAttendanceForm({ ...attendanceForm, date: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Status
                   </label>
                   <select
                     value={attendanceForm.status}
                     onChange={(e) => setAttendanceForm({ ...attendanceForm, status: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   >
                     <option value="present">Present</option>
                     <option value="absent">Absent</option>
@@ -3162,30 +3075,30 @@ function PersonnelDetailContent() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                       Time In
                     </label>
                     <input
                       type="time"
                       value={attendanceForm.actualStart}
                       onChange={(e) => setAttendanceForm({ ...attendanceForm, actualStart: e.target.value })}
-                      className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                      className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                     />
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                       Time Out
                     </label>
                     <input
                       type="time"
                       value={attendanceForm.actualEnd}
                       onChange={(e) => setAttendanceForm({ ...attendanceForm, actualEnd: e.target.value })}
-                      className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                      className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                     />
                   </div>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Hours Worked
                   </label>
                   <input
@@ -3194,11 +3107,11 @@ function PersonnelDetailContent() {
                     value={attendanceForm.hoursWorked}
                     onChange={(e) => setAttendanceForm({ ...attendanceForm, hoursWorked: e.target.value })}
                     placeholder="e.g., 8.0"
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Notes (Optional)
                   </label>
                   <textarea
@@ -3206,7 +3119,7 @@ function PersonnelDetailContent() {
                     onChange={(e) => setAttendanceForm({ ...attendanceForm, notes: e.target.value })}
                     placeholder="Reason for absence, call-in details, etc."
                     rows={3}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
               </div>
@@ -3224,13 +3137,13 @@ function PersonnelDetailContent() {
                       hoursWorked: "",
                     });
                   }}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors theme-btn-secondary`}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAddAttendance}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-cyan-500 hover:bg-cyan-400 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors theme-btn-primary`}
                 >
                   {editingAttendanceId ? "Save Changes" : "Save Record"}
                 </button>
@@ -3242,76 +3155,76 @@ function PersonnelDetailContent() {
         {/* Edit Personnel Modal */}
         {showEditPersonnelModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={`w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
-              <h2 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
+            <div className={`w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl p-6 theme-card`}>
+              <h2 className={`text-lg font-semibold mb-4 theme-text-primary`}>
                 Edit Personnel Information
               </h2>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                       First Name
                     </label>
                     <input
                       type="text"
                       value={editPersonnelForm.firstName}
                       onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, firstName: e.target.value })}
-                      className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                      className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                     />
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                    <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                       Last Name
                     </label>
                     <input
                       type="text"
                       value={editPersonnelForm.lastName}
                       onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, lastName: e.target.value })}
-                      className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                      className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                     />
                   </div>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Email
                   </label>
                   <input
                     type="email"
                     value={editPersonnelForm.email}
                     onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, email: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Phone
                   </label>
                   <input
                     type="tel"
                     value={editPersonnelForm.phone}
                     onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, phone: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Position
                   </label>
                   <input
                     type="text"
                     value={editPersonnelForm.position}
                     onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, position: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Department
                   </label>
                   <select
                     value={editPersonnelForm.department}
                     onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, department: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   >
                     <option value="Executive">Executive</option>
                     <option value="IT">IT</option>
@@ -3331,13 +3244,13 @@ function PersonnelDetailContent() {
                   </select>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Location / Company
                   </label>
                   <select
                     value={editPersonnelForm.locationId}
                     onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, locationId: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   >
                     <option value="">Select Location</option>
                     {locations?.map((location) => (
@@ -3346,12 +3259,12 @@ function PersonnelDetailContent() {
                       </option>
                     ))}
                   </select>
-                  <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                  <p className={`text-xs mt-1 theme-text-tertiary`}>
                     Used for payroll separation by company
                   </p>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Hourly Rate ($)
                   </label>
                   <input
@@ -3359,11 +3272,11 @@ function PersonnelDetailContent() {
                     step="0.01"
                     value={editPersonnelForm.hourlyRate}
                     onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, hourlyRate: parseFloat(e.target.value) || 0 })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Notes
                   </label>
                   <textarea
@@ -3371,34 +3284,34 @@ function PersonnelDetailContent() {
                     onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, notes: e.target.value })}
                     placeholder="Additional notes"
                     rows={3}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 {/* Start Date */}
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Start Date
                   </label>
                   <input
                     type="date"
                     value={editPersonnelForm.hireDate}
                     onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, hireDate: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
-                  <p className={`text-xs mt-1 ${isDark ? "text-amber-400/70" : "text-amber-600"}`}>
+                  <p className={`text-xs mt-1 text-amber-600 dark:text-amber-400/70`}>
                     Note: Changing the start date will affect tenure calculations and milestone tracking.
                   </p>
                 </div>
 
                 {/* Temp fields — only shown for temp employees */}
                 {isTemp((personnel as any).employeeType) && (
-                  <div className={`pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                    <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-amber-400" : "text-amber-700"}`}>
+                  <div className={`pt-4 border-t theme-border-secondary`}>
+                    <h3 className={`text-sm font-semibold mb-3 text-amber-700 dark:text-amber-400`}>
                       Temp / Staffing
                     </h3>
                     <div className="space-y-3">
                       <div>
-                        <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                           Staffing Agency
                         </label>
                         <input
@@ -3406,12 +3319,12 @@ function PersonnelDetailContent() {
                           value={editPersonnelForm.staffingAgency}
                           onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, staffingAgency: e.target.value })}
                           placeholder="e.g., Acme Staffing"
-                          className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                          className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                             Eligible after
                           </label>
                           <input
@@ -3420,17 +3333,17 @@ function PersonnelDetailContent() {
                             value={editPersonnelForm.tempEligibilityValue}
                             onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, tempEligibilityValue: e.target.value })}
                             placeholder="90"
-                            className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                            className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                           />
                         </div>
                         <div>
-                          <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                             Basis
                           </label>
                           <select
                             value={editPersonnelForm.tempEligibilityMode}
                             onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, tempEligibilityMode: e.target.value })}
-                            className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                            className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                           >
                             <option value="days">Days</option>
                             <option value="hours">Hours</option>
@@ -3438,16 +3351,16 @@ function PersonnelDetailContent() {
                         </div>
                       </div>
                       <div>
-                        <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                           Eligibility date override
                         </label>
                         <input
                           type="date"
                           value={editPersonnelForm.tempEligibleDateOverride}
                           onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, tempEligibleDateOverride: e.target.value })}
-                          className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                          className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                         />
-                        <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                        <p className={`text-xs mt-1 theme-text-tertiary`}>
                           If set, overrides the calculated eligibility date.
                         </p>
                       </div>
@@ -3456,13 +3369,13 @@ function PersonnelDetailContent() {
                 )}
 
                 {/* Emergency Contact Section */}
-                <div className={`pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                  <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
+                <div className={`pt-4 border-t theme-border-secondary`}>
+                  <h3 className={`text-sm font-semibold mb-3 theme-text-primary`}>
                     Emergency Contact
                   </h3>
                   <div className="space-y-3">
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                         Name
                       </label>
                       <input
@@ -3470,11 +3383,11 @@ function PersonnelDetailContent() {
                         value={editPersonnelForm.emergencyContactName}
                         onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, emergencyContactName: e.target.value })}
                         placeholder="Emergency contact name"
-                        className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                        className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                         Phone
                       </label>
                       <input
@@ -3482,11 +3395,11 @@ function PersonnelDetailContent() {
                         value={editPersonnelForm.emergencyContactPhone}
                         onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, emergencyContactPhone: e.target.value })}
                         placeholder="Emergency contact phone"
-                        className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                        className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                         Relationship
                       </label>
                       <input
@@ -3494,7 +3407,7 @@ function PersonnelDetailContent() {
                         value={editPersonnelForm.emergencyContactRelationship}
                         onChange={(e) => setEditPersonnelForm({ ...editPersonnelForm, emergencyContactRelationship: e.target.value })}
                         placeholder="e.g., Spouse, Parent, Sibling"
-                        className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                        className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                       />
                     </div>
                   </div>
@@ -3503,14 +3416,14 @@ function PersonnelDetailContent() {
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => setShowEditPersonnelModal(false)}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors theme-btn-secondary`}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleUpdatePersonnel}
                   disabled={isSavingPersonnel}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-cyan-500 hover:bg-cyan-400 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"} ${isSavingPersonnel ? "opacity-50 cursor-not-allowed" : ""}`}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors theme-btn-primary ${isSavingPersonnel ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   {isSavingPersonnel ? "Saving..." : "Save Changes"}
                 </button>
@@ -3553,35 +3466,35 @@ function PersonnelDetailContent() {
         {/* Termination Modal */}
         {showTerminateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
+            <div className={`w-full max-w-md rounded-xl p-6 theme-card`}>
               <div className="flex items-center gap-3 mb-4">
-                <div className={`p-2 rounded-full ${isDark ? "bg-red-500/20" : "bg-red-100"}`}>
+                <div className={`p-2 rounded-full bg-red-100 dark:bg-red-500/20`}>
                   <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                 </div>
-                <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h2 className={`text-lg font-semibold theme-text-primary`}>
                   Terminate Employee
                 </h2>
               </div>
-              <p className={`text-sm mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className={`text-sm mb-4 theme-text-tertiary`}>
                 This action will mark {personnel?.firstName} {personnel?.lastName} as terminated.
                 They will no longer appear in shift planning and will be moved to the terminated section.
               </p>
               <div className="space-y-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Termination Date *
                   </label>
                   <input
                     type="date"
                     value={terminateForm.terminationDate}
                     onChange={(e) => setTerminateForm({ ...terminateForm, terminationDate: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Reason for Termination *
                   </label>
                   <textarea
@@ -3589,7 +3502,7 @@ function PersonnelDetailContent() {
                     onChange={(e) => setTerminateForm({ ...terminateForm, terminationReason: e.target.value })}
                     placeholder="Enter the reason for termination..."
                     rows={3}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
               </div>
@@ -3602,13 +3515,13 @@ function PersonnelDetailContent() {
                       terminationReason: "",
                     });
                   }}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors theme-btn-secondary`}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleTerminate}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-red-500 hover:bg-red-400 text-white" : "bg-red-600 hover:bg-red-700 text-white"}`}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ui-btn-danger`}
                 >
                   Confirm Termination
                 </button>
@@ -3620,31 +3533,31 @@ function PersonnelDetailContent() {
         {/* Delete Permanently Modal — admin-only, hard delete with cascade */}
         {showDeleteModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={`w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-200 shadow-2xl"}`}>
+            <div className={`w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-y-auto bg-white border border-gray-200 shadow-2xl dark:bg-slate-800 dark:border dark:border-slate-700`}>
               <div className="flex items-center gap-3 mb-4">
-                <div className={`p-2 rounded-full ${isDark ? "bg-red-500/20" : "bg-red-100"}`}>
+                <div className={`p-2 rounded-full bg-red-100 dark:bg-red-500/20`}>
                   <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h2 className={`text-lg font-semibold theme-text-primary`}>
                   Permanently Delete Record
                 </h2>
               </div>
-              <p className={`text-sm mb-3 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+              <p className={`text-sm mb-3 theme-text-secondary`}>
                 This will permanently delete <strong>{personnel?.firstName} {personnel?.lastName}</strong> and cascade-delete all associated records:
               </p>
-              <ul className={`text-xs mb-4 list-disc pl-5 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+              <ul className={`text-xs mb-4 list-disc pl-5 theme-text-secondary`}>
                 <li>Write-ups</li>
                 <li>Attendance records</li>
                 <li>Merit awards</li>
                 <li>Performance reviews</li>
               </ul>
-              <p className={`text-xs mb-3 font-medium ${isDark ? "text-amber-400" : "text-amber-700"}`}>
+              <p className={`text-xs mb-3 font-medium text-amber-700 dark:text-amber-400`}>
                 This cannot be undone. For most cases, &ldquo;Terminate Employee&rdquo; is the right choice — it preserves history.
               </p>
-              <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                Type <code className={`px-1 py-0.5 rounded ${isDark ? "bg-slate-700 text-slate-200" : "bg-gray-100 text-gray-800"}`}>{personnel?.firstName} {personnel?.lastName}</code> to confirm:
+              <label className={`block text-xs font-medium mb-1 theme-text-secondary`}>
+                Type <code className={`px-1 py-0.5 rounded bg-gray-100 text-gray-800 dark:bg-slate-700 dark:text-slate-200`}>{personnel?.firstName} {personnel?.lastName}</code> to confirm:
               </label>
               <input
                 type="text"
@@ -3653,21 +3566,21 @@ function PersonnelDetailContent() {
                 placeholder="Employee full name"
                 autoFocus
                 className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-red-500/40 ${
-                  isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-gray-300 text-gray-900"
+                  "bg-white border-gray-300 text-gray-900 dark:bg-slate-900 dark:border-slate-700 dark:text-white"
                 }`}
               />
               <div className="flex justify-end gap-2 mt-5">
                 <button
                   onClick={() => { setShowDeleteModal(false); setDeleteConfirmText(""); }}
                   disabled={deletingPersonnel}
-                  className={`px-4 py-2 text-sm font-medium rounded-full ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"} disabled:opacity-50`}
+                  className={`px-4 py-2 text-sm font-medium rounded-full bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white disabled:opacity-50`}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeletePersonnel}
                   disabled={deletingPersonnel || deleteConfirmText.trim().toLowerCase() !== `${personnel?.firstName} ${personnel?.lastName}`.trim().toLowerCase()}
-                  className="px-5 py-2 text-sm font-medium rounded-full bg-red-600 hover:bg-red-700 text-white shadow-sm disabled:opacity-50"
+                  className="px-5 py-2 text-sm font-medium rounded-full ui-btn-danger shadow-sm disabled:opacity-50"
                 >
                   {deletingPersonnel ? "Deleting…" : "Delete forever"}
                 </button>
@@ -3679,35 +3592,35 @@ function PersonnelDetailContent() {
         {/* Rehire Modal */}
         {showRehireModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={`w-full max-w-md rounded-xl p-6 max-h-[90vh] overflow-y-auto ${isDark ? "bg-slate-800" : "bg-white"}`}>
+            <div className={`w-full max-w-md rounded-xl p-6 max-h-[90vh] overflow-y-auto theme-card`}>
               <div className="flex items-center gap-3 mb-4">
-                <div className={`p-2 rounded-full ${isDark ? "bg-green-500/20" : "bg-green-100"}`}>
+                <div className={`p-2 rounded-full bg-green-100 dark:bg-green-500/20`}>
                   <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                   </svg>
                 </div>
-                <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h2 className={`text-lg font-semibold theme-text-primary`}>
                   Rehire Employee
                 </h2>
               </div>
-              <p className={`text-sm mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className={`text-sm mb-4 theme-text-tertiary`}>
                 Rehire {personnel?.firstName} {personnel?.lastName} as an active employee.
                 This will restore their access and add them back to shift planning.
               </p>
               <div className="space-y-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Rehire Date *
                   </label>
                   <input
                     type="date"
                     value={rehireForm.rehireDate}
                     onChange={(e) => setRehireForm({ ...rehireForm, rehireDate: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Position *
                   </label>
                   <input
@@ -3715,17 +3628,17 @@ function PersonnelDetailContent() {
                     value={rehireForm.position}
                     onChange={(e) => setRehireForm({ ...rehireForm, position: e.target.value })}
                     placeholder="e.g., Warehouse Associate"
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Department *
                   </label>
                   <select
                     value={rehireForm.department}
                     onChange={(e) => setRehireForm({ ...rehireForm, department: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   >
                     <option value="">Select Department</option>
                     <option value="Executive">Executive</option>
@@ -3746,13 +3659,13 @@ function PersonnelDetailContent() {
                   </select>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Employment Type *
                   </label>
                   <select
                     value={rehireForm.employeeType}
                     onChange={(e) => setRehireForm({ ...rehireForm, employeeType: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-gray-50 border-gray-200 text-gray-900"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   >
                     <option value="full_time">Full Time</option>
                     <option value="part_time">Part Time</option>
@@ -3760,7 +3673,7 @@ function PersonnelDetailContent() {
                   </select>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Hourly Rate
                   </label>
                   <input
@@ -3769,11 +3682,11 @@ function PersonnelDetailContent() {
                     value={rehireForm.hourlyRate}
                     onChange={(e) => setRehireForm({ ...rehireForm, hourlyRate: e.target.value })}
                     placeholder="e.g., 15.50"
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Reason for Rehire
                   </label>
                   <textarea
@@ -3781,7 +3694,7 @@ function PersonnelDetailContent() {
                     onChange={(e) => setRehireForm({ ...rehireForm, rehireReason: e.target.value })}
                     placeholder="Enter the reason for rehiring..."
                     rows={2}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
               </div>
@@ -3798,7 +3711,7 @@ function PersonnelDetailContent() {
                       rehireReason: "",
                     });
                   }}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors theme-btn-secondary`}
                 >
                   Cancel
                 </button>
@@ -3835,12 +3748,12 @@ function PersonnelDetailContent() {
                     }
                   }}
                   disabled={!rehireForm.position || !rehireForm.department}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 ${isDark ? "bg-green-500 hover:bg-green-400 text-white" : "bg-green-600 hover:bg-green-700 text-white"}`}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 bg-green-600 hover:bg-green-700 text-white dark:bg-green-500 dark:hover:bg-green-400 dark:text-white`}
                 >
                   Confirm Rehire
                 </button>
               </div>
-              <p className={`text-xs mt-4 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+              <p className={`text-xs mt-4 theme-text-tertiary`}>
                 Authorized by: {user?.name} ({user?.email})
               </p>
             </div>
@@ -3850,32 +3763,32 @@ function PersonnelDetailContent() {
         {/* Tenure Check-In Modal */}
         {showCheckInModal && selectedMilestone && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
+            <div className={`w-full max-w-md rounded-xl p-6 theme-card`}>
               <div className="flex items-center gap-3 mb-4">
-                <div className={`p-2 rounded-full ${isDark ? "bg-blue-500/20" : "bg-blue-100"}`}>
+                <div className={`p-2 rounded-full bg-blue-100 dark:bg-blue-500/20`}>
                   <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                   </svg>
                 </div>
-                <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h2 className={`text-lg font-semibold theme-text-primary`}>
                   Record Check-In
                 </h2>
               </div>
-              <p className={`text-sm mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className={`text-sm mb-4 theme-text-tertiary`}>
                 Recording {selectedMilestone.replace("_", " ")} tenure check-in for {personnel?.firstName} {personnel?.lastName}.
                 This will be logged with your name and the current date/time.
               </p>
               <div className="space-y-4">
-                <div className={`p-3 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-gray-50"}`}>
-                  <p className={`text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <div className={`p-3 rounded-lg bg-black/[0.03] dark:bg-white/[0.04]`}>
+                  <p className={`text-xs font-medium mb-1 theme-text-tertiary`}>
                     Completed By
                   </p>
-                  <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <p className={`font-medium theme-text-primary`}>
                     {user?.name || user?.email}
                   </p>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  <label className={`block text-sm font-medium mb-1 theme-text-tertiary`}>
                     Notes (Optional)
                   </label>
                   <textarea
@@ -3883,7 +3796,7 @@ function PersonnelDetailContent() {
                     onChange={(e) => setCheckInNotes(e.target.value)}
                     placeholder="Any observations from the check-in conversation..."
                     rows={3}
-                    className={`w-full px-4 py-2 rounded-lg ${isDark ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"} border focus:outline-none`}
+                    className={`w-full px-4 py-2 rounded-lg theme-input border focus:outline-none`}
                   />
                 </div>
               </div>
@@ -3894,13 +3807,13 @@ function PersonnelDetailContent() {
                     setSelectedMilestone(null);
                     setCheckInNotes("");
                   }}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors theme-btn-secondary`}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleRecordCheckIn}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-blue-500 hover:bg-blue-400 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors theme-btn-primary`}
                 >
                   Record Check-In
                 </button>
@@ -3912,41 +3825,41 @@ function PersonnelDetailContent() {
         {/* View Agreement Modal */}
         {viewingAgreement && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={`w-full max-w-2xl max-h-[90vh] rounded-xl overflow-hidden flex flex-col ${isDark ? "bg-slate-800" : "bg-white"}`}>
-              <div className={`flex items-center justify-between p-4 border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+            <div className={`w-full max-w-2xl max-h-[90vh] rounded-xl overflow-hidden flex flex-col theme-card`}>
+              <div className={`flex items-center justify-between p-4 border-b theme-border-secondary`}>
+                <h2 className={`text-lg font-semibold theme-text-primary`}>
                   Equipment Responsibility Agreement
                 </h2>
                 <button
                   onClick={() => setViewingAgreement(null)}
-                  className={`p-1 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}
+                  className={`p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5`}
                 >
-                  <svg className={`w-5 h-5 ${isDark ? "text-slate-400" : "text-gray-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-5 h-5 theme-text-tertiary`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
               <div className="flex-1 overflow-y-auto p-4">
-                <pre className={`whitespace-pre-wrap font-mono text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                <pre className={`whitespace-pre-wrap font-mono text-sm theme-text-secondary`}>
                   {viewingAgreement.text}
                 </pre>
 
-                <div className={`mt-6 pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+                <div className={`mt-6 pt-4 border-t theme-border-secondary`}>
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <p className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                      <p className={`text-sm font-medium theme-text-primary`}>
                         Signed: {new Date(viewingAgreement.signedAt).toLocaleDateString()} at {new Date(viewingAgreement.signedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
-                      <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                      <p className={`text-sm theme-text-tertiary`}>
                         Witnessed by: {viewingAgreement.witnessedByName}
                       </p>
                     </div>
                   </div>
 
                   <div>
-                    <p className={`text-xs mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Employee Signature:</p>
-                    <div className={`inline-block rounded border p-3 ${isDark ? "bg-white border-slate-600" : "bg-white border-gray-200"}`}>
+                    <p className={`text-xs mb-2 theme-text-tertiary`}>Employee Signature:</p>
+                    <div className={`inline-block rounded border p-3 bg-white border-gray-200 dark:bg-white dark:border-slate-600`}>
                       <img
                         src={viewingAgreement.signatureData}
                         alt="Employee signature"
@@ -3957,10 +3870,10 @@ function PersonnelDetailContent() {
                 </div>
               </div>
 
-              <div className={`p-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+              <div className={`p-4 border-t theme-border-secondary`}>
                 <button
                   onClick={() => setViewingAgreement(null)}
-                  className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
+                  className={`w-full px-4 py-2 rounded-lg font-medium transition-colors theme-btn-secondary`}
                 >
                   Close
                 </button>
@@ -3972,27 +3885,27 @@ function PersonnelDetailContent() {
         {/* Temporary Password Modal */}
         {showTempPasswordModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={`w-full max-w-md rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
+            <div className={`w-full max-w-md rounded-xl p-6 theme-card`}>
               <div className="text-center mb-6">
-                <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${isDark ? "bg-green-500/20" : "bg-green-100"}`}>
+                <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 bg-green-100 dark:bg-green-500/20`}>
                   <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h2 className={`text-xl font-bold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h2 className={`text-xl font-bold mb-2 theme-text-primary`}>
                   Portal Login Created!
                 </h2>
-                <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <p className={`text-sm theme-text-tertiary`}>
                   Give this temporary password to the employee. They will be required to change it on first login.
                 </p>
               </div>
 
-              <div className={`p-4 rounded-lg mb-6 ${isDark ? "bg-slate-700" : "bg-gray-100"}`}>
-                <p className={`text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <div className={`p-4 rounded-lg mb-6 bg-gray-100 dark:bg-slate-700`}>
+                <p className={`text-xs font-medium mb-1 theme-text-tertiary`}>
                   Temporary Password
                 </p>
                 <div className="flex items-center gap-2">
-                  <code className={`text-2xl font-mono font-bold flex-1 ${isDark ? "text-cyan-400" : "text-blue-600"}`}>
+                  <code className={`text-2xl font-mono font-bold flex-1 text-blue-600 dark:text-cyan-400`}>
                     {tempPassword}
                   </code>
                   <button
@@ -4000,7 +3913,7 @@ function PersonnelDetailContent() {
                       navigator.clipboard.writeText(tempPassword);
                       alert("Password copied to clipboard!");
                     }}
-                    className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-600 text-slate-400" : "hover:bg-gray-200 text-gray-500"}`}
+                    className={`p-2 rounded-lg transition-colors hover:bg-gray-200 text-gray-500 dark:hover:bg-slate-600 dark:text-slate-400`}
                     title="Copy to clipboard"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4010,8 +3923,8 @@ function PersonnelDetailContent() {
                 </div>
               </div>
 
-              <div className={`p-3 rounded-lg mb-6 border ${isDark ? "bg-amber-500/10 border-amber-500/30" : "bg-amber-50 border-amber-200"}`}>
-                <p className={`text-sm ${isDark ? "text-amber-400" : "text-amber-700"}`}>
+              <div className={`p-3 rounded-lg mb-6 border bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/30`}>
+                <p className={`text-sm text-amber-700 dark:text-amber-400`}>
                   <strong>Important:</strong> This password will not be shown again. Make sure to save it or share it with the employee now.
                 </p>
               </div>
@@ -4021,7 +3934,7 @@ function PersonnelDetailContent() {
                   setShowTempPasswordModal(false);
                   setTempPassword("");
                 }}
-                className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-cyan-500 hover:bg-cyan-400 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
+                className={`w-full px-4 py-2 rounded-lg font-medium transition-colors theme-btn-primary`}
               >
                 Done
               </button>
@@ -4032,9 +3945,9 @@ function PersonnelDetailContent() {
         {/* Schedule Assignment Modal */}
         {showScheduleModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={`w-full max-w-lg rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
+            <div className={`w-full max-w-lg rounded-xl p-6 theme-card`}>
               <div className="flex items-center justify-between mb-6">
-                <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h2 className={`text-xl font-bold theme-text-primary`}>
                   Assign Schedule Template
                 </h2>
                 <button
@@ -4042,7 +3955,7 @@ function PersonnelDetailContent() {
                     setShowScheduleModal(false);
                     setSelectedScheduleTemplateId(null);
                   }}
-                  className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}
+                  className={`p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -4050,7 +3963,7 @@ function PersonnelDetailContent() {
                 </button>
               </div>
 
-              <p className={`text-sm mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <p className={`text-sm mb-4 theme-text-tertiary`}>
                 Select a schedule template to assign to {personnel?.firstName} {personnel?.lastName}.
               </p>
 
@@ -4061,20 +3974,16 @@ function PersonnelDetailContent() {
                     onClick={() => setSelectedScheduleTemplateId(template._id)}
                     className={`w-full p-4 rounded-lg text-left transition-colors border ${
                       selectedScheduleTemplateId === template._id
-                        ? isDark
-                          ? "bg-blue-500/20 border-blue-500"
-                          : "bg-blue-50 border-blue-500"
-                        : isDark
-                          ? "bg-slate-700/50 border-slate-600 hover:border-slate-500"
-                          : "bg-gray-50 border-gray-200 hover:border-gray-300"
+                        ? "bg-blue-50 border-blue-500 dark:bg-blue-500/20 dark:border-blue-500"
+                        : "bg-gray-50 border-gray-200 hover:border-gray-300 dark:bg-slate-700/50 dark:border-slate-600 dark:hover:border-slate-500"
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                        <p className={`font-medium theme-text-primary`}>
                           {template.name}
                         </p>
-                        <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        <p className={`text-sm theme-text-tertiary`}>
                           {getScheduleDisplay(template)}
                         </p>
                       </div>
@@ -4087,7 +3996,7 @@ function PersonnelDetailContent() {
                   </button>
                 ))}
                 {(!scheduleTemplates || scheduleTemplates.length === 0) && (
-                  <p className={`text-center py-8 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                  <p className={`text-center py-8 theme-text-tertiary`}>
                     No schedule templates available. Create one from the Scheduling page.
                   </p>
                 )}
@@ -4100,9 +4009,7 @@ function PersonnelDetailContent() {
                     setSelectedScheduleTemplateId(null);
                   }}
                   className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                    isDark
-                      ? "bg-slate-700 hover:bg-slate-600 text-white"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                    "bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white"
                   }`}
                 >
                   Cancel
@@ -4125,9 +4032,7 @@ function PersonnelDetailContent() {
                   }}
                   disabled={!selectedScheduleTemplateId}
                   className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                    isDark
-                      ? "bg-blue-500 hover:bg-blue-400 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                      : "bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    "theme-btn-primary"
                   }`}
                 >
                   Assign Schedule
@@ -4140,9 +4045,9 @@ function PersonnelDetailContent() {
         {/* Schedule Override Modal */}
         {showOverrideModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={`w-full max-w-lg rounded-xl p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
+            <div className={`w-full max-w-lg rounded-xl p-6 theme-card`}>
               <div className="flex items-center justify-between mb-6">
-                <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h2 className={`text-xl font-bold theme-text-primary`}>
                   Add Schedule Override
                 </h2>
                 <button
@@ -4156,7 +4061,7 @@ function PersonnelDetailContent() {
                       reason: "",
                     });
                   }}
-                  className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}
+                  className={`p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -4167,7 +4072,7 @@ function PersonnelDetailContent() {
               <div className="space-y-4">
                 {/* Date */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className={`block text-sm font-medium mb-2 theme-text-secondary`}>
                     Date
                   </label>
                   <input
@@ -4176,25 +4081,21 @@ function PersonnelDetailContent() {
                     onChange={(e) => setOverrideForm({ ...overrideForm, date: e.target.value })}
                     min={new Date().toISOString().split("T")[0]}
                     className={`w-full px-4 py-2 rounded-lg border ${
-                      isDark
-                        ? "bg-slate-700 border-slate-600 text-white"
-                        : "bg-white border-gray-300 text-gray-900"
+                      "bg-white border-gray-300 text-gray-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                     }`}
                   />
                 </div>
 
                 {/* Override Type */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className={`block text-sm font-medium mb-2 theme-text-secondary`}>
                     Override Type
                   </label>
                   <select
                     value={overrideForm.overrideType}
                     onChange={(e) => setOverrideForm({ ...overrideForm, overrideType: e.target.value as "day_off" | "modified_hours" | "extra_shift" })}
                     className={`w-full px-4 py-2 rounded-lg border ${
-                      isDark
-                        ? "bg-slate-700 border-slate-600 text-white"
-                        : "bg-white border-gray-300 text-gray-900"
+                      "bg-white border-gray-300 text-gray-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                     }`}
                   >
                     <option value="day_off">Day Off</option>
@@ -4207,7 +4108,7 @@ function PersonnelDetailContent() {
                 {(overrideForm.overrideType === "modified_hours" || overrideForm.overrideType === "extra_shift") && (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                      <label className={`block text-sm font-medium mb-2 theme-text-secondary`}>
                         Start Time
                       </label>
                       <input
@@ -4215,14 +4116,12 @@ function PersonnelDetailContent() {
                         value={overrideForm.startTime}
                         onChange={(e) => setOverrideForm({ ...overrideForm, startTime: e.target.value })}
                         className={`w-full px-4 py-2 rounded-lg border ${
-                          isDark
-                            ? "bg-slate-700 border-slate-600 text-white"
-                            : "bg-white border-gray-300 text-gray-900"
+                          "bg-white border-gray-300 text-gray-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                         }`}
                       />
                     </div>
                     <div>
-                      <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                      <label className={`block text-sm font-medium mb-2 theme-text-secondary`}>
                         End Time
                       </label>
                       <input
@@ -4230,9 +4129,7 @@ function PersonnelDetailContent() {
                         value={overrideForm.endTime}
                         onChange={(e) => setOverrideForm({ ...overrideForm, endTime: e.target.value })}
                         className={`w-full px-4 py-2 rounded-lg border ${
-                          isDark
-                            ? "bg-slate-700 border-slate-600 text-white"
-                            : "bg-white border-gray-300 text-gray-900"
+                          "bg-white border-gray-300 text-gray-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                         }`}
                       />
                     </div>
@@ -4241,7 +4138,7 @@ function PersonnelDetailContent() {
 
                 {/* Reason */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  <label className={`block text-sm font-medium mb-2 theme-text-secondary`}>
                     Reason (optional)
                   </label>
                   <textarea
@@ -4250,9 +4147,7 @@ function PersonnelDetailContent() {
                     placeholder="e.g., Doctor's appointment, personal day, covering for another employee..."
                     rows={3}
                     className={`w-full px-4 py-2 rounded-lg border ${
-                      isDark
-                        ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                        : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
+                      "bg-white border-gray-300 text-gray-900 placeholder-gray-400 dark:bg-slate-700 dark:border-slate-600 dark:text-white dark:placeholder-slate-400"
                     }`}
                   />
                 </div>
@@ -4271,9 +4166,7 @@ function PersonnelDetailContent() {
                     });
                   }}
                   className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                    isDark
-                      ? "bg-slate-700 hover:bg-slate-600 text-white"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                    "bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white"
                   }`}
                 >
                   Cancel
@@ -4310,9 +4203,7 @@ function PersonnelDetailContent() {
                   }}
                   disabled={isCreatingOverride || !overrideForm.date}
                   className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                    isDark
-                      ? "bg-purple-500 hover:bg-purple-400 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                      : "bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    "bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 disabled:cursor-not-allowed dark:bg-purple-500 dark:hover:bg-purple-400 dark:text-white dark:disabled:opacity-50 dark:disabled:cursor-not-allowed"
                   }`}
                 >
                   {isCreatingOverride ? "Creating..." : "Create Override"}
