@@ -3,13 +3,15 @@
 import { useState, useCallback } from "react";
 import Protected from "@/app/protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
-import { useTheme } from "@/app/theme-context";
 import { useAuth } from "@/app/auth-context";
 import { usePermissions } from "@/lib/usePermissions";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import Link from "next/link";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 // ─── TYPES ──────────────────────────────────────────────────────────────────
 
@@ -88,8 +90,6 @@ const EMPTY_FORM: FormState = {
 // ─── MAIN PAGE ──────────────────────────────────────────────────────────────
 
 export default function WTDCommissionSetupPage() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const { user } = useAuth();
   const permissions = usePermissions();
 
@@ -254,14 +254,14 @@ export default function WTDCommissionSetupPage() {
   if (!canAccess) {
     return (
       <Protected>
-        <div className="flex h-screen theme-bg-primary">
+        <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
           <Sidebar />
           <main className="flex-1 flex items-center justify-center">
             <MobileHeader />
-            <div className={`text-center p-8 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-              <p className="text-lg font-medium">Access Denied</p>
-              <p className="text-sm mt-1">You do not have permission to access WTD Commission Setup.</p>
-            </div>
+            <Card padding="md" className="max-w-sm mx-auto text-center">
+              <p className="text-lg font-medium theme-text-primary">Access Denied</p>
+              <p className="text-sm mt-1 theme-text-secondary">You do not have permission to access WTD Commission Setup.</p>
+            </Card>
           </main>
         </div>
       </Protected>
@@ -270,29 +270,29 @@ export default function WTDCommissionSetupPage() {
 
   return (
     <Protected>
-      <div className="flex h-screen theme-bg-primary">
+      <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
         <Sidebar />
         <main className="flex-1 overflow-y-auto">
           <MobileHeader />
 
           {/* Header */}
-          <header className={`sticky top-0 z-10 border-b px-6 py-4 ${isDark ? "bg-slate-900/95 backdrop-blur border-slate-700" : "bg-white/95 backdrop-blur border-gray-200"}`}>
+          <header className="sticky top-0 z-10 border-b px-6 py-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-gray-200 dark:border-slate-700">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? "bg-gradient-to-br from-emerald-500/20 to-teal-600/20" : "bg-gradient-to-br from-emerald-100 to-teal-100"}`}>
-                  <svg className={`w-5 h-5 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-500/20 dark:to-teal-600/20">
+                  <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
                 <div>
-                  <h1 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>WTD Commission Setup</h1>
-                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>Configure customer commission rules</p>
+                  <h1 className="text-xl font-bold theme-text-primary">WTD Commission Setup</h1>
+                  <p className="text-xs theme-text-tertiary">Configure customer commission rules</p>
                 </div>
               </div>
               <Link
                 href="/tools/wtd-commission"
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"}`}
+                className="inline-flex items-center justify-center gap-1.5 rounded-[9px] font-semibold transition-colors px-3.5 py-2 text-[13.5px] theme-btn-secondary"
               >
                 Run Report
               </Link>
@@ -302,53 +302,54 @@ export default function WTDCommissionSetupPage() {
           <div className="max-w-4xl mx-auto px-6 py-6 space-y-8">
             {/* Customer Configurations */}
             <section>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Customer Configurations</h2>
-                {canEdit && !showForm && (
-                  <button
+              <SectionHeader
+                title="Customer Configurations"
+                actions={canEdit && !showForm ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => { setForm(EMPTY_FORM); setEditingId(null); setShowForm(true); }}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/40" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-300"}`}
                   >
                     + Add Customer
-                  </button>
-                )}
-              </div>
+                  </Button>
+                ) : undefined}
+              />
 
               {/* Form */}
               {showForm && canEdit && (
-                <div className={`rounded-xl border p-6 mb-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-                  <h3 className={`text-sm font-semibold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
+                <Card padding="md" className="mb-6">
+                  <h3 className="text-sm font-semibold mb-4 theme-text-primary">
                     {editingId ? "Edit Customer" : "New Customer"}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Customer Name */}
                     <div>
-                      <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Customer Name</label>
+                      <label className="block text-xs font-medium mb-1 ui-section-label">Customer Name</label>
                       <input
                         type="text"
                         value={form.customerName}
                         onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))}
-                        className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                        className="theme-input w-full px-3 py-2 text-sm"
                         placeholder="e.g. Van's Auto"
                       />
                     </div>
 
                     {/* Customer Number */}
                     <div>
-                      <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Customer Number</label>
+                      <label className="block text-xs font-medium mb-1 ui-section-label">Customer Number</label>
                       <input
                         type="text"
                         value={form.customerNumber}
                         onChange={(e) => setForm((f) => ({ ...f, customerNumber: e.target.value }))}
-                        className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                        className="theme-input w-full px-3 py-2 text-sm"
                         placeholder="e.g. W08R20"
                       />
                     </div>
 
                     {/* Qualifying Item Suffixes */}
                     <div>
-                      <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Qualifying Item Suffixes</label>
-                      <p className={`text-[11px] mb-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>Item ID ending character determines product ownership</p>
+                      <label className="block text-xs font-medium mb-1 ui-section-label">Qualifying Item Suffixes</label>
+                      <p className="text-[11px] mb-2 theme-text-tertiary">Item ID ending character determines product ownership</p>
                       <div className="flex flex-wrap gap-2">
                         {[
                           { value: ".", label: '. (dot)' },
@@ -362,8 +363,8 @@ export default function WTDCommissionSetupPage() {
                         ].map((suffix) => (
                           <label key={suffix.value} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
                             form.dclasses.includes(suffix.value)
-                              ? isDark ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400" : "bg-emerald-100 border-emerald-300 text-emerald-700"
-                              : isDark ? "bg-slate-900 border-slate-600 text-slate-400" : "bg-white border-gray-300 text-gray-500"
+                              ? "bg-[#007AFF]/10 border-[#007AFF]/20 text-[#007AFF]"
+                              : "bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 theme-text-secondary"
                           }`}>
                             <input
                               type="checkbox"
@@ -385,8 +386,8 @@ export default function WTDCommissionSetupPage() {
 
                     {/* Qualifying Brands */}
                     <div>
-                      <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Qualifying Brands</label>
-                      <label className={`flex items-center gap-2 mb-2 text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                      <label className="block text-xs font-medium mb-1 ui-section-label">Qualifying Brands</label>
+                      <label className="flex items-center gap-2 mb-2 text-sm theme-text-secondary">
                         <input
                           type="checkbox"
                           checked={form.allBrands}
@@ -403,11 +404,11 @@ export default function WTDCommissionSetupPage() {
                               value={form.brandInput}
                               onChange={(e) => setForm((f) => ({ ...f, brandInput: e.target.value }))}
                               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddBrand(); } }}
-                              className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                              className="theme-input w-full px-3 py-2 text-sm"
                               placeholder="e.g. FAL, AROY, DUN — search by code or name"
                             />
                             {form.brandInput.length >= 1 && (
-                              <div className={`absolute z-20 w-full mt-1 rounded-lg border shadow-xl max-h-40 overflow-y-auto ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}>
+                              <div className="absolute z-20 w-full mt-1 rounded-lg border shadow-xl max-h-40 overflow-y-auto bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600">
                                 {Object.entries(BRAND_MAP)
                                   .filter(([code, name]) => {
                                     const q = form.brandInput.toLowerCase();
@@ -421,10 +422,10 @@ export default function WTDCommissionSetupPage() {
                                       onClick={() => {
                                         setForm((f) => ({ ...f, brands: [...f.brands, code], brandInput: "" }));
                                       }}
-                                      className={`w-full text-left px-3 py-2 text-sm transition-colors ${isDark ? "text-slate-300 hover:bg-slate-700" : "text-gray-700 hover:bg-gray-100"}`}
+                                      className="w-full text-left px-3 py-2 text-sm transition-colors theme-text-secondary hover:bg-black/5 dark:hover:bg-white/5"
                                     >
                                       <span className="font-mono font-bold">{code}</span>
-                                      <span className={`ml-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>{name}</span>
+                                      <span className="ml-2 theme-text-tertiary">{name}</span>
                                     </button>
                                   ))}
                               </div>
@@ -433,9 +434,9 @@ export default function WTDCommissionSetupPage() {
                           {form.brands.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-2">
                               {form.brands.map((b) => (
-                                <span key={b} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${isDark ? "bg-slate-700 text-slate-300" : "bg-gray-100 text-gray-700"}`}>
+                                <span key={b} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-slate-700 theme-text-secondary">
                                   {b}{BRAND_MAP[b] ? ` (${BRAND_MAP[b]})` : ""}
-                                  <button onClick={() => handleRemoveBrand(b)} className="hover:text-red-400">&times;</button>
+                                  <button onClick={() => handleRemoveBrand(b)} className="hover:text-red-500">&times;</button>
                                 </span>
                               ))}
                             </div>
@@ -446,15 +447,15 @@ export default function WTDCommissionSetupPage() {
 
                     {/* Commission Type */}
                     <div>
-                      <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>Commission Type</label>
+                      <label className="block text-xs font-medium mb-1 ui-section-label">Commission Type</label>
                       <div className="flex gap-2">
                         <button
                           type="button"
                           onClick={() => setForm((f) => ({ ...f, commissionType: "percentage" }))}
                           className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
                             form.commissionType === "percentage"
-                              ? isDark ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40" : "bg-emerald-100 text-emerald-700 border-emerald-300"
-                              : isDark ? "bg-slate-900 text-slate-400 border-slate-600 hover:border-slate-500" : "bg-white text-gray-500 border-gray-300 hover:border-gray-400"
+                              ? "bg-[#007AFF]/10 text-[#007AFF] border-[#007AFF]/20"
+                              : "bg-white dark:bg-slate-900 theme-text-tertiary border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500"
                           }`}
                         >
                           % of Product Cost
@@ -464,8 +465,8 @@ export default function WTDCommissionSetupPage() {
                           onClick={() => setForm((f) => ({ ...f, commissionType: "flat" }))}
                           className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
                             form.commissionType === "flat"
-                              ? isDark ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40" : "bg-emerald-100 text-emerald-700 border-emerald-300"
-                              : isDark ? "bg-slate-900 text-slate-400 border-slate-600 hover:border-slate-500" : "bg-white text-gray-500 border-gray-300 hover:border-gray-400"
+                              ? "bg-[#007AFF]/10 text-[#007AFF] border-[#007AFF]/20"
+                              : "bg-white dark:bg-slate-900 theme-text-tertiary border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500"
                           }`}
                         >
                           Flat per Unit
@@ -475,7 +476,7 @@ export default function WTDCommissionSetupPage() {
 
                     {/* Commission Value */}
                     <div>
-                      <label className={`block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                      <label className="block text-xs font-medium mb-1 ui-section-label">
                         {form.commissionType === "percentage" ? "Commission % (e.g. 5 for 5%)" : "Amount per Unit ($)"}
                       </label>
                       <input
@@ -484,7 +485,7 @@ export default function WTDCommissionSetupPage() {
                         min="0"
                         value={form.commissionValue}
                         onChange={(e) => setForm((f) => ({ ...f, commissionValue: e.target.value }))}
-                        className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                        className="theme-input w-full px-3 py-2 text-sm"
                         placeholder={form.commissionType === "percentage" ? "5" : "2.50"}
                       />
                     </div>
@@ -492,53 +493,51 @@ export default function WTDCommissionSetupPage() {
 
                   {/* Form Actions */}
                   <div className="flex gap-3 mt-6">
-                    <button
+                    <Button
+                      variant="primary"
+                      size="md"
                       onClick={handleSave}
                       disabled={saving || !form.customerName || !form.customerNumber || !form.commissionValue}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${isDark ? "bg-emerald-600 text-white hover:bg-emerald-500" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}
                     >
                       {saving ? "Saving..." : editingId ? "Update" : "Save"}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="md"
                       onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
                     >
                       Cancel
-                    </button>
+                    </Button>
                   </div>
-                </div>
+                </Card>
               )}
 
               {/* Customer List */}
               {customers === undefined ? (
-                <div className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>Loading...</div>
+                <div className="text-sm theme-text-secondary">Loading...</div>
               ) : customers.length === 0 ? (
-                <div className={`rounded-xl border p-8 text-center ${isDark ? "bg-slate-800/30 border-slate-700 text-slate-400" : "bg-gray-50 border-gray-200 text-gray-500"}`}>
-                  No customer configurations yet. Click &quot;Add Customer&quot; to get started.
-                </div>
+                <Card padding="md" className="text-center">
+                  <p className="theme-text-secondary">No customer configurations yet. Click &quot;Add Customer&quot; to get started.</p>
+                </Card>
               ) : (
                 <div className="space-y-3">
                   {customers.map((c: CustomerConfig) => (
                     <div
                       key={c._id}
-                      className={`rounded-xl border p-4 ${
-                        c.isActive
-                          ? isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"
-                          : isDark ? "bg-slate-800/20 border-slate-700/50 opacity-60" : "bg-gray-50 border-gray-200 opacity-60"
-                      }`}
+                      className={`theme-card p-4 ${!c.isActive ? "opacity-60" : ""}`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{c.customerName}</h3>
-                            <span className={`px-2 py-0.5 rounded text-xs font-mono ${isDark ? "bg-slate-700 text-slate-300" : "bg-gray-100 text-gray-600"}`}>
+                            <h3 className="font-semibold theme-text-primary">{c.customerName}</h3>
+                            <span className="px-2 py-0.5 rounded text-xs font-mono bg-gray-100 dark:bg-slate-700 theme-text-secondary">
                               {c.customerNumber}
                             </span>
                             {!c.isActive && (
-                              <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-500/20 text-red-400">Inactive</span>
+                              <span className="ui-badge ui-badge-red">Inactive</span>
                             )}
                           </div>
-                          <div className={`text-xs space-y-0.5 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                          <div className="text-xs space-y-0.5 theme-text-tertiary">
                             <p>
                               <span className="font-medium">Item Suffixes:</span>{" "}
                               {c.qualifyingDclasses.length > 0 ? c.qualifyingDclasses.map((d: string) => d === "." ? ". (dot)" : d === "^" ? "^ (caret)" : d).join(", ") : "None"}
@@ -557,28 +556,31 @@ export default function WTDCommissionSetupPage() {
                         </div>
                         {canEdit && (
                           <div className="flex gap-2">
-                            <button
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               onClick={() => handleToggleActive(c as CustomerConfig)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                                c.isActive
-                                  ? isDark ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30" : "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                                  : isDark ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                              }`}
+                              className={c.isActive
+                                ? "text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 border-0"
+                                : "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-500/10 hover:bg-green-100 dark:hover:bg-green-500/20 border-0"
+                              }
                             >
                               {c.isActive ? "Deactivate" : "Activate"}
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               onClick={() => handleEdit(c as CustomerConfig)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}
                             >
                               Edit
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                              variant="danger"
+                              size="sm"
                               onClick={() => handleDelete(c._id)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-red-100 text-red-700 hover:bg-red-200"}`}
                             >
                               Delete
-                            </button>
+                            </Button>
                           </div>
                         )}
                       </div>
@@ -591,12 +593,12 @@ export default function WTDCommissionSetupPage() {
             {/* Access Overrides — T4+ only */}
             {canEdit && (
               <section>
-                <h2 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>Access Overrides</h2>
-                <p className={`text-xs mb-4 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <SectionHeader title="Access Overrides" />
+                <p className="text-xs mb-4 theme-text-tertiary">
                   Grant access to specific users regardless of their RBAC tier. Users with T4+ access always have access.
                 </p>
 
-                <div className={`rounded-xl border p-4 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
+                <Card padding="md">
                   {/* Search to add user */}
                   <div className="relative mb-4">
                     <input
@@ -604,19 +606,19 @@ export default function WTDCommissionSetupPage() {
                       value={accessSearch}
                       onChange={(e) => { setAccessSearch(e.target.value); setShowAccessDropdown(true); }}
                       onFocus={() => setShowAccessDropdown(true)}
-                      className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                      className="theme-input w-full px-3 py-2 text-sm"
                       placeholder="Search users to grant access..."
                     />
                     {showAccessDropdown && filteredAccessUsers.length > 0 && (
-                      <div className={`absolute z-20 w-full mt-1 rounded-lg border shadow-xl max-h-48 overflow-y-auto ${isDark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}>
+                      <div className="absolute z-20 w-full mt-1 rounded-lg border shadow-xl max-h-48 overflow-y-auto bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600">
                         {filteredAccessUsers.slice(0, 10).map((u: ConvexUser) => (
                           <button
                             key={u._id}
                             onClick={() => handleAddAccessUser(u._id)}
-                            className={`w-full text-left px-3 py-2 text-sm transition-colors ${isDark ? "text-slate-300 hover:bg-slate-700" : "text-gray-700 hover:bg-gray-100"}`}
+                            className="w-full text-left px-3 py-2 text-sm transition-colors theme-text-secondary hover:bg-black/5 dark:hover:bg-white/5"
                           >
                             <span className="font-medium">{u.name}</span>
-                            <span className={`ml-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>{u.email}</span>
+                            <span className="ml-2 theme-text-tertiary">{u.email}</span>
                           </button>
                         ))}
                       </div>
@@ -629,25 +631,26 @@ export default function WTDCommissionSetupPage() {
                       {accessData.users.map((u: AccessUser | null) => u && (
                         <div
                           key={u._id}
-                          className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? "bg-slate-900/50" : "bg-gray-50"}`}
+                          className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 dark:bg-slate-900/50"
                         >
                           <div>
-                            <span className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{u.name}</span>
-                            <span className={`text-xs ml-2 ${isDark ? "text-slate-500" : "text-gray-400"}`}>{u.email}</span>
+                            <span className="text-sm font-medium theme-text-primary">{u.name}</span>
+                            <span className="text-xs ml-2 theme-text-tertiary">{u.email}</span>
                           </div>
-                          <button
+                          <Button
+                            variant="danger"
+                            size="sm"
                             onClick={() => handleRemoveAccessUser(u._id)}
-                            className={`text-xs px-2 py-1 rounded transition-colors ${isDark ? "text-red-400 hover:bg-red-500/20" : "text-red-600 hover:bg-red-100"}`}
                           >
                             Remove
-                          </button>
+                          </Button>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className={`text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>No access overrides configured.</p>
+                    <p className="text-sm theme-text-tertiary">No access overrides configured.</p>
                   )}
-                </div>
+                </Card>
               </section>
             )}
           </div>
