@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useAuth } from "../auth-context";
+import { useTheme } from "../theme-context";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -33,6 +34,7 @@ function formatDuration(start: number, end: number): string {
 
 export default function MeetingsPage() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const router = useRouter();
 
   const [showNewMeeting, setShowNewMeeting] = useState(false);
@@ -135,7 +137,7 @@ export default function MeetingsPage() {
                 <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Meetings</h1>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <MeetingsHelpModal isDark={false} />
+                <MeetingsHelpModal isDark={theme === "dark"} />
                 <Button
                   variant={showNewMeeting ? "secondary" : "primary"}
                   onClick={() => setShowNewMeeting(!showNewMeeting)}
