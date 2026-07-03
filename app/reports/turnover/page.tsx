@@ -7,6 +7,9 @@ import Protected from "@/app/protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useTheme } from "@/app/theme-context";
 import Link from "next/link";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import SectionHeader from "@/components/ui/SectionHeader";
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -297,102 +300,94 @@ function TurnoverDashboardContent() {
     }
   };
 
-  const cardClass = `rounded-2xl border p-4 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"} shadow-sm`;
-  const inputClass = `w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40 ${
-    isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-gray-300 text-gray-900"
-  }`;
-  const labelClass = `block text-xs font-medium mb-1 ${isDark ? "text-slate-400" : "text-gray-500"}`;
-
   return (
-    <div className="flex h-screen theme-bg-primary">
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
-        <header className={`sticky top-0 z-10 backdrop-blur-md border-b px-6 sm:px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/85 border-gray-200"}`}>
+        <header className="sticky top-0 z-10 border-b px-4 sm:px-6 py-3 sm:py-4 backdrop-blur-sm bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Link href="/reports" className={`p-2 rounded-lg ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}>
+            <div className="flex items-center gap-3 min-w-0">
+              <Link href="/reports" className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5 flex-shrink-0">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               </Link>
-              <div>
-                <h1 className="text-xl font-semibold theme-text-primary tracking-tight">Turnover Dashboard</h1>
-                <p className="text-xs theme-text-tertiary">Hires vs terms, tenure curves, by-location term rates, reasons</p>
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold theme-text-primary">Turnover Dashboard</h1>
+                <p className="text-xs mt-0.5 theme-text-tertiary">Hires vs terms, tenure curves, by-location term rates, reasons</p>
               </div>
             </div>
-            <button
+            <Button
+              variant="primary"
               onClick={handlePdf}
               disabled={generating || totalTerms === 0}
-              className="px-4 py-1.5 rounded-full text-xs font-semibold text-white bg-[#007AFF] hover:bg-[#0063CC] shadow-sm disabled:opacity-50"
             >
               {generating ? "Generating…" : "Period summary PDF"}
-            </button>
+            </Button>
           </div>
         </header>
 
-        <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-5">
+        <div className="px-4 sm:px-6 py-5 max-w-7xl mx-auto space-y-4">
           {/* Filters */}
-          <div className={cardClass}>
+          <Card>
+            <SectionHeader label="Filters" />
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div>
-                <label className={labelClass}>Start date</label>
-                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputClass} />
+                <label className="block ui-section-label mb-1">Start date</label>
+                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="theme-input w-full px-3 py-2" />
               </div>
               <div>
-                <label className={labelClass}>End date</label>
-                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={inputClass} />
+                <label className="block ui-section-label mb-1">End date</label>
+                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="theme-input w-full px-3 py-2" />
               </div>
               <div>
-                <label className={labelClass}>Location</label>
-                <select value={locationId} onChange={(e) => setLocationId(e.target.value)} className={inputClass}>
+                <label className="block ui-section-label mb-1">Location</label>
+                <select value={locationId} onChange={(e) => setLocationId(e.target.value)} className="theme-input w-full px-3 py-2">
                   <option value="">All locations</option>
                   {(locations || []).map(l => <option key={l._id} value={l._id}>{l.name}</option>)}
                 </select>
               </div>
               <div className="flex items-end gap-1.5">
-                <button onClick={() => { setStartDate(isoMonthsAgo(2)); setEndDate(iso(new Date())); }}
-                  className="flex-1 px-3 py-2 rounded-lg text-xs theme-bg-secondary theme-bg-hover theme-text-secondary">3 mo</button>
-                <button onClick={() => { setStartDate(isoMonthsAgo(5)); setEndDate(iso(new Date())); }}
-                  className="flex-1 px-3 py-2 rounded-lg text-xs theme-bg-secondary theme-bg-hover theme-text-secondary">6 mo</button>
-                <button onClick={() => { setStartDate(isoMonthsAgo(11)); setEndDate(iso(new Date())); }}
-                  className="flex-1 px-3 py-2 rounded-lg text-xs theme-bg-secondary theme-bg-hover theme-text-secondary">12 mo</button>
+                <Button variant="ghost" size="sm" onClick={() => { setStartDate(isoMonthsAgo(2)); setEndDate(iso(new Date())); }} className="flex-1">3 mo</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setStartDate(isoMonthsAgo(5)); setEndDate(iso(new Date())); }} className="flex-1">6 mo</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setStartDate(isoMonthsAgo(11)); setEndDate(iso(new Date())); }} className="flex-1">12 mo</Button>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Headline KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <div className={cardClass}>
-              <p className="text-[11px] theme-text-tertiary uppercase tracking-wider">Hires</p>
+            <Card>
+              <p className="ui-section-label">Hires</p>
               <p className="text-2xl font-semibold theme-text-primary mt-1">{totalHires}</p>
-              <p className="text-[11px] theme-text-muted mt-0.5">in period</p>
-            </div>
-            <div className={cardClass}>
-              <p className="text-[11px] theme-text-tertiary uppercase tracking-wider">Terms</p>
+              <p className="text-[11px] theme-text-tertiary mt-0.5">in period</p>
+            </Card>
+            <Card>
+              <p className="ui-section-label">Terms</p>
               <p className="text-2xl font-semibold theme-text-primary mt-1">{totalTerms}</p>
-              <p className="text-[11px] theme-text-muted mt-0.5">in period</p>
-            </div>
-            <div className={cardClass}>
-              <p className="text-[11px] theme-text-tertiary uppercase tracking-wider">Net change</p>
-              <p className={`text-2xl font-semibold mt-1 ${netChange >= 0 ? (isDark ? "text-green-400" : "text-green-600") : (isDark ? "text-red-400" : "text-red-600")}`}>
+              <p className="text-[11px] theme-text-tertiary mt-0.5">in period</p>
+            </Card>
+            <Card>
+              <p className="ui-section-label">Net change</p>
+              <p className={`text-2xl font-semibold mt-1 ${netChange >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                 {netChange >= 0 ? "+" : ""}{netChange}
               </p>
-              <p className="text-[11px] theme-text-muted mt-0.5">hires − terms</p>
-            </div>
-            <div className={cardClass}>
-              <p className="text-[11px] theme-text-tertiary uppercase tracking-wider">Annualized turnover</p>
+              <p className="text-[11px] theme-text-tertiary mt-0.5">hires − terms</p>
+            </Card>
+            <Card>
+              <p className="ui-section-label">Annualized turnover</p>
               <p className="text-2xl font-semibold theme-text-primary mt-1">{annualizedTurnover.toFixed(1)}%</p>
-              <p className="text-[11px] theme-text-muted mt-0.5">vs current active</p>
-            </div>
-            <div className={cardClass}>
-              <p className="text-[11px] theme-text-tertiary uppercase tracking-wider">Early exit rate</p>
+              <p className="text-[11px] theme-text-tertiary mt-0.5">vs current active</p>
+            </Card>
+            <Card>
+              <p className="ui-section-label">Early exit rate</p>
               <p className="text-2xl font-semibold theme-text-primary mt-1">{earlyExitRate.toFixed(0)}%</p>
-              <p className="text-[11px] theme-text-muted mt-0.5">terms under 90 days</p>
-            </div>
+              <p className="text-[11px] theme-text-tertiary mt-0.5">terms under 90 days</p>
+            </Card>
           </div>
 
           {/* Hires vs terms chart */}
-          <div className={cardClass}>
-            <h2 className="text-sm font-semibold theme-text-primary mb-3">Hires vs terminations by month</h2>
+          <Card>
+            <SectionHeader title="Hires vs terminations by month" />
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={monthlyHvT} margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
                 <CartesianGrid stroke={isDark ? "#334155" : "#E5E7EB"} strokeDasharray="3 3" />
@@ -404,12 +399,12 @@ function TurnoverDashboardContent() {
                 <Bar dataKey="terms" name="Terminations" fill="#FF3B30" />
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          </Card>
 
           {/* Tenure-at-termination + by-location */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className={cardClass}>
-              <h2 className="text-sm font-semibold theme-text-primary mb-3">Tenure at termination</h2>
+            <Card>
+              <SectionHeader title="Tenure at termination" />
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart
                   data={[
@@ -428,14 +423,14 @@ function TurnoverDashboardContent() {
                   <Bar dataKey="count" fill="#FF9500" />
                 </BarChart>
               </ResponsiveContainer>
-              <p className="text-[11px] theme-text-muted mt-2">
+              <p className="text-[11px] theme-text-tertiary mt-2">
                 Median tenure of leavers: {avgLeaverTenureYears != null ? `${avgLeaverTenureYears.toFixed(1)} yr (mean)` : "—"}
               </p>
-            </div>
-            <div className={cardClass}>
-              <h2 className="text-sm font-semibold theme-text-primary mb-3">Reasons (from exit interviews)</h2>
+            </Card>
+            <Card>
+              <SectionHeader title="Reasons (from exit interviews)" />
               {reasonCounts.length === 0 ? (
-                <p className="text-sm theme-text-muted py-6 text-center">No exit interview data for this period.</p>
+                <p className="text-sm theme-text-tertiary py-6 text-center">No exit interview data for this period.</p>
               ) : (
                 <div className="space-y-2">
                   {reasonCounts.map((r, i) => {
@@ -446,7 +441,7 @@ function TurnoverDashboardContent() {
                           <span>{r.label}</span>
                           <span className="tabular-nums">{r.count} · {pct.toFixed(0)}%</span>
                         </div>
-                        <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? "bg-slate-700" : "bg-gray-200"}`}>
+                        <div className="h-1.5 rounded-full overflow-hidden bg-black/10 dark:bg-white/10">
                           <div className="h-full" style={{ width: `${pct}%`, background: PALETTE[i % PALETTE.length] }} />
                         </div>
                       </div>
@@ -454,25 +449,25 @@ function TurnoverDashboardContent() {
                   })}
                 </div>
               )}
-            </div>
+            </Card>
           </div>
 
           {/* Per-location table */}
-          <div className={cardClass}>
-            <h2 className="text-sm font-semibold theme-text-primary mb-3">By location</h2>
+          <Card padding="sm">
+            <SectionHeader title="By location" />
             {byLocation.length === 0 ? (
-              <p className="text-sm theme-text-muted py-6 text-center">No data.</p>
+              <p className="text-sm theme-text-tertiary py-6 text-center">No data.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className={isDark ? "text-slate-400" : "text-gray-600"}>
+                  <thead>
                     <tr className="border-b theme-border-secondary">
-                      <th className="text-left py-2 px-2 font-medium">Location</th>
-                      <th className="text-right py-2 px-2 font-medium">Active</th>
-                      <th className="text-right py-2 px-2 font-medium">Terms in period</th>
-                      <th className="text-right py-2 px-2 font-medium">Total ever</th>
-                      <th className="text-right py-2 px-2 font-medium">Term %</th>
-                      <th className="text-right py-2 px-2 font-medium">Avg leaver tenure</th>
+                      <th className="text-left py-2 px-2 font-semibold theme-text-tertiary">Location</th>
+                      <th className="text-right py-2 px-2 font-semibold theme-text-tertiary">Active</th>
+                      <th className="text-right py-2 px-2 font-semibold theme-text-tertiary">Terms in period</th>
+                      <th className="text-right py-2 px-2 font-semibold theme-text-tertiary">Total ever</th>
+                      <th className="text-right py-2 px-2 font-semibold theme-text-tertiary">Term %</th>
+                      <th className="text-right py-2 px-2 font-semibold theme-text-tertiary">Avg leaver tenure</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -492,11 +487,11 @@ function TurnoverDashboardContent() {
                 </table>
               </div>
             )}
-          </div>
+          </Card>
 
           {/* Net headcount over time (small) */}
-          <div className={cardClass}>
-            <h2 className="text-sm font-semibold theme-text-primary mb-3">Net change (hires − terms) per month</h2>
+          <Card>
+            <SectionHeader title="Net change (hires − terms) per month" />
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={monthlyHvT} margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
                 <CartesianGrid stroke={isDark ? "#334155" : "#E5E7EB"} strokeDasharray="3 3" />
@@ -506,9 +501,9 @@ function TurnoverDashboardContent() {
                 <Line type="monotone" dataKey="net" stroke="#007AFF" strokeWidth={2} dot />
               </LineChart>
             </ResponsiveContainer>
-          </div>
+          </Card>
 
-          <p className="text-[11px] theme-text-muted text-center pb-4">
+          <p className="text-[11px] theme-text-tertiary text-center pb-4">
             Source: personnel records + exit-interview data. terminationDate-based; historical pre-2026 dates may have been reset.
           </p>
         </div>

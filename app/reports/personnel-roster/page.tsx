@@ -8,10 +8,13 @@ import Protected from "@/app/protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useTheme } from "@/app/theme-context";
 import Link from "next/link";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 function PersonnelRosterContent() {
   const { theme } = useTheme();
-  const isDark = theme === "dark";
+  void theme;
 
   const locations = useQuery(api.locations.list) || [];
   const [locationId, setLocationId] = useState<Id<"locations"> | "">("");
@@ -117,42 +120,39 @@ function PersonnelRosterContent() {
   };
 
   return (
-    <div className="flex h-screen theme-bg-primary">
+    <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
         <MobileHeader />
-        <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
+        <header className="sticky top-0 z-10 border-b px-4 sm:px-6 py-3 sm:py-4 backdrop-blur-sm bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
           <div className="flex items-center gap-3">
             <Link
               href="/reports"
-              className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-700 text-slate-400" : "hover:bg-gray-100 text-gray-500"}`}
+              className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5 flex-shrink-0"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </Link>
             <div>
-              <h1 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                Personnel Roster
-              </h1>
-              <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+              <h1 className="text-xl font-bold theme-text-primary">Personnel Roster</h1>
+              <p className="text-xs mt-0.5 theme-text-tertiary">
                 Print a checklist of who works at a location — verify and add missing people
               </p>
             </div>
           </div>
         </header>
 
-        <div className="p-4 sm:p-8 max-w-3xl">
-          <div className={`rounded-2xl border p-6 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
+        <div className="px-4 sm:px-6 py-5 max-w-3xl space-y-4">
+          <Card>
+            <SectionHeader title="Generate Roster" />
             <div className="space-y-4">
               <div>
-                <label className={`block text-sm font-medium mb-1.5 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
-                  Location
-                </label>
+                <label className="block ui-section-label mb-1.5">Location</label>
                 <select
                   value={locationId}
                   onChange={(e) => setLocationId(e.target.value as Id<"locations"> | "")}
-                  className={`w-full px-3 py-2.5 rounded-lg border ${isDark ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                  className="theme-input w-full px-3 py-2.5"
                 >
                   <option value="">— Pick a location —</option>
                   {locations.map((loc) => (
@@ -163,7 +163,7 @@ function PersonnelRosterContent() {
                 </select>
               </div>
 
-              <label className={`flex items-center gap-2 text-sm ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+              <label className="flex items-center gap-2 text-sm theme-text-secondary cursor-pointer">
                 <input
                   type="checkbox"
                   checked={includeTerminated}
@@ -174,9 +174,9 @@ function PersonnelRosterContent() {
               </label>
 
               {locationId && (
-                <div className={`rounded-lg p-3 text-sm ${isDark ? "bg-slate-900/60 text-slate-300" : "bg-gray-50 text-gray-700"}`}>
+                <div className="rounded-lg p-3 text-sm bg-black/5 dark:bg-white/5 theme-text-secondary">
                   {personnel === undefined ? (
-                    <span className={isDark ? "text-slate-500" : "text-gray-500"}>Loading…</span>
+                    <span className="theme-text-tertiary">Loading…</span>
                   ) : filteredPersonnel.length === 0 ? (
                     <span>No {includeTerminated ? "" : "active "}personnel at this location.</span>
                   ) : (
@@ -187,54 +187,55 @@ function PersonnelRosterContent() {
                 </div>
               )}
 
-              <button
+              <Button
+                variant="primary"
                 onClick={handleGeneratePDF}
                 disabled={!locationId || filteredPersonnel.length === 0 || generating}
-                className="w-full px-4 py-3 rounded-xl font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ backgroundColor: "#007AFF" }}
+                className="w-full py-3"
               >
                 {generating ? "Generating PDF…" : "Generate Roster PDF"}
-              </button>
+              </Button>
 
-              <p className={`text-xs ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+              <p className="text-xs theme-text-tertiary">
                 The PDF includes a checkbox column, name, position, department, hire date, phone, and a notes column. Blank rows are added at the bottom so HR can write in anyone who's working but isn't listed yet.
               </p>
             </div>
-          </div>
+          </Card>
 
           {filteredPersonnel.length > 0 && (
-            <div className={`mt-6 rounded-2xl border overflow-hidden ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
-              <div className={`px-4 py-3 border-b text-sm font-semibold ${isDark ? "border-slate-700 text-white" : "border-gray-200 text-gray-900"}`}>
-                Preview — {filteredPersonnel.length} {includeTerminated ? "total" : "active"} at {selectedLocation?.name}
-              </div>
+            <Card padding="sm">
+              <SectionHeader
+                label="Preview"
+                title={`${filteredPersonnel.length} ${includeTerminated ? "total" : "active"} at ${selectedLocation?.name}`}
+              />
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className={isDark ? "bg-slate-900/60" : "bg-gray-50"}>
-                    <tr className={isDark ? "text-slate-400" : "text-gray-600"}>
-                      <th className="text-left px-4 py-2 font-medium">Name</th>
-                      <th className="text-left px-4 py-2 font-medium">Position</th>
-                      <th className="text-left px-4 py-2 font-medium">Department</th>
-                      <th className="text-left px-4 py-2 font-medium">Hire Date</th>
-                      <th className="text-left px-4 py-2 font-medium">Phone</th>
+                  <thead>
+                    <tr className="border-b theme-border-secondary">
+                      <th className="text-left px-3 py-2 font-semibold theme-text-tertiary">Name</th>
+                      <th className="text-left px-3 py-2 font-semibold theme-text-tertiary">Position</th>
+                      <th className="text-left px-3 py-2 font-semibold theme-text-tertiary">Department</th>
+                      <th className="text-left px-3 py-2 font-semibold theme-text-tertiary">Hire Date</th>
+                      <th className="text-left px-3 py-2 font-semibold theme-text-tertiary">Phone</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredPersonnel.map((p) => (
                       <tr
                         key={p._id}
-                        className={`border-t ${isDark ? "border-slate-700/40 text-white" : "border-gray-100 text-gray-900"}`}
+                        className="border-t theme-border-secondary"
                       >
-                        <td className="px-4 py-2 font-medium">{p.lastName}, {p.firstName}</td>
-                        <td className="px-4 py-2">{p.position}</td>
-                        <td className="px-4 py-2">{p.department}</td>
-                        <td className="px-4 py-2">{p.hireDate}</td>
-                        <td className="px-4 py-2">{p.phone}</td>
+                        <td className="px-3 py-2 font-medium theme-text-primary">{p.lastName}, {p.firstName}</td>
+                        <td className="px-3 py-2 theme-text-secondary">{p.position}</td>
+                        <td className="px-3 py-2 theme-text-secondary">{p.department}</td>
+                        <td className="px-3 py-2 theme-text-secondary">{p.hireDate}</td>
+                        <td className="px-3 py-2 theme-text-secondary">{p.phone}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </Card>
           )}
         </div>
       </main>

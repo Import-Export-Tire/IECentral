@@ -9,10 +9,13 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import Link from "next/link";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 export default function SavedReportDetailPage() {
   const { theme } = useTheme();
-  const isDark = theme === "dark";
+  void theme;
   const params = useParams();
   const configId = params.configId as string;
 
@@ -121,11 +124,11 @@ export default function SavedReportDetailPage() {
   if (!config) {
     return (
       <Protected>
-        <div className="flex h-screen theme-bg-primary">
+        <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
           <Sidebar />
           <main className="flex-1 flex items-center justify-center">
             <MobileHeader />
-            <div className={`text-center ${isDark ? "text-slate-400" : "text-gray-500"}`}>Loading...</div>
+            <div className="text-center theme-text-tertiary">Loading...</div>
           </main>
         </div>
       </Protected>
@@ -136,58 +139,66 @@ export default function SavedReportDetailPage() {
 
   return (
     <Protected>
-      <div className="flex h-screen theme-bg-primary">
+      <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
         <Sidebar />
         <main className="flex-1 overflow-y-auto">
           <MobileHeader />
 
-          <header className={`sticky top-0 z-10 border-b px-6 py-4 ${isDark ? "bg-slate-900/95 backdrop-blur border-slate-700" : "bg-white/95 backdrop-blur border-gray-200"}`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Link href="/reports" className={`p-2 rounded-lg transition-colors ${isDark ? "hover:bg-slate-800 text-slate-400" : "hover:bg-gray-200 text-gray-500"}`}>
+          <header className="sticky top-0 z-10 border-b px-4 sm:px-6 py-3 sm:py-4 backdrop-blur-sm bg-white/80 dark:bg-slate-900/80 border-gray-200 dark:border-slate-700">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Link href="/reports" className="p-2 rounded-lg transition-colors theme-text-tertiary hover:bg-black/5 dark:hover:bg-white/5 flex-shrink-0">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                 </Link>
-                <div>
-                  <h1 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{config.name}</h1>
-                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                <div className="min-w-0">
+                  <h1 className="text-xl font-bold theme-text-primary">{config.name}</h1>
+                  <p className="text-xs mt-0.5 theme-text-tertiary">
                     {config.sources.join(" + ")} — {scheduleLabel}
                     {config.lastRunAt && ` — Last run: ${new Date(config.lastRunAt).toLocaleString()}`}
                     {config.lastRunRowCount != null && ` (${config.lastRunRowCount} rows)`}
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button onClick={handleRun} disabled={running}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50 ${isDark ? "bg-emerald-600 text-white hover:bg-emerald-500" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
+              <div className="flex gap-2 flex-shrink-0">
+                <Button
+                  variant="primary"
+                  onClick={handleRun}
+                  disabled={running}
+                >
                   {running ? "Running..." : "Run Now"}
-                </button>
+                </Button>
                 {results && (
                   <>
-                    <button onClick={handleExportCSV} className={`px-3 py-2 rounded-lg text-sm font-medium ${isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"}`}>CSV</button>
-                    <button onClick={handleExportExcel} className={`px-3 py-2 rounded-lg text-sm font-medium ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-700"}`}>Excel</button>
+                    <Button variant="ghost" onClick={handleExportCSV}>CSV</Button>
+                    <Button variant="secondary" onClick={handleExportExcel}>Excel</Button>
                   </>
                 )}
-                <button onClick={async () => { if (confirm("Delete this saved report?")) { await removeConfig({ id: configId as Id<"savedReportConfigs"> }); window.location.href = "/reports"; } }}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium ${isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700"}`}>Delete</button>
+                <Button
+                  variant="danger"
+                  onClick={async () => { if (confirm("Delete this saved report?")) { await removeConfig({ id: configId as Id<"savedReportConfigs"> }); window.location.href = "/reports"; } }}
+                >
+                  Delete
+                </Button>
               </div>
             </div>
           </header>
 
-          <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 space-y-4">
             {/* Config summary */}
-            <div className={`rounded-xl border p-5 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
+            <Card padding="sm">
+              <SectionHeader label="Configuration" />
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
-                  <p className={`text-[10px] uppercase tracking-wider font-medium ${isDark ? "text-slate-500" : "text-gray-400"}`}>Sources</p>
-                  <p className={`text-sm mt-1 ${isDark ? "text-white" : "text-gray-900"}`}>{config.sources.join(" + ")}</p>
+                  <p className="ui-section-label mb-1">Sources</p>
+                  <p className="text-sm theme-text-primary">{config.sources.join(" + ")}</p>
                 </div>
                 <div>
-                  <p className={`text-[10px] uppercase tracking-wider font-medium ${isDark ? "text-slate-500" : "text-gray-400"}`}>Columns</p>
-                  <p className={`text-sm mt-1 ${isDark ? "text-white" : "text-gray-900"}`}>{config.selectedColumns.length} selected</p>
+                  <p className="ui-section-label mb-1">Columns</p>
+                  <p className="text-sm theme-text-primary">{config.selectedColumns.length} selected</p>
                 </div>
                 <div>
-                  <p className={`text-[10px] uppercase tracking-wider font-medium ${isDark ? "text-slate-500" : "text-gray-400"}`}>Filters</p>
-                  <p className={`text-sm mt-1 ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <p className="ui-section-label mb-1">Filters</p>
+                  <p className="text-sm theme-text-primary">
                     {[
                       config.excludeTransactions?.length && `Excl: ${config.excludeTransactions.join(",")}`,
                       config.filterBrand && `Brand: ${config.filterBrand}`,
@@ -196,52 +207,58 @@ export default function SavedReportDetailPage() {
                   </p>
                 </div>
                 <div>
-                  <p className={`text-[10px] uppercase tracking-wider font-medium ${isDark ? "text-slate-500" : "text-gray-400"}`}>Date Range</p>
-                  <p className={`text-sm mt-1 ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <p className="ui-section-label mb-1">Date Range</p>
+                  <p className="text-sm theme-text-primary">
                     {config.customStartDate && config.customEndDate ? `${config.customStartDate} to ${config.customEndDate}` : config.dateRangeType}
                   </p>
                 </div>
               </div>
-            </div>
+            </Card>
 
-            {error && <div className={`rounded-xl border p-4 ${isDark ? "bg-red-500/10 border-red-500/30 text-red-400" : "bg-red-50 border-red-200 text-red-700"}`}>{error}</div>}
+            {error && (
+              <Card tone="red" padding="sm">
+                <p className="text-sm theme-text-primary">{error}</p>
+              </Card>
+            )}
 
             {/* Results table */}
             {results && (
-              <div className={`rounded-xl border overflow-hidden ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                <div className={`px-4 py-3 border-b ${isDark ? "bg-slate-800 border-slate-700" : "bg-gray-50 border-gray-200"}`}>
-                  <span className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{results.totalRows.toLocaleString()} rows</span>
+              <div className="theme-card overflow-hidden p-0">
+                <div className="px-4 py-3 border-b theme-border-secondary">
+                  <span className="text-sm font-semibold theme-text-primary">{results.totalRows.toLocaleString()} rows</span>
                 </div>
                 <div className="overflow-x-auto max-h-[60vh]">
                   <table className="w-full text-xs">
-                    <thead className={`sticky top-0 ${isDark ? "bg-slate-800" : "bg-gray-50"}`}>
+                    <thead className="sticky top-0 bg-black/[0.03] dark:bg-white/[0.03]">
                       <tr>
                         {results.columns.map((col) => (
-                          <th key={col.key} className={`text-left px-3 py-2 font-semibold whitespace-nowrap ${isDark ? "text-slate-300 border-b border-slate-700" : "text-gray-600 border-b border-gray-200"}`}>{col.name}</th>
+                          <th key={col.key} className="text-left px-3 py-2 font-semibold whitespace-nowrap theme-text-tertiary border-b theme-border-secondary">{col.name}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {results.rows.slice(0, 500).map((row, i) => (
-                        <tr key={i} className={`border-b ${i % 2 ? isDark ? "bg-slate-800/30" : "bg-gray-50/50" : ""} ${isDark ? "border-slate-700/30" : "border-gray-100"}`}>
+                        <tr key={i} className={`border-b theme-border-secondary ${i % 2 ? "bg-black/[0.015] dark:bg-white/[0.015]" : ""}`}>
                           {results.columns.map((col) => (
-                            <td key={col.key} className={`px-3 py-1.5 whitespace-nowrap ${isDark ? "text-slate-300" : "text-gray-700"}`}>{row[col.key] || ""}</td>
+                            <td key={col.key} className="px-3 py-1.5 whitespace-nowrap theme-text-secondary">{row[col.key] || ""}</td>
                           ))}
                         </tr>
                       ))}
                     </tbody>
                   </table>
                   {results.rows.length > 500 && (
-                    <p className={`text-center py-3 text-xs ${isDark ? "text-slate-500" : "text-gray-400"}`}>Showing 500 of {results.rows.length.toLocaleString()} — export for full data</p>
+                    <p className="text-center py-3 text-xs theme-text-tertiary">Showing 500 of {results.rows.length.toLocaleString()} — export for full data</p>
                   )}
                 </div>
               </div>
             )}
 
             {!results && !error && (
-              <div className={`rounded-xl border p-12 text-center ${isDark ? "bg-slate-800/30 border-slate-700 text-slate-500" : "bg-gray-50 border-gray-200 text-gray-400"}`}>
-                Click <strong>Run Now</strong> to generate this report
-              </div>
+              <Card tone="default" padding="md">
+                <p className="text-center theme-text-tertiary">
+                  Click <strong className="theme-text-primary">Run Now</strong> to generate this report
+                </p>
+              </Card>
             )}
           </div>
         </main>
