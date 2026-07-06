@@ -455,8 +455,8 @@ function ApplicationsContent() {
               <div className="flex-1">
                 <input
                   type="text"
-                  aria-label="Search applications by name or email"
-                  placeholder="Search name or email..."
+                  aria-label="Search applications by name, email, phone, or job"
+                  placeholder="Search name, email, phone, or job..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="theme-input w-full"

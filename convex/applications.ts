@@ -3,8 +3,20 @@ import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { internal } from "./_generated/api";
 
-function applicationSearchText(a: { firstName: string; lastName: string; email: string }) {
-  return `${a.firstName} ${a.lastName} ${a.email}`.toLowerCase();
+function applicationSearchText(a: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  appliedJobTitle?: string;
+}) {
+  // Include the phone both as-entered (so "(951) 555" tokenizes) and as a bare
+  // digits-only token (so a search of "9515551234" matches regardless of formatting),
+  // plus the applied job title. All lowercased for the full-text index.
+  const digits = (a.phone ?? "").replace(/\D/g, "");
+  return `${a.firstName} ${a.lastName} ${a.email} ${a.phone ?? ""} ${digits} ${a.appliedJobTitle ?? ""}`
+    .trim()
+    .toLowerCase();
 }
 
 // Get all applications (excludes archived by default)
@@ -199,7 +211,7 @@ export const create = mutation({
     const applicationId = await ctx.db.insert("applications", {
       ...args,
       status: "new",
-      searchText: applicationSearchText({ firstName: args.firstName, lastName: args.lastName, email: args.email }),
+      searchText: applicationSearchText({ firstName: args.firstName, lastName: args.lastName, email: args.email, phone: args.phone, appliedJobTitle: args.appliedJobTitle }),
       createdAt: now,
       updatedAt: now,
     });
@@ -299,18 +311,20 @@ export const updateAIAnalysis = mutation({
   },
   handler: async (ctx, args) => {
     const { applicationId, ...updates } = args;
-    // Recompute searchText if any name/email fields are being backfilled
+    // Recompute searchText if any name/email/phone fields are being backfilled
     const patchData: typeof updates & { updatedAt: number; searchText?: string } = {
       ...updates,
       updatedAt: Date.now(),
     };
-    if (args.firstName !== undefined || args.lastName !== undefined || args.email !== undefined) {
+    if (args.firstName !== undefined || args.lastName !== undefined || args.email !== undefined || args.phone !== undefined) {
       const existing = await ctx.db.get(applicationId);
       if (existing) {
         patchData.searchText = applicationSearchText({
           firstName: args.firstName ?? existing.firstName,
           lastName: args.lastName ?? existing.lastName,
           email: args.email ?? existing.email,
+          phone: args.phone ?? existing.phone,
+          appliedJobTitle: existing.appliedJobTitle,
         });
       }
     }
@@ -389,7 +403,7 @@ export const submitApplication = mutation({
     return await ctx.db.insert("applications", {
       ...args,
       status: "new",
-      searchText: applicationSearchText({ firstName: args.firstName, lastName: args.lastName, email: args.email }),
+      searchText: applicationSearchText({ firstName: args.firstName, lastName: args.lastName, email: args.email, phone: args.phone, appliedJobTitle: args.appliedJobTitle }),
       createdAt: now,
       updatedAt: now,
     });
@@ -768,9 +782,20 @@ export const updateAppliedJob = mutation({
     const job = await ctx.db.get(args.jobId);
     if (!job) throw new Error("Job not found");
 
+    const application = await ctx.db.get(args.applicationId);
+    if (!application) throw new Error("Application not found");
+
     await ctx.db.patch(args.applicationId, {
       appliedJobId: args.jobId,
       appliedJobTitle: job.title,
+      // Job title is part of searchText, so recompute it when the job changes.
+      searchText: applicationSearchText({
+        firstName: application.firstName,
+        lastName: application.lastName,
+        email: application.email,
+        phone: application.phone,
+        appliedJobTitle: job.title,
+      }),
       updatedAt: Date.now(),
     });
 
