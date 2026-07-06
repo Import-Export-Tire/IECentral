@@ -12,7 +12,7 @@ import Button from "@/components/ui/Button";
 import SectionHeader from "@/components/ui/SectionHeader";
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ReferenceArea,
 } from "recharts";
 
 interface PersonnelRow {
@@ -59,6 +59,22 @@ function monthRange(start: string, end: string): string[] {
   }
   return out;
 }
+// The `n` month keys (YYYY-MM) ending at and including `endMonthKey`.
+function lastNMonthKeys(endMonthKey: string, n: number): string[] {
+  const out: string[] = [];
+  let [y, m] = endMonthKey.split("-").map(Number);
+  for (let i = 0; i < n; i++) {
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+    m--;
+    if (m < 1) { m = 12; y--; }
+  }
+  return out.reverse();
+}
+// Lexicographic upper bound for "any real date within month k" — used to test
+// active headcount as of a month-end without per-month day-count math.
+function monthEndBound(monthKey: string): string {
+  return `${monthKey}-31`;
+}
 function tenureDays(hire?: string, term?: string): number | null {
   if (!hire || !term) return null;
   const h = new Date(hire + "T00:00:00").getTime();
@@ -90,6 +106,9 @@ function TurnoverDashboardContent() {
   const [endDate, setEndDate] = useState<string>(iso(new Date()));
   const [locationId, setLocationId] = useState<string>("");
   const [generating, setGenerating] = useState(false);
+  // "Hiring manager since" marker + rolling-turnover window (months).
+  const [hmSince, setHmSince] = useState<string>("");
+  const [rollWindow, setRollWindow] = useState<3 | 6 | 12>(3);
 
   const locById = useMemo(() => new Map<string, string>((locations || []).map(l => [String(l._id), l.name])), [locations]);
 
@@ -142,6 +161,58 @@ function TurnoverDashboardContent() {
       net: (hireByMonth.get(m) || 0) - (termByMonth.get(m) || 0),
     }));
   }, [hiresInRange, termsInRange, months]);
+
+  // ──── Rolling annualized turnover trend (the "under my tenure" story) ────
+  // For each month M: terminations in the trailing `rollWindow` months ÷ average
+  // active headcount over that window, annualized. Headcount at each month-end is
+  // reconstructed from hire/termination dates (no schema change / backend query).
+  const rollingTurnover = useMemo(() => {
+    const annualMult = 12 / rollWindow;
+    const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const activeAt = (k: string) => {
+      const bound = monthEndBound(k);
+      let n = 0;
+      for (const p of filteredPersonnel) {
+        if (p.hireDate && p.hireDate <= bound && (!p.terminationDate || p.terminationDate > bound)) n++;
+      }
+      return n;
+    };
+    return months.map(m => {
+      const winKeys = lastNMonthKeys(m, rollWindow);
+      const winSet = new Set(winKeys);
+      let terms = 0;
+      for (const p of filteredPersonnel) {
+        if (p.status === "terminated" && p.terminationDate && winSet.has(monthKey(p.terminationDate))) terms++;
+      }
+      const heads = winKeys.map(activeAt);
+      const avgHead = heads.reduce((a, b) => a + b, 0) / heads.length;
+      const rate = avgHead > 0 ? (terms / avgHead) * annualMult * 100 : null;
+      return {
+        month: m,
+        label: `${MONTHS[parseInt(m.split("-")[1]) - 1]} '${m.slice(2, 4)}`,
+        rate: rate == null ? null : Math.round(rate * 10) / 10,
+      };
+    });
+  }, [filteredPersonnel, months, rollWindow]);
+
+  // Month the tenure marker falls in, and its chart label (for the reference line).
+  const tenurePivot = hmSince ? monthKey(hmSince) : null;
+  const tenureLabel = useMemo(() => {
+    if (!tenurePivot) return null;
+    return rollingTurnover.find(r => r.month === tenurePivot)?.label ?? null;
+  }, [rollingTurnover, tenurePivot]);
+  const lastRollLabel = rollingTurnover.length ? rollingTurnover[rollingTurnover.length - 1].label : null;
+
+  // Average rolling turnover before vs after the tenure start.
+  const beforeAfter = useMemo(() => {
+    if (!tenurePivot) return null;
+    const avg = (a: number[]) => a.reduce((s, v) => s + v, 0) / a.length;
+    const before = rollingTurnover.filter(r => r.month < tenurePivot && r.rate != null).map(r => r.rate as number);
+    const after = rollingTurnover.filter(r => r.month >= tenurePivot && r.rate != null).map(r => r.rate as number);
+    if (before.length === 0 || after.length === 0) return null;
+    const b = avg(before), a = avg(after);
+    return { before: b, after: a, delta: a - b };
+  }, [rollingTurnover, tenurePivot]);
 
   // Per-location terms in period + avg leaver tenure + term rate
   const byLocation = useMemo(() => {
@@ -242,6 +313,11 @@ function TurnoverDashboardContent() {
         `Avg tenure of leavers: ${avgLeaverTenureYears != null ? avgLeaverTenureYears.toFixed(1) + " yr" : "—"}`,
         `Early exits (<90 days): ${earlyExitRate.toFixed(0)}% of terminations`,
       ];
+      if (hmSince && beforeAfter) {
+        headline.push(
+          `Rolling ${rollWindow}-mo turnover under your tenure: ${beforeAfter.before.toFixed(1)}% → ${beforeAfter.after.toFixed(1)}% (${beforeAfter.delta <= 0 ? "down" : "up"} ${Math.abs(beforeAfter.delta).toFixed(1)} pts) since ${hmSince}`,
+        );
+      }
       for (const line of headline) { doc.text(line, 36, y); y += 14; }
 
       autoTable(doc, {
@@ -346,6 +422,16 @@ function TurnoverDashboardContent() {
                   {(locations || []).map(l => <option key={l._id} value={l._id}>{l.name}</option>)}
                 </select>
               </div>
+              <div>
+                <label className="block ui-section-label mb-1">Hiring manager since</label>
+                <div className="flex gap-1.5">
+                  <input type="date" value={hmSince} onChange={(e) => setHmSince(e.target.value)} className="theme-input w-full px-3 py-2" />
+                  {hmSince && (
+                    <Button variant="ghost" size="sm" onClick={() => setHmSince("")} title="Clear marker">Clear</Button>
+                  )}
+                </div>
+                <p className="text-[11px] theme-text-tertiary mt-1">Marks your tenure on the turnover trend.</p>
+              </div>
               <div className="flex items-end gap-1.5">
                 <Button variant="ghost" size="sm" onClick={() => { setStartDate(isoMonthsAgo(2)); setEndDate(iso(new Date())); }} className="flex-1">3 mo</Button>
                 <Button variant="ghost" size="sm" onClick={() => { setStartDate(isoMonthsAgo(5)); setEndDate(iso(new Date())); }} className="flex-1">6 mo</Button>
@@ -384,6 +470,87 @@ function TurnoverDashboardContent() {
               <p className="text-[11px] theme-text-tertiary mt-0.5">terms under 90 days</p>
             </Card>
           </div>
+
+          {/* Turnover rate trend + your tenure */}
+          <Card>
+            <SectionHeader
+              title="Turnover rate trend"
+              actions={
+                <div className="flex items-center p-1 rounded-lg bg-gray-100 dark:bg-slate-700">
+                  {([3, 6, 12] as const).map((w) => (
+                    <button
+                      key={w}
+                      onClick={() => setRollWindow(w)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                        rollWindow === w
+                          ? "bg-white dark:bg-slate-600 text-gray-900 dark:text-white shadow-sm"
+                          : "text-gray-500 dark:text-slate-300 hover:text-gray-700 dark:hover:text-white"
+                      }`}
+                    >
+                      {w} mo
+                    </button>
+                  ))}
+                </div>
+              }
+            />
+
+            {/* Before/after your tenure */}
+            {hmSince && beforeAfter && (
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="rounded-xl p-3 text-center bg-[#f2f2f7] dark:bg-slate-700/50">
+                  <p className="ui-section-label">Before you</p>
+                  <p className="text-2xl font-semibold theme-text-primary mt-1">{beforeAfter.before.toFixed(1)}%</p>
+                  <p className="text-[11px] theme-text-tertiary mt-0.5">avg rolling turnover</p>
+                </div>
+                <div className="rounded-xl p-3 text-center bg-[#f2f2f7] dark:bg-slate-700/50">
+                  <p className="ui-section-label">Under your tenure</p>
+                  <p className="text-2xl font-semibold theme-text-primary mt-1">{beforeAfter.after.toFixed(1)}%</p>
+                  <p className="text-[11px] theme-text-tertiary mt-0.5">avg rolling turnover</p>
+                </div>
+                <div className={`rounded-xl p-3 text-center ${beforeAfter.delta <= 0 ? "ui-callout-green" : "ui-callout-red"}`}>
+                  <p className="ui-section-label">Change</p>
+                  <p className={`text-2xl font-semibold mt-1 ${beforeAfter.delta <= 0 ? "text-[#1f8f3d] dark:text-[#5fe08a]" : "text-[#c4271d] dark:text-[#ff8a82]"}`}>
+                    {beforeAfter.delta <= 0 ? "▼" : "▲"} {Math.abs(beforeAfter.delta).toFixed(1)} pts
+                  </p>
+                  <p className="text-[11px] theme-text-tertiary mt-0.5">{beforeAfter.delta <= 0 ? "down since you took over" : "up since you took over"}</p>
+                </div>
+              </div>
+            )}
+            {hmSince && !beforeAfter && (
+              <p className="text-xs theme-text-tertiary mb-3">
+                Not enough turnover history on both sides of your start date within the selected range — widen the date range to compare before vs after.
+              </p>
+            )}
+
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={rollingTurnover} margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
+                <CartesianGrid stroke={isDark ? "#334155" : "#E5E7EB"} strokeDasharray="3 3" />
+                <XAxis dataKey="label" tick={{ fill: isDark ? "#94A3B8" : "#6B7280", fontSize: 11 }} />
+                <YAxis tick={{ fill: isDark ? "#94A3B8" : "#6B7280", fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
+                <Tooltip
+                  contentStyle={{ background: isDark ? "#0F172A" : "#FFFFFF", border: `1px solid ${isDark ? "#334155" : "#E5E7EB"}`, borderRadius: 12 }}
+                  formatter={(v) => [v == null ? "—" : `${v}%`, `${rollWindow}-mo turnover`]}
+                />
+                {tenureLabel && lastRollLabel && (
+                  <ReferenceArea x1={tenureLabel} x2={lastRollLabel} fill="#34C759" fillOpacity={0.08} />
+                )}
+                {tenureLabel && (
+                  <ReferenceLine
+                    x={tenureLabel}
+                    stroke={isDark ? "#5fe08a" : "#1f8f3d"}
+                    strokeDasharray="4 3"
+                    label={{ value: "You took over", position: "insideTopRight", fill: isDark ? "#5fe08a" : "#1f8f3d", fontSize: 11 }}
+                  />
+                )}
+                <Line type="monotone" dataKey="rate" name="Turnover" stroke="#007AFF" strokeWidth={2} dot connectNulls />
+              </LineChart>
+            </ResponsiveContainer>
+            <p className="text-[11px] theme-text-tertiary mt-2">
+              Rolling {rollWindow}-month annualized turnover: terminations in the trailing {rollWindow} months ÷ average active headcount, ×{(12 / rollWindow).toFixed(0)}.
+              {hmSince && tenureLabel && " Shaded region = your tenure."}
+              {hmSince && !tenureLabel && " Your start date is outside the selected range — widen it to see the marker."}
+            </p>
+          </Card>
 
           {/* Hires vs terms chart */}
           <Card>
