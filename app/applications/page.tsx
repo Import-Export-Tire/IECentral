@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
@@ -13,8 +13,11 @@ import SectionHeader from "@/components/ui/SectionHeader";
 import Button from "@/components/ui/Button";
 import StatusBadge from "@/components/ui/StatusBadge";
 import ScorePill from "@/components/ui/ScorePill";
+import { usePaginatedList } from "@/components/ui/usePaginatedList";
 
 type Application = Doc<"applications">;
+
+const PAGE_SIZE = 25;
 
 // Single source of truth for application statuses. `terminal` marks states that
 // aren't part of the normal workflow (dns = did-not-show, expired = auto-expired);
@@ -36,11 +39,6 @@ const STATUS_OPTIONS: { value: string; label: string; terminal?: boolean }[] = [
 // groups and counts).
 const WORKFLOW_STATUSES = STATUS_OPTIONS.filter((s) => !s.terminal);
 
-// Sort order derived from the canonical list (no separate hand-maintained map).
-const STATUS_ORDER: Record<string, number> = Object.fromEntries(
-  STATUS_OPTIONS.map((s, i) => [s.value, i]),
-);
-
 type ToastState = { msg: string; tone: "success" | "error" } | null;
 
 function ApplicationsContent() {
@@ -49,19 +47,43 @@ function ApplicationsContent() {
   const [showArchived, setShowArchived] = useState(false);
   const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
 
-  // `applications` powers Top Candidates (both views) + the table; always needed.
-  // `groupedApplications` is only used by the Kanban board, so skip that full-table
-  // read entirely while in table view (the default) — avoids fetching everything twice.
-  const applicationsRaw = useQuery(api.applications.getAll, { includeArchived: showArchived });
-  const applications = useMemo(() => applicationsRaw ?? [], [applicationsRaw]);
-  const isLoading = applicationsRaw === undefined;
+  // Table filters/sort — pushed to the server so pagination stays correct across pages.
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  // Table: server-side paginated + filtered. Skipped entirely in Kanban view.
+  const {
+    results: pageResults,
+    status: pageStatus,
+    loadMore,
+  } = usePaginatedList(
+    api.applications.getPaginated,
+    viewMode === "table"
+      ? { includeArchived: showArchived, status: filterStatus, search: debouncedSearch, sortOrder }
+      : "skip",
+    { initialNumItems: PAGE_SIZE },
+  );
+  const isLoadingFirstPage = pageStatus === "LoadingFirstPage";
+
+  // Kanban board data (grouped) — only fetched in Kanban view.
   const groupedApplications = useQuery(
     api.applications.getByStatusGrouped,
     viewMode === "kanban" ? { includeArchived: showArchived } : "skip",
   );
+
+  // Bounded aggregate queries (return small, fixed-size payloads).
+  const topCandidates = useQuery(api.applications.getTopCandidates) ?? [];
   const stats = useQuery(api.applications.getStats);
   const recentInterviews = useQuery(api.applications.getRecentlyInterviewed) || [];
   const jobs = useQuery(api.jobs.getAll) || [];
+
   const updateStatus = useMutation(api.applications.updateStatus);
   const updateStatusWithActivity = useMutation(api.applications.updateStatusWithActivity);
   const updateAppliedJob = useMutation(api.applications.updateAppliedJob);
@@ -70,17 +92,10 @@ function ApplicationsContent() {
   const unarchiveApplication = useMutation(api.applications.unarchive);
   const archiveRejected = useMutation(api.applications.archiveRejected);
 
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterDepartment, setFilterDepartment] = useState<string>("all");
-  const [filterLocation, setFilterLocation] = useState<string>("all");
-  const [searchTerm, setSearchTerm] = useState("");
-
   const [deleteConfirmId, setDeleteConfirmId] = useState<Id<"applications"> | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
-  const [sortBy, setSortBy] = useState<"score" | "position" | "date" | "status">("date");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [draggedApp, setDraggedApp] = useState<Id<"applications"> | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<Id<"applications"> | null>(null);
@@ -107,22 +122,6 @@ function ApplicationsContent() {
     return () => window.removeEventListener("keydown", onKey);
   }, [deleteConfirmId, showHelp, showArchiveConfirm]);
 
-  // Job lookup as a Map (was an O(n) find() called once per row inside the filter).
-  const jobsById = useMemo(() => new Map(jobs.map((j) => [j._id, j])), [jobs]);
-  const getJobById = useCallback(
-    (jobId: Id<"jobs"> | undefined) => (jobId ? jobsById.get(jobId) : undefined),
-    [jobsById],
-  );
-
-  const departments = useMemo(
-    () => [...new Set(jobs.map((j) => j.department))].sort(),
-    [jobs],
-  );
-  const locations = useMemo(
-    () => [...new Set(jobs.flatMap((j) => j.locations || [j.location]))].sort(),
-    [jobs],
-  );
-
   const handleJobChange = async (applicationId: Id<"applications">, jobId: Id<"jobs">) => {
     try {
       await updateAppliedJob({ applicationId, jobId });
@@ -133,72 +132,6 @@ function ApplicationsContent() {
       showToast("Couldn't update position", "error");
     }
   };
-
-  const handleSort = (column: "score" | "position" | "date" | "status") => {
-    if (sortBy === column) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortBy(column);
-      setSortOrder(column === "score" ? "desc" : "asc");
-    }
-  };
-
-  const filteredApplications = useMemo(() => {
-    return applications
-      .filter((app) => {
-        const matchesStatus = filterStatus === "all" || app.status === filterStatus;
-
-        const job = getJobById(app.appliedJobId);
-        const matchesDepartment =
-          filterDepartment === "all" || job?.department === filterDepartment;
-
-        const jobLocations = job?.locations || (job?.location ? [job.location] : []);
-        const matchesLocation =
-          filterLocation === "all" ||
-          app.appliedLocation === filterLocation ||
-          jobLocations.includes(filterLocation);
-
-        const normalizedSearch = searchTerm.replace(/\D/g, "");
-        const normalizedPhone = app.phone?.replace(/\D/g, "") || "";
-        const matchesPhone =
-          normalizedSearch.length >= 3 && normalizedPhone.includes(normalizedSearch);
-
-        const matchesSearch =
-          searchTerm === "" ||
-          `${app.firstName} ${app.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          app.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          app.appliedJobTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          matchesPhone;
-        return matchesStatus && matchesSearch && matchesDepartment && matchesLocation;
-      })
-      .sort((a, b) => {
-        let comparison = 0;
-        if (sortBy === "score") {
-          comparison = (a.candidateAnalysis?.overallScore ?? -1) - (b.candidateAnalysis?.overallScore ?? -1);
-        } else if (sortBy === "position") {
-          comparison = a.appliedJobTitle.localeCompare(b.appliedJobTitle);
-        } else if (sortBy === "date") {
-          comparison = a.createdAt - b.createdAt;
-        } else if (sortBy === "status") {
-          comparison = (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
-        }
-        return sortOrder === "asc" ? comparison : -comparison;
-      });
-  }, [applications, filterStatus, filterDepartment, filterLocation, searchTerm, sortBy, sortOrder, getJobById]);
-
-  const topCandidates = useMemo(
-    () =>
-      applications
-        .filter(
-          (app) =>
-            app.candidateAnalysis?.overallScore &&
-            app.status !== "hired" &&
-            app.status !== "rejected",
-        )
-        .sort((a, b) => (b.candidateAnalysis?.overallScore || 0) - (a.candidateAnalysis?.overallScore || 0))
-        .slice(0, 3),
-    [applications],
-  );
 
   const handleStatusChange = async (applicationId: Id<"applications">, newStatus: string) => {
     try {
@@ -275,7 +208,9 @@ function ApplicationsContent() {
   const handleDrop = async (e: React.DragEvent, newStatus: string) => {
     e.preventDefault();
     if (!draggedApp || !user) return;
-    const app = applications.find((a) => a._id === draggedApp);
+    const app = groupedApplications
+      ? (Object.values(groupedApplications).flat() as Application[]).find((a) => a._id === draggedApp)
+      : undefined;
     if (!app || app.status === newStatus) {
       handleDragEnd();
       return;
@@ -292,18 +227,6 @@ function ApplicationsContent() {
   const getDaysInStatus = (app: Application) =>
     Math.floor((Date.now() - app.createdAt) / (1000 * 60 * 60 * 24));
   const isNewApplication = (app: Application) => Date.now() - app.createdAt < 24 * 60 * 60 * 1000;
-
-  const sortArrow = (col: "score" | "position" | "date" | "status") =>
-    sortBy === col ? (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sortOrder === "asc" ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
-      </svg>
-    ) : null;
-
-  const thSortClass = (col: string) =>
-    `text-left px-6 py-4 text-sm font-medium cursor-pointer select-none transition-colors ${
-      sortBy === col ? "text-[#007AFF]" : "theme-text-tertiary hover:theme-text-secondary"
-    }`;
 
   return (
     <div className="flex h-screen bg-[#f2f2f7] dark:bg-slate-900">
@@ -532,8 +455,8 @@ function ApplicationsContent() {
               <div className="flex-1">
                 <input
                   type="text"
-                  aria-label="Search applications"
-                  placeholder="Search name, email, phone, or job..."
+                  aria-label="Search applications by name or email"
+                  placeholder="Search name or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="theme-input w-full"
@@ -545,19 +468,11 @@ function ApplicationsContent() {
                   <option key={status.value} value={status.value}>{status.label}</option>
                 ))}
               </select>
-              <select aria-label="Filter by department" value={filterDepartment} onChange={(e) => setFilterDepartment(e.target.value)} className="theme-input">
-                <option value="all">All Departments</option>
-                {departments.map((dept) => <option key={dept} value={dept}>{dept}</option>)}
-              </select>
-              <select aria-label="Filter by location" value={filterLocation} onChange={(e) => setFilterLocation(e.target.value)} className="theme-input">
-                <option value="all">All Locations</option>
-                {locations.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
-              </select>
             </div>
           )}
 
-          {/* Loading skeleton */}
-          {isLoading && (
+          {/* Loading skeleton (first page) */}
+          {viewMode === "table" && isLoadingFirstPage && (
             <div className="theme-card overflow-hidden">
               <div className="divide-y divide-gray-200 dark:divide-slate-700">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -572,7 +487,7 @@ function ApplicationsContent() {
           )}
 
           {/* Kanban Board View */}
-          {!isLoading && viewMode === "kanban" && groupedApplications && (
+          {viewMode === "kanban" && groupedApplications && (
             <div className="overflow-x-auto pb-4">
               <div className="flex gap-4 min-w-max">
                 {WORKFLOW_STATUSES.map((status) => {
@@ -695,131 +610,149 @@ function ApplicationsContent() {
           )}
 
           {/* Applications Table */}
-          {!isLoading && viewMode === "table" && (
-            <div className="rounded-xl overflow-hidden bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-slate-700">
-                      <th className="text-left px-6 py-4 text-sm font-medium theme-text-tertiary">Applicant</th>
-                      <th onClick={() => handleSort("position")} className={thSortClass("position")}>
-                        <div className="flex items-center gap-1">Position {sortArrow("position")}</div>
-                      </th>
-                      <th onClick={() => handleSort("score")} className={thSortClass("score")}>
-                        <div className="flex items-center gap-1">Score {sortArrow("score")}</div>
-                      </th>
-                      <th onClick={() => handleSort("status")} className={thSortClass("status")}>
-                        <div className="flex items-center gap-1">Status {sortArrow("status")}</div>
-                      </th>
-                      <th onClick={() => handleSort("date")} className={thSortClass("date")}>
-                        <div className="flex items-center gap-1">Applied {sortArrow("date")}</div>
-                      </th>
-                      <th className="text-right px-6 py-4 text-sm font-medium theme-text-tertiary">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredApplications.map((app) => (
-                      <tr
-                        key={app._id}
-                        className="border-b cursor-pointer border-gray-200 dark:border-slate-700/50 hover:bg-gray-50 dark:hover:bg-slate-700/20"
-                        onClick={() => router.push(`/applications/${app._id}`)}
-                      >
-                        <td className="px-6 py-4">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium theme-text-primary">{app.firstName} {app.lastName}</p>
-                              {app.isArchived && <span className="ui-badge ui-badge-gray">Archived</span>}
-                            </div>
-                            <p className="text-sm theme-text-tertiary">{app.email}</p>
+          {viewMode === "table" && !isLoadingFirstPage && (
+            <>
+              <div className="rounded-xl overflow-hidden bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-slate-700">
+                        <th className="text-left px-6 py-4 text-sm font-medium theme-text-tertiary">Applicant</th>
+                        <th className="text-left px-6 py-4 text-sm font-medium theme-text-tertiary">Position</th>
+                        <th className="text-left px-6 py-4 text-sm font-medium theme-text-tertiary">Score</th>
+                        <th className="text-left px-6 py-4 text-sm font-medium theme-text-tertiary">Status</th>
+                        <th
+                          onClick={() => setSortOrder((o) => (o === "asc" ? "desc" : "asc"))}
+                          className="text-left px-6 py-4 text-sm font-medium cursor-pointer select-none transition-colors text-[#007AFF]"
+                          title="Toggle sort direction"
+                        >
+                          <div className="flex items-center gap-1">
+                            Applied
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sortOrder === "asc" ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
+                            </svg>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 theme-text-secondary">
-                          {editingJobId === app._id ? (
-                            <select
-                              value={app.appliedJobId || ""}
-                              onChange={(e) => { e.stopPropagation(); if (e.target.value) handleJobChange(app._id, e.target.value as Id<"jobs">); }}
-                              onBlur={() => setEditingJobId(null)}
-                              onClick={(e) => e.stopPropagation()}
-                              autoFocus
-                              aria-label="Change job position"
-                              className="theme-input w-full !py-1 text-sm"
-                            >
-                              <option value="">Select Job...</option>
-                              {jobs.filter((j) => j.isActive).map((job) => (
-                                <option key={job._id} value={job._id}>{job.title}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <span>{app.appliedJobTitle}</span>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setEditingJobId(app._id); }}
-                                className="p-1 rounded transition-colors text-[#007AFF] hover:bg-[#007AFF]/10"
-                                title="Change job position"
-                                aria-label="Change job position"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          {app.candidateAnalysis ? (
-                            <ScorePill score={app.candidateAnalysis.overallScore} size="sm" />
-                          ) : (
-                            <span className="ui-badge ui-badge-gray">—</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                          {/* Real StatusBadge with an invisible select layered on top for
-                              interaction — keeps status colors consistent with the rest of
-                              the app and correctly shows dns/expired states. */}
-                          <div className="relative inline-flex items-center">
-                            <StatusBadge status={app.status} kind="applicant" />
-                            <select
-                              value={app.status}
-                              onChange={(e) => handleStatusChange(app._id, e.target.value)}
-                              aria-label="Change application status"
-                              className="absolute inset-0 w-full opacity-0 cursor-pointer"
-                            >
-                              {STATUS_OPTIONS.map((status) => (
-                                <option key={status.value} value={status.value}>{status.label}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm theme-text-tertiary">
-                          {new Date(app.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/applications/${app._id}`); }}>
-                              View
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleArchiveToggle(app); }}>
-                              {app.isArchived ? "Restore" : "Archive"}
-                            </Button>
-                            {canDeleteApplications && (
-                              <Button variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(app._id); }}>
-                                Delete
-                              </Button>
-                            )}
-                          </div>
-                        </td>
+                        </th>
+                        <th className="text-right px-6 py-4 text-sm font-medium theme-text-tertiary">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {pageResults.map((app) => (
+                        <tr
+                          key={app._id}
+                          className="border-b cursor-pointer border-gray-200 dark:border-slate-700/50 hover:bg-gray-50 dark:hover:bg-slate-700/20"
+                          onClick={() => router.push(`/applications/${app._id}`)}
+                        >
+                          <td className="px-6 py-4">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium theme-text-primary">{app.firstName} {app.lastName}</p>
+                                {app.isArchived && <span className="ui-badge ui-badge-gray">Archived</span>}
+                              </div>
+                              <p className="text-sm theme-text-tertiary">{app.email}</p>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 theme-text-secondary">
+                            {editingJobId === app._id ? (
+                              <select
+                                value={app.appliedJobId || ""}
+                                onChange={(e) => { e.stopPropagation(); if (e.target.value) handleJobChange(app._id, e.target.value as Id<"jobs">); }}
+                                onBlur={() => setEditingJobId(null)}
+                                onClick={(e) => e.stopPropagation()}
+                                autoFocus
+                                aria-label="Change job position"
+                                className="theme-input w-full !py-1 text-sm"
+                              >
+                                <option value="">Select Job...</option>
+                                {jobs.filter((j) => j.isActive).map((job) => (
+                                  <option key={job._id} value={job._id}>{job.title}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span>{app.appliedJobTitle}</span>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setEditingJobId(app._id); }}
+                                  className="p-1 rounded transition-colors text-[#007AFF] hover:bg-[#007AFF]/10"
+                                  title="Change job position"
+                                  aria-label="Change job position"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            {app.candidateAnalysis ? (
+                              <ScorePill score={app.candidateAnalysis.overallScore} size="sm" />
+                            ) : (
+                              <span className="ui-badge ui-badge-gray">—</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                            {/* Real StatusBadge with an invisible select layered on top for
+                                interaction — keeps status colors consistent with the rest of
+                                the app and correctly shows dns/expired states. */}
+                            <div className="relative inline-flex items-center">
+                              <StatusBadge status={app.status} kind="applicant" />
+                              <select
+                                value={app.status}
+                                onChange={(e) => handleStatusChange(app._id, e.target.value)}
+                                aria-label="Change application status"
+                                className="absolute inset-0 w-full opacity-0 cursor-pointer"
+                              >
+                                {STATUS_OPTIONS.map((status) => (
+                                  <option key={status.value} value={status.value}>{status.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm theme-text-tertiary">
+                            {new Date(app.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/applications/${app._id}`); }}>
+                                View
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleArchiveToggle(app); }}>
+                                {app.isArchived ? "Restore" : "Archive"}
+                              </Button>
+                              {canDeleteApplications && (
+                                <Button variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(app._id); }}>
+                                  Delete
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
 
-                {filteredApplications.length === 0 && (
-                  <div className="text-center py-12">
-                    <p className="theme-text-tertiary">No applications found</p>
-                  </div>
-                )}
+                  {pageResults.length === 0 && (
+                    <div className="text-center py-12">
+                      <p className="theme-text-tertiary">No applications found</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+
+              {/* Load more */}
+              {(pageStatus === "CanLoadMore" || pageStatus === "LoadingMore") && (
+                <div className="flex justify-center">
+                  <Button
+                    variant="secondary"
+                    onClick={() => loadMore(PAGE_SIZE)}
+                    disabled={pageStatus === "LoadingMore"}
+                  >
+                    {pageStatus === "LoadingMore" ? "Loading…" : "Load more"}
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>
@@ -830,7 +763,7 @@ function ApplicationsContent() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
           onClick={() => setDeleteConfirmId(null)}
         >
-          <Card padding="md" className="w-full max-w-md" >
+          <Card padding="md" className="w-full max-w-md">
             <div role="dialog" aria-modal="true" aria-label="Delete application" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-base sm:text-lg font-semibold mb-2 theme-text-primary">Delete Application</h3>
               <p className="text-sm sm:text-base mb-4 sm:mb-6 theme-text-secondary">
@@ -909,7 +842,7 @@ function ApplicationsContent() {
                       Table vs Kanban View
                     </h3>
                     <p className="text-sm theme-text-secondary">
-                      <strong>Table View:</strong> See all applications in a sortable list. Click column headers to sort by score, position, date, or status.<br />
+                      <strong>Table View:</strong> A paginated list, newest first — click the &quot;Applied&quot; header to flip the sort, search by name/email, or filter by status. Use &quot;Load more&quot; to page through results.<br />
                       <strong>Kanban View:</strong> Drag and drop applications between status columns to update their status visually.
                     </p>
                   </div>

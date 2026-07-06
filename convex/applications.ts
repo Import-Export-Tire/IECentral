@@ -1,5 +1,6 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { internal } from "./_generated/api";
 
 function applicationSearchText(a: { firstName: string; lastName: string; email: string }) {
@@ -23,6 +24,73 @@ export const getAll = query({
       return applications.filter(app => !app.isArchived);
     }
     return applications;
+  },
+});
+
+// Paginated applications for the table view. Filtering/sorting is done server-side
+// (Convex paginates in index order, so it can't be re-sorted/filtered client-side
+// across pages). Supports full-text search (name/email), a status filter, and a
+// date sort — the combination the table UI exposes.
+export const getPaginated = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    includeArchived: v.optional(v.boolean()),
+    status: v.optional(v.string()), // "all" or a specific status
+    search: v.optional(v.string()),
+    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
+  },
+  handler: async (ctx, args) => {
+    const term = (args.search ?? "").trim().toLowerCase();
+    const status = args.status && args.status !== "all" ? args.status : null;
+    const includeArchived = args.includeArchived ?? false;
+    const order: "asc" | "desc" = args.sortOrder === "asc" ? "asc" : "desc";
+
+    // Full-text search branch (relevance-ordered — the date sort doesn't apply here).
+    if (term.length >= 2) {
+      const base = ctx.db
+        .query("applications")
+        .withSearchIndex("search_applications", (q) => {
+          const s = q.search("searchText", term);
+          return status ? s.eq("status", status) : s;
+        });
+      const filtered = includeArchived
+        ? base
+        : base.filter((q) => q.neq(q.field("isArchived"), true));
+      return await filtered.paginate(args.paginationOpts);
+    }
+
+    // Date-ordered browse/filter branch.
+    const base = ctx.db.query("applications").withIndex("by_created").order(order);
+    const filtered =
+      includeArchived && !status
+        ? base
+        : base.filter((q) => {
+            const notArchived = q.neq(q.field("isArchived"), true);
+            if (!includeArchived && status)
+              return q.and(notArchived, q.eq(q.field("status"), status));
+            if (status) return q.eq(q.field("status"), status);
+            return notArchived;
+          });
+    return await filtered.paginate(args.paginationOpts);
+  },
+});
+
+// Top 3 active candidates by AI score (bounded aggregate so the client doesn't have
+// to pull the whole table just to render the Top Candidates card).
+export const getTopCandidates = query({
+  args: {},
+  handler: async (ctx) => {
+    const apps = await ctx.db.query("applications").collect();
+    return apps
+      .filter(
+        (a) =>
+          a.candidateAnalysis?.overallScore &&
+          a.status !== "hired" &&
+          a.status !== "rejected" &&
+          !a.isArchived,
+      )
+      .sort((a, b) => (b.candidateAnalysis?.overallScore || 0) - (a.candidateAnalysis?.overallScore || 0))
+      .slice(0, 3);
   },
 });
 
