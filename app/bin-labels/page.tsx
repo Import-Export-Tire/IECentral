@@ -54,10 +54,10 @@ async function loadImageForPdf(url: string): Promise<{ dataUrl: string; w: numbe
   }
 }
 
-function barcodePngForPdf(value: string, rotate90 = false): { dataUrl: string; w: number; h: number } | null {
+function barcodePngForPdf(value: string, rotate90 = false, showValue = true): { dataUrl: string; w: number; h: number } | null {
   try {
     const canvas = document.createElement("canvas");
-    JsBarcode(canvas, value, { format: "CODE128", width: 2, height: 60, displayValue: true, fontSize: 16, font: "monospace", margin: 6 });
+    JsBarcode(canvas, value, { format: "CODE128", width: 2, height: 60, displayValue: showValue, fontSize: 16, font: "monospace", margin: 6 });
     if (!rotate90) return { dataUrl: canvas.toDataURL("image/png"), w: canvas.width, h: canvas.height };
     // Rotate 90° for portrait labels so the barcode runs down the label ("ladder")
     // instead of overflowing a narrow 2"-wide label.
@@ -207,10 +207,8 @@ export default function BinLabelsPage() {
             format: "CODE128",
             width: 3,
             height: 60,
-            displayValue: true,
-            fontSize: 16,
-            font: "monospace",
-            textMargin: 5,
+            // No baked-in text — the big human-readable ID header carries the value.
+            displayValue: false,
             margin: 5,
           });
         } catch (e) {
@@ -368,63 +366,70 @@ export default function BinLabelsPage() {
     const fmt: [number, number] = [pageW, pageH];
     const orient: "portrait" | "landscape" = portrait ? "portrait" : "landscape";
     // Edge margin (mm) so nothing prints flush to the label edge.
-    const M = 5;
+    const M = 6;
     const doc = new jsPDF({ unit: "mm", format: fmt, orientation: orient });
 
     for (let i = 0; i < items.length; i++) {
       const l = items[i];
       if (i > 0) doc.addPage(fmt, orient);
       doc.setTextColor(0, 0, 0);
-      // Portrait: rotate the barcode 90° so it runs down the narrow label.
-      const bc = barcodePngForPdf(l.locationId, portrait);
+      const cx = pageW / 2;
+      // Bin barcode carries NO baked-in text — we print a big human-readable header
+      // instead. Portrait rotates the barcode 90° so it runs down the narrow label.
+      const bc = barcodePngForPdf(l.locationId, portrait, false);
+      const contentW = pageW - 2 * M;
+      const hasName = !!l.locationName;
 
-      const drawName = (cx: number, cy: number, maxW: number) => {
-        if (!l.locationName) return;
-        doc.setFont("helvetica", "bold");
-        let fs = 30;
+      // Centered, auto-shrinking text so long IDs/names never overrun the label.
+      const drawCentered = (
+        text: string, ax: number, cy: number, maxW: number, maxFs: number,
+        weight: "bold" | "normal", gray = 0,
+      ) => {
+        if (!text) return;
+        doc.setFont("helvetica", weight);
+        doc.setTextColor(gray, gray, gray);
+        let fs = maxFs;
         doc.setFontSize(fs);
-        while (fs > 10 && doc.getTextWidth(l.locationName) > maxW) {
-          fs -= 1;
-          doc.setFontSize(fs);
-        }
-        doc.text(l.locationName, cx, cy, { align: "center", baseline: "middle", maxWidth: maxW });
+        while (fs > 8 && doc.getTextWidth(text) > maxW) { fs -= 1; doc.setFontSize(fs); }
+        doc.text(text, ax, cy, { align: "center", baseline: "middle", maxWidth: maxW });
+        doc.setTextColor(0, 0, 0);
       };
 
       if (portrait) {
-        // Stacked: location name near the top, barcode centered in the space below.
-        const contentW = pageW - 2 * M;                 // ~40mm
-        const hasName = !!l.locationName;
-        // Reserve a top band ONLY when there's a name — otherwise the barcode centers
-        // over the WHOLE label instead of being pushed down under an empty gap.
-        const nameBandH = hasName ? 26 : 0;             // mm
-        if (hasName) drawName(pageW / 2, M + nameBandH / 2, contentW);
+        // Big Location ID up top, optional name beneath, a hairline divider, then the
+        // barcode centered in the generous space below.
+        let y = M + 11;
+        drawCentered(l.locationId, cx, y, contentW, 46, "bold");
+        y += 13;
+        if (hasName) { drawCentered(l.locationName, cx, y, contentW, 18, "normal", 90); y += 9; }
+        doc.setDrawColor(210); doc.setLineWidth(0.3);
+        doc.line(M + 3, y, pageW - M - 3, y);
+        y += 6;
         if (bc) {
-          const regionTop = M + nameBandH;
-          const availH = (pageH - M) - regionTop;       // barcode region height
+          const regionTop = y;
+          const availH = (pageH - M - 3) - regionTop;   // leave a little bottom breathing room
           let bw = contentW, bh = (bw * bc.h) / bc.w;
           if (bh > availH) { bh = availH; bw = (bh * bc.w) / bc.h; }
-          const bx = (pageW - bw) / 2;                  // centered horizontally
+          const bx = cx - bw / 2;
           const by = regionTop + (availH - bh) / 2;     // centered in the remaining height
           doc.addImage(bc.dataUrl, "PNG", bx, by, bw, bh);
         }
       } else {
-        // Side by side: barcode on the left, name on the right. With no name the barcode
-        // uses the full width and is centered.
-        const availH = pageH - 2 * M;                   // ~40mm
-        const hasName = !!l.locationName;
-        const split = hasName ? pageW * 0.58 : pageW;   // boundary between barcode / name
+        // Barcode on the left, big Location ID (+ optional name) centered on the right.
+        const availH = pageH - 2 * M;
+        const split = pageW * 0.55;                     // boundary between barcode / text
         if (bc) {
-          const leftW = (hasName ? split : pageW) - 2 * M; // barcode region width
+          const leftW = split - 2 * M;
           let bw = leftW, bh = (bw * bc.h) / bc.w;
           if (bh > availH) { bh = availH; bw = (bh * bc.w) / bc.h; }
-          const bx = M + (leftW - bw) / 2;              // centered in the barcode region
+          const bx = M + (leftW - bw) / 2;
           const by = (pageH - bh) / 2;
           doc.addImage(bc.dataUrl, "PNG", bx, by, bw, bh);
         }
-        if (hasName) {
-          const rightW = (pageW - M) - split;           // name region width
-          drawName(split + rightW / 2, pageH / 2, rightW);
-        }
+        const rightW = (pageW - M) - split - 2;
+        const rightCx = split + ((pageW - M) - split) / 2;
+        drawCentered(l.locationId, rightCx, hasName ? pageH / 2 - 6 : pageH / 2, rightW, 34, "bold");
+        if (hasName) drawCentered(l.locationName, rightCx, pageH / 2 + 8, rightW, 16, "normal", 90);
       }
     }
 
@@ -861,43 +866,41 @@ export default function BinLabelsPage() {
                                   }}
                                 />
 
-                                {/* Label content — stacked (portrait) or side-by-side (landscape) */}
-                                <div
-                                  className={`relative h-full flex items-center justify-center gap-6 text-black ${
-                                    binOrientation === "portrait" ? "flex-col py-6 px-4" : "px-6"
-                                  }`}
-                                >
-                                  {binOrientation === "portrait" && label.locationName && (
+                                {/* Label content — big ID header + clean barcode. Stacked
+                                    (portrait) or side-by-side (landscape). */}
+                                {binOrientation === "portrait" ? (
+                                  <div className="relative h-full flex flex-col items-center py-7 px-4 text-black">
                                     <div className="text-center flex-shrink-0">
-                                      <p className="text-2xl font-bold leading-tight text-black">{label.locationName}</p>
+                                      <p className="text-3xl font-bold leading-tight text-black">{label.locationId}</p>
+                                      {label.locationName && (
+                                        <p className="text-sm mt-1 text-gray-500">{label.locationName}</p>
+                                      )}
                                     </div>
-                                  )}
-
-                                  {/* Barcode — rotated 90° in portrait so it runs down the label */}
-                                  {binOrientation === "portrait" ? (
+                                    <div className="w-4/5 border-t border-gray-200 my-4" />
                                     <div
-                                      className="flex-shrink-0 flex items-center justify-center overflow-hidden"
-                                      style={{ width: 150, height: 340 }}
+                                      className="flex-1 flex items-center justify-center overflow-hidden"
+                                      style={{ width: 150 }}
                                     >
                                       <svg
                                         ref={(el) => { barcodeRefs.current[index] = el; }}
                                         style={{ transform: "rotate(-90deg)", transformOrigin: "center" }}
                                       />
                                     </div>
-                                  ) : (
+                                  </div>
+                                ) : (
+                                  <div className="relative h-full flex items-center justify-center gap-8 px-8 text-black">
                                     <svg
                                       ref={(el) => { barcodeRefs.current[index] = el; }}
                                       className="flex-shrink-0"
                                     />
-                                  )}
-
-                                  {/* Location name (landscape: to the right of the barcode) */}
-                                  {binOrientation !== "portrait" && label.locationName && (
                                     <div className="text-center flex-shrink-0">
-                                      <p className="text-2xl font-bold leading-tight text-black">{label.locationName}</p>
+                                      <p className="text-3xl font-bold leading-tight text-black">{label.locationId}</p>
+                                      {label.locationName && (
+                                        <p className="text-sm mt-1 text-gray-500">{label.locationName}</p>
+                                      )}
                                     </div>
-                                  )}
-                                </div>
+                                  </div>
+                                )}
 
                                 {/* Subtle perforation line indicators */}
                                 <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-200 to-transparent" />
