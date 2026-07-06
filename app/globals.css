@@ -237,7 +237,11 @@ h1, h2, h3, h4 {
 /* Input theming */
 .theme-input {
   background-color: var(--input-bg);
-  border-color: var(--input-border);
+  /* Tailwind v4 preflight resets all borders to `0 solid`, so a color alone is
+     invisible — set an explicit 1px border. Without this, inputs only appear
+     delineated when their white fill contrasts a gray page bg; on white surfaces
+     (e.g. modals) the fields vanish. */
+  border: 1px solid var(--input-border);
   color: var(--text-primary);
 }
 
