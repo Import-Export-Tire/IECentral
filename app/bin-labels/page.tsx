@@ -69,7 +69,10 @@ function barcodePngForPdf(value: string, rotate90 = false): { dataUrl: string; w
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, rc.width, rc.height);
     ctx.translate(rc.width / 2, rc.height / 2);
-    ctx.rotate(Math.PI / 2);
+    // Rotate -90° (counter-clockwise) so the human-readable value (which JsBarcode
+    // renders BELOW the bars) lands on the opposite side of the ladder — otherwise it
+    // falls off the narrow label edge and doesn't print.
+    ctx.rotate(-Math.PI / 2);
     ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
     return { dataUrl: rc.toDataURL("image/png"), w: rc.width, h: rc.height };
   } catch {
@@ -356,13 +359,17 @@ export default function BinLabelsPage() {
     const { jsPDF } = await import("jspdf");
     // Physical label is 2"×6". Landscape = 6 wide × 2 tall; portrait = 2 wide × 6 tall.
     const portrait = binOrientation === "portrait";
-    const pageW = portrait ? 2 : 6;
-    const pageH = portrait ? 6 : 2;
+    // Physical label is 50mm × 170mm. Use its true size (in mm) as the PDF page so the
+    // print fills the whole label — the old 2"×6" page (≈51×152mm) was ~18mm short,
+    // leaving a blank band and throwing the spacing off.
+    const LONG = 170, SHORT = 50; // mm
+    const pageW = portrait ? SHORT : LONG;
+    const pageH = portrait ? LONG : SHORT;
     const fmt: [number, number] = [pageW, pageH];
     const orient: "portrait" | "landscape" = portrait ? "portrait" : "landscape";
-    // Edge margin (in) so nothing prints flush to the label edge.
-    const M = 0.22;
-    const doc = new jsPDF({ unit: "in", format: fmt, orientation: orient });
+    // Edge margin (mm) so nothing prints flush to the label edge.
+    const M = 5;
+    const doc = new jsPDF({ unit: "mm", format: fmt, orientation: orient });
 
     for (let i = 0; i < items.length; i++) {
       const l = items[i];
@@ -384,32 +391,40 @@ export default function BinLabelsPage() {
       };
 
       if (portrait) {
-        // Stacked: location name near the top, barcode filling the space below.
-        const contentW = pageW - 2 * M;              // ~1.56"
-        const nameBandH = 1.0;                        // top band reserved for the name
-        drawName(pageW / 2, M + nameBandH / 2, contentW);
+        // Stacked: location name near the top, barcode centered in the space below.
+        const contentW = pageW - 2 * M;                 // ~40mm
+        const hasName = !!l.locationName;
+        // Reserve a top band ONLY when there's a name — otherwise the barcode centers
+        // over the WHOLE label instead of being pushed down under an empty gap.
+        const nameBandH = hasName ? 26 : 0;             // mm
+        if (hasName) drawName(pageW / 2, M + nameBandH / 2, contentW);
         if (bc) {
-          const availH = (pageH - M) - (M + nameBandH); // barcode region height
+          const regionTop = M + nameBandH;
+          const availH = (pageH - M) - regionTop;       // barcode region height
           let bw = contentW, bh = (bw * bc.h) / bc.w;
           if (bh > availH) { bh = availH; bw = (bh * bc.w) / bc.h; }
-          const bx = (pageW - bw) / 2;
-          const by = (M + nameBandH) + (availH - bh) / 2;
+          const bx = (pageW - bw) / 2;                  // centered horizontally
+          const by = regionTop + (availH - bh) / 2;     // centered in the remaining height
           doc.addImage(bc.dataUrl, "PNG", bx, by, bw, bh);
         }
       } else {
-        // Side by side: barcode on the left, name on the right, inset on all edges.
-        const split = 3.5;                            // boundary between barcode / name
-        const availH = pageH - 2 * M;                 // ~1.56"
+        // Side by side: barcode on the left, name on the right. With no name the barcode
+        // uses the full width and is centered.
+        const availH = pageH - 2 * M;                   // ~40mm
+        const hasName = !!l.locationName;
+        const split = hasName ? pageW * 0.58 : pageW;   // boundary between barcode / name
         if (bc) {
-          const leftW = split - M;                    // barcode region width
+          const leftW = (hasName ? split : pageW) - 2 * M; // barcode region width
           let bw = leftW, bh = (bw * bc.h) / bc.w;
           if (bh > availH) { bh = availH; bw = (bh * bc.w) / bc.h; }
-          const bx = M + (leftW - bw) / 2;
+          const bx = M + (leftW - bw) / 2;              // centered in the barcode region
           const by = (pageH - bh) / 2;
           doc.addImage(bc.dataUrl, "PNG", bx, by, bw, bh);
         }
-        const rightW = (pageW - M) - split;           // name region width (~2.28")
-        drawName(split + rightW / 2, pageH / 2, rightW);
+        if (hasName) {
+          const rightW = (pageW - M) - split;           // name region width
+          drawName(split + rightW / 2, pageH / 2, rightW);
+        }
       }
     }
 
@@ -673,7 +688,7 @@ export default function BinLabelsPage() {
                       <p className="font-semibold mb-2 theme-text-primary">Print Setup Tips:</p>
                       <ol className="text-sm space-y-1.5 theme-text-secondary">
                         <li>1. Select your label printer</li>
-                        <li>2. Set paper size to <strong>{isTire ? '4" × 6"' : '6" × 2"'}</strong></li>
+                        <li>2. Set paper size to <strong>{isTire ? '4" × 6"' : '50 × 170 mm'}</strong></li>
                         <li>3. Set margins to <strong>None</strong></li>
                         <li>4. Disable headers/footers</li>
                         <li>5. Set scale to <strong>100%</strong></li>
@@ -803,7 +818,7 @@ export default function BinLabelsPage() {
                     title={`Print Preview (${labelsWithCopies.filter(l => l.locationId).length} label${labelsWithCopies.filter(l => l.locationId).length !== 1 ? "s" : ""})`}
                     actions={
                       <span className="text-sm theme-text-tertiary">
-                        Actual size: {binOrientation === "portrait" ? "2” × 6” (portrait)" : "6” × 2” (landscape)"}
+                        Actual size: {binOrientation === "portrait" ? "50 × 170 mm (portrait)" : "170 × 50 mm (landscape)"}
                       </span>
                     }
                   />
@@ -866,7 +881,7 @@ export default function BinLabelsPage() {
                                     >
                                       <svg
                                         ref={(el) => { barcodeRefs.current[index] = el; }}
-                                        style={{ transform: "rotate(90deg)", transformOrigin: "center" }}
+                                        style={{ transform: "rotate(-90deg)", transformOrigin: "center" }}
                                       />
                                     </div>
                                   ) : (
