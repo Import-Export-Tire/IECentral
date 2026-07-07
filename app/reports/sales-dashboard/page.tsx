@@ -120,35 +120,62 @@ function SalesDashboardContent() {
     return { total, perLoc };
   }, [data, locations, metric]);
 
-  // Anchor every comparison window to the latest date that actually HAS data, not
-  // today's calendar date — the sales feed lags a day or two, so anchoring to today
-  // made "this week/month" cover fewer real days than "last week/month" and produced
-  // an artificial ~-50% across the board.
-  const asOf = useMemo(() => {
-    if (!data || !data.series.length) return today;
-    let max = "";
-    for (const r of data.series) {
-      if (((Number(r.totalTires) || 0) > 0 || (Number(r.totalDollars) || 0) > 0) && r.bucket > max) {
-        max = r.bucket;
+  // Sum the requested metric over a specific SET of dates (business-day aligned).
+  const sumDates = useCallback((dates: string[]) => {
+    if (!data || dates.length === 0) return { total: 0, perLoc: new Map<string, number>() };
+    const set = new Set(dates);
+    const keyMetric = metric === "tires" ? "tires_" : "dollars_";
+    let total = 0;
+    const perLoc = new Map<string, number>();
+    for (const row of data.series) {
+      if (!set.has(row.bucket)) continue;
+      for (const loc of locations) {
+        const v = Number(row[`${keyMetric}${loc}`] || 0);
+        perLoc.set(loc, (perLoc.get(loc) || 0) + v);
+        total += v;
       }
     }
-    return max ? new Date(`${max}T00:00:00`) : today;
-  }, [data, today]);
+    return { total, perLoc };
+  }, [data, locations, metric]);
 
-  // Like-for-like: compare month-to-date (through asOf) against the SAME portion of
-  // last month, and week-to-date against the same portion of last week.
-  const thisMonth     = sumRange(startOfMonth(asOf), asOf);
-  // Rollover-safe first-of-previous-month (addMonths on a 31st rolls forward).
+  // A "business day" = a date the company actually sold on (any activity). Defining
+  // it empirically handles weekends, holidays, and Saturday-selling retail stores
+  // without a hard-coded Mon-Fri rule; the feed also lags a day or two, so the latest
+  // business day (not today) is the anchor.
+  const bizDates = useMemo(() => {
+    if (!data) return [] as string[];
+    return data.series
+      .filter((r) => (Number(r.totalTires) || 0) > 0 || (Number(r.totalDollars) || 0) > 0)
+      .map((r) => r.bucket)
+      .sort();
+  }, [data]);
+  const asOf = useMemo(
+    () => (bizDates.length ? new Date(`${bizDates[bizDates.length - 1]}T00:00:00`) : today),
+    [bizDates, today]
+  );
+  const bizIn = useCallback(
+    (start: Date, end: Date) => {
+      const s = iso(start), e = iso(end);
+      return bizDates.filter((d) => d >= s && d <= e);
+    },
+    [bizDates]
+  );
+
+  // Business-day aligned: each period compares the SAME NUMBER of selling days —
+  // week/month-to-date vs the prior week/month "through business day N".
+  const thisMonthDates = bizIn(startOfMonth(asOf), asOf);
   const lastMonthStart = new Date(asOf.getFullYear(), asOf.getMonth() - 1, 1);
-  const lastMonthEnd   = new Date(lastMonthStart);
-  // Same day-of-month as asOf, clamped to last month's length (e.g. Mar 31 → Feb 28).
-  lastMonthEnd.setDate(Math.min(asOf.getDate(), endOfMonth(lastMonthStart).getDate()));
-  const lastMonth     = sumRange(lastMonthStart, lastMonthEnd);
-  const thisWeek      = sumRange(startOfWeek(asOf), asOf);
-  const lastWeekDate  = new Date(asOf); lastWeekDate.setDate(lastWeekDate.getDate() - 7);
-  const lastWeek      = sumRange(startOfWeek(lastWeekDate), lastWeekDate);
-  const ytd           = sumRange(new Date(asOf.getFullYear(), 0, 1), asOf);
-  const ytdPrev       = sumRange(new Date(asOf.getFullYear() - 1, 0, 1), new Date(asOf.getFullYear() - 1, asOf.getMonth(), asOf.getDate()));
+  const lastMonthDates = bizIn(lastMonthStart, endOfMonth(lastMonthStart)).slice(0, thisMonthDates.length);
+  const thisWeekDates = bizIn(startOfWeek(asOf), asOf);
+  const lastWeekAnchor = new Date(asOf); lastWeekAnchor.setDate(lastWeekAnchor.getDate() - 7);
+  const lastWeekDates = bizIn(startOfWeek(lastWeekAnchor), endOfWeek(lastWeekAnchor)).slice(0, thisWeekDates.length);
+
+  const thisMonth = sumDates(thisMonthDates);
+  const lastMonth = sumDates(lastMonthDates);
+  const thisWeek  = sumDates(thisWeekDates);
+  const lastWeek  = sumDates(lastWeekDates);
+  const ytd       = sumRange(new Date(asOf.getFullYear(), 0, 1), asOf);
+  const ytdPrev   = sumRange(new Date(asOf.getFullYear() - 1, 0, 1), new Date(asOf.getFullYear() - 1, asOf.getMonth(), asOf.getDate()));
 
   // Per-month aggregation for the YTD bar chart
   const byMonth = useMemo(() => {
@@ -306,7 +333,7 @@ function SalesDashboardContent() {
                 This month — by location <span className="theme-text-tertiary font-normal text-xs ml-1">({metric})</span>
               </h2>
               <p className="text-xs mt-0.5 theme-text-tertiary">
-                Week/month-to-date vs the same span last week/month · data through {MONTH_NAMES[asOf.getMonth()]} {asOf.getDate()}
+                Business-day aligned: WoW compares this week&apos;s {thisWeekDates.length} selling day{thisWeekDates.length === 1 ? "" : "s"} vs last week&apos;s first {thisWeekDates.length}; MoM compares this month&apos;s {thisMonthDates.length} vs last month&apos;s first {thisMonthDates.length}. Weekends/holidays excluded (a &ldquo;selling day&rdquo; = a day the company sold). Data through {MONTH_NAMES[asOf.getMonth()]} {asOf.getDate()}.
               </p>
             </div>
             {locations.length === 0 ? (
