@@ -45,24 +45,30 @@ def handler(event, context):
                 prev_rows = _fetch_month(prev_month, loc_filter)
                 yoy_rows = _fetch_month(yoy_month, loc_filter)
 
-                # Like-for-like comparison: when the requested month is the CURRENT
-                # (in-progress) calendar month, its data only runs part-way through the
-                # month. Cap the prior-month and year-ago rows to the same day-of-month so
-                # a partial month isn't compared against a full one (which always looked
-                # down early in the month). Completed past months are left full.
+                # Business-day-aligned comparison: when the requested month is the
+                # CURRENT (in-progress) calendar month, it has only run for N selling
+                # days so far. Cap the prior-month and year-ago rows to their FIRST N
+                # selling days ("through business day N") so equal numbers of selling
+                # days are compared — weekends/holidays excluded. Completed past months
+                # are left full.
                 now = datetime.now(_BIZ_TZ) if _BIZ_TZ else datetime.now(timezone.utc)
                 comparison_through_day = None
+                comparison_business_days = None
                 if current_month == now.strftime("%Y%m"):
-                    days = [d for d in (_day_of_month(r.get("date", "")) for r in current_rows) if d is not None]
-                    if days:
-                        comparison_through_day = max(days)
-                        prev_rows = _cap_rows_to_day(prev_rows, comparison_through_day)
-                        yoy_rows = _cap_rows_to_day(yoy_rows, comparison_through_day)
+                    cur_biz = _selling_days(current_rows)
+                    n = len(cur_biz)
+                    if n:
+                        comparison_business_days = n
+                        comparison_through_day = _day_of_month(cur_biz[-1])  # latest selling day-of-month
+                        prev_rows = _cap_rows_to_business_days(prev_rows, n)
+                        yoy_rows = _cap_rows_to_business_days(yoy_rows, n)
 
                 result = {
                     "current": _aggregate(current_rows),
                     "currentMonth": current_month,
-                    # Day-of-month the comparison is capped to (null = full-month compare).
+                    # Number of selling days the comparison covers (null = full-month compare).
+                    "comparisonBusinessDays": comparison_business_days,
+                    # Day-of-month of the latest selling day included (null = full month).
                     "comparisonThroughDay": comparison_through_day,
                     "prevMonth": {
                         "month": prev_month,
@@ -139,14 +145,16 @@ def _day_of_month(date_str):
         return None
 
 
-def _cap_rows_to_day(rows, cutoff_day):
-    """Keep only rows whose day-of-month is <= cutoff_day (for like-for-like MTD)."""
-    out = []
-    for r in rows:
-        d = _day_of_month(r.get("date", ""))
-        if d is not None and d <= cutoff_day:
-            out.append(r)
-    return out
+def _selling_days(rows):
+    """Sorted unique dates that had an actual sale (trn == 'Sld') — a 'business day'.
+    Defining it empirically handles weekends/holidays without a Mon-Fri rule."""
+    return sorted({r.get("date") for r in rows if r.get("trn") == "Sld" and r.get("date")})
+
+
+def _cap_rows_to_business_days(rows, n):
+    """Keep rows only from the first n selling days of the period (business-day aligned)."""
+    allowed = set(_selling_days(rows)[:n])
+    return [r for r in rows if r.get("date") in allowed]
 
 
 def _prev_month(month_str):
