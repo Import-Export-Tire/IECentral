@@ -426,6 +426,16 @@ export default defineSchema({
     notes: v.optional(v.string()),
     repliedAt: v.optional(v.number()),
     repliedBy: v.optional(v.id("users")),
+    // Replies sent from inside IECentral (via the in-app email client).
+    replies: v.optional(v.array(v.object({
+      fromAccountId: v.optional(v.id("emailAccounts")),
+      fromEmail: v.string(),
+      subject: v.string(),
+      body: v.string(),
+      sentByUserId: v.optional(v.id("users")),
+      sentByName: v.optional(v.string()),
+      sentAt: v.number(),
+    }))),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

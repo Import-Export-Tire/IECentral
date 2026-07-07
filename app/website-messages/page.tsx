@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { useAuth } from "../auth-context";
 import { useSearchParams } from "next/navigation";
 import Protected from "../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
@@ -46,6 +47,15 @@ interface ContactMessage {
   status: string;
   notes?: string;
   repliedAt?: number;
+  replies?: {
+    fromAccountId?: Id<"emailAccounts">;
+    fromEmail: string;
+    subject: string;
+    body: string;
+    sentByUserId?: Id<"users">;
+    sentByName?: string;
+    sentAt: number;
+  }[];
   createdAt: number;
   updatedAt: number;
 }
@@ -75,6 +85,7 @@ interface DealerInquiry {
 
 function WebsiteMessagesContent() {
   const searchParams = useSearchParams();
+  const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState<MessageType>("contact");
   const [selectedContact, setSelectedContact] = useState<ContactMessage | null>(null);
@@ -85,14 +96,25 @@ function WebsiteMessagesContent() {
   const [followUpDate, setFollowUpDate] = useState("");
   const [showDetail, setShowDetail] = useState(false);
 
+  // Reply composer state (in-app email reply to a contact message)
+  const [replyFrom, setReplyFrom] = useState<string>("");   // emailAccounts _id
+  const [replySubject, setReplySubject] = useState("");
+  const [replyBody, setReplyBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+
   // Queries
   const contactMessages = useQuery(api.contactMessages.getAll);
   const contactStats = useQuery(api.contactMessages.getStats);
   const dealerInquiries = useQuery(api.dealerInquiries.getAll);
   const dealerStats = useQuery(api.dealerInquiries.getStats);
   const users = useQuery(api.auth.getAllUsers);
+  const emailAccounts = useQuery(api.email.accounts.listByUser, user ? { userId: user._id } : "skip");
+  const activeAccounts = (emailAccounts ?? []).filter((a) => a.isActive);
 
-  // Mutations
+  // Mutations / actions
+  const sendEmail = useAction(api.email.send.sendEmail);
+  const recordReply = useMutation(api.contactMessages.recordReply);
   const updateContactStatus = useMutation(api.contactMessages.updateStatus);
   const deleteContact = useMutation(api.contactMessages.remove);
   const updateDealerStatus = useMutation(api.dealerInquiries.updateStatus);
@@ -124,6 +146,77 @@ function WebsiteMessagesContent() {
       }
     }
   }, [searchParams, contactMessages, dealerInquiries]);
+
+  // Prefill the reply composer when a contact message is opened.
+  useEffect(() => {
+    if (!selectedContact) return;
+    setReplySubject(`Re: ${selectedContact.subject}`);
+    setReplyBody("");
+    setSendError(null);
+  }, [selectedContact?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Default the "From" account: remembered last-used (if still active), else primary, else first active.
+  useEffect(() => {
+    if (replyFrom || activeAccounts.length === 0) return;
+    const remembered = typeof window !== "undefined" ? localStorage.getItem("wm_reply_from") : null;
+    const valid = remembered && activeAccounts.some((a) => a._id === remembered) ? remembered : null;
+    const primary = activeAccounts.find((a) => a.isPrimary)?._id;
+    setReplyFrom(valid || primary || activeAccounts[0]._id);
+  }, [activeAccounts, replyFrom]);
+
+  const handleSendReply = async () => {
+    if (!selectedContact || !replyFrom || !replyBody.trim() || sending) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      const account = activeAccounts.find((a) => a._id === replyFrom);
+      const bodyHtml = replyBody
+        .trim()
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/\n/g, "<br>");
+      const result = await sendEmail({
+        accountId: replyFrom as Id<"emailAccounts">,
+        to: [{ address: selectedContact.email, name: selectedContact.name }],
+        subject: replySubject,
+        bodyHtml,
+      });
+      if (!result.success) {
+        setSendError(result.error || "Send failed — the reply was not sent.");
+        return;
+      }
+      await recordReply({
+        messageId: selectedContact._id,
+        fromAccountId: replyFrom as Id<"emailAccounts">,
+        fromEmail: account?.emailAddress ?? "",
+        subject: replySubject,
+        body: replyBody.trim(),
+        sentByUserId: user?._id,
+        sentByName: user?.name ?? user?.email,
+      });
+      if (typeof window !== "undefined") localStorage.setItem("wm_reply_from", replyFrom);
+      // Reflect the sent reply + status locally so the panel updates immediately.
+      setSelectedContact({
+        ...selectedContact,
+        status: "replied",
+        replies: [
+          ...(selectedContact.replies ?? []),
+          {
+            fromAccountId: replyFrom as Id<"emailAccounts">,
+            fromEmail: account?.emailAddress ?? "",
+            subject: replySubject,
+            body: replyBody.trim(),
+            sentByName: user?.name ?? user?.email,
+            sentAt: Date.now(),
+          },
+        ],
+      });
+      setReplyBody("");
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : "Send failed — the reply was not sent.");
+    } finally {
+      setSending(false);
+    }
+  };
 
   const handleContactStatusChange = async (message: ContactMessage, newStatus: string) => {
     await updateContactStatus({
@@ -563,26 +656,87 @@ function WebsiteMessagesContent() {
                       </Button>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <a
-                        href={`mailto:${selectedContact.email}?subject=Re: ${selectedContact.subject}`}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-[9px] transition-colors text-white bg-[#007AFF] hover:bg-blue-600 font-semibold text-[13.5px]"
-                        onClick={() => handleContactStatusChange(selectedContact, "replied")}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                        Reply via Email
-                      </a>
-                      {selectedContact.phone && (
-                        <a
-                          href={`tel:${selectedContact.phone}`}
-                          className="px-4 py-2 rounded-[9px] transition-colors flex items-center justify-center theme-btn-secondary font-semibold text-[13.5px]"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                          </svg>
-                        </a>
+                    {/* Sent replies (from inside IECentral) */}
+                    {selectedContact.replies && selectedContact.replies.length > 0 && (
+                      <div className="mb-6">
+                        <p className="ui-section-label mb-2">Replies sent</p>
+                        <div className="space-y-2">
+                          {selectedContact.replies.map((r, i) => (
+                            <div key={i} className="p-3 rounded-xl ui-callout-green">
+                              <div className="flex items-center justify-between text-xs theme-text-tertiary mb-1 gap-2">
+                                <span className="truncate">From {r.fromEmail || "—"}{r.sentByName ? ` · ${r.sentByName}` : ""}</span>
+                                <span className="flex-shrink-0">{formatDate(r.sentAt)}</span>
+                              </div>
+                              <p className="whitespace-pre-wrap text-sm theme-text-primary">{r.body}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Reply composer — sends via the in-app email client */}
+                    <div className="mb-4">
+                      <p className="ui-section-label mb-2">Reply</p>
+                      {activeAccounts.length === 0 ? (
+                        <div className="p-4 rounded-xl ui-callout-amber text-sm theme-text-primary">
+                          No connected email account. Add one in{" "}
+                          <a href="/messages" className="underline font-medium">Messages</a>{" "}
+                          to reply from here.
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="ui-section-label block mb-1">From</label>
+                              <select value={replyFrom} onChange={(e) => setReplyFrom(e.target.value)} className="theme-input w-full px-3 py-2">
+                                {activeAccounts.map((a) => (
+                                  <option key={a._id} value={a._id}>{a.emailAddress}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="ui-section-label block mb-1">To</label>
+                              <input readOnly value={selectedContact.email} className="theme-input w-full px-3 py-2 opacity-70" />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="ui-section-label block mb-1">Subject</label>
+                            <input value={replySubject} onChange={(e) => setReplySubject(e.target.value)} className="theme-input w-full px-3 py-2" />
+                          </div>
+                          <div>
+                            <label className="ui-section-label block mb-1">Message</label>
+                            <textarea
+                              value={replyBody}
+                              onChange={(e) => setReplyBody(e.target.value)}
+                              rows={5}
+                              placeholder={`Hi ${selectedContact.name.split(" ")[0] || "there"},`}
+                              className="theme-input w-full px-3 py-2 resize-none"
+                            />
+                            <p className="text-[11px] theme-text-tertiary mt-1">Your account signature is added automatically.</p>
+                          </div>
+                          {sendError && (
+                            <div className="p-3 rounded-xl ui-callout-red text-sm theme-text-primary">{sendError}</div>
+                          )}
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <Button variant="primary" onClick={handleSendReply} disabled={sending || !replyBody.trim() || !replyFrom} className="flex-1 justify-center">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                              {sending ? "Sending…" : "Send reply"}
+                            </Button>
+                            {selectedContact.phone && (
+                              <a
+                                href={`tel:${selectedContact.phone}`}
+                                className="px-4 py-2 rounded-[9px] transition-colors flex items-center justify-center theme-btn-secondary font-semibold text-[13.5px]"
+                                title="Call"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                </svg>
+                              </a>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
 

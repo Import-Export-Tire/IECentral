@@ -100,6 +100,40 @@ export const markReplied = mutation({
   },
 });
 
+// Record a reply sent from inside IECentral (via the in-app email client) and
+// mark the message replied. Called only after the email actually sends.
+export const recordReply = mutation({
+  args: {
+    messageId: v.id("contactMessages"),
+    fromAccountId: v.optional(v.id("emailAccounts")),
+    fromEmail: v.string(),
+    subject: v.string(),
+    body: v.string(),
+    sentByUserId: v.optional(v.id("users")),
+    sentByName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const msg = await ctx.db.get(args.messageId);
+    if (!msg) throw new Error("Message not found");
+    const reply = {
+      fromAccountId: args.fromAccountId,
+      fromEmail: args.fromEmail,
+      subject: args.subject,
+      body: args.body,
+      sentByUserId: args.sentByUserId,
+      sentByName: args.sentByName,
+      sentAt: Date.now(),
+    };
+    await ctx.db.patch(args.messageId, {
+      replies: [...(msg.replies ?? []), reply],
+      status: "replied",
+      repliedAt: Date.now(),
+      repliedBy: args.sentByUserId,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
 // Delete message
 export const remove = mutation({
   args: { messageId: v.id("contactMessages") },
