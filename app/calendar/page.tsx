@@ -152,6 +152,7 @@ function CalendarContent() {
   // State for adding invitees to existing events
   const [showAddInviteesModal, setShowAddInviteesModal] = useState(false);
   const [selectedInviteeIds, setSelectedInviteeIds] = useState<Id<"users">[]>([]);
+  const [inviteSearch, setInviteSearch] = useState("");
   const [showDayModal, setShowDayModal] = useState(false);
   const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(null);
 
@@ -579,6 +580,7 @@ function CalendarContent() {
   };
 
   const resetForm = () => {
+    setInviteSearch("");
     setFormData({
       title: "",
       description: "",
@@ -1300,10 +1302,31 @@ function CalendarContent() {
                 {!formData.isReminder && (
                 <div>
                   <label className="block text-xs font-medium mb-1 theme-text-tertiary">Invite Users</label>
+                  <input
+                    type="text"
+                    value={inviteSearch}
+                    onChange={(e) => setInviteSearch(e.target.value)}
+                    placeholder="Search users by name or email…"
+                    className="theme-input w-full px-3 py-2 text-sm mb-2"
+                  />
                   <div className={`border rounded-xl max-h-40 overflow-y-auto ${isDark ? "border-slate-600" : "border-gray-200"}`}>
-                    {allUsers
-                      ?.filter((u) => u._id !== user?._id)
-                      .map((u) => (
+                    {(() => {
+                      const q = inviteSearch.trim().toLowerCase();
+                      const matches = (allUsers ?? [])
+                        .filter((u) => u._id !== user?._id)
+                        .filter((u) =>
+                          !q ||
+                          (u.name || "").toLowerCase().includes(q) ||
+                          (u.email || "").toLowerCase().includes(q)
+                        );
+                      if (matches.length === 0) {
+                        return (
+                          <p className="px-3 py-3 text-sm theme-text-tertiary">
+                            {q ? "No users match your search." : "No users available."}
+                          </p>
+                        );
+                      }
+                      return matches.map((u) => (
                         <label
                           key={u._id}
                           className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${isDark ? "hover:bg-slate-700" : "hover:bg-gray-50"}`}
@@ -1323,7 +1346,8 @@ function CalendarContent() {
                           <span className="theme-text-primary text-sm">{u.name}</span>
                           <span className="text-xs theme-text-tertiary">{u.email}</span>
                         </label>
-                      ))}
+                      ));
+                    })()}
                   </div>
                   {formData.inviteeIds.length > 0 && (
                     <p className="text-xs mt-1 theme-text-tertiary">
