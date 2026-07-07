@@ -355,13 +355,13 @@ function ReportsContent() {
                         {group.label}
                       </h2>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 auto-rows-fr">
                       {groupReports.map((report) => {
                         // External links go to their own pages
                         if (report.external) {
                           return (
-                            <Link key={report.id} href={report.href}>
-                              <div className="group theme-card p-5 transition-all cursor-pointer hover:shadow-md">
+                            <Link key={report.id} href={report.href} className="block h-full">
+                              <div className="group theme-card p-5 h-full min-h-[7.5rem] transition-all cursor-pointer hover:shadow-md">
                                 <div className="flex items-start gap-4">
                                   <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-blue-50 dark:bg-cyan-500/10 group-hover:bg-blue-100 dark:group-hover:bg-cyan-500/20">
                                     <svg className="w-5 h-5 text-blue-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -387,7 +387,7 @@ function ReportsContent() {
                           <button
                             key={report.id}
                             onClick={() => { setActiveReport(reportId); setShowHub(false); }}
-                            className="text-left group theme-card p-5 transition-all cursor-pointer hover:shadow-md w-full"
+                            className="text-left group theme-card p-5 h-full min-h-[7.5rem] transition-all cursor-pointer hover:shadow-md w-full"
                           >
                             <div className="flex items-start gap-4">
                               <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-blue-50 dark:bg-cyan-500/10 group-hover:bg-blue-100 dark:group-hover:bg-cyan-500/20">
