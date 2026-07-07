@@ -67,9 +67,19 @@ export default function MeetingNotesPage() {
     if (!notes || !meeting || !user || notes.status !== "complete") return;
     setSavingToDocHub(true);
     try {
+      // Escape every interpolated value — title/summary/action items/transcript are
+      // user- and AI-controlled, and this HTML is stored + served by DocHub, so raw
+      // interpolation was a stored-XSS vector (e.g. a meeting titled with a <script>).
+      const esc = (s: unknown) =>
+        String(s ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
       // Generate HTML
       const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>${meeting.title} - Meeting Notes</title>
+<html><head><meta charset="utf-8"><title>${esc(meeting.title)} - Meeting Notes</title>
 <style>body{font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:40px 20px;color:#333}
 h1{font-size:24px;border-bottom:2px solid #10b981;padding-bottom:8px}
 h2{font-size:18px;margin-top:24px;color:#1f2937}
@@ -80,16 +90,16 @@ h2{font-size:18px;margin-top:24px;color:#1f2937}
 .decision,.followup{padding:4px 0}
 .transcript{white-space:pre-wrap;color:#6b7280;font-size:13px;line-height:1.6;margin-top:8px;padding:16px;background:#f9fafb;border-radius:8px}
 </style></head><body>
-<h1>${meeting.title}</h1>
+<h1>${esc(meeting.title)}</h1>
 <div class="meta">
   <div>Date: ${meeting.startedAt ? new Date(meeting.startedAt).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : "N/A"}</div>
   ${notes.duration ? `<div>Duration: ${Math.floor(notes.duration / 60)} minutes</div>` : ""}
 </div>
-${notes.summary ? `<h2>Summary</h2><div class="summary">${notes.summary}</div>` : ""}
-${notes.actionItems?.length ? `<h2>Action Items</h2>${notes.actionItems.map((a: { text: string; assignee?: string; completed: boolean }) => `<div class="action-item">${a.completed ? "&#9745;" : "&#9744;"} ${a.text}${a.assignee ? ` <span class="assignee">— ${a.assignee}</span>` : ""}</div>`).join("")}` : ""}
-${notes.decisions?.length ? `<h2>Key Decisions</h2>${notes.decisions.map((d: string) => `<div class="decision">• ${d}</div>`).join("")}` : ""}
-${notes.followUps?.length ? `<h2>Follow-ups</h2>${notes.followUps.map((f: string) => `<div class="followup">• ${f}</div>`).join("")}` : ""}
-${notes.transcript ? `<h2>Transcript</h2><div class="transcript">${notes.transcript}</div>` : ""}
+${notes.summary ? `<h2>Summary</h2><div class="summary">${esc(notes.summary)}</div>` : ""}
+${notes.actionItems?.length ? `<h2>Action Items</h2>${notes.actionItems.map((a: { text: string; assignee?: string; completed: boolean }) => `<div class="action-item">${a.completed ? "&#9745;" : "&#9744;"} ${esc(a.text)}${a.assignee ? ` <span class="assignee">— ${esc(a.assignee)}</span>` : ""}</div>`).join("")}` : ""}
+${notes.decisions?.length ? `<h2>Key Decisions</h2>${notes.decisions.map((d: string) => `<div class="decision">• ${esc(d)}</div>`).join("")}` : ""}
+${notes.followUps?.length ? `<h2>Follow-ups</h2>${notes.followUps.map((f: string) => `<div class="followup">• ${esc(f)}</div>`).join("")}` : ""}
+${notes.transcript ? `<h2>Transcript</h2><div class="transcript">${esc(notes.transcript)}</div>` : ""}
 </body></html>`;
 
       // Upload to Convex storage

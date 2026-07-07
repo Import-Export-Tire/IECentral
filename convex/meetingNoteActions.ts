@@ -5,6 +5,21 @@ import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
+// Whisper rejects files over 25 MB; guard so long recordings fail clearly
+// (and don't OOM the action) rather than 413ing deep in the pipeline.
+const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+
+// fetch with a hard timeout so a hung external API can't wedge the action.
+async function fetchWithTimeout(url: string, opts: RequestInit, ms: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export const transcribeAndGenerateNotes = action({
   args: {
     notesId: v.id("meetingNotes"),
@@ -37,12 +52,17 @@ export const transcribeAndGenerateNotes = action({
         throw new Error("No audio URL available. Please try again.");
       }
 
-      const audioResponse = await fetch(audioUrl);
+      const audioResponse = await fetchWithTimeout(audioUrl, {}, 60000);
       if (!audioResponse.ok) {
         throw new Error(`Failed to fetch audio: ${audioResponse.statusText}`);
       }
 
       const audioBuffer = await audioResponse.arrayBuffer();
+      if (audioBuffer.byteLength > MAX_AUDIO_BYTES) {
+        throw new Error(
+          `Recording too large to transcribe (${(audioBuffer.byteLength / 1048576).toFixed(0)} MB exceeds the 25 MB limit).`
+        );
+      }
 
       // 3. Transcribe with OpenAI Whisper API
       await ctx.runMutation(internal.meetingNotes.internalUpdateStatus, {
@@ -97,7 +117,7 @@ export const transcribeAndGenerateNotes = action({
           offset += part.length;
         }
 
-        const whisperResponse = await fetch(
+        const whisperResponse = await fetchWithTimeout(
           "https://api.openai.com/v1/audio/transcriptions",
           {
             method: "POST",
@@ -106,7 +126,8 @@ export const transcribeAndGenerateNotes = action({
               "Content-Type": `multipart/form-data; boundary=${boundary}`,
             },
             body: body,
-          }
+          },
+          120000
         );
 
         if (!whisperResponse.ok) {
@@ -173,7 +194,7 @@ IMPORTANT RULES:
 
         try {
           // Call Anthropic API directly (SDK has bundling issues in Convex)
-          const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
+          const claudeResponse = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -185,7 +206,7 @@ IMPORTANT RULES:
               max_tokens: 4096,
               messages: [{ role: "user", content: prompt }],
             }),
-          });
+          }, 90000);
 
           if (!claudeResponse.ok) {
             const errText = await claudeResponse.text();
@@ -224,14 +245,16 @@ IMPORTANT RULES:
           });
         } catch (aiError) {
           console.error("Claude note generation failed:", aiError);
-          await ctx.runMutation(internal.meetingNotes.internalUpdateNotes, {
+          // Surface the failure via error status instead of marking the notes
+          // "complete" with zero action items (which looked like a real, successful
+          // meeting that simply had none — silently dropping the AI output).
+          await ctx.runMutation(internal.meetingNotes.internalUpdateStatus, {
             notesId,
-            summary: "AI note generation failed. The transcript is available below.",
-            actionItems: [],
-            decisions: [],
-            followUps: [],
-            keyTopics: [],
+            status: "error",
+            errorMessage:
+              "AI note generation failed — the transcript is available, but notes and action items could not be generated. You can retry.",
           });
+          return;
         }
       }
 
