@@ -93,19 +93,36 @@ export const getHiringReport = query({
       })
       .collect();
 
-    // Group by job title
-    const byJob: Record<string, { total: number; hired: number; rejected: number; pending: number }> = {};
+    // Group by job title (incl. applicant-score aggregation per listing)
+    const byJob: Record<string, { total: number; hired: number; rejected: number; pending: number; scoreSum: number; scoredCount: number }> = {};
 
     for (const app of applications) {
       const jobTitle = app.appliedJobTitle || "Unknown";
       if (!byJob[jobTitle]) {
-        byJob[jobTitle] = { total: 0, hired: 0, rejected: 0, pending: 0 };
+        byJob[jobTitle] = { total: 0, hired: 0, rejected: 0, pending: 0, scoreSum: 0, scoredCount: 0 };
       }
       byJob[jobTitle].total++;
       if (app.status === "hired") byJob[jobTitle].hired++;
       else if (app.status === "rejected") byJob[jobTitle].rejected++;
       else byJob[jobTitle].pending++;
+      const s = app.candidateAnalysis?.overallScore;
+      if (typeof s === "number") { byJob[jobTitle].scoreSum += s; byJob[jobTitle].scoredCount++; }
     }
+
+    // Average applicant score by month (application date) — quality trend over time.
+    const scoreByMonthMap = new Map<string, { sum: number; n: number }>();
+    for (const app of applications) {
+      const s = app.candidateAnalysis?.overallScore;
+      if (typeof s !== "number") continue;
+      const d = new Date(app.createdAt);
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const cur = scoreByMonthMap.get(k) || { sum: 0, n: 0 };
+      cur.sum += s; cur.n++;
+      scoreByMonthMap.set(k, cur);
+    }
+    const scoreByMonth = [...scoreByMonthMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, v]) => ({ month, avgScore: Math.round(v.sum / v.n), count: v.n }));
 
     // Calculate overall stats
     const total = applications.length;
@@ -142,9 +159,15 @@ export const getHiringReport = query({
       },
       byJob: Object.entries(byJob).map(([title, stats]) => ({
         jobTitle: title,
-        ...stats,
+        total: stats.total,
+        hired: stats.hired,
+        rejected: stats.rejected,
+        pending: stats.pending,
         hireRate: stats.total ? Math.round((stats.hired / stats.total) * 100) : 0,
+        avgScore: stats.scoredCount ? Math.round(stats.scoreSum / stats.scoredCount) : null,
+        scoredCount: stats.scoredCount,
       })),
+      scoreByMonth,
     };
   },
 });

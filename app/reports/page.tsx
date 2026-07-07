@@ -14,7 +14,7 @@ import Link from "next/link";
 import { REPORT_TYPES, REPORT_GROUPS } from "@/lib/reportTypes";
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -635,33 +635,99 @@ function ReportsContent() {
                     </div>
                   </div>
 
-                  {/* By Job Table */}
+                  {/* By Job Table — applicant quality per listing */}
                   <div>
-                    <div className="ui-section-label mb-3">By Position</div>
+                    <div className="flex items-baseline justify-between mb-3">
+                      <div className="ui-section-label">By Position — applicant quality</div>
+                      <div className="text-xs theme-text-tertiary">
+                        Overall avg applicant score: <span className="font-semibold theme-text-primary">{hiringReport.summary.avgScore || "—"}</span>
+                        {" · "}amber = below overall (candidate for a listing tweak)
+                      </div>
+                    </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b theme-border-secondary">
                             <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Position</th>
-                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Total</th>
-                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Hired</th>
-                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Rejected</th>
-                            <th className="text-left py-2 px-3 text-xs font-semibold theme-text-tertiary">Hire Rate</th>
+                            <th className="text-right py-2 px-3 text-xs font-semibold theme-text-tertiary">Avg score</th>
+                            <th className="text-right py-2 px-3 text-xs font-semibold theme-text-tertiary">Scored</th>
+                            <th className="text-right py-2 px-3 text-xs font-semibold theme-text-tertiary">Total</th>
+                            <th className="text-right py-2 px-3 text-xs font-semibold theme-text-tertiary">Hired</th>
+                            <th className="text-right py-2 px-3 text-xs font-semibold theme-text-tertiary">Hire Rate</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {hiringReport.byJob.map((job) => (
-                            <tr key={job.jobTitle} className="border-t theme-border-secondary hover:bg-black/3 dark:hover:bg-white/3">
-                              <td className="py-2 px-3 font-medium theme-text-primary">{job.jobTitle}</td>
-                              <td className="py-2 px-3 theme-text-secondary">{job.total}</td>
-                              <td className="py-2 px-3 text-emerald-600 dark:text-emerald-400">{job.hired}</td>
-                              <td className="py-2 px-3 text-red-500 dark:text-red-400">{job.rejected}</td>
-                              <td className="py-2 px-3 text-[#007AFF]">{job.hireRate}%</td>
-                            </tr>
-                          ))}
+                          {[...hiringReport.byJob]
+                            .sort((a, b) => {
+                              // Lowest avg score first (weak listings surface at top); no-score last.
+                              if (a.avgScore == null && b.avgScore == null) return b.total - a.total;
+                              if (a.avgScore == null) return 1;
+                              if (b.avgScore == null) return -1;
+                              return a.avgScore - b.avgScore;
+                            })
+                            .map((job) => {
+                              const overall = hiringReport.summary.avgScore;
+                              const lowSample = job.scoredCount > 0 && job.scoredCount < 3;
+                              const belowAvg = job.avgScore != null && job.scoredCount >= 3 && overall > 0 && job.avgScore < overall;
+                              return (
+                                <tr key={job.jobTitle} className="border-t theme-border-secondary hover:bg-black/3 dark:hover:bg-white/3">
+                                  <td className="py-2 px-3 font-medium theme-text-primary">{job.jobTitle}</td>
+                                  <td className={`py-2 px-3 text-right font-semibold tabular-nums ${belowAvg ? "text-[#b25e00] dark:text-[#ffc266]" : "theme-text-primary"}`}>
+                                    {job.avgScore != null ? job.avgScore : "—"}
+                                    {lowSample && <span className="ml-1 text-[10px] font-normal theme-text-tertiary">low sample</span>}
+                                  </td>
+                                  <td className="py-2 px-3 text-right theme-text-tertiary tabular-nums">{job.scoredCount}</td>
+                                  <td className="py-2 px-3 text-right theme-text-secondary tabular-nums">{job.total}</td>
+                                  <td className="py-2 px-3 text-right text-emerald-600 dark:text-emerald-400 tabular-nums">{job.hired}</td>
+                                  <td className="py-2 px-3 text-right text-[#007AFF] tabular-nums">{job.hireRate}%</td>
+                                </tr>
+                              );
+                            })}
                         </tbody>
                       </table>
                     </div>
+                    <p className="text-[11px] theme-text-tertiary mt-2">
+                      Score = AI overall applicant score (0–100). Averages exclude applicants without a score; &ldquo;low sample&rdquo; = fewer than 3 scored applicants.
+                    </p>
+                  </div>
+
+                  {/* Applicant-quality trend over time */}
+                  <div>
+                    <div className="ui-section-label mb-3">Average applicant score over time</div>
+                    {hiringReport.scoreByMonth.length === 0 ? (
+                      <p className="text-sm theme-text-tertiary py-6 text-center">No scored applicants in this period.</p>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={260}>
+                        <LineChart
+                          data={hiringReport.scoreByMonth.map((m) => ({
+                            label: `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(m.month.split("-")[1]) - 1]} '${m.month.slice(2, 4)}`,
+                            avgScore: m.avgScore,
+                            count: m.count,
+                          }))}
+                          margin={{ top: 8, right: 16, left: 8, bottom: 4 }}
+                        >
+                          <CartesianGrid stroke={isDark ? "#334155" : "#E5E7EB"} strokeDasharray="3 3" />
+                          <XAxis dataKey="label" tick={{ fill: isDark ? "#94A3B8" : "#6B7280", fontSize: 11 }} />
+                          <YAxis domain={[0, 100]} tick={{ fill: isDark ? "#94A3B8" : "#6B7280", fontSize: 11 }} />
+                          <Tooltip
+                            contentStyle={{ background: isDark ? "#0F172A" : "#FFFFFF", border: `1px solid ${isDark ? "#334155" : "#E5E7EB"}`, borderRadius: 12 }}
+                            formatter={(v, _n, item) => {
+                              const count = (item as { payload?: { count?: number } })?.payload?.count;
+                              return [count != null ? `${v} (${count} scored)` : `${v}`, "Avg score"];
+                            }}
+                          />
+                          {hiringReport.summary.avgScore > 0 && (
+                            <ReferenceLine
+                              y={hiringReport.summary.avgScore}
+                              stroke={isDark ? "#64748B" : "#9CA3AF"}
+                              strokeDasharray="4 3"
+                              label={{ value: `overall ${hiringReport.summary.avgScore}`, position: "insideTopRight", fill: isDark ? "#94A3B8" : "#6B7280", fontSize: 11 }}
+                            />
+                          )}
+                          <Line type="monotone" dataKey="avgScore" name="Avg score" stroke="#007AFF" strokeWidth={2} dot connectNulls />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    )}
                   </div>
                 </div>
               )}
