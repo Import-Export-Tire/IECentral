@@ -523,7 +523,20 @@ async function runSync(
 export const pullForUser = action({
   args: { userId: v.id("users") },
   handler: async (ctx, args): Promise<{ synced: number; error?: string }> => {
-    return await runSync(ctx, args.userId);
+    // Claim the same overlap lock the cron uses — otherwise a manual "Sync now"
+    // can run concurrently with the 15-min cron for the same account, duplicating
+    // Graph events and racing the refresh-token rotation (which spuriously
+    // deactivates the account with invalid_grant).
+    const claimed: boolean = await ctx.runMutation(
+      internal.outlookAccounts.tryClaimSync,
+      { userId: args.userId }
+    );
+    if (!claimed) return { synced: 0, error: "A sync is already in progress. Try again in a moment." };
+    try {
+      return await runSync(ctx, args.userId);
+    } finally {
+      await ctx.runMutation(internal.outlookAccounts.releaseSync, { userId: args.userId });
+    }
   },
 });
 

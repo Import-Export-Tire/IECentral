@@ -102,10 +102,11 @@ export async function POST(request: Request) {
 
     // 2. Get existing zoom-synced events to avoid duplicates
     const existingEvents = await convex.query(api.events.listMyEvents, { userId: userId as Id<"users"> });
+    // Key by string so a number-vs-string mismatch can't defeat dedup.
     const existingZoomIds = new Set(
       (existingEvents as any[])
-        .filter((e: any) => e.zoomMeetingId)
-        .map((e: any) => e.zoomMeetingId)
+        .filter((e: any) => e.zoomMeetingId != null)
+        .map((e: any) => String(e.zoomMeetingId))
     );
 
     let synced = 0;
@@ -143,8 +144,8 @@ export async function POST(request: Request) {
         );
         if (!meeting) continue;
 
-        // Skip if already synced
-        if (existingZoomIds.has(meeting.meetingId)) {
+        // Skip if already synced (across runs, now that zoomMeetingId is persisted)
+        if (meeting.meetingId != null && existingZoomIds.has(String(meeting.meetingId))) {
           results.push({ title: meeting.title, date: meeting.startTime?.toISOString() || "unknown", status: "already exists" });
           continue;
         }
@@ -168,6 +169,10 @@ export async function POST(request: Request) {
 
         // 4. Create calendar event
         try {
+          const numericZoomId =
+            meeting.meetingId != null && !Number.isNaN(Number(meeting.meetingId))
+              ? Number(meeting.meetingId)
+              : undefined;
           await convex.mutation(api.events.create, {
             title: meeting.title,
             description: meeting.passcode ? `Passcode: ${meeting.passcode}` : undefined,
@@ -176,11 +181,12 @@ export async function POST(request: Request) {
             isAllDay: false,
             meetingLink: meeting.joinUrl,
             meetingType: "zoom",
+            zoomMeetingId: numericZoomId,
             inviteeIds: [],
             userId: userId as Id<"users">,
           });
 
-          existingZoomIds.add(meeting.meetingId);
+          if (meeting.meetingId != null) existingZoomIds.add(String(meeting.meetingId));
           synced++;
           results.push({ title: meeting.title, date: meeting.startTime.toISOString(), status: "created" });
         } catch (err) {

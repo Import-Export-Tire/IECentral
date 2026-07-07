@@ -245,6 +245,7 @@ export const create = mutation({
     isPrivate: v.optional(v.boolean()),
     meetingLink: v.optional(v.string()),
     meetingType: v.optional(v.string()),
+    zoomMeetingId: v.optional(v.number()),
     inviteeIds: v.array(v.id("users")),
     userId: v.id("users"),
   },
@@ -270,6 +271,10 @@ export const create = mutation({
       isPrivate: args.isPrivate,
       meetingLink: args.meetingLink,
       meetingType: args.meetingType,
+      // Persist the Zoom meeting id so sync can dedup across runs (previously never
+      // stored → every sync re-created the same events).
+      zoomMeetingId: args.zoomMeetingId,
+      isZoomSynced: args.zoomMeetingId != null ? true : undefined,
       createdBy: args.userId,
       createdByName: user.name,
       createdAt: now,
