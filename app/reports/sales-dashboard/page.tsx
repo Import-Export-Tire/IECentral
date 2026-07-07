@@ -120,22 +120,35 @@ function SalesDashboardContent() {
     return { total, perLoc };
   }, [data, locations, metric]);
 
-  // Like-for-like comparisons: compare month-to-date against the SAME portion of
-  // last month (day 1 → same day-of-month), and week-to-date against the same
-  // portion of last week — not the full prior period. Otherwise a 7-day partial
-  // month is compared against a full ~30-day month and always looks down.
-  const thisMonth     = sumRange(startOfMonth(today), today);
+  // Anchor every comparison window to the latest date that actually HAS data, not
+  // today's calendar date — the sales feed lags a day or two, so anchoring to today
+  // made "this week/month" cover fewer real days than "last week/month" and produced
+  // an artificial ~-50% across the board.
+  const asOf = useMemo(() => {
+    if (!data || !data.series.length) return today;
+    let max = "";
+    for (const r of data.series) {
+      if (((Number(r.totalTires) || 0) > 0 || (Number(r.totalDollars) || 0) > 0) && r.bucket > max) {
+        max = r.bucket;
+      }
+    }
+    return max ? new Date(`${max}T00:00:00`) : today;
+  }, [data, today]);
+
+  // Like-for-like: compare month-to-date (through asOf) against the SAME portion of
+  // last month, and week-to-date against the same portion of last week.
+  const thisMonth     = sumRange(startOfMonth(asOf), asOf);
   // Rollover-safe first-of-previous-month (addMonths on a 31st rolls forward).
-  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const lastMonthStart = new Date(asOf.getFullYear(), asOf.getMonth() - 1, 1);
   const lastMonthEnd   = new Date(lastMonthStart);
-  // Same day-of-month as today, clamped to last month's length (e.g. Mar 31 → Feb 28).
-  lastMonthEnd.setDate(Math.min(today.getDate(), endOfMonth(lastMonthStart).getDate()));
+  // Same day-of-month as asOf, clamped to last month's length (e.g. Mar 31 → Feb 28).
+  lastMonthEnd.setDate(Math.min(asOf.getDate(), endOfMonth(lastMonthStart).getDate()));
   const lastMonth     = sumRange(lastMonthStart, lastMonthEnd);
-  const thisWeek      = sumRange(startOfWeek(today), today);
-  const lastWeekDate  = new Date(today); lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+  const thisWeek      = sumRange(startOfWeek(asOf), asOf);
+  const lastWeekDate  = new Date(asOf); lastWeekDate.setDate(lastWeekDate.getDate() - 7);
   const lastWeek      = sumRange(startOfWeek(lastWeekDate), lastWeekDate);
-  const ytd           = sumRange(new Date(today.getFullYear(), 0, 1), today);
-  const ytdPrev       = sumRange(new Date(today.getFullYear() - 1, 0, 1), new Date(today.getFullYear() - 1, today.getMonth(), today.getDate()));
+  const ytd           = sumRange(new Date(asOf.getFullYear(), 0, 1), asOf);
+  const ytdPrev       = sumRange(new Date(asOf.getFullYear() - 1, 0, 1), new Date(asOf.getFullYear() - 1, asOf.getMonth(), asOf.getDate()));
 
   // Per-month aggregation for the YTD bar chart
   const byMonth = useMemo(() => {
@@ -292,6 +305,9 @@ function SalesDashboardContent() {
               <h2 className="text-[15px] font-semibold theme-text-primary">
                 This month — by location <span className="theme-text-tertiary font-normal text-xs ml-1">({metric})</span>
               </h2>
+              <p className="text-xs mt-0.5 theme-text-tertiary">
+                Week/month-to-date vs the same span last week/month · data through {MONTH_NAMES[asOf.getMonth()]} {asOf.getDate()}
+              </p>
             </div>
             {locations.length === 0 ? (
               <div className="p-8 text-center">
