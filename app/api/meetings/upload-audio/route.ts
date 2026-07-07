@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 
 const BUCKET = "iecentral-meeting-recordings";
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "https://outstanding-dalmatian-787.convex.cloud";
 
 function getS3Client() {
   return new S3Client({
@@ -21,10 +25,25 @@ function getS3Client() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, meetingId, filename } = body;
+    const { action, meetingId, filename, userId } = body;
 
     if (!meetingId) {
       return NextResponse.json({ error: "meetingId is required" }, { status: 400 });
+    }
+
+    // Access control: only the host or a participant of THIS meeting may get a
+    // presigned URL. Without this, anyone with a meeting ID could download the raw
+    // audio of a private meeting or overwrite its recording.
+    if (!userId) {
+      return NextResponse.json({ error: "Sign-in required" }, { status: 401 });
+    }
+    const convex = new ConvexHttpClient(CONVEX_URL);
+    const allowed = await convex.query(api.meetingParticipants.isMember, {
+      meetingId: meetingId as Id<"meetings">,
+      userId: userId as Id<"users">,
+    });
+    if (!allowed) {
+      return NextResponse.json({ error: "Not authorized for this meeting" }, { status: 403 });
     }
 
     const s3 = getS3Client();

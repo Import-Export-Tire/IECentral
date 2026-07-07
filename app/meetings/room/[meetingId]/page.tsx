@@ -178,7 +178,7 @@ export default function MeetingRoomPage() {
         const presignRes = await fetch("/api/meetings/upload-audio", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ meetingId: typedMeetingId, filename: "audio.webm" }),
+          body: JSON.stringify({ meetingId: typedMeetingId, filename: "audio.webm", userId: user?._id }),
         });
         if (!presignRes.ok) throw new Error("Failed to get S3 upload URL");
         const { url: s3UploadUrl, key: s3Key } = await presignRes.json();
@@ -200,7 +200,7 @@ export default function MeetingRoomPage() {
         const downloadRes = await fetch("/api/meetings/upload-audio", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "download", meetingId: typedMeetingId, filename: "audio.webm" }),
+          body: JSON.stringify({ action: "download", meetingId: typedMeetingId, filename: "audio.webm", userId: user?._id }),
         });
         const { url: audioDownloadUrl } = await downloadRes.json();
 

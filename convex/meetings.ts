@@ -4,10 +4,14 @@ import { v } from "convex/values";
 // ============ HELPERS ============
 
 function generateRandomCode(): string {
+  // Cryptographically secure — Math.random() is a recoverable PRNG, letting an
+  // attacker predict other meetings' join codes.
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
   let code = "";
   for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(bytes[i] % chars.length);
   }
   return code;
 }

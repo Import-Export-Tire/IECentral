@@ -11,19 +11,19 @@ export const getByMeeting = query({
     userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
-    // If userId provided, verify they're host or participant
-    if (args.userId) {
-      const meeting = await ctx.db.get(args.meetingId);
-      if (!meeting) return null;
-      const isHost = meeting.hostId === args.userId;
-      if (!isHost) {
-        const participant = await ctx.db
-          .query("meetingParticipants")
-          .withIndex("by_meeting", (q) => q.eq("meetingId", args.meetingId))
-          .filter((q) => q.eq(q.field("userId"), args.userId))
-          .first();
-        if (!participant) return null;
-      }
+    // Access is MANDATORY: only the host or a participant may read notes/transcript.
+    // (Previously the check was skipped entirely when userId was omitted, so anyone
+    // could read any meeting's transcript by simply not passing userId.)
+    if (!args.userId) return null;
+    const meeting = await ctx.db.get(args.meetingId);
+    if (!meeting) return null;
+    if (meeting.hostId !== args.userId) {
+      const participant = await ctx.db
+        .query("meetingParticipants")
+        .withIndex("by_meeting", (q) => q.eq("meetingId", args.meetingId))
+        .filter((q) => q.eq(q.field("userId"), args.userId))
+        .first();
+      if (!participant) return null;
     }
 
     return await ctx.db
@@ -43,18 +43,17 @@ export const get = query({
     const notes = await ctx.db.get(args.notesId);
     if (!notes) return null;
 
-    if (args.userId) {
-      const meeting = await ctx.db.get(notes.meetingId);
-      if (!meeting) return null;
-      const isHost = meeting.hostId === args.userId;
-      if (!isHost) {
-        const participant = await ctx.db
-          .query("meetingParticipants")
-          .withIndex("by_meeting", (q) => q.eq("meetingId", notes.meetingId))
-          .filter((q) => q.eq(q.field("userId"), args.userId))
-          .first();
-        if (!participant) return null;
-      }
+    // Access is MANDATORY (see getByMeeting) — deny when no userId is provided.
+    if (!args.userId) return null;
+    const meeting = await ctx.db.get(notes.meetingId);
+    if (!meeting) return null;
+    if (meeting.hostId !== args.userId) {
+      const participant = await ctx.db
+        .query("meetingParticipants")
+        .withIndex("by_meeting", (q) => q.eq("meetingId", notes.meetingId))
+        .filter((q) => q.eq(q.field("userId"), args.userId))
+        .first();
+      if (!participant) return null;
     }
 
     return notes;

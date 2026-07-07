@@ -47,6 +47,23 @@ export const getMyParticipant = query({
 // ============ MUTATIONS ============
 
 // Join a meeting (create participant record)
+// Is this user the host or a participant of the meeting? Used to gate access to
+// meeting recordings (the audio presign route).
+export const isMember = query({
+  args: { meetingId: v.id("meetings"), userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const meeting = await ctx.db.get(args.meetingId);
+    if (!meeting) return false;
+    if (meeting.hostId === args.userId) return true;
+    const participant = await ctx.db
+      .query("meetingParticipants")
+      .withIndex("by_meeting", (q) => q.eq("meetingId", args.meetingId))
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .first();
+    return !!participant;
+  },
+});
+
 export const join = mutation({
   args: {
     meetingId: v.id("meetings"),
