@@ -7,10 +7,14 @@ import { v } from "convex/values";
 export const getByMeeting = query({
   args: { meetingId: v.id("meetings") },
   handler: async (ctx, args) => {
-    const participants = await ctx.db
+    const all = await ctx.db
       .query("meetingParticipants")
       .withIndex("by_meeting", (q) => q.eq("meetingId", args.meetingId))
       .collect();
+    // Exclude those who have left/been removed so they don't linger as ghost tiles.
+    const participants = all.filter(
+      (p) => p.status !== "disconnected" && p.status !== "removed"
+    );
 
     // Enrich with user info where available
     const enriched = await Promise.all(

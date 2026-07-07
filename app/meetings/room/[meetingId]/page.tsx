@@ -71,7 +71,9 @@ export default function MeetingRoomPage() {
   const [urlCopied, setUrlCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Media
+  // Media. onTrackChange (screen share / camera restore) is routed to the peer
+  // connections' replaceTrack so remote participants actually see the new track.
+  const replaceTrackRef = useRef<((kind: "audio" | "video", track: MediaStreamTrack) => void) | null>(null);
   const {
     localStream,
     isAudioEnabled,
@@ -82,7 +84,9 @@ export default function MeetingRoomPage() {
     startScreenShare,
     stopScreenShare,
     cleanup,
-  } = useMediaStream();
+  } = useMediaStream({
+    onTrackChange: (track, kind) => replaceTrackRef.current?.(kind, track),
+  });
 
   // Virtual background
   const virtualBg = useVirtualBackground();
@@ -92,22 +96,32 @@ export default function MeetingRoomPage() {
     if (virtualBg.enabled) {
       virtualBg.removeBackground();
       setBgStream(null);
+      // Restore the raw camera track for remote peers.
+      const cam = localStream?.getVideoTracks()[0];
+      if (cam) replaceTrackRef.current?.("video", cam);
     } else if (localStream) {
       const processed = await virtualBg.applyBackground(localStream);
       setBgStream(processed);
+      // Send the background-processed track to remote peers.
+      const t = processed?.getVideoTracks?.()[0];
+      if (t) replaceTrackRef.current?.("video", t);
     }
   }, [virtualBg, localStream]);
 
-  // Use background stream if enabled, otherwise raw localStream
+  // Local self-view uses the background stream when enabled; peers get the raw
+  // localStream and receive track swaps via replaceTrack (so a background/screen
+  // toggle never rebuilds the mesh).
   const activeStream = bgStream || localStream;
 
-  // Peer connections — only initialize when we have the participant record
-  const { remoteStreams, peerConnections } = usePeerConnections({
-    localStream: activeStream,
-    myParticipantId: (myParticipant?._id ?? null) as unknown as Id<"meetingParticipants">,
+  const { remoteStreams, peerConnections, replaceTrack } = usePeerConnections({
+    localStream,
+    myParticipantId: (myParticipant?._id ?? null) as Id<"meetingParticipants"> | null,
     meetingId: typedMeetingId,
     participants: (participants ?? []) as any[],
   });
+  useEffect(() => {
+    replaceTrackRef.current = replaceTrack;
+  }, [replaceTrack]);
 
   // Noted meeting recording state
   const [isNotedRecording, setIsNotedRecording] = useState(false);
@@ -376,10 +390,35 @@ export default function MeetingRoomPage() {
     setTimeout(() => setUrlCopied(false), 2000);
   }, [meeting?.joinCode]);
 
-  // Cleanup on unmount
+  // Cleanup media on unmount
   useEffect(() => {
     return () => {
       cleanup();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mark the participant as left on unmount AND on hard tab close / navigation
+  // (pagehide), so closing a tab doesn't leave a ghost participant behind.
+  const myPidRef = useRef<Id<"meetingParticipants"> | null>(null);
+  useEffect(() => {
+    myPidRef.current = myParticipant?._id ?? null;
+  }, [myParticipant?._id]);
+  useEffect(() => {
+    const doLeave = () => {
+      const pid = myPidRef.current;
+      if (pid) {
+        try {
+          void leaveMeeting({ participantId: pid });
+        } catch {
+          /* best-effort */
+        }
+      }
+    };
+    window.addEventListener("pagehide", doLeave);
+    return () => {
+      window.removeEventListener("pagehide", doLeave);
+      doLeave();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

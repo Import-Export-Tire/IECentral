@@ -25,11 +25,14 @@ interface PeerState {
   pc: RTCPeerConnection;
   remoteStream: MediaStream;
   makingOffer: boolean;
+  polite: boolean;
+  // Per-peer serial queue so offer/answer/candidate never interleave (glare-safe).
+  queue: Promise<void>;
 }
 
 interface UsePeerConnectionsOptions {
   localStream: MediaStream | null;
-  myParticipantId: Id<"meetingParticipants">;
+  myParticipantId: Id<"meetingParticipants"> | null;
   meetingId: Id<"meetings">;
   participants: Participant[];
 }
@@ -37,12 +40,15 @@ interface UsePeerConnectionsOptions {
 export interface UsePeerConnectionsReturn {
   remoteStreams: Map<string, MediaStream>;
   peerConnections: Map<string, RTCPeerConnection>;
+  /** Swap the outbound track of a given kind on all peer connections (screen share / virtual bg). */
+  replaceTrack: (kind: "audio" | "video", track: MediaStreamTrack) => void;
 }
 
 /**
- * Manages a full-mesh of RTCPeerConnections — one per remote participant.
- *
- * Returns remote streams and peer connections maps keyed by remote participant ID.
+ * Full-mesh of RTCPeerConnections — one per remote participant — using the W3C
+ * "perfect negotiation" pattern. Connections are created/destroyed INCREMENTALLY
+ * as the roster changes (existing peers are never torn down on a join/leave), and
+ * a peer is created on demand if a signal arrives before the roster update does.
  */
 export function usePeerConnections({
   localStream,
@@ -58,35 +64,34 @@ export function usePeerConnections({
     myParticipantId ? { participantId: myParticipantId } : "skip"
   );
 
-  // Peer state lives in a ref so we don't re-render on every ICE candidate.
-  // We bump `streamVersion` to trigger a React re-render when remote streams change.
   const peersRef = useRef<Map<string, PeerState>>(new Map());
   const [streamVersion, setStreamVersion] = useState(0);
-  const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(
-    new Map()
-  );
+  const bump = useCallback(() => setStreamVersion((v) => v + 1), []);
+  const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
 
-  // ---------- Helpers ----------
+  // Latest local stream in a ref so peer creation / renegotiation always uses the
+  // current tracks without re-running the lifecycle effect on stream identity change.
+  const localStreamRef = useRef<MediaStream | null>(localStream);
+  useEffect(() => {
+    localStreamRef.current = localStream;
+  }, [localStream]);
+
+  const myIdRef = useRef(myParticipantId);
+  myIdRef.current = myParticipantId;
+
+  // ---------- Signaling helpers ----------
 
   const send = useCallback(
-    async (
-      toParticipantId: Id<"meetingParticipants">,
-      type: SignalType,
-      payload: string
-    ) => {
+    async (to: Id<"meetingParticipants">, type: SignalType, payload: string) => {
+      const from = myIdRef.current;
+      if (!from) return;
       try {
-        await sendSignal({
-          meetingId,
-          fromParticipantId: myParticipantId,
-          toParticipantId,
-          type,
-          payload,
-        });
+        await sendSignal({ meetingId, fromParticipantId: from, toParticipantId: to, type, payload });
       } catch (err) {
         console.error("[usePeerConnections] sendSignal failed:", type, err);
       }
     },
-    [sendSignal, meetingId, myParticipantId]
+    [sendSignal, meetingId]
   );
 
   const consume = useCallback(
@@ -94,246 +99,192 @@ export function usePeerConnections({
       try {
         await consumeSignal({ signalId });
       } catch {
-        // Non-critical
+        /* non-critical */
       }
     },
     [consumeSignal]
   );
 
-  // Determine which remote participants we should be connected to
-  const remoteParticipantIds = useMemo(
-    () =>
-      participants
-        .filter((p) => p._id !== myParticipantId)
-        .map((p) => p._id),
-    [participants, myParticipantId]
+  // ---------- Peer creation (idempotent) ----------
+
+  const createPeer = useCallback(
+    (remoteId: Id<"meetingParticipants">): PeerState => {
+      const key = String(remoteId);
+      const existing = peersRef.current.get(key);
+      if (existing) return existing;
+
+      // Impolite peer (lower id) makes the "winning" offer on glare; polite yields.
+      const polite = String(myIdRef.current) > key;
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+      const remoteStream = new MediaStream();
+      const peer: PeerState = { pc, remoteStream, makingOffer: false, polite, queue: Promise.resolve() };
+      peersRef.current.set(key, peer);
+
+      const stream = localStreamRef.current;
+      if (stream) stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+
+      pc.ontrack = (event) => {
+        const track = event.track;
+        if (!remoteStream.getTracks().includes(track)) remoteStream.addTrack(track);
+        // Remove the track from the tile when the remote stops it (L3).
+        track.addEventListener("ended", () => {
+          try {
+            remoteStream.removeTrack(track);
+          } catch {
+            /* ignore */
+          }
+          bump();
+        });
+        bump();
+      };
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) send(remoteId, "ice-candidate", JSON.stringify(event.candidate.toJSON()));
+      };
+
+      // Perfect-negotiation: fires on addTrack / replaceTrack / restartIce.
+      pc.onnegotiationneeded = async () => {
+        try {
+          peer.makingOffer = true;
+          await pc.setLocalDescription();
+          if (pc.localDescription) await send(remoteId, "offer", JSON.stringify(pc.localDescription));
+        } catch (err) {
+          console.error("[usePeerConnections] negotiation failed:", err);
+        } finally {
+          peer.makingOffer = false;
+        }
+      };
+
+      // Recover from a dropped/failed connection (H6).
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === "failed") {
+          try {
+            pc.restartIce();
+          } catch {
+            /* ignore */
+          }
+        }
+      };
+
+      return peer;
+    },
+    [send, bump]
   );
 
-  // ---------- Create / destroy peer connections ----------
+  // Which remote participants we should be meshed with.
+  const remoteParticipantIds = useMemo(
+    () => participants.filter((p) => p._id !== myParticipantId).map((p) => p._id),
+    [participants, myParticipantId]
+  );
+  const remoteIdsKey = JSON.stringify(remoteParticipantIds.map(String).sort());
+  const hasLocalStream = !!localStream;
 
+  // ---------- Incremental create / remove on roster change ----------
+  // NOTE: no cleanup return here — existing peers must survive a roster change.
   useEffect(() => {
-    if (!localStream) return;
-
+    if (!hasLocalStream || !myParticipantId) return;
     const peers = peersRef.current;
     const currentIds = new Set(remoteParticipantIds.map(String));
 
-    // Remove peers that are no longer in the participant list
     for (const [id, peer] of peers) {
       if (!currentIds.has(id)) {
         peer.pc.close();
         peers.delete(id);
         pendingCandidatesRef.current.delete(id);
-        setStreamVersion((v) => v + 1);
+        bump();
       }
     }
-
-    // Create peers for new participants
     for (const remoteId of remoteParticipantIds) {
-      const key = String(remoteId);
-      if (peers.has(key)) continue;
-
-      const isInitiator = String(myParticipantId) < String(remoteId);
-      const pc = new RTCPeerConnection(ICE_SERVERS);
-      const remoteStream = new MediaStream();
-
-      const peerState: PeerState = {
-        pc,
-        remoteStream,
-        makingOffer: false,
-      };
-      peers.set(key, peerState);
-
-      // Add local tracks
-      localStream.getTracks().forEach((track) => {
-        pc.addTrack(track, localStream);
-      });
-
-      // Remote tracks
-      pc.ontrack = (event) => {
-        event.streams[0]?.getTracks().forEach((track) => {
-          if (!remoteStream.getTracks().includes(track)) {
-            remoteStream.addTrack(track);
-          }
-        });
-        setStreamVersion((v) => v + 1);
-      };
-
-      // ICE candidates
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          send(
-            remoteId,
-            "ice-candidate",
-            JSON.stringify(event.candidate.toJSON())
-          );
-        }
-      };
-
-      // Logging
-      pc.onconnectionstatechange = () => {
-        if (
-          pc.connectionState === "failed" ||
-          pc.connectionState === "disconnected"
-        ) {
-          console.warn(
-            `[usePeerConnections] Connection ${pc.connectionState} with ${remoteId}`
-          );
-        }
-      };
-
-      // Initiator creates offer
-      if (isInitiator) {
-        (async () => {
-          try {
-            peerState.makingOffer = true;
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            await send(
-              remoteId,
-              "offer",
-              JSON.stringify(pc.localDescription)
-            );
-          } catch (err) {
-            console.error(
-              "[usePeerConnections] Failed to create offer:",
-              err
-            );
-          } finally {
-            peerState.makingOffer = false;
-          }
-        })();
-      }
+      if (!peers.has(String(remoteId))) createPeer(remoteId);
     }
-
-    // Cleanup all on unmount
-    return () => {
-      for (const [, peer] of peers) {
-        peer.pc.close();
-      }
-      peers.clear();
-      pendingCandidatesRef.current.clear();
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localStream, JSON.stringify(remoteParticipantIds)]);
+  }, [remoteIdsKey, myParticipantId, hasLocalStream, createPeer]);
 
-  // ---------- Process incoming signals ----------
+  // ---------- Close everything on unmount only ----------
+  useEffect(() => {
+    const peers = peersRef.current;
+    const pending = pendingCandidatesRef.current;
+    return () => {
+      for (const [, peer] of peers) peer.pc.close();
+      peers.clear();
+      pending.clear();
+    };
+  }, []);
 
+  // ---------- Process incoming signals (per-peer serialized) ----------
   useEffect(() => {
     if (!incomingSignals || incomingSignals.length === 0) return;
-
-    const peers = peersRef.current;
+    if (!localStream || !myParticipantId) return; // wait for identity + media
 
     for (const signal of incomingSignals as Signal[]) {
       const fromKey = String(signal.fromParticipantId);
-      const peer = peers.get(fromKey);
-
-      if (!peer) {
-        // We don't have a connection for this participant (yet); consume to
-        // avoid reprocessing.
-        consume(signal._id);
-        continue;
-      }
-
+      // H2: create the peer on demand if the signal beat the roster update.
+      const peer = peersRef.current.get(fromKey) ?? createPeer(signal.fromParticipantId);
       const { pc } = peer;
-      const isInitiator =
-        String(myParticipantId) < String(signal.fromParticipantId);
 
-      (async () => {
+      peer.queue = peer.queue.then(async () => {
         try {
-          switch (signal.type) {
-            case "offer": {
-              const offer: RTCSessionDescriptionInit = JSON.parse(
-                signal.payload
-              );
-              const offerCollision =
-                peer.makingOffer || pc.signalingState !== "stable";
+          if (signal.type === "offer" || signal.type === "answer") {
+            const desc: RTCSessionDescriptionInit = JSON.parse(signal.payload);
+            const offerCollision =
+              desc.type === "offer" && (peer.makingOffer || pc.signalingState !== "stable");
+            // Impolite peer ignores a colliding offer; polite peer accepts (implicit rollback).
+            if (!peer.polite && offerCollision) return;
 
-              if (offerCollision && isInitiator) {
-                // Impolite peer — discard
-                break;
-              }
+            await pc.setRemoteDescription(new RTCSessionDescription(desc));
 
-              await pc.setRemoteDescription(
-                new RTCSessionDescription(offer)
-              );
-
-              // Flush buffered ICE candidates
-              const buffered =
-                pendingCandidatesRef.current.get(fromKey) ?? [];
-              for (const c of buffered) {
+            const buffered = pendingCandidatesRef.current.get(fromKey) ?? [];
+            for (const c of buffered) {
+              try {
                 await pc.addIceCandidate(new RTCIceCandidate(c));
+              } catch {
+                /* ignore */
               }
-              pendingCandidatesRef.current.delete(fromKey);
-
-              const answer = await pc.createAnswer();
-              await pc.setLocalDescription(answer);
-              await send(
-                signal.fromParticipantId,
-                "answer",
-                JSON.stringify(pc.localDescription)
-              );
-              break;
             }
+            pendingCandidatesRef.current.delete(fromKey);
 
-            case "answer": {
-              if (pc.signalingState !== "have-local-offer") break;
-              const answer: RTCSessionDescriptionInit = JSON.parse(
-                signal.payload
-              );
-              await pc.setRemoteDescription(
-                new RTCSessionDescription(answer)
-              );
-
-              const buffered =
-                pendingCandidatesRef.current.get(fromKey) ?? [];
-              for (const c of buffered) {
-                await pc.addIceCandidate(new RTCIceCandidate(c));
-              }
-              pendingCandidatesRef.current.delete(fromKey);
-              break;
+            if (desc.type === "offer") {
+              await pc.setLocalDescription();
+              if (pc.localDescription)
+                await send(signal.fromParticipantId, "answer", JSON.stringify(pc.localDescription));
             }
-
-            case "ice-candidate": {
-              const candidate: RTCIceCandidateInit = JSON.parse(
-                signal.payload
-              );
-
-              if (pc.remoteDescription) {
+          } else if (signal.type === "ice-candidate") {
+            const candidate: RTCIceCandidateInit = JSON.parse(signal.payload);
+            if (pc.remoteDescription) {
+              try {
                 await pc.addIceCandidate(new RTCIceCandidate(candidate));
-              } else {
-                const buf =
-                  pendingCandidatesRef.current.get(fromKey) ?? [];
-                buf.push(candidate);
-                pendingCandidatesRef.current.set(fromKey, buf);
+              } catch {
+                /* ignore */
               }
-              break;
+            } else {
+              const buf = pendingCandidatesRef.current.get(fromKey) ?? [];
+              buf.push(candidate);
+              pendingCandidatesRef.current.set(fromKey, buf);
             }
           }
         } catch (err) {
-          console.error(
-            "[usePeerConnections] Error processing signal:",
-            signal.type,
-            err
-          );
+          console.error("[usePeerConnections] Error processing signal:", signal.type, err);
         } finally {
           await consume(signal._id);
         }
-      })();
+      });
     }
-  }, [incomingSignals, myParticipantId, send, consume]);
+  }, [incomingSignals, localStream, myParticipantId, createPeer, send, consume]);
 
-  // ---------- Build the return Maps ----------
+  // ---------- Replace an outbound track on all peers (screen share / virtual bg) ----------
+  const replaceTrack = useCallback((kind: "audio" | "video", track: MediaStreamTrack) => {
+    for (const [, peer] of peersRef.current) {
+      const sender = peer.pc.getSenders().find((s) => s.track?.kind === kind);
+      if (sender) sender.replaceTrack(track).catch((e) => console.error("[usePeerConnections] replaceTrack:", e));
+    }
+  }, []);
 
+  // ---------- Build return maps ----------
   const remoteStreams = useMemo(() => {
-    // `streamVersion` is in the dependency array purely to trigger
-    // recomputation when tracks arrive.
     void streamVersion;
-
     const map = new Map<string, MediaStream>();
     for (const [id, peer] of peersRef.current) {
-      if (peer.remoteStream.getTracks().length > 0) {
-        map.set(id, peer.remoteStream);
-      }
+      if (peer.remoteStream.getTracks().length > 0) map.set(id, peer.remoteStream);
     }
     return map;
   }, [streamVersion]);
@@ -341,11 +292,9 @@ export function usePeerConnections({
   const peerConnectionsMap = useMemo(() => {
     void streamVersion;
     const map = new Map<string, RTCPeerConnection>();
-    for (const [id, peer] of peersRef.current) {
-      map.set(id, peer.pc);
-    }
+    for (const [id, peer] of peersRef.current) map.set(id, peer.pc);
     return map;
   }, [streamVersion]);
 
-  return { remoteStreams, peerConnections: peerConnectionsMap };
+  return { remoteStreams, peerConnections: peerConnectionsMap, replaceTrack };
 }
