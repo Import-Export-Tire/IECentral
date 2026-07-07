@@ -10,6 +10,12 @@ Returns pre-aggregated sales data from S3.
 import json
 import os
 from collections import defaultdict
+from datetime import datetime, timezone
+try:
+    from zoneinfo import ZoneInfo
+    _BIZ_TZ = ZoneInfo("America/Los_Angeles")
+except Exception:  # pragma: no cover
+    _BIZ_TZ = None
 import boto3
 
 S3_BUCKET = os.environ.get("S3_SALES_DATA_BUCKET", "ietires-sales-data")
@@ -39,9 +45,25 @@ def handler(event, context):
                 prev_rows = _fetch_month(prev_month, loc_filter)
                 yoy_rows = _fetch_month(yoy_month, loc_filter)
 
+                # Like-for-like comparison: when the requested month is the CURRENT
+                # (in-progress) calendar month, its data only runs part-way through the
+                # month. Cap the prior-month and year-ago rows to the same day-of-month so
+                # a partial month isn't compared against a full one (which always looked
+                # down early in the month). Completed past months are left full.
+                now = datetime.now(_BIZ_TZ) if _BIZ_TZ else datetime.now(timezone.utc)
+                comparison_through_day = None
+                if current_month == now.strftime("%Y%m"):
+                    days = [d for d in (_day_of_month(r.get("date", "")) for r in current_rows) if d is not None]
+                    if days:
+                        comparison_through_day = max(days)
+                        prev_rows = _cap_rows_to_day(prev_rows, comparison_through_day)
+                        yoy_rows = _cap_rows_to_day(yoy_rows, comparison_through_day)
+
                 result = {
                     "current": _aggregate(current_rows),
                     "currentMonth": current_month,
+                    # Day-of-month the comparison is capped to (null = full-month compare).
+                    "comparisonThroughDay": comparison_through_day,
                     "prevMonth": {
                         "month": prev_month,
                         "data": _aggregate(prev_rows) if prev_rows else None,
@@ -105,6 +127,26 @@ def _get_all_locations(month):
         return sorted(set(r.get("loc", "") for r in rows if r.get("loc")))
     except Exception:
         return []
+
+
+def _day_of_month(date_str):
+    """Day-of-month int from a 'YYYY-MM-DD' date string, or None if unparseable."""
+    if not date_str or len(date_str) < 10:
+        return None
+    try:
+        return int(date_str[8:10])
+    except ValueError:
+        return None
+
+
+def _cap_rows_to_day(rows, cutoff_day):
+    """Keep only rows whose day-of-month is <= cutoff_day (for like-for-like MTD)."""
+    out = []
+    for r in rows:
+        d = _day_of_month(r.get("date", ""))
+        if d is not None and d <= cutoff_day:
+            out.append(r)
+    return out
 
 
 def _prev_month(month_str):
