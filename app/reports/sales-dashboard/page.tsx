@@ -120,12 +120,20 @@ function SalesDashboardContent() {
     return { total, perLoc };
   }, [data, locations, metric]);
 
-  const thisMonth     = sumRange(startOfMonth(today), endOfMonth(today));
-  const lastMonthDate = addMonths(today, -1);
-  const lastMonth     = sumRange(startOfMonth(lastMonthDate), endOfMonth(lastMonthDate));
-  const thisWeek      = sumRange(startOfWeek(today), endOfWeek(today));
+  // Like-for-like comparisons: compare month-to-date against the SAME portion of
+  // last month (day 1 → same day-of-month), and week-to-date against the same
+  // portion of last week — not the full prior period. Otherwise a 7-day partial
+  // month is compared against a full ~30-day month and always looks down.
+  const thisMonth     = sumRange(startOfMonth(today), today);
+  // Rollover-safe first-of-previous-month (addMonths on a 31st rolls forward).
+  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const lastMonthEnd   = new Date(lastMonthStart);
+  // Same day-of-month as today, clamped to last month's length (e.g. Mar 31 → Feb 28).
+  lastMonthEnd.setDate(Math.min(today.getDate(), endOfMonth(lastMonthStart).getDate()));
+  const lastMonth     = sumRange(lastMonthStart, lastMonthEnd);
+  const thisWeek      = sumRange(startOfWeek(today), today);
   const lastWeekDate  = new Date(today); lastWeekDate.setDate(lastWeekDate.getDate() - 7);
-  const lastWeek      = sumRange(startOfWeek(lastWeekDate), endOfWeek(lastWeekDate));
+  const lastWeek      = sumRange(startOfWeek(lastWeekDate), lastWeekDate);
   const ytd           = sumRange(new Date(today.getFullYear(), 0, 1), today);
   const ytdPrev       = sumRange(new Date(today.getFullYear() - 1, 0, 1), new Date(today.getFullYear() - 1, today.getMonth(), today.getDate()));
 
