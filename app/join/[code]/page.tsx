@@ -28,6 +28,7 @@ function GuestJoinContent({ code }: { code: string }) {
         meetingId: meeting._id,
         guestName: guestName.trim(),
         guestEmail: guestEmail.trim() || undefined,
+        joinCode: meeting.joinCode,
       });
       router.push(`/meetings/room/${meeting._id}`);
     } catch (err) {

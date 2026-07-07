@@ -52,6 +52,7 @@ function InviteJoinContent({ token }: { token: string }) {
         meetingId: invite.meetingId,
         guestName: guestName.trim(),
         guestEmail: guestEmail.trim() || undefined,
+        inviteToken: token,
       });
 
       // Mark invite as joined

@@ -90,6 +90,12 @@ export const updateStatus = mutation({
     status: v.string(),
   },
   handler: async (ctx, args) => {
+    // Bound the status to known values so a token holder can't write arbitrary
+    // free-text into another person's invite record.
+    const ALLOWED_STATUSES = ["sent", "opened", "joined", "declined"];
+    if (!ALLOWED_STATUSES.includes(args.status)) {
+      throw new Error("Invalid invite status");
+    }
     const invite = await ctx.db
       .query("meetingInvites")
       .withIndex("by_token", (q) => q.eq("inviteToken", args.inviteToken))

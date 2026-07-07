@@ -68,16 +68,38 @@ export const isMember = query({
   },
 });
 
+const MAX_ACTIVE_PARTICIPANTS = 50;
+
 export const join = mutation({
   args: {
     meetingId: v.id("meetings"),
     userId: v.optional(v.id("users")),
     guestName: v.optional(v.string()),
     guestEmail: v.optional(v.string()),
+    joinCode: v.optional(v.string()),
+    inviteToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const meeting = await ctx.db.get(args.meetingId);
     if (!meeting) throw new Error("Meeting not found");
+
+    // Can't join a meeting that's over.
+    if (meeting.status === "ended") throw new Error("This meeting has ended.");
+
+    // Authorization: a guest must present a valid join code or invite token for
+    // THIS meeting; logged-in users are identified by userId. Without this, anyone
+    // who learned a raw meetingId could join. (Full identity verification is the
+    // app-wide ctx.auth project; this closes the open-join hole.)
+    let authorized = !!args.userId;
+    if (!authorized && args.joinCode && meeting.joinCode === args.joinCode) authorized = true;
+    if (!authorized && args.inviteToken) {
+      const invite = await ctx.db
+        .query("meetingInvites")
+        .withIndex("by_token", (q) => q.eq("inviteToken", args.inviteToken!))
+        .first();
+      if (invite && invite.meetingId === args.meetingId) authorized = true;
+    }
+    if (!authorized) throw new Error("Not authorized to join this meeting.");
 
     let displayName = "Guest";
 
@@ -112,6 +134,18 @@ export const join = mutation({
       }
     } else if (args.guestName) {
       displayName = args.guestName;
+    }
+
+    // Capacity guard — prevents unbounded lobby flooding via repeated join calls.
+    const active = await ctx.db
+      .query("meetingParticipants")
+      .withIndex("by_meeting", (q) => q.eq("meetingId", args.meetingId))
+      .collect();
+    if (
+      active.filter((p) => p.status !== "disconnected" && p.status !== "removed").length >=
+      MAX_ACTIVE_PARTICIPANTS
+    ) {
+      throw new Error("This meeting is full.");
     }
 
     const now = Date.now();
