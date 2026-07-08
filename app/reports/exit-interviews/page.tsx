@@ -61,10 +61,19 @@ const CATEGORY_LABELS: Record<string, string> = {
 //     (app/exit-interviews/page.tsx:467)
 // So exact-string matching drops every in-person interview into "Other".
 // Match on keywords instead, ordered most-specific first.
-// Order matters: the first match wins. Career growth precedes Schedule &
-// workload so "no path to shift lead" reads as a promotion complaint, not a
-// scheduling one.
+// Order matters: first match wins.
+//
+// "Management & culture" runs FIRST. If someone names their manager in their
+// reason for leaving, that is a management complaint — even when they also
+// mention pay ("manager wouldn't give me a raise") or a better offer
+// elsewhere. Reading that as "Pay & benefits" is how the Latrobe exits got
+// buried. Real HR notes say GM / mgr / mgmt / foreman far more often than
+// they say "management issues", so the vocabulary is deliberately wide.
 const REASON_RULES: { group: string; patterns: RegExp }[] = [
+  {
+    group: "Management & culture",
+    patterns: /manage(r|ment|rs|rial)?\b|\bmgr\b|\bmgmt\b|\bgm\b|supervisor|\bforeman\b|\bboss\b|leadership|\bculture\b|favoritism|disrespect|\bharass|hostile|\btoxic\b|micromanag|\bwritten up\b|treated (poorly|badly|like)|duties changed|job duties/i,
+  },
   {
     group: "Retirement or new venture",
     patterns: /\bretir|\bschool\b|\bcollege\b|\bdegree\b|\bstudy|\bown\b[\w\s]{0,20}\bbusiness\b|start\w*[\w\s]{0,20}\bbusiness\b|self.?employ/i,
@@ -76,10 +85,6 @@ const REASON_RULES: { group: string; patterns: RegExp }[] = [
   {
     group: "Pay & benefits",
     patterns: /\bpay(ing|s|ed)?\b|\bpaid\b|\bwage|\bsalar|compensat|\braise\b|\bmoney\b|\bbenefit|insurance|\b401k\b|\$\d/i,
-  },
-  {
-    group: "Management & culture",
-    patterns: /manage(r|ment|rs)?\b|supervisor|\bboss\b|leadership|\bculture\b|favoritism|disrespect|\bharass|hostile|micromanag|duties changed|job duties/i,
   },
   {
     group: "Career growth",
@@ -95,22 +100,30 @@ const REASON_RULES: { group: string; patterns: RegExp }[] = [
   },
 ];
 
+// Company-initiated exits. These are not "why people leave" — nobody chose
+// them — so they get their own line rather than diluting the voluntary reasons.
+const COMPANY_INITIATED = new Set(["no_call_no_show", "attendance", "performance", "involuntary", "layoff"]);
+const GROUP_COMPANY_INITIATED = "Company-initiated exit";
+
+const GROUP_UNCLASSIFIED = "Other / unclassified";
+
 const REASON_GROUP_ORDER = [
+  "Management & culture",
   "Pay & benefits",
   "Career growth",
-  "Management & culture",
   "Schedule & workload",
   "Personal & family",
   "Retirement or new venture",
   "Job ended",
-  "Other / unclassified",
+  GROUP_COMPANY_INITIATED,
+  GROUP_UNCLASSIFIED,
 ];
 
 function classifyReason(raw: string): string {
   for (const rule of REASON_RULES) {
     if (rule.patterns.test(raw)) return rule.group;
   }
-  return "Other / unclassified";
+  return GROUP_UNCLASSIFIED;
 }
 
 // Why we have no reason for someone. "Not recorded" hid two very different
@@ -120,19 +133,57 @@ const NO_REASON_DECLINED = "Declined to answer";
 const NO_REASON_UNREACHED = "Unable to reach";
 const NO_REASON_BLANK = "Interviewed, no reason given";
 
-function reasonGroupFor(row: InterviewRow): string {
-  // Fall back to the free-text termination reason when the survey field is
-  // empty — an in-person interview often records the reason only there.
-  const raw = (row.responses?.primaryReason || row.terminationReason || "").trim();
-  if (raw) return classifyReason(raw);
-  if (row.status === "declined") return NO_REASON_DECLINED;
-  if (row.status !== "completed") return NO_REASON_UNREACHED;
-  return NO_REASON_BLANK;
+/**
+ * Every free-text field on the row that could plausibly carry the reason,
+ * in order of how directly it answers "why did you leave".
+ *
+ * The in-app conduct form's `primaryReason` is a free-text box, and
+ * interviewers frequently put the substance in the narrative fields instead —
+ * so a row with an empty (or uselessly terse) primaryReason often still says
+ * exactly why the person left, three fields over.
+ */
+function reasonTextsFor(row: InterviewRow): string[] {
+  return [
+    row.responses?.primaryReason,
+    row.terminationReason,
+    row.responses?.whatCouldImprove,
+    row.responses?.additionalComments,
+    row.interviewerNotes,
+  ]
+    .map(t => (t || "").trim())
+    .filter(Boolean);
 }
 
-/** True for the buckets that mean "we have no answer", not "here is the answer". */
+/** The classified group, plus the raw text it was classified from (for the audit list). */
+function reasonGroupFor(row: InterviewRow): { group: string; source: string | null } {
+  const texts = reasonTextsFor(row);
+
+  // Walk the cascade: the first field that yields a real category wins. A field
+  // that only ever lands in "Other" doesn't get to stop the search.
+  for (const text of texts) {
+    const group = classifyReason(text);
+    if (group !== GROUP_UNCLASSIFIED) return { group, source: text };
+  }
+
+  // No text said anything we recognise. The structured dropdown might.
+  if (COMPANY_INITIATED.has(row.leavingCategory || "")) {
+    return { group: GROUP_COMPANY_INITIATED, source: null };
+  }
+
+  if (texts.length > 0) return { group: GROUP_UNCLASSIFIED, source: texts[0] };
+  if (row.status === "declined") return { group: NO_REASON_DECLINED, source: null };
+  if (row.status !== "completed") return { group: NO_REASON_UNREACHED, source: null };
+  return { group: NO_REASON_BLANK, source: null };
+}
+
+/** True for buckets that are not a voluntary reason for leaving. Drawn muted, below the rule. */
 function isNonAnswer(label: string): boolean {
-  return label === NO_REASON_DECLINED || label === NO_REASON_UNREACHED || label === NO_REASON_BLANK;
+  return (
+    label === NO_REASON_DECLINED ||
+    label === NO_REASON_UNREACHED ||
+    label === NO_REASON_BLANK ||
+    label === GROUP_COMPANY_INITIATED
+  );
 }
 
 function isoToday(): string {
@@ -244,8 +295,8 @@ function ExitInterviewsReportContent() {
   const byReason = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of rows) {
-      const label = reasonGroupFor(r);
-      m.set(label, (m.get(label) || 0) + 1);
+      const { group } = reasonGroupFor(r);
+      m.set(group, (m.get(group) || 0) + 1);
     }
     return [...m]
       .map(([label, count]) => ({ label, count, nonAnswer: isNonAnswer(label) }))
@@ -256,6 +307,21 @@ function ExitInterviewsReportContent() {
         // never floats above a real category at equal counts.
         return REASON_GROUP_ORDER.indexOf(a.label) - REASON_GROUP_ORDER.indexOf(b.label);
       });
+  }, [rows]);
+
+  // The raw text behind every "Other / unclassified" row. If a real reason is
+  // hiding in here, it's a missing keyword — not a mystery. Shown on screen so
+  // the rules can be corrected against reality instead of guessed at.
+  const unclassifiedSamples = useMemo(() => {
+    const seen = new Map<string, number>();
+    for (const r of rows) {
+      const { group, source } = reasonGroupFor(r);
+      if (group !== GROUP_UNCLASSIFIED || !source) continue;
+      seen.set(source, (seen.get(source) || 0) + 1);
+    }
+    return [...seen]
+      .map(([text, count]) => ({ text, count }))
+      .sort((a, b) => b.count - a.count);
   }, [rows]);
 
   const byMonth = useMemo(() => {
@@ -606,6 +672,30 @@ function ExitInterviewsReportContent() {
               </div>
             </div>
           </div>
+
+          {/* Unclassified reasons — a data-quality panel, not a report section.
+              If a real reason is sitting here, the keyword rules need a word
+              added (or the conduct form needs a dropdown). */}
+          {unclassifiedSamples.length > 0 && (
+            <div className={`rounded-2xl border p-4 ${isDark ? "bg-amber-950/30 border-amber-900/50" : "bg-amber-50 border-amber-200"}`}>
+              <div className={`text-xs font-semibold mb-2 ${isDark ? "text-amber-300" : "text-amber-800"}`}>
+                {unclassifiedSamples.reduce((n, s) => n + s.count, 0)} departure
+                {unclassifiedSamples.reduce((n, s) => n + s.count, 0) === 1 ? "" : "s"} couldn&apos;t be categorized
+              </div>
+              <div className={`text-xs mb-3 ${isDark ? "text-amber-200/70" : "text-amber-700"}`}>
+                These reasons didn&apos;t match any category. They land in &ldquo;Other / unclassified&rdquo; on the
+                Executive PDF. If you see a real pattern below, the rules are missing a keyword.
+              </div>
+              <ul className="space-y-1 max-h-48 overflow-y-auto">
+                {unclassifiedSamples.map(s => (
+                  <li key={s.text} className={`text-xs ${isDark ? "text-amber-100" : "text-amber-900"}`}>
+                    <span className="font-mono opacity-60 mr-2">{s.count}×</span>
+                    {s.text.length > 160 ? `${s.text.slice(0, 160)}…` : s.text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
