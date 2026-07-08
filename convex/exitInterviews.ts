@@ -638,6 +638,159 @@ export const createForBulkEmail = internalMutation({
   },
 });
 
+// ============ EXECUTIVE BRIEF ============
+//
+// Narrative + themes + actions for the leadership-facing PDF
+// (/reports/exit-interviews → "Executive PDF").
+//
+// Differs from generateAISummary below in three ways that matter:
+//   1. It is auth-guarded (super_admin only). Exit-interview responses are
+//      confidential; see docs/iecentral/SECURITY-FINDINGS.md:86.
+//   2. It forces a strict tool call, so themes/actions come back as validated
+//      arrays instead of being regex-scraped out of prose. (@anthropic-ai/sdk
+//      0.71.2 has no output_config.format — its BetaOutputConfig carries only
+//      `effort` — but beta tool definitions do support `strict: true`, which
+//      gives the same guarantee that the input validates against the schema.)
+//   3. It never throws. Callers get { ok: false, reason } and the PDF falls
+//      back to printing verbatim employee comments.
+
+const BRIEF_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    narrative: {
+      type: "string" as const,
+      description:
+        "2-3 short paragraphs, separated by blank lines, addressed to a CEO. " +
+        "Lead with the single most important finding. Plain language, no jargon, " +
+        "no bullet points. Cite concrete counts where you have them.",
+    },
+    sentiment: {
+      type: "string" as const,
+      description: "One short phrase: overall sentiment and what drives it.",
+    },
+    themes: {
+      type: "array" as const,
+      items: { type: "string" as const },
+      description: "3-5 recurring themes. Each one a single sentence.",
+    },
+    actions: {
+      type: "array" as const,
+      items: { type: "string" as const },
+      description:
+        "3-5 specific, actionable retention recommendations, most important first. " +
+        "Each one a single sentence starting with a verb.",
+    },
+  },
+  required: ["narrative", "sentiment", "themes", "actions"],
+  additionalProperties: false,
+};
+
+// requireRole() reads ctx.db, which actions do not have. Every other caller in
+// this codebase is a query or a mutation, so the action needs this hop.
+export const assertSuperAdmin = internalQuery({
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.requestingUserId, ["super_admin"]);
+  },
+});
+
+export const generateExecutiveBrief = action({
+  args: {
+    requestingUserId: v.id("users"),
+    startDate: v.string(),
+    endDate: v.string(),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<
+    | { ok: true; narrative: string; sentiment: string; themes: string[]; actions: string[] }
+    | { ok: false; reason: string }
+  > => {
+    // Guard before we read a single response or spend a single token.
+    await ctx.runQuery(internal.exitInterviews.assertSuperAdmin, {
+      requestingUserId: args.requestingUserId,
+    });
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return { ok: false, reason: "ANTHROPIC_API_KEY is not configured" };
+    }
+
+    const all = await ctx.runQuery(internal.exitInterviews.getCompletedInterviews, {});
+    const interviews = all.filter(
+      (i: { terminationDate: string }) =>
+        i.terminationDate >= args.startDate && i.terminationDate <= args.endDate,
+    );
+
+    if (interviews.length === 0) {
+      return { ok: false, reason: "No completed exit interviews in this period" };
+    }
+
+    // Names are deliberately omitted — the brief is about patterns, not people.
+    const payload = interviews.map((i) => ({
+      department: i.department,
+      position: i.position,
+      terminationDate: i.terminationDate,
+      leavingCategory: i.leavingCategory,
+      responses: i.responses,
+    }));
+
+    try {
+      const anthropic = new Anthropic({ apiKey });
+      const response = await anthropic.beta.messages.create({
+        model: "claude-opus-4-8",
+        max_tokens: 4000,
+        tools: [
+          {
+            name: "emit_brief",
+            description: "Return the executive brief.",
+            strict: true,
+            input_schema: BRIEF_SCHEMA,
+          },
+        ],
+        tool_choice: { type: "tool", name: "emit_brief" },
+        messages: [
+          {
+            role: "user",
+            content: `You are analyzing exit interview data for Import Export Tire Co and writing a brief for the CEO.
+
+There are ${interviews.length} completed exit interviews below. Ratings are 1-5, where 1 = Poor and 5 = Excellent.
+
+Ground every claim in the data. Do not speculate about causes the data does not support. If the sample is small, say so rather than overstating a pattern. Reference actual feedback where it is illuminating, but never name an individual.
+
+Exit interview data:
+${JSON.stringify(payload, null, 2)}`,
+          },
+        ],
+      });
+
+      const block = response.content.find((b) => b.type === "tool_use");
+      if (!block || block.type !== "tool_use") {
+        return { ok: false, reason: "AI service did not return the expected brief" };
+      }
+
+      const parsed = block.input as {
+        narrative: string;
+        sentiment: string;
+        themes: string[];
+        actions: string[];
+      };
+
+      return {
+        ok: true,
+        narrative: parsed.narrative,
+        sentiment: parsed.sentiment,
+        themes: parsed.themes.slice(0, 5),
+        actions: parsed.actions.slice(0, 5),
+      };
+    } catch (error) {
+      console.error("Executive brief generation failed:", error);
+      return { ok: false, reason: String(error) };
+    }
+  },
+});
+
 // AI-generated summary of exit interview responses
 export const generateAISummary = action({
   args: {

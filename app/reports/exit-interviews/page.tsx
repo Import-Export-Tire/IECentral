@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { buildExecutivePdf, type Quote, type ExecutiveBrief } from "./executivePdf";
 import { Id } from "@/convex/_generated/dataModel";
 import Protected from "@/app/protected";
+import { useAuth } from "@/app/auth-context";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useTheme } from "@/app/theme-context";
 import Link from "next/link";
@@ -83,6 +85,9 @@ function avg(arr: (number | undefined)[]): number | null {
 function ExitInterviewsReportContent() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const { user } = useAuth();
+
+  const generateExecutiveBrief = useAction(api.exitInterviews.generateExecutiveBrief);
 
   const interviewsRaw = useQuery(api.exitInterviews.list, {}) as InterviewRow[] | undefined;
   const personnel = useQuery(api.personnel.listAll, {});
@@ -93,6 +98,7 @@ function ExitInterviewsReportContent() {
   const [locationId, setLocationId] = useState<string>("");
   const [personId, setPersonId] = useState<string>("");
   const [generating, setGenerating] = useState(false);
+  const [briefStatus, setBriefStatus] = useState<string | null>(null);
 
   const locById = useMemo(() => new Map((locations || []).map(l => [l._id, l.name])), [locations]);
   const locOfPersonnel = useMemo(() => {
@@ -150,6 +156,112 @@ function ExitInterviewsReportContent() {
       .map(([loc, v]) => ({ loc, count: v.count, avgSat: v.satN ? v.satSum / v.satN : null, avgMgr: v.mgrN ? v.mgrSum / v.mgrN : null }))
       .sort((a, b) => b.count - a.count);
   }, [rows, locOfPersonnel]);
+
+  // Roll up the fine-grained survey answer, falling back to the coarse category
+  // when the employee never filled the survey out. Without the fallback the
+  // chart silently under-counts exactly the people who didn't respond.
+  const byReason = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      const raw = r.responses?.primaryReason?.trim();
+      const label = raw || CATEGORY_LABELS[r.leavingCategory || ""] || r.leavingCategory || "Not recorded";
+      m.set(label, (m.get(label) || 0) + 1);
+    }
+    return [...m]
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [rows]);
+
+  const byMonth = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      const ym = r.terminationDate.slice(0, 7);
+      m.set(ym, (m.get(ym) || 0) + 1);
+    }
+    return [...m]
+      .map(([month, count]) => ({ month, count }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+  }, [rows]);
+
+  // Equal-length window immediately before startDate. Reads interviewsRaw, not
+  // rows — rows is already filtered to the selected range.
+  const priorPeriodCount = useMemo(() => {
+    const start = new Date(startDate + "T00:00:00").getTime();
+    const end = new Date(endDate + "T00:00:00").getTime();
+    if (isNaN(start) || isNaN(end) || end < start) return 0;
+    const span = end - start;
+    const priorStart = new Date(start - span - 86400000);
+    const priorEnd = new Date(start - 86400000);
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    const lo = iso(priorStart);
+    const hi = iso(priorEnd);
+    return (interviewsRaw || [])
+      .filter(i => i.status !== "reversed")
+      .filter(i => !locationId || locOfPersonnel.get(i.personnelId) === locById.get(locationId as Id<"locations">))
+      .filter(i => i.terminationDate >= lo && i.terminationDate <= hi)
+      .length;
+  }, [interviewsRaw, startDate, endDate, locationId, locOfPersonnel, locById]);
+
+  const handleExecutivePdf = async () => {
+    if (rows.length === 0 || !user) return;
+    setGenerating(true);
+    setBriefStatus("Writing summary…");
+    try {
+      let brief: ExecutiveBrief | null = null;
+      try {
+        const result = await generateExecutiveBrief({
+          requestingUserId: user._id as Id<"users">,
+          startDate,
+          endDate,
+        });
+        if (result.ok) {
+          brief = {
+            narrative: result.narrative,
+            themes: result.themes,
+            actions: result.actions,
+            sentiment: result.sentiment,
+          };
+        } else {
+          console.warn("Executive brief unavailable:", result.reason);
+        }
+      } catch (err) {
+        // Never let the AI path take the PDF down with it.
+        console.warn("Executive brief call failed:", err);
+      }
+
+      setBriefStatus("Building PDF…");
+
+      const quotes: Quote[] = rows
+        .filter(r => (r.responses?.whatCouldImprove || "").trim().length > 0)
+        .slice(0, 8)
+        .map(r => ({
+          department: r.department || "—",
+          tenure: tenureStr(tenureDays(r.hireDate, r.terminationDate)),
+          text: r.responses!.whatCouldImprove!,
+        }));
+
+      await buildExecutivePdf({
+        startDate,
+        endDate,
+        locLabel: locationId ? (locById.get(locationId as Id<"locations">) || "Location") : "All locations",
+        stats: {
+          total: stats.total,
+          completed: stats.completed,
+          earlyExit: stats.earlyExit,
+          avgSat: stats.avgSat,
+        },
+        byMonth,
+        priorPeriodCount,
+        byReason,
+        byLocation: byLocation.map(l => ({ loc: l.loc, count: l.count })),
+        brief,
+        quotes,
+      });
+    } finally {
+      setGenerating(false);
+      setBriefStatus(null);
+    }
+  };
 
   const handlePeriodPdf = async () => {
     if (rows.length === 0) return;
@@ -379,9 +491,20 @@ function ExitInterviewsReportContent() {
               </div>
               <div className="flex gap-2">
                 <button
+                  onClick={handleExecutivePdf}
+                  disabled={generating || rows.length === 0 || !user}
+                  className="px-4 py-2 rounded-full text-xs font-semibold text-white bg-[#007AFF] hover:bg-[#0063CC] shadow-sm disabled:opacity-50"
+                >
+                  {generating && briefStatus ? briefStatus : "Executive PDF"}
+                </button>
+                <button
                   onClick={handlePeriodPdf}
                   disabled={generating || rows.length === 0}
-                  className="px-4 py-2 rounded-full text-xs font-semibold text-white bg-[#007AFF] hover:bg-[#0063CC] shadow-sm disabled:opacity-50"
+                  className={`px-4 py-2 rounded-full text-xs font-semibold border shadow-sm disabled:opacity-50 ${
+                    isDark
+                      ? "border-slate-600 text-slate-200 hover:bg-slate-700"
+                      : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                  }`}
                 >
                   {generating ? "Generating…" : "Period summary PDF"}
                 </button>
