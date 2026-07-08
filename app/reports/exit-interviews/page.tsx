@@ -119,6 +119,31 @@ const REASON_GROUP_ORDER = [
   GROUP_UNCLASSIFIED,
 ];
 
+/**
+ * Score every category by how many times it's hit across the text, and take the
+ * winner. First-match-wins is wrong for a paragraph: an interview comment that
+ * mentions the manager six times and pay once is a management complaint, and
+ * whichever keyword happens to appear in the first clause shouldn't decide it.
+ *
+ * Ties break on REASON_GROUP_ORDER.
+ */
+function scoreReason(raw: string): { group: string; score: number } {
+  let best = { group: GROUP_UNCLASSIFIED, score: 0 };
+  for (const rule of REASON_RULES) {
+    // Fresh global regex per call — a shared /g regex carries lastIndex between
+    // .test() calls and would silently skip matches.
+    const global = new RegExp(rule.patterns.source, "gi");
+    const hits = (raw.match(global) || []).length;
+    if (hits === 0) continue;
+    const better =
+      hits > best.score ||
+      (hits === best.score &&
+        REASON_GROUP_ORDER.indexOf(rule.group) < REASON_GROUP_ORDER.indexOf(best.group));
+    if (better) best = { group: rule.group, score: hits };
+  }
+  return best;
+}
+
 function classifyReason(raw: string): string {
   for (const rule of REASON_RULES) {
     if (rule.patterns.test(raw)) return rule.group;
@@ -134,43 +159,53 @@ const NO_REASON_UNREACHED = "Unable to reach";
 const NO_REASON_BLANK = "Interviewed, no reason given";
 
 /**
- * Every free-text field on the row that could plausibly carry the reason,
- * in order of how directly it answers "why did you leave".
+ * What was actually said during the exit interview. This is the substance and
+ * it decides the category.
  *
- * The in-app conduct form's `primaryReason` is a free-text box, and
- * interviewers frequently put the substance in the narrative fields instead —
- * so a row with an empty (or uselessly terse) primaryReason often still says
- * exactly why the person left, three fields over.
+ * NOT included:
+ *   • whatLikedMost — it's the positives. "My manager was great" must never
+ *     count as a management complaint.
+ *   • primaryReason / terminationReason — free-text boxes that in practice hold
+ *     junk ("quit", an interviewer's name, a date). They're the fallback below,
+ *     not the signal.
  */
-function reasonTextsFor(row: InterviewRow): string[] {
-  return [
-    row.responses?.primaryReason,
-    row.terminationReason,
-    row.responses?.whatCouldImprove,
-    row.responses?.additionalComments,
-    row.interviewerNotes,
-  ]
+function interviewCommentsFor(row: InterviewRow): string {
+  return [row.responses?.whatCouldImprove, row.responses?.additionalComments, row.interviewerNotes]
+    .map(t => (t || "").trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/** Fields consulted only when the interview comments say nothing recognisable. */
+function fallbackTextsFor(row: InterviewRow): string[] {
+  return [row.responses?.primaryReason, row.terminationReason]
     .map(t => (t || "").trim())
     .filter(Boolean);
 }
 
 /** The classified group, plus the raw text it was classified from (for the audit list). */
 function reasonGroupFor(row: InterviewRow): { group: string; source: string | null } {
-  const texts = reasonTextsFor(row);
+  // 1. What they told the interviewer. Scored across the whole comment.
+  const comments = interviewCommentsFor(row);
+  if (comments) {
+    const { group } = scoreReason(comments);
+    if (group !== GROUP_UNCLASSIFIED) return { group, source: comments };
+  }
 
-  // Walk the cascade: the first field that yields a real category wins. A field
-  // that only ever lands in "Other" doesn't get to stop the search.
-  for (const text of texts) {
+  // 2. Nothing recognisable in the comments — fall back to the reason boxes.
+  const fallbacks = fallbackTextsFor(row);
+  for (const text of fallbacks) {
     const group = classifyReason(text);
     if (group !== GROUP_UNCLASSIFIED) return { group, source: text };
   }
 
-  // No text said anything we recognise. The structured dropdown might.
+  // 3. Still nothing. The structured dropdown might say it was our decision.
   if (COMPANY_INITIATED.has(row.leavingCategory || "")) {
     return { group: GROUP_COMPANY_INITIATED, source: null };
   }
 
-  if (texts.length > 0) return { group: GROUP_UNCLASSIFIED, source: texts[0] };
+  const anyText = comments || fallbacks[0] || "";
+  if (anyText) return { group: GROUP_UNCLASSIFIED, source: anyText };
   if (row.status === "declined") return { group: NO_REASON_DECLINED, source: null };
   if (row.status !== "completed") return { group: NO_REASON_UNREACHED, source: null };
   return { group: NO_REASON_BLANK, source: null };
@@ -383,14 +418,15 @@ function ExitInterviewsReportContent() {
 
       setBriefStatus("Building PDF…");
 
+      // Same principle as the classifier: quote what was said in the interview.
       const quotes: Quote[] = rows
-        .filter(r => (r.responses?.whatCouldImprove || "").trim().length > 0)
-        .slice(0, 8)
         .map(r => ({
           department: r.department || "—",
           tenure: tenureStr(tenureDays(r.hireDate, r.terminationDate)),
-          text: r.responses!.whatCouldImprove!,
-        }));
+          text: (r.responses?.whatCouldImprove || r.responses?.additionalComments || r.interviewerNotes || "").trim(),
+        }))
+        .filter(q => q.text.length > 0)
+        .slice(0, 8);
 
       await buildExecutivePdf({
         startDate,

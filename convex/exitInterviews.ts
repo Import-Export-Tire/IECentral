@@ -728,12 +728,15 @@ export const generateExecutiveBrief = action({
     }
 
     // Names are deliberately omitted — the brief is about patterns, not people.
+    // interviewerNotes carries what was actually said during the interview; it
+    // is usually the richest field on the record, so the brief must see it.
     const payload = interviews.map((i) => ({
       department: i.department,
       position: i.position,
       terminationDate: i.terminationDate,
       leavingCategory: i.leavingCategory,
       responses: i.responses,
+      interviewerNotes: i.interviewerNotes,
     }));
 
     try {
@@ -756,6 +759,8 @@ export const generateExecutiveBrief = action({
             content: `You are analyzing exit interview data for Import Export Tire Co and writing a brief for the CEO.
 
 There are ${interviews.length} completed exit interviews below. Ratings are 1-5, where 1 = Poor and 5 = Excellent.
+
+Weight the free-text comments most heavily — \`interviewerNotes\` (what was said during the interview), \`whatCouldImprove\`, and \`additionalComments\`. Those carry the substance. The \`primaryReason\` and \`terminationReason\` fields are free-text boxes that often contain only a word or an interviewer's name; do not treat a terse entry there as the person's real reason for leaving. Note that \`whatLikedMost\` records positives — never read a manager mentioned there as a complaint.
 
 Ground every claim in the data. Do not speculate about causes the data does not support. If the sample is small, say so rather than overstating a pattern. Reference actual feedback where it is illuminating, but never name an individual.
 
