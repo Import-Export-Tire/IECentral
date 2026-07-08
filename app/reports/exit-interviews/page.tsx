@@ -54,6 +54,53 @@ const CATEGORY_LABELS: Record<string, string> = {
   other:             "Other",
 };
 
+// The survey offers 16 primary reasons (convex/exitInterviews.ts getReasonOptions).
+// Sixteen bars is a list, not a finding — group them so the shape of the problem
+// is visible at a glance.
+const REASON_GROUPS: Record<string, string> = {
+  "Higher compensation":           "Pay & benefits",
+
+  "Better opportunity elsewhere":  "Growth & opportunity",
+  "Career advancement":            "Growth & opportunity",
+  "Lack of growth opportunities":  "Growth & opportunity",
+
+  "Management issues":             "Management & culture",
+  "Company culture":               "Management & culture",
+  "Job duties changed":            "Management & culture",
+
+  "Work-life balance":             "Work-life balance",
+
+  "Relocation":                    "Personal & life events",
+  "Family/personal reasons":       "Personal & life events",
+  "Retirement":                    "Personal & life events",
+  "Health reasons":                "Personal & life events",
+  "Going back to school":          "Personal & life events",
+  "Starting own business":         "Personal & life events",
+
+  "Contract ended":                "End of contract",
+  "Other":                         "Other",
+};
+
+// Why we have no reason for someone. "Not recorded" hid two very different
+// facts: they refused, or we never reached them. Only one of those is fixable
+// by us, so they don't belong in the same bucket.
+const NO_REASON_DECLINED = "Declined to answer";
+const NO_REASON_UNREACHED = "Unable to reach";
+const NO_REASON_BLANK = "Interviewed, no reason given";
+
+function reasonGroupFor(row: InterviewRow): string {
+  const raw = row.responses?.primaryReason?.trim();
+  if (raw) return REASON_GROUPS[raw] || "Other";
+  if (row.status === "declined") return NO_REASON_DECLINED;
+  if (row.status !== "completed") return NO_REASON_UNREACHED;
+  return NO_REASON_BLANK;
+}
+
+/** True for the buckets that mean "we have no answer", not "here is the answer". */
+function isNonAnswer(label: string): boolean {
+  return label === NO_REASON_DECLINED || label === NO_REASON_UNREACHED || label === NO_REASON_BLANK;
+}
+
 function isoToday(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -157,19 +204,21 @@ function ExitInterviewsReportContent() {
       .sort((a, b) => b.count - a.count);
   }, [rows, locOfPersonnel]);
 
-  // Roll up the fine-grained survey answer, falling back to the coarse category
-  // when the employee never filled the survey out. Without the fallback the
-  // chart silently under-counts exactly the people who didn't respond.
+  // Group the 16 survey reasons into categories, and split the people we have no
+  // reason for into declined vs never-reached. Non-answer buckets sort last —
+  // they're coverage facts, not reasons anyone left.
   const byReason = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of rows) {
-      const raw = r.responses?.primaryReason?.trim();
-      const label = raw || CATEGORY_LABELS[r.leavingCategory || ""] || r.leavingCategory || "Not recorded";
+      const label = reasonGroupFor(r);
       m.set(label, (m.get(label) || 0) + 1);
     }
     return [...m]
-      .map(([label, count]) => ({ label, count }))
-      .sort((a, b) => b.count - a.count);
+      .map(([label, count]) => ({ label, count, nonAnswer: isNonAnswer(label) }))
+      .sort((a, b) => {
+        if (a.nonAnswer !== b.nonAnswer) return a.nonAnswer ? 1 : -1;
+        return b.count - a.count;
+      });
   }, [rows]);
 
   const byMonth = useMemo(() => {

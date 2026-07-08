@@ -35,8 +35,12 @@ export interface ExecutivePdfInput {
   byMonth: { month: string; count: number }[];
   /** Departures in the equal-length window immediately before startDate. */
   priorPeriodCount: number;
-  /** Descending by count. Already label-resolved. */
-  byReason: { label: string; count: number }[];
+  /**
+   * Reason categories, descending by count, with the non-answer buckets
+   * (declined / unable to reach) already sorted to the end. Those are drawn
+   * muted: they describe our coverage, not why anyone left.
+   */
+  byReason: { label: string; count: number; nonAnswer: boolean }[];
   /** Descending by count. */
   byLocation: { loc: string; count: number }[];
   /** Null when the AI call failed or was unavailable — page 2 falls back. */
@@ -180,25 +184,39 @@ export async function buildExecutivePdf(input: ExecutivePdfInput): Promise<void>
   heading("Why people leave", y);
   y += 18;
 
-  const topReasons = input.byReason.slice(0, 6);
+  const topReasons = input.byReason.slice(0, 9);
   const reasonMax = Math.max(1, ...topReasons.map((r) => r.count));
   const labelWidth = 150;
   const barTrack = contentWidth - labelWidth - 30;
 
+  let ruledNonAnswer = false;
   for (const reason of topReasons) {
+    // Hairline between the reasons and the we-have-no-reason buckets.
+    if (reason.nonAnswer && !ruledNonAnswer) {
+      ruledNonAnswer = true;
+      doc.setDrawColor(RULE.r, RULE.g, RULE.b);
+      doc.setLineWidth(0.5);
+      doc.line(MARGIN, y - 4, MARGIN + labelWidth + barTrack, y - 4);
+      y += 6;
+    }
+
+    const tone = reason.nonAnswer ? MUTED : INK;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    doc.setTextColor(INK.r, INK.g, INK.b);
+    doc.setTextColor(tone.r, tone.g, tone.b);
     const label = doc.splitTextToSize(reason.label, labelWidth - 8)[0] as string;
     doc.text(label, MARGIN, y + 8);
 
     const w = Math.max(2, (reason.count / reasonMax) * barTrack);
-    doc.setFillColor(ACCENT.r, ACCENT.g, ACCENT.b);
+    if (reason.nonAnswer) doc.setFillColor(RULE.r, RULE.g, RULE.b);
+    else doc.setFillColor(ACCENT.r, ACCENT.g, ACCENT.b);
     doc.rect(MARGIN + labelWidth, y, w, 10, "F");
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
+    doc.setTextColor(tone.r, tone.g, tone.b);
     doc.text(String(reason.count), MARGIN + labelWidth + w + 6, y + 8.5);
+    doc.setTextColor(INK.r, INK.g, INK.b);
     y += 18;
   }
 
