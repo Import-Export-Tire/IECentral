@@ -1,12 +1,18 @@
 // Executive brief PDF for the exit-interview report.
 //
+// Follows the house report style used by /reports/turnover, /reports/manager-rollup,
+// and the sibling period export: 14pt centered title, 9pt centered meta line,
+// bold section labels at x=36, autoTable with [37,99,154] headers, 36pt margins.
+//
 // Pure builder: takes already-computed aggregates plus the (optional) AI brief
-// and returns a saved PDF. No data fetching, no network calls — so it can be
-// reasoned about independently of Convex.
+// and saves a PDF. No data fetching, no network calls.
 //
 // Page 1 is numbers and never depends on the AI call. Page 2 is words: the
 // generated narrative when we have one, verbatim employee comments when we
 // don't. The document always renders.
+
+const HEADER_FILL: [number, number, number] = [37, 99, 154];
+const MARGIN = 36;
 
 export interface ExecutiveBrief {
   narrative: string;
@@ -28,6 +34,7 @@ export interface ExecutivePdfInput {
   stats: {
     total: number;
     completed: number;
+    conductRate: number;
     earlyExit: number;
     avgSat: number | null;
   };
@@ -37,299 +44,256 @@ export interface ExecutivePdfInput {
   priorPeriodCount: number;
   /**
    * Reason categories, descending by count, with the non-answer buckets
-   * (declined / unable to reach) already sorted to the end. Those are drawn
-   * muted: they describe our coverage, not why anyone left.
+   * (declined / unable to reach) already sorted to the end.
    */
   byReason: { label: string; count: number; nonAnswer: boolean }[];
-  /** Descending by count. */
-  byLocation: { loc: string; count: number }[];
+  byLocation: { loc: string; count: number; avgSat: number | null; avgMgr: number | null }[];
   /** Null when the AI call failed or was unavailable — page 2 falls back. */
   brief: ExecutiveBrief | null;
   /** Used only when `brief` is null. */
   quotes: Quote[];
 }
 
-const INK = { r: 17, g: 24, b: 39 };
-const MUTED = { r: 107, g: 114, b: 128 };
-const ACCENT = { r: 37, g: 99, b: 154 };
-const RULE = { r: 226, g: 232, b: 240 };
-
-const MARGIN = 48;
-
 function monthLabel(ym: string): string {
   const m = Number(ym.slice(5, 7));
   return ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m] || "?";
 }
 
-function prettyDate(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
-  if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
-
-/** "up 22%" / "down 8%" / "flat" / null when there's no prior baseline. */
+/** "up 22% vs prior period" / "flat" / null when there's no baseline. */
 function trendPhrase(current: number, prior: number): string | null {
   if (prior === 0) return null;
   const pct = Math.round(((current - prior) / prior) * 100);
-  if (pct === 0) return "flat vs the prior period";
-  return `${pct > 0 ? "up" : "down"} ${Math.abs(pct)}% vs the prior period`;
+  if (pct === 0) return "flat vs prior period";
+  return `${pct > 0 ? "up" : "down"} ${Math.abs(pct)}% vs prior period`;
 }
 
 export async function buildExecutivePdf(input: ExecutivePdfInput): Promise<void> {
   const { jsPDF } = await import("jspdf");
+  const autoTableModule = await import("jspdf-autotable");
+  const autoTable = (autoTableModule.default || autoTableModule) as typeof import("jspdf-autotable").default;
+
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const contentWidth = pageWidth - MARGIN * 2;
+  const now = new Date();
 
-  const rule = (y: number) => {
-    doc.setDrawColor(RULE.r, RULE.g, RULE.b);
-    doc.setLineWidth(0.75);
-    doc.line(MARGIN, y, pageWidth - MARGIN, y);
-  };
-
-  const heading = (text: string, y: number) => {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(MUTED.r, MUTED.g, MUTED.b);
-    doc.text(text.toUpperCase(), MARGIN, y);
-    doc.setTextColor(INK.r, INK.g, INK.b);
-  };
+  const lastY = () =>
+    (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 0;
 
   // ---------------------------------------------------------------- page 1
 
+  doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
-  doc.setTextColor(INK.r, INK.g, INK.b);
-  doc.text("Exit Interviews", MARGIN, 64);
+  doc.text("Exit Interviews — Executive Summary", pageWidth / 2, 40, { align: "center" });
 
+  doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(MUTED.r, MUTED.g, MUTED.b);
+  // En dash, not "→": jsPDF's default WinAnsi encoding has no U+2192 and
+  // renders it as garbage. (The other report exports still have this bug.)
   doc.text(
-    `${prettyDate(input.startDate)} – ${prettyDate(input.endDate)}  ·  ${input.locLabel}`,
-    MARGIN,
-    82,
+    `${input.startDate} – ${input.endDate}   ·   ${input.locLabel}   ·   Generated ${now.toLocaleString()}`,
+    pageWidth / 2,
+    58,
+    { align: "center" },
   );
-  rule(96);
 
-  // Stat tiles
-  const tiles: { value: string; label: string }[] = [
-    { value: String(input.stats.total), label: "departures" },
-    {
-      value: input.stats.total > 0
-        ? `${Math.round((input.stats.earlyExit / input.stats.total) * 100)}%`
-        : "—",
-      label: "left within 90 days",
-    },
-    {
-      value: input.stats.avgSat != null ? `${input.stats.avgSat.toFixed(1)}/5` : "—",
-      label: "avg satisfaction",
-    },
-  ];
-
-  const tileWidth = contentWidth / tiles.length;
-  tiles.forEach((tile, i) => {
-    const x = MARGIN + i * tileWidth;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(28);
-    doc.setTextColor(INK.r, INK.g, INK.b);
-    doc.text(tile.value, x, 140);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(MUTED.r, MUTED.g, MUTED.b);
-    doc.text(tile.label, x, 156);
-  });
-
-  let y = 196;
-
-  // Departures by month — plain rectangles, no chart library.
-  heading("Departures by month", y);
+  let y = 84;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("Headline", MARGIN, y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
   y += 16;
 
   const trend = trendPhrase(input.stats.total, input.priorPeriodCount);
-  if (trend) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(MUTED.r, MUTED.g, MUTED.b);
-    doc.text(trend, pageWidth - MARGIN, y - 16, { align: "right" });
-    doc.setTextColor(INK.r, INK.g, INK.b);
+  const earlyPct = input.stats.total > 0 ? Math.round((input.stats.earlyExit / input.stats.total) * 100) : 0;
+  const headline = [
+    `Departures: ${input.stats.total}${trend ? `   (${trend})` : ""}`,
+    `Left within 90 days: ${input.stats.earlyExit} (${earlyPct}%)`,
+    `Average satisfaction: ${input.stats.avgSat != null ? `${input.stats.avgSat.toFixed(1)} / 5` : "—"}`,
+    `Interviews completed: ${input.stats.completed} of ${input.stats.total} (${input.stats.conductRate.toFixed(0)}% conduct rate)`,
+  ];
+  for (const line of headline) {
+    doc.text(line, MARGIN, y);
+    y += 14;
   }
 
-  const chartHeight = 64;
-  const chartBase = y + chartHeight;
-  const maxCount = Math.max(1, ...input.byMonth.map((m) => m.count));
-  const slotWidth = input.byMonth.length > 0 ? contentWidth / input.byMonth.length : contentWidth;
-  const barWidth = Math.min(28, slotWidth * 0.55);
+  // Departures by month — small bar chart, house blue. No chart library.
+  y += 10;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("Departures by month", MARGIN, y);
+  y += 14;
 
-  doc.setFillColor(ACCENT.r, ACCENT.g, ACCENT.b);
+  const chartHeight = 54;
+  const chartBase = y + chartHeight;
+  const chartWidth = pageWidth - MARGIN * 2;
+  const maxCount = Math.max(1, ...input.byMonth.map((m) => m.count));
+  const slotWidth = input.byMonth.length > 0 ? chartWidth / input.byMonth.length : chartWidth;
+  const barWidth = Math.min(26, slotWidth * 0.5);
+
   input.byMonth.forEach((m, i) => {
     const barHeight = Math.max(1, (m.count / maxCount) * chartHeight);
     const x = MARGIN + i * slotWidth + (slotWidth - barWidth) / 2;
+    doc.setFillColor(HEADER_FILL[0], HEADER_FILL[1], HEADER_FILL[2]);
     doc.rect(x, chartBase - barHeight, barWidth, barHeight, "F");
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
-    doc.setTextColor(MUTED.r, MUTED.g, MUTED.b);
-    doc.text(monthLabel(m.month), x + barWidth / 2, chartBase + 11, { align: "center" });
-    doc.setFontSize(7);
-    doc.text(String(m.count), x + barWidth / 2, chartBase - barHeight - 4, { align: "center" });
-    doc.setFillColor(ACCENT.r, ACCENT.g, ACCENT.b);
+    doc.setTextColor(90);
+    doc.text(monthLabel(m.month), x + barWidth / 2, chartBase + 10, { align: "center" });
+    doc.text(String(m.count), x + barWidth / 2, chartBase - barHeight - 3, { align: "center" });
+    doc.setTextColor(0);
   });
-  doc.setTextColor(INK.r, INK.g, INK.b);
 
-  y = chartBase + 40;
+  y = chartBase + 30;
 
-  // Why people leave — horizontal bars
-  heading("Why people leave", y);
-  y += 18;
+  // Why people leave
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("Why people leave", MARGIN, y);
 
-  const topReasons = input.byReason.slice(0, 9);
-  const reasonMax = Math.max(1, ...topReasons.map((r) => r.count));
-  const labelWidth = 150;
-  const barTrack = contentWidth - labelWidth - 30;
-
-  let ruledNonAnswer = false;
-  for (const reason of topReasons) {
-    // Hairline between the reasons and the we-have-no-reason buckets.
-    if (reason.nonAnswer && !ruledNonAnswer) {
-      ruledNonAnswer = true;
-      doc.setDrawColor(RULE.r, RULE.g, RULE.b);
-      doc.setLineWidth(0.5);
-      doc.line(MARGIN, y - 4, MARGIN + labelWidth + barTrack, y - 4);
-      y += 6;
-    }
-
-    const tone = reason.nonAnswer ? MUTED : INK;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(tone.r, tone.g, tone.b);
-    const label = doc.splitTextToSize(reason.label, labelWidth - 8)[0] as string;
-    doc.text(label, MARGIN, y + 8);
-
-    const w = Math.max(2, (reason.count / reasonMax) * barTrack);
-    if (reason.nonAnswer) doc.setFillColor(RULE.r, RULE.g, RULE.b);
-    else doc.setFillColor(ACCENT.r, ACCENT.g, ACCENT.b);
-    doc.rect(MARGIN + labelWidth, y, w, 10, "F");
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(tone.r, tone.g, tone.b);
-    doc.text(String(reason.count), MARGIN + labelWidth + w + 6, y + 8.5);
-    doc.setTextColor(INK.r, INK.g, INK.b);
-    y += 18;
-  }
-
-  if (topReasons.length === 0) {
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(9);
-    doc.setTextColor(MUTED.r, MUTED.g, MUTED.b);
-    doc.text("No reason recorded for any departure in this period.", MARGIN, y + 8);
-    doc.setTextColor(INK.r, INK.g, INK.b);
-    y += 18;
-  }
-
-  y += 22;
+  const firstNonAnswer = input.byReason.findIndex((r) => r.nonAnswer);
+  autoTable(doc, {
+    startY: y + 8,
+    head: [["Category", "Departures", "Share"]],
+    body: input.byReason.map((r) => [
+      r.label,
+      String(r.count),
+      input.stats.total > 0 ? `${Math.round((r.count / input.stats.total) * 100)}%` : "—",
+    ]),
+    styles: { fontSize: 9, cellPadding: 4 },
+    headStyles: { fillColor: HEADER_FILL, textColor: 255, fontStyle: "bold", halign: "left" },
+    columnStyles: { 1: { halign: "right", cellWidth: 70 }, 2: { halign: "right", cellWidth: 60 } },
+    margin: { left: MARGIN, right: MARGIN },
+    // The non-answer rows describe our coverage, not why anyone left. Mute them
+    // and rule them off so they never read as a reason.
+    didParseCell: (data) => {
+      if (data.section !== "body") return;
+      const row = input.byReason[data.row.index];
+      if (!row?.nonAnswer) return;
+      data.cell.styles.textColor = [130, 130, 130];
+      data.cell.styles.fontStyle = "italic";
+      if (data.row.index === firstNonAnswer) {
+        data.cell.styles.lineWidth = { top: 0.75, right: 0, bottom: 0, left: 0 };
+        data.cell.styles.lineColor = [180, 180, 180];
+      }
+    },
+  });
 
   // Where
-  heading("Where", y);
-  y += 18;
-  doc.setFontSize(9);
-  for (const loc of input.byLocation.slice(0, 5)) {
-    const share = input.stats.total > 0 ? Math.round((loc.count / input.stats.total) * 100) : 0;
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(INK.r, INK.g, INK.b);
-    doc.text(loc.loc, MARGIN, y);
-    doc.setFont("helvetica", "normal");
-    doc.text(String(loc.count), MARGIN + 180, y);
-    doc.setTextColor(MUTED.r, MUTED.g, MUTED.b);
-    doc.text(`${share}% of departures`, MARGIN + 220, y);
-    doc.setTextColor(INK.r, INK.g, INK.b);
-    y += 16;
-  }
+  y = lastY() + 24;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("Where", MARGIN, y);
+
+  autoTable(doc, {
+    startY: y + 8,
+    head: [["Location", "Departures", "Share", "Avg satisfaction", "Avg mgmt"]],
+    body: input.byLocation.map((l) => [
+      l.loc,
+      String(l.count),
+      input.stats.total > 0 ? `${Math.round((l.count / input.stats.total) * 100)}%` : "—",
+      l.avgSat?.toFixed(1) ?? "—",
+      l.avgMgr?.toFixed(1) ?? "—",
+    ]),
+    styles: { fontSize: 9, cellPadding: 4 },
+    headStyles: { fillColor: HEADER_FILL, textColor: 255, fontStyle: "bold", halign: "left" },
+    columnStyles: {
+      1: { halign: "right", cellWidth: 70 },
+      2: { halign: "right", cellWidth: 55 },
+      3: { halign: "right", cellWidth: 95 },
+      4: { halign: "right", cellWidth: 65 },
+    },
+    margin: { left: MARGIN, right: MARGIN },
+  });
 
   // ---------------------------------------------------------------- page 2
 
   doc.addPage();
-  y = 64;
-
+  doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
-  doc.setTextColor(INK.r, INK.g, INK.b);
-  doc.text("What they told us", MARGIN, y);
-  y += 18;
-  rule(y);
-  y += 28;
+  doc.text("What They Told Us", pageWidth / 2, 40, { align: "center" });
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text(
+    `Based on ${input.stats.completed} completed interviews`,
+    pageWidth / 2,
+    58,
+    { align: "center" },
+  );
+
+  y = 88;
+  const contentWidth = pageWidth - MARGIN * 2;
+
+  const sectionLabel = (text: string) => {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text(text, MARGIN, y);
+    y += 16;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+  };
 
   if (input.brief) {
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(10.5);
-    doc.setTextColor(INK.r, INK.g, INK.b);
     for (const para of input.brief.narrative.split(/\n{2,}/).filter(Boolean)) {
       const wrapped = doc.splitTextToSize(para.trim(), contentWidth) as string[];
       doc.text(wrapped, MARGIN, y);
-      y += wrapped.length * 14 + 10;
+      y += wrapped.length * 12 + 10;
     }
 
-    y += 8;
+    y += 6;
     if (input.brief.themes.length > 0) {
-      heading("Key themes", y);
-      y += 18;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
+      sectionLabel("Key themes");
       for (const theme of input.brief.themes) {
-        const wrapped = doc.splitTextToSize(theme, contentWidth - 16) as string[];
+        const wrapped = doc.splitTextToSize(theme, contentWidth - 14) as string[];
         doc.text("•", MARGIN, y);
-        doc.text(wrapped, MARGIN + 14, y);
-        y += wrapped.length * 13 + 5;
+        doc.text(wrapped, MARGIN + 12, y);
+        y += wrapped.length * 12 + 4;
       }
-      y += 14;
+      y += 12;
     }
 
     if (input.brief.actions.length > 0) {
-      heading("Recommended actions", y);
-      y += 18;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
+      sectionLabel("Recommended actions");
       input.brief.actions.forEach((action, i) => {
-        const wrapped = doc.splitTextToSize(action, contentWidth - 20) as string[];
+        const wrapped = doc.splitTextToSize(action, contentWidth - 18) as string[];
         doc.text(`${i + 1}.`, MARGIN, y);
-        doc.text(wrapped, MARGIN + 18, y);
-        y += wrapped.length * 13 + 5;
+        doc.text(wrapped, MARGIN + 16, y);
+        y += wrapped.length * 12 + 4;
       });
     }
   } else {
     // AI unavailable. Say so plainly, then let the employees speak for themselves.
+    doc.setFontSize(9);
     doc.setFont("helvetica", "italic");
-    doc.setFontSize(9.5);
-    doc.setTextColor(MUTED.r, MUTED.g, MUTED.b);
+    doc.setTextColor(130);
     doc.text("AI summary unavailable; showing raw comments.", MARGIN, y);
-    doc.setTextColor(INK.r, INK.g, INK.b);
-    y += 26;
+    doc.setTextColor(0);
+    y += 22;
 
     if (input.quotes.length === 0) {
       doc.setFont("helvetica", "italic");
-      doc.setFontSize(10);
-      doc.setTextColor(MUTED.r, MUTED.g, MUTED.b);
+      doc.setTextColor(130);
       doc.text("No written feedback was submitted in this period.", MARGIN, y);
-      doc.setTextColor(INK.r, INK.g, INK.b);
+      doc.setTextColor(0);
     }
 
     for (const q of input.quotes) {
-      if (y > pageHeight - 90) break;
+      if (y > pageHeight - 80) break;
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(INK.r, INK.g, INK.b);
+      doc.setFontSize(9);
       const wrapped = doc.splitTextToSize(`"${q.text.trim()}"`, contentWidth - 12) as string[];
-      doc.text(wrapped, MARGIN + 12, y);
-      y += wrapped.length * 13 + 3;
+      doc.text(wrapped, MARGIN + 10, y);
+      y += wrapped.length * 12 + 2;
 
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      doc.setTextColor(MUTED.r, MUTED.g, MUTED.b);
-      doc.text(`— ${q.department}, ${q.tenure} tenure`, MARGIN + 12, y);
-      doc.setTextColor(INK.r, INK.g, INK.b);
-      y += 22;
+      doc.setFontSize(8);
+      doc.setTextColor(130);
+      doc.text(`— ${q.department}, ${q.tenure} tenure`, MARGIN + 10, y);
+      doc.setTextColor(0);
+      y += 18;
     }
   }
 
@@ -337,18 +301,11 @@ export async function buildExecutivePdf(input: ExecutivePdfInput): Promise<void>
 
   const totalPages = (doc as unknown as { internal: { getNumberOfPages: () => number } })
     .internal.getNumberOfPages();
-  const generatedAt = new Date().toLocaleString();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.setTextColor(MUTED.r, MUTED.g, MUTED.b);
-    doc.text(
-      `Based on ${input.stats.completed} completed of ${input.stats.total} departures  ·  Generated ${generatedAt}`,
-      MARGIN,
-      pageHeight - 28,
-    );
-    doc.text(`${i} / ${totalPages}`, pageWidth - MARGIN, pageHeight - 28, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.text(`Page ${i} of ${totalPages}`, pageWidth - MARGIN, pageHeight - 24, { align: "right" });
   }
 
   doc.save(`exit_interviews_executive_${input.startDate}_to_${input.endDate}.pdf`);

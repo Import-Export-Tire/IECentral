@@ -54,32 +54,64 @@ const CATEGORY_LABELS: Record<string, string> = {
   other:             "Other",
 };
 
-// The survey offers 16 primary reasons (convex/exitInterviews.ts getReasonOptions).
-// Sixteen bars is a list, not a finding — group them so the shape of the problem
-// is visible at a glance.
-const REASON_GROUPS: Record<string, string> = {
-  "Higher compensation":           "Pay & benefits",
+// primaryReason arrives from two places with two different shapes:
+//   • the emailed self-service survey — one of 16 fixed options
+//     (app/exit-survey/[id]/page.tsx REASON_OPTIONS)
+//   • the in-app conduct form — a FREE-TEXT textarea
+//     (app/exit-interviews/page.tsx:467)
+// So exact-string matching drops every in-person interview into "Other".
+// Match on keywords instead, ordered most-specific first.
+// Order matters: the first match wins. Career growth precedes Schedule &
+// workload so "no path to shift lead" reads as a promotion complaint, not a
+// scheduling one.
+const REASON_RULES: { group: string; patterns: RegExp }[] = [
+  {
+    group: "Retirement or new venture",
+    patterns: /\bretir|\bschool\b|\bcollege\b|\bdegree\b|\bstudy|\bown\b[\w\s]{0,20}\bbusiness\b|start\w*[\w\s]{0,20}\bbusiness\b|self.?employ/i,
+  },
+  {
+    group: "Job ended",
+    patterns: /contract end|end of contract|\blaid off\b|\blayoff|\bseasonal\b|position (was )?eliminat|role eliminat|\bdownsiz/i,
+  },
+  {
+    group: "Pay & benefits",
+    patterns: /\bpay(ing|s|ed)?\b|\bpaid\b|\bwage|\bsalar|compensat|\braise\b|\bmoney\b|\bbenefit|insurance|\b401k\b|\$\d/i,
+  },
+  {
+    group: "Management & culture",
+    patterns: /manage(r|ment|rs)?\b|supervisor|\bboss\b|leadership|\bculture\b|favoritism|disrespect|\bharass|hostile|micromanag|duties changed|job duties/i,
+  },
+  {
+    group: "Career growth",
+    patterns: /opportunit|advance|\bgrowth\b|\bpromot|\bcareer\b|better (job|position|offer|opportunity)|no (room|path)|dead.?end|\blead\b/i,
+  },
+  {
+    group: "Schedule & workload",
+    patterns: /work.?life|\bbalance\b|\bhours\b|\bschedul|\bshifts\b|shift work|night shift|overtime|workload|\bburn(ed)?.?out|\bstress|childcare|child care/i,
+  },
+  {
+    group: "Personal & family",
+    patterns: /relocat|\bmoved?\b|\bmoving\b|\bfamily\b|personal|\bhealth\b|medical|\billness\b|\bpregnan|\bcaregiv/i,
+  },
+];
 
-  "Better opportunity elsewhere":  "Growth & opportunity",
-  "Career advancement":            "Growth & opportunity",
-  "Lack of growth opportunities":  "Growth & opportunity",
+const REASON_GROUP_ORDER = [
+  "Pay & benefits",
+  "Career growth",
+  "Management & culture",
+  "Schedule & workload",
+  "Personal & family",
+  "Retirement or new venture",
+  "Job ended",
+  "Other / unclassified",
+];
 
-  "Management issues":             "Management & culture",
-  "Company culture":               "Management & culture",
-  "Job duties changed":            "Management & culture",
-
-  "Work-life balance":             "Work-life balance",
-
-  "Relocation":                    "Personal & life events",
-  "Family/personal reasons":       "Personal & life events",
-  "Retirement":                    "Personal & life events",
-  "Health reasons":                "Personal & life events",
-  "Going back to school":          "Personal & life events",
-  "Starting own business":         "Personal & life events",
-
-  "Contract ended":                "End of contract",
-  "Other":                         "Other",
-};
+function classifyReason(raw: string): string {
+  for (const rule of REASON_RULES) {
+    if (rule.patterns.test(raw)) return rule.group;
+  }
+  return "Other / unclassified";
+}
 
 // Why we have no reason for someone. "Not recorded" hid two very different
 // facts: they refused, or we never reached them. Only one of those is fixable
@@ -89,8 +121,10 @@ const NO_REASON_UNREACHED = "Unable to reach";
 const NO_REASON_BLANK = "Interviewed, no reason given";
 
 function reasonGroupFor(row: InterviewRow): string {
-  const raw = row.responses?.primaryReason?.trim();
-  if (raw) return REASON_GROUPS[raw] || "Other";
+  // Fall back to the free-text termination reason when the survey field is
+  // empty — an in-person interview often records the reason only there.
+  const raw = (row.responses?.primaryReason || row.terminationReason || "").trim();
+  if (raw) return classifyReason(raw);
   if (row.status === "declined") return NO_REASON_DECLINED;
   if (row.status !== "completed") return NO_REASON_UNREACHED;
   return NO_REASON_BLANK;
@@ -217,7 +251,10 @@ function ExitInterviewsReportContent() {
       .map(([label, count]) => ({ label, count, nonAnswer: isNonAnswer(label) }))
       .sort((a, b) => {
         if (a.nonAnswer !== b.nonAnswer) return a.nonAnswer ? 1 : -1;
-        return b.count - a.count;
+        if (b.count !== a.count) return b.count - a.count;
+        // Stable tiebreak on the canonical order, so "Other / unclassified"
+        // never floats above a real category at equal counts.
+        return REASON_GROUP_ORDER.indexOf(a.label) - REASON_GROUP_ORDER.indexOf(b.label);
       });
   }, [rows]);
 
@@ -296,13 +333,14 @@ function ExitInterviewsReportContent() {
         stats: {
           total: stats.total,
           completed: stats.completed,
+          conductRate: stats.conductRate,
           earlyExit: stats.earlyExit,
           avgSat: stats.avgSat,
         },
         byMonth,
         priorPeriodCount,
         byReason,
-        byLocation: byLocation.map(l => ({ loc: l.loc, count: l.count })),
+        byLocation,
         brief,
         quotes,
       });
