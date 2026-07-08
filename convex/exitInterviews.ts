@@ -760,6 +760,12 @@ export const generateExecutiveBrief = action({
 
 There are ${interviews.length} completed exit interviews below. Ratings are 1-5, where 1 = Poor and 5 = Excellent.
 
+The single most important thing you can do is reconcile two signals that often disagree:
+  (a) \`primaryReason\` — single-select, so it captures only each person's TOP reason.
+  (b) the 1-5 ratings — every person rates every dimension.
+
+A dimension can be rated poor by nearly everyone while almost nobody names it as their primary reason. When that happens, SAY SO EXPLICITLY and lead with it. A low rating given by most departing employees is a stronger finding than a reason category's share, because the reason category structurally undercounts any cause that wasn't someone's single top answer. Report the share who rated each dimension 1 or 2, not just the average — an average of 2.0 hides whether that is everyone at 2 or a split of 1s and 3s.
+
 Weight the free-text comments most heavily — \`interviewerNotes\` (what was said during the interview), \`whatCouldImprove\`, and \`additionalComments\`. Those carry the substance. The \`primaryReason\` and \`terminationReason\` fields are free-text boxes that often contain only a word or an interviewer's name; do not treat a terse entry there as the person's real reason for leaving. Note that \`whatLikedMost\` records positives — never read a manager mentioned there as a complaint.
 
 Ground every claim in the data. Do not speculate about causes the data does not support. If the sample is small, say so rather than overstating a pattern. Reference actual feedback where it is illuminating, but never name an individual.

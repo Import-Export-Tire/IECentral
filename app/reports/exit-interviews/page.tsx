@@ -344,6 +344,45 @@ function ExitInterviewsReportContent() {
       });
   }, [rows]);
 
+  // An average hides the distribution: a 2.0 could be everyone rating 2, or half
+  // the room rating 1 and half rating 3. What leadership needs is the share who
+  // rated a dimension POOR (1 or 2). That's the alarming number, and it was
+  // already being collected — just never reported.
+  const ratingBreakdown = useMemo(() => {
+    const dims: { label: string; pick: (r: InterviewRow) => number | undefined }[] = [
+      { label: "Management",        pick: r => r.responses?.managementRating },
+      { label: "Compensation",      pick: r => r.responses?.compensationRating },
+      { label: "Growth opportunity", pick: r => r.responses?.growthOpportunityRating },
+      { label: "Work / life balance", pick: r => r.responses?.workLifeBalanceRating },
+      { label: "Job satisfaction",  pick: r => r.responses?.satisfactionRating },
+    ];
+    return dims
+      .map(d => {
+        const vals = rows.map(d.pick).filter((v): v is number => typeof v === "number");
+        const poor = vals.filter(v => v <= 2).length;
+        return {
+          label: d.label,
+          avg: vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null,
+          poor,
+          poorPct: vals.length ? (poor / vals.length) * 100 : 0,
+          responses: vals.length,
+        };
+      })
+      .filter(d => d.responses > 0)
+      .sort((a, b) => (a.avg ?? 99) - (b.avg ?? 99)); // worst first
+  }, [rows]);
+
+  // Anyone who either named management as their reason OR rated it poor. The
+  // reason chart alone understates this badly: "primary reason" is single-select,
+  // so someone can leave for a better offer while rating management 1/5.
+  const managementImplicated = useMemo(() => {
+    const scored = rows.filter(r => typeof r.responses?.managementRating === "number");
+    const count = scored.filter(
+      r => r.responses!.managementRating! <= 2 || reasonGroupFor(r).group === "Management & culture",
+    ).length;
+    return { count, of: scored.length, pct: scored.length ? (count / scored.length) * 100 : 0 };
+  }, [rows]);
+
   // The raw text behind every "Other / unclassified" row. If a real reason is
   // hiding in here, it's a missing keyword — not a mystery. Shown on screen so
   // the rules can be corrected against reality instead of guessed at.
@@ -441,6 +480,8 @@ function ExitInterviewsReportContent() {
         },
         byMonth,
         priorPeriodCount,
+        ratingBreakdown,
+        managementImplicated,
         byReason,
         byLocation,
         brief,

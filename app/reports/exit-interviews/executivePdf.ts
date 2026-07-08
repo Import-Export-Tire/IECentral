@@ -42,6 +42,10 @@ export interface ExecutivePdfInput {
   byMonth: { month: string; count: number }[];
   /** Departures in the equal-length window immediately before startDate. */
   priorPeriodCount: number;
+  /** Worst average first. `poorPct` is the share rating 1 or 2. */
+  ratingBreakdown: { label: string; avg: number | null; poor: number; poorPct: number; responses: number }[];
+  /** Named management as their reason, OR rated it 1-2. */
+  managementImplicated: { count: number; of: number; pct: number };
   /**
    * Reason categories, descending by count, with the non-answer buckets
    * (declined / unable to reach) already sorted to the end.
@@ -107,6 +111,7 @@ export async function buildExecutivePdf(input: ExecutivePdfInput): Promise<void>
 
   const trend = trendPhrase(input.stats.total, input.priorPeriodCount);
   const earlyPct = input.stats.total > 0 ? Math.round((input.stats.earlyExit / input.stats.total) * 100) : 0;
+  const mi = input.managementImplicated;
   const headline = [
     `Departures: ${input.stats.total}${trend ? `   (${trend})` : ""}`,
     `Left within 90 days: ${input.stats.earlyExit} (${earlyPct}%)`,
@@ -117,6 +122,58 @@ export async function buildExecutivePdf(input: ExecutivePdfInput): Promise<void>
     doc.text(line, MARGIN, y);
     y += 14;
   }
+
+  // The headline finding, stated in bold and in plain words. Someone can leave
+  // for a better offer and still rate management 1/5 — the reason chart alone
+  // does not surface that, so it gets said here.
+  if (mi.of > 0 && mi.pct >= 50) {
+    y += 4;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(
+      `Management implicated in ${mi.count} of ${mi.of} interviews (${Math.round(mi.pct)}%) — rated poor, or named as the reason.`,
+      MARGIN,
+      y,
+    );
+    doc.setFont("helvetica", "normal");
+    y += 14;
+  }
+
+  // How they rated us — the structured signal, worst first.
+  y += 10;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("How they rated us", MARGIN, y);
+
+  autoTable(doc, {
+    startY: y + 8,
+    head: [["", "Average (1-5)", "Rated poor (1-2)", "Responses"]],
+    body: input.ratingBreakdown.map((d) => [
+      d.label,
+      d.avg != null ? d.avg.toFixed(1) : "—",
+      `${d.poor}  (${Math.round(d.poorPct)}%)`,
+      String(d.responses),
+    ]),
+    styles: { fontSize: 9, cellPadding: 4 },
+    headStyles: { fillColor: HEADER_FILL, textColor: 255, fontStyle: "bold", halign: "left" },
+    columnStyles: {
+      1: { halign: "right", cellWidth: 90 },
+      2: { halign: "right", cellWidth: 110 },
+      3: { halign: "right", cellWidth: 70 },
+    },
+    margin: { left: MARGIN, right: MARGIN },
+    // Anything a majority called poor is the story on this page. Make it red.
+    didParseCell: (data) => {
+      if (data.section !== "body") return;
+      const dim = input.ratingBreakdown[data.row.index];
+      if (dim && dim.poorPct >= 50) {
+        data.cell.styles.textColor = [176, 32, 32];
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+  });
+
+  y = lastY() + 24;
 
   // Departures by month — small bar chart, house blue. No chart library.
   y += 10;
@@ -148,10 +205,22 @@ export async function buildExecutivePdf(input: ExecutivePdfInput): Promise<void>
 
   y = chartBase + 30;
 
-  // Why people leave
+  // Primary reason given. Deliberately NOT titled "why people leave" — it is
+  // single-select, so it undercounts any cause that wasn't someone's top answer.
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("Why people leave", MARGIN, y);
+  doc.text("Primary reason given for leaving", MARGIN, y);
+  y += 12;
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(110);
+  doc.text(
+    "One reason per person. Someone can leave for a better offer and still rate management poorly — compare with the ratings above.",
+    MARGIN,
+    y,
+  );
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "normal");
 
   const firstNonAnswer = input.byReason.findIndex((r) => r.nonAnswer);
   autoTable(doc, {
