@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx convex deploy --cmd 'next build'",
+  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then npx convex deploy --cmd 'next build'; else npx next build; fi",
   "crons": [
     {
       "path": "/api/sales/refresh",
