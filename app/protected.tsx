@@ -12,6 +12,7 @@ interface ProtectedProps {
   requiredRoles?: string[]; // Array of allowed roles (for backwards compatibility)
   minTier?: Tier; // Minimum tier required (0-5)
   requireFlag?: "isFinalTimeApprover" | "isPayrollProcessor" | "requiresDailyLog" | "hasEmailAccess"; // Require specific flag
+  requirePermission?: string; // Require a resolved permission key (role default OR per-user override), e.g. "safetyReports.review"
 }
 
 export default function Protected({
@@ -19,7 +20,8 @@ export default function Protected({
   requireAdmin = false,
   requiredRoles,
   minTier,
-  requireFlag
+  requireFlag,
+  requirePermission
 }: ProtectedProps) {
   const { user, isLoading } = useAuth();
   const permissions = usePermissions();
@@ -51,6 +53,10 @@ export default function Protected({
   // Determine if user has access
   const hasAccess = () => {
     if (!user) return false;
+
+    // A resolved permission (role default OR per-user override) grants access on
+    // its own — this is how a scoped grant lets a non-admin in past a role gate.
+    if (requirePermission && permissions.hasPermission(requirePermission)) return true;
 
     // Check legacy requireAdmin
     if (requireAdmin && user.role !== "admin" && user.role !== "super_admin") return false;

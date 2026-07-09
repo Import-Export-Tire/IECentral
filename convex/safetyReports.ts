@@ -1,12 +1,33 @@
 import { mutation, query, internalAction, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
-import { requireRole } from "./authGuards";
+import { QueryCtx, MutationCtx } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
 
-// Roles that receive new-report alerts and may review reports. Anonymous reports can be
-// sensitive (harassment/theft), so this is intentionally tight — widen here if needed.
-const REVIEWER_ROLES = ["super_admin"] as const;
-const RECIPIENT_ROLES = new Set<string>(REVIEWER_ROLES);
+// Anonymous reports can be sensitive (harassment/theft), so access is intentionally
+// tight: super_admin by default. Individual non-super-admins can be granted the
+// SSS inbox WITHOUT a full role bump via permissionOverrides["safetyReports.review"].
+// (Same three-state grant/deny mechanism as menu.training.)
+const REVIEW_PERMISSION = "safetyReports.review";
+
+/** True if the user may review SSS reports: super_admin, or explicitly granted the override. */
+function canReviewSafetyReports(user: { role?: string; permissionOverrides?: Record<string, boolean> | null } | null): boolean {
+  if (!user) return false;
+  const override = (user.permissionOverrides ?? {})[REVIEW_PERMISSION];
+  if (override !== undefined) return override; // explicit grant OR explicit deny wins
+  return user.role === "super_admin";
+}
+
+/**
+ * Guard for every reviewer-only SSS endpoint. Replaces requireRole(super_admin):
+ * honors the per-user override so Travis-style scoped grants work.
+ */
+async function requireSafetyReviewer(ctx: QueryCtx | MutationCtx, requestingUserId: Id<"users">): Promise<void> {
+  const user = await ctx.db.get(requestingUserId);
+  if (!canReviewSafetyReports(user)) {
+    throw new Error("Unauthorized: reviewing anonymous reports requires super_admin or the See Something, Say Something reviewer permission");
+  }
+}
 
 const CATEGORY_LABELS: Record<string, string> = {
   safety: "Safety hazard",
@@ -99,7 +120,7 @@ export const generatePhotoUploadUrl = mutation({
 export const getPhotoUrl = query({
   args: { requestingUserId: v.id("users"), reportId: v.id("safetyReports") },
   handler: async (ctx, args): Promise<string | null> => {
-    await requireRole(ctx, args.requestingUserId, REVIEWER_ROLES);
+    await requireSafetyReviewer(ctx, args.requestingUserId);
     const report = await ctx.db.get(args.reportId);
     if (!report || !report.photoFileId) return null;
     return await ctx.storage.getUrl(report.photoFileId);
@@ -113,8 +134,10 @@ export const _notifyData = internalQuery({
     const report = await ctx.db.get(args.reportId);
     if (!report) return null;
     const users = await ctx.db.query("users").collect();
+    // Same predicate as the review guard, so override-granted reviewers (e.g. a
+    // scoped grant) receive new-report alerts too — not just super_admins.
     const recipients = users
-      .filter((u) => RECIPIENT_ROLES.has(u.role) && u.isActive !== false)
+      .filter((u) => canReviewSafetyReports(u) && u.isActive !== false)
       .map((u) => ({ id: u._id, email: u.email as string | undefined }));
     return { report, recipients };
   },
@@ -243,7 +266,7 @@ export const list = query({
     locationId: v.optional(v.id("locations")),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.requestingUserId, REVIEWER_ROLES);
+    await requireSafetyReviewer(ctx, args.requestingUserId);
     let reports = await ctx.db.query("safetyReports").withIndex("by_created").order("desc").collect();
     if (args.status) reports = reports.filter((r) => r.status === args.status);
     if (args.category) reports = reports.filter((r) => r.category === args.category);
@@ -255,7 +278,7 @@ export const list = query({
 export const counts = query({
   args: { requestingUserId: v.id("users") },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.requestingUserId, REVIEWER_ROLES);
+    await requireSafetyReviewer(ctx, args.requestingUserId);
     const reports = await ctx.db.query("safetyReports").collect();
     return {
       total: reports.length,
@@ -273,7 +296,7 @@ export const updateStatus = mutation({
     reviewNotes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.requestingUserId, REVIEWER_ROLES);
+    await requireSafetyReviewer(ctx, args.requestingUserId);
     const report = await ctx.db.get(args.reportId);
     if (!report) throw new Error("Report not found");
     const user = await ctx.db.get(args.requestingUserId);

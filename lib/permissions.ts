@@ -626,6 +626,7 @@ export const ALL_PERMISSIONS: PermissionDefinition[] = [
   { key: "menu.orgChart", label: "Org Chart", description: "View organization chart", category: "reports" },
   { key: "menu.locations", label: "Locations", description: "Manage locations", category: "reports" },
   { key: "menu.engagement", label: "Engagement", description: "View engagement metrics", category: "reports" },
+  { key: "safetyReports.review", label: "See Something, Say Something", description: "Review anonymous reports (sensitive — harassment/theft). Super admins have this by default; grant to give a specific person inbox access without a role bump.", category: "reports" },
 
   // Portals
   { key: "menu.departmentPortal", label: "Department Portal", description: "Access department portal", category: "portals" },
@@ -731,6 +732,11 @@ export function getRoleDefaults(user: PermissionUser): Record<string, boolean> {
   defaults["dunlopReporting.envToggle"] = tier >= 4; // admin+
   defaults["dunlopReporting.rerun"] = tier >= 4; // admin+
   defaults["dunlopReporting.deleteHistory"] = tier >= 5; // super admin only
+
+  // See Something, Say Something reviewer. Sensitive (harassment/theft), so
+  // super_admin only by default; granted to specific people via override.
+  // Backend mirror: canReviewSafetyReports() in convex/safetyReports.ts.
+  defaults["safetyReports.review"] = tier >= 5;
 
   // Per-report permissions. Preserve current visibility as the default: reports are
   // admin-only (T4+), with sensitive/admin reports super-admin only (T5). Per-user

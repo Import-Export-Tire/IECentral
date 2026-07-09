@@ -72,7 +72,7 @@ const DASHBOARD_CARDS = [
   { id: "tenureCheckIns", label: "Tenure Check-ins", description: "Due employee milestone reviews" },
   { id: "email", label: "Email", description: "Recent unread emails from your inbox" },
   { id: "financialSnapshot", label: "Financial Snapshot", description: "Sales KPIs and revenue breakdown (super admin)" },
-  { id: "safetyReports", label: "Safety Reports", description: "Anonymous See Something, Say Something reports (super admin)" },
+  { id: "safetyReports", label: "Safety Reports", description: "Anonymous See Something, Say Something reports (reviewers)" },
 ];
 
 // Sortable card component for settings modal
@@ -142,6 +142,8 @@ function DashboardContent() {
   const isDark = theme === "dark";
   const permissions = usePermissions();
   const widgets = permissions.dashboardWidgets;
+  // super_admin by default, or anyone granted the safetyReports.review override.
+  const canReviewSafetyReports = permissions.hasPermission("safetyReports.review");
 
   // UI State
   const [showSettings, setShowSettings] = useState(false);
@@ -1286,8 +1288,9 @@ function DashboardContent() {
             <FinancialSnapshotWidget />
           )}
 
-          {/* Safety Reports (See Something, Say Something) - super admin only, toggleable */}
-          {isSuperAdmin && isCardEnabled("safetyReports") && <SafetyReportsWidget />}
+          {/* Safety Reports (See Something, Say Something) - reviewers (super admin
+              or the safetyReports.review grant), toggleable */}
+          {canReviewSafetyReports && isCardEnabled("safetyReports") && <SafetyReportsWidget />}
 
           {/* Email Widget */}
           {isCardEnabled("email") && user?.hasEmailAccess && (
@@ -1417,7 +1420,7 @@ function DashboardContent() {
                     if (card.id === "activityFeed" && !widgets.activityFeed) return null;
                     if (card.id === "email" && !user?.hasEmailAccess) return null;
                     if (card.id === "financialSnapshot" && !widgets.financialSnapshot) return null;
-                    if (card.id === "safetyReports" && !isSuperAdmin) return null;
+                    if (card.id === "safetyReports" && !canReviewSafetyReports) return null;
                     return (
                       <SortableCard
                         key={card.id}
