@@ -656,7 +656,7 @@ export default function Sidebar() {
                 "/org-chart": permissions.menu.orgChart,
                 "/engagement": permissions.menu.engagement,
                 "/exit-interviews": tier >= 5,
-                "/safety-reports": tier >= 5,
+                "/safety-reports": permissions.hasPermission("safetyReports.review"),
                 "/surveys": permissions.menu.surveys,
                 // System
                 "/users": permissions.menu.userManagement,
