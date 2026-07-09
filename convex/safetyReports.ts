@@ -1,4 +1,4 @@
-import { mutation, query, internalAction, internalQuery } from "./_generated/server";
+import { mutation, query, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { QueryCtx, MutationCtx } from "./_generated/server";
@@ -28,6 +28,61 @@ async function requireSafetyReviewer(ctx: QueryCtx | MutationCtx, requestingUser
     throw new Error("Unauthorized: reviewing anonymous reports requires super_admin or the See Something, Say Something reviewer permission");
   }
 }
+
+/**
+ * Admin utility: grant or revoke the SSS reviewer permission for exactly one
+ * person, resolved by name or email. Internal-only (callable via `npx convex run`
+ * with a deploy key, never from a client).
+ *
+ * Safety by design:
+ *  - Refuses unless EXACTLY ONE active user matches — never guesses between
+ *    two people, because the wrong grant leaks harassment/theft reports.
+ *  - MERGES into existing permissionOverrides (updateUser replaces wholesale;
+ *    this must not wipe a user's other grants).
+ *  - Returns the resolved identity + before/after so the caller can verify.
+ */
+export const setReviewerAccess = internalMutation({
+  args: { query: v.string(), grant: v.boolean() },
+  handler: async (ctx, args) => {
+    const needle = args.query.trim().toLowerCase();
+    if (!needle) throw new Error("query is required (a name or email)");
+
+    const all = await ctx.db.query("users").collect();
+    const matches = all.filter(
+      (u) =>
+        u.isActive !== false &&
+        ((u.name ?? "").trim().toLowerCase() === needle ||
+          (u.email ?? "").trim().toLowerCase() === needle),
+    );
+
+    if (matches.length === 0) {
+      throw new Error(`No active user matches "${args.query}". Nothing changed.`);
+    }
+    if (matches.length > 1) {
+      const who = matches.map((u) => `${u.name} <${u.email ?? "no email"}> [${u._id}]`).join("; ");
+      throw new Error(
+        `Ambiguous: ${matches.length} active users match "${args.query}" — ${who}. ` +
+          `Re-run with the exact email to disambiguate. Nothing changed.`,
+      );
+    }
+
+    const user = matches[0];
+    const before = { ...(user.permissionOverrides ?? {}) };
+    const after = { ...before, ["safetyReports.review"]: args.grant };
+    await ctx.db.patch(user._id, { permissionOverrides: after });
+
+    return {
+      changed: true,
+      action: args.grant ? "GRANTED" : "REVOKED",
+      userId: user._id,
+      name: user.name,
+      email: user.email ?? null,
+      role: user.role,
+      before,
+      after,
+    };
+  },
+});
 
 const CATEGORY_LABELS: Record<string, string> = {
   safety: "Safety hazard",
