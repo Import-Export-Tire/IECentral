@@ -10,6 +10,7 @@ import Sidebar, { MobileHeader } from "@/components/Sidebar";
 import { useAuth } from "../auth-context";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import { composeDescription, parseLegacyDescription } from "./jobListingFormat";
 
 const STATUS_OPTIONS = [
   { value: "open", label: "Accepting Applications", color: "bg-green-500/20 text-green-400 border-green-500/30" },
@@ -40,6 +41,9 @@ interface Job {
   department: string;
   status: string;
   description: string;
+  summary?: string;
+  responsibilities?: string[];
+  requirements?: string[];
   benefits: string[];
   keywords: string[];
   isActive: boolean;
@@ -57,7 +61,9 @@ interface JobFormData {
   type: string;
   positionType: string;
   department: string;
-  description: string;
+  summary: string;
+  responsibilities: string[];
+  requirements: string[];
   benefits: string;
   keywords: string;
   status: string;
@@ -123,7 +129,9 @@ export default function JobsPage() {
     type: "Full-time",
     positionType: "hourly",
     department: "Operations",
-    description: "",
+    summary: "",
+    responsibilities: [],
+    requirements: [],
     benefits: "",
     keywords: "",
     status: "open",
@@ -140,7 +148,9 @@ export default function JobsPage() {
       type: "Full-time",
       positionType: "hourly",
       department: "Operations",
-      description: "",
+      summary: "",
+      responsibilities: [],
+      requirements: [],
       benefits: "",
       keywords: "",
       status: "open",
@@ -163,12 +173,47 @@ export default function JobsPage() {
     setFormData({ ...formData, locations: formData.locations.filter(l => l !== loc) });
   };
 
+  const addResponsibility = () =>
+    setFormData({ ...formData, responsibilities: [...formData.responsibilities, ""] });
+  const updateResponsibility = (index: number, value: string) =>
+    setFormData({
+      ...formData,
+      responsibilities: formData.responsibilities.map((r, i) => (i === index ? value : r)),
+    });
+  const removeResponsibility = (index: number) =>
+    setFormData({
+      ...formData,
+      responsibilities: formData.responsibilities.filter((_, i) => i !== index),
+    });
+
+  const addRequirement = () =>
+    setFormData({ ...formData, requirements: [...formData.requirements, ""] });
+  const updateRequirement = (index: number, value: string) =>
+    setFormData({
+      ...formData,
+      requirements: formData.requirements.map((r, i) => (i === index ? value : r)),
+    });
+  const removeRequirement = (index: number) =>
+    setFormData({
+      ...formData,
+      requirements: formData.requirements.filter((_, i) => i !== index),
+    });
+
   const openAddModal = () => {
     resetForm();
     setShowModal(true);
   };
 
   const openEditModal = (job: Job) => {
+    const hasStructured =
+      !!job.summary || !!job.responsibilities?.length || !!job.requirements?.length;
+    const structured = hasStructured
+      ? {
+          summary: job.summary ?? "",
+          responsibilities: job.responsibilities ?? [],
+          requirements: job.requirements ?? [],
+        }
+      : parseLegacyDescription(job.description);
     setEditingJob(job);
     setFormData({
       title: job.title,
@@ -177,7 +222,9 @@ export default function JobsPage() {
       type: job.type,
       positionType: job.positionType || "hourly",
       department: job.department,
-      description: job.description,
+      summary: structured.summary,
+      responsibilities: structured.responsibilities,
+      requirements: structured.requirements,
       benefits: job.benefits.join(", "),
       keywords: job.keywords.join(", "),
       status: job.status,
@@ -189,6 +236,15 @@ export default function JobsPage() {
   };
 
   const openCopyModal = (job: Job) => {
+    const hasStructured =
+      !!job.summary || !!job.responsibilities?.length || !!job.requirements?.length;
+    const structured = hasStructured
+      ? {
+          summary: job.summary ?? "",
+          responsibilities: job.responsibilities ?? [],
+          requirements: job.requirements ?? [],
+        }
+      : parseLegacyDescription(job.description);
     setEditingJob(null); // Not editing, creating a copy
     setFormData({
       title: `${job.title} (Copy)`,
@@ -197,7 +253,9 @@ export default function JobsPage() {
       type: job.type,
       positionType: job.positionType || "hourly",
       department: job.department,
-      description: job.description,
+      summary: structured.summary,
+      responsibilities: structured.responsibilities,
+      requirements: structured.requirements,
       benefits: job.benefits.join(", "),
       keywords: job.keywords.join(", "),
       status: "open",
@@ -243,6 +301,17 @@ export default function JobsPage() {
       .map((k) => k.trim())
       .filter((k) => k);
 
+    const summary = formData.summary.trim();
+    const responsibilities = formData.responsibilities.map((r) => r.trim()).filter(Boolean);
+    const requirements = formData.requirements.map((r) => r.trim()).filter(Boolean);
+
+    if (!summary) {
+      alert('Please fill in the "About This Position" summary.');
+      return;
+    }
+
+    const description = composeDescription({ summary, responsibilities, requirements });
+
     try {
       // Use first location as primary
       const primaryLocation = formData.locations[0];
@@ -257,7 +326,10 @@ export default function JobsPage() {
           type: formData.type,
           positionType: formData.positionType,
           department: formData.department,
-          description: formData.description,
+          description,
+          summary,
+          responsibilities,
+          requirements,
           benefits: benefitsArray,
           keywords: keywordsArray,
           status: formData.status,
@@ -276,7 +348,10 @@ export default function JobsPage() {
           type: formData.type,
           positionType: formData.positionType,
           department: formData.department,
-          description: formData.description,
+          description,
+          summary,
+          responsibilities,
+          requirements,
           benefits: benefitsArray,
           keywords: keywordsArray,
           badgeType: formData.badgeType,
@@ -792,15 +867,84 @@ export default function JobsPage() {
 
                   <div>
                     <label className="block ui-section-label mb-1">
-                      Description *
+                      About This Position *
                     </label>
                     <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      value={formData.summary}
+                      onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
                       rows={4}
                       className="theme-input w-full px-4 py-2 resize-none"
+                      placeholder="Short intro paragraph about the role and company."
                       required
                     />
+                  </div>
+
+                  <div>
+                    <label className="block ui-section-label mb-1">
+                      What You&apos;ll Do
+                    </label>
+                    <div className="space-y-2">
+                      {formData.responsibilities.map((item, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={item}
+                            onChange={(e) => updateResponsibility(i, e.target.value)}
+                            placeholder="e.g. Greet customers, vendors, and visitors"
+                            className="theme-input flex-1 px-4 py-2"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeResponsibility(i)}
+                            className="px-3 py-2 text-sm rounded-lg text-red-500 hover:bg-red-500/10"
+                            aria-label="Remove responsibility"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={addResponsibility}
+                        className="text-sm text-[#007AFF] hover:underline"
+                      >
+                        + Add responsibility
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block ui-section-label mb-1">
+                      What We&apos;re Looking For
+                    </label>
+                    <div className="space-y-2">
+                      {formData.requirements.map((item, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={item}
+                            onChange={(e) => updateRequirement(i, e.target.value)}
+                            placeholder="e.g. High school diploma or equivalent"
+                            className="theme-input flex-1 px-4 py-2"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeRequirement(i)}
+                            className="px-3 py-2 text-sm rounded-lg text-red-500 hover:bg-red-500/10"
+                            aria-label="Remove requirement"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={addRequirement}
+                        className="text-sm text-[#007AFF] hover:underline"
+                      >
+                        + Add requirement
+                      </button>
+                    </div>
                   </div>
 
                   <div>

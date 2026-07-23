@@ -135,6 +135,9 @@ export default defineSchema({
     department: v.string(),
     status: v.string(),
     description: v.string(),
+    summary: v.optional(v.string()), // "About This Position" intro
+    responsibilities: v.optional(v.array(v.string())), // "What You'll Do"
+    requirements: v.optional(v.array(v.string())), // "What We're Looking For"
     benefits: v.array(v.string()),
     keywords: v.array(v.string()),
     isActive: v.boolean(),
