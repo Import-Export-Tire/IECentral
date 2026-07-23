@@ -11,7 +11,7 @@ const OFFER_HEADINGS = ["What We Offer", "Benefits"];
 // Normalize curly apostrophes to straight and lowercase. This is a 1:1
 // character replacement, so indices in the normalized string map exactly
 // onto the original string.
-const norm = (s: string) => s.replace(/['']/g, "'").toLowerCase();
+const norm = (s: string) => s.replace(/[‘’]/g, "'").toLowerCase();
 
 export function composeDescription(listing: StructuredListing): string {
   const parts: string[] = [];

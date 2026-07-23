@@ -44,7 +44,7 @@ describe("parseLegacyDescription", () => {
   });
 
   it("normalizes curly apostrophes in headings", () => {
-    const legacy = "Intro. What You'll Do Do stuff. What We're Looking For A degree.";
+    const legacy = "Intro. What You’ll Do Do stuff. What We’re Looking For A degree.";
     const r = parseLegacyDescription(legacy);
     expect(r.summary).toBe("Intro.");
     expect(r.responsibilities).toEqual(["Do stuff."]);
