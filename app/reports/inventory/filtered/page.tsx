@@ -43,6 +43,20 @@ function ymLabel(ym: string): string {
   return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(m) - 1]} ${y}`;
 }
 
+// Safety cap on the adjustments log query. Well above any realistic
+// per-location history, but keeps a runaway table from blowing Convex's
+// per-query bandwidth limit. The UI warns when the cap is reached.
+const ADJ_LOG_CAP = 5000;
+
+type AdjRange = "thisMonth" | "lastMonth" | "last90" | "all";
+
+const ADJ_RANGE_LABELS: Record<AdjRange, string> = {
+  thisMonth: "This Month",
+  lastMonth: "Last Month",
+  last90: "Last 90 Days",
+  all: "All Time",
+};
+
 function brandAbbr(brand: string): string {
   return brand.replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase();
 }
@@ -74,20 +88,44 @@ export default function FilteredInventoryReportPage() {
   const [adjSaving, setAdjSaving] = useState(false);
   const [adjError, setAdjError] = useState("");
   const [adjGenerating, setAdjGenerating] = useState(false);
+  const [adjExporting, setAdjExporting] = useState(false);
 
   // Adjustments log filters
   const [adjSearch, setAdjSearch] = useState("");
-  const [adjRange, setAdjRange] = useState<"thisMonth" | "lastMonth" | "last90" | "all">("thisMonth");
+  const [adjRange, setAdjRange] = useState<AdjRange>("thisMonth");
   const [adjPage, setAdjPage] = useState(0);
+  // 0 = show all rows on one page.
   const [adjPageSize, setAdjPageSize] = useState(50);
 
   const addAdjustment = useMutation(api.inventoryAdjustments.add);
   const removeAdjustment = useMutation(api.inventoryAdjustments.remove);
-  // Log display: cap at 50 most-recent to stay under Convex bandwidth
-  // limits as a location's history grows.
+
+  // Date-range bounds (ms since epoch). thisMonth/lastMonth use calendar month.
+  // Declared before the log query because the query is bounded by `start`.
+  const adjRangeBounds = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = (y: number, m: number) => new Date(y, m, 1).getTime();
+    if (adjRange === "thisMonth") {
+      return { start: startOfMonth(now.getFullYear(), now.getMonth()), end: Infinity };
+    }
+    if (adjRange === "lastMonth") {
+      return { start: startOfMonth(now.getFullYear(), now.getMonth() - 1), end: startOfMonth(now.getFullYear(), now.getMonth()) };
+    }
+    if (adjRange === "last90") {
+      return { start: now.getTime() - 90 * 86_400_000, end: Infinity };
+    }
+    return { start: 0, end: Infinity };
+  }, [adjRange]);
+
+  // Log display: bounded server-side by the selected date range rather than
+  // by a fixed tail, so every adjustment in range is visible. ADJ_LOG_CAP is
+  // only a backstop against Convex's per-query bandwidth limit; hitting it is
+  // surfaced in the UI so nothing is silently dropped.
   const adjustments = useQuery(
     api.inventoryAdjustments.listByLocation,
-    location ? { locationCode: location, limit: 50 } : "skip"
+    location
+      ? { locationCode: location, since: adjRangeBounds.start, limit: ADJ_LOG_CAP }
+      : "skip"
   );
   // Stats aggregation: bounded by date (~6 months) instead of count so
   // MoM / repeat-month / consecutive-month metrics stay accurate.
@@ -158,22 +196,6 @@ export default function FilteredInventoryReportPage() {
     return key ? itemLookup.get(key) : undefined;
   }, [adjItemId, itemLookup]);
 
-  // Date-range bounds (ms since epoch). thisMonth/lastMonth use calendar month.
-  const adjRangeBounds = useMemo(() => {
-    const now = new Date();
-    const startOfMonth = (y: number, m: number) => new Date(y, m, 1).getTime();
-    if (adjRange === "thisMonth") {
-      return { start: startOfMonth(now.getFullYear(), now.getMonth()), end: Infinity };
-    }
-    if (adjRange === "lastMonth") {
-      return { start: startOfMonth(now.getFullYear(), now.getMonth() - 1), end: startOfMonth(now.getFullYear(), now.getMonth()) };
-    }
-    if (adjRange === "last90") {
-      return { start: now.getTime() - 90 * 86_400_000, end: Infinity };
-    }
-    return { start: 0, end: Infinity };
-  }, [adjRange]);
-
   // Filter and paginate the log.
   const filteredAdjustments = useMemo(() => {
     const list = adjustments ?? [];
@@ -191,8 +213,14 @@ export default function FilteredInventoryReportPage() {
   // Reset page on filter change.
   useEffect(() => { setAdjPage(0); }, [adjSearch, adjRange, adjPageSize]);
 
-  const adjTotalPages = Math.max(1, Math.ceil(filteredAdjustments.length / adjPageSize));
-  const adjPaged = useMemo(() => filteredAdjustments.slice(adjPage * adjPageSize, (adjPage + 1) * adjPageSize), [filteredAdjustments, adjPage, adjPageSize]);
+  // adjPageSize of 0 means "All" — collapse to a single page.
+  const adjEffectivePageSize = adjPageSize > 0 ? adjPageSize : Math.max(1, filteredAdjustments.length);
+  const adjTotalPages = Math.max(1, Math.ceil(filteredAdjustments.length / adjEffectivePageSize));
+  const adjPaged = useMemo(
+    () => filteredAdjustments.slice(adjPage * adjEffectivePageSize, (adjPage + 1) * adjEffectivePageSize),
+    [filteredAdjustments, adjPage, adjEffectivePageSize]
+  );
+  const adjCapped = (adjustments?.length ?? 0) >= ADJ_LOG_CAP;
 
   // Aggregate stats over the location's adjustments — MoM count, per-item MoM,
   // repeat flags. Uses the date-bounded query so the underlying row count
@@ -345,8 +373,108 @@ export default function FilteredInventoryReportPage() {
     await removeAdjustment({ id: id as any });
   }, [removeAdjustment]);
 
+  // Newest-first rows for both exports. Driven by the on-screen filter so a
+  // print/export always matches what the user is looking at.
+  const adjExportRows = useMemo(
+    () => [...filteredAdjustments].sort((a, b) => b.createdAt - a.createdAt),
+    [filteredAdjustments]
+  );
+
+  // Shared naming for both exports.
+  const adjExportMeta = useCallback(() => {
+    const storeName = locationLabel(location);
+    const fullStore = `${location} - ${storeName}`;
+    const now = new Date();
+    const ranDate = `${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}/${String(now.getFullYear()).slice(2)}`;
+    const ranTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const rangeLabel = ADJ_RANGE_LABELS[adjRange];
+    const fileSlug = `${location}_${storeName.replace(/[^A-Za-z0-9]+/g, "_")}`;
+    return { storeName, fullStore, ranDate, ranTime, rangeLabel, fileSlug };
+  }, [location, adjRange]);
+
+  const handleExportAdjustmentsExcel = useCallback(async () => {
+    if (!location || adjExportRows.length === 0) return;
+    setAdjExporting(true);
+    try {
+      const XLSX = await import("xlsx");
+      const { fullStore, ranDate, rangeLabel, fileSlug } = adjExportMeta();
+      const wb = XLSX.utils.book_new();
+
+      // Sheet 1 — the log itself, matching the on-screen filter.
+      // Qty stays a real number so Excel can sum/filter on it.
+      const logSheet = XLSX.utils.aoa_to_sheet([
+        [`${fullStore} — Inventory Adjustments (${rangeLabel})`],
+        [`Ran: ${ranDate}`, `${adjExportRows.length} record${adjExportRows.length === 1 ? "" : "s"}`],
+        [],
+        ["Date", "Item ID", "Mfg", "Description", "Qty", "Notes", "Entered By"],
+        ...adjExportRows.map((a) => [
+          new Date(a.createdAt).toLocaleString(undefined, { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }),
+          a.itemId,
+          a.manufacturerName || "",
+          a.description || "",
+          a.qtyChange,
+          a.notes || "",
+          a.enteredByName,
+        ]),
+      ]);
+      logSheet["!cols"] = [{ wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 38 }, { wch: 8 }, { wch: 30 }, { wch: 20 }];
+      // Autofilter over the header row (row 4) + data. Freeze panes aren't
+      // supported by the community xlsx build, so this is the useful knob.
+      logSheet["!autofilter"] = { ref: `A4:G${4 + adjExportRows.length}` };
+      XLSX.utils.book_append_sheet(wb, logSheet, "Adjustments");
+
+      // Sheet 2 — monthly activity. Sourced from the 6-month stats query, so
+      // its scope is fixed regardless of the log filter; labeled as such.
+      const monthlySheet = XLSX.utils.aoa_to_sheet([
+        ["Monthly Activity (last 6 months)"],
+        [],
+        ["Month", "Adjustments"],
+        ...adjStats.countByYm.map(([ym, n]) => [ymLabel(ym), n]),
+      ]);
+      monthlySheet["!cols"] = [{ wch: 16 }, { wch: 14 }];
+      XLSX.utils.book_append_sheet(wb, monthlySheet, "Monthly Activity");
+
+      // Sheet 3 — per-item month-over-month net qty.
+      if (adjStats.perItemMoM.length > 0) {
+        const momSheet = XLSX.utils.aoa_to_sheet([
+          [`Per-Item MoM — ${ymLabel(adjStats.priorYm)} vs ${ymLabel(adjStats.currentYm)}`],
+          [],
+          ["Item ID", "Mfg", "Description", ymLabel(adjStats.priorYm), ymLabel(adjStats.currentYm), "Delta"],
+          ...adjStats.perItemMoM.map((r) => [
+            r.itemId, r.meta.manufacturerName, r.meta.description, r.prior, r.current, r.current - r.prior,
+          ]),
+        ]);
+        momSheet["!cols"] = [{ wch: 16 }, { wch: 16 }, { wch: 38 }, { wch: 12 }, { wch: 12 }, { wch: 10 }];
+        XLSX.utils.book_append_sheet(wb, momSheet, "Per-Item MoM");
+      }
+
+      // Sheet 4 — the two review flags, stacked on one sheet.
+      if (adjStats.repeatedThisMonth.length > 0 || adjStats.consecutiveMultiMonth.length > 0) {
+        const flagRows: (string | number)[][] = [["Repeated this month (2+ entries)"], [], ["Item ID", "Mfg", "Description", "Count"]];
+        for (const r of adjStats.repeatedThisMonth) {
+          flagRows.push([r.itemId, r.meta.manufacturerName, r.meta.description, r.count]);
+        }
+        if (adjStats.repeatedThisMonth.length === 0) flagRows.push(["None"]);
+        flagRows.push([], ["Consecutive months (same item 2+ months in a row)"], [], ["Item ID", "Mfg", "Description", "Months"]);
+        for (const r of adjStats.consecutiveMultiMonth) {
+          flagRows.push([r.itemId, r.meta.manufacturerName, r.meta.description, r.months.map(ymLabel).join(", ")]);
+        }
+        if (adjStats.consecutiveMultiMonth.length === 0) flagRows.push(["None"]);
+        const flagSheet = XLSX.utils.aoa_to_sheet(flagRows);
+        flagSheet["!cols"] = [{ wch: 16 }, { wch: 16 }, { wch: 38 }, { wch: 30 }];
+        XLSX.utils.book_append_sheet(wb, flagSheet, "Flags");
+      }
+
+      XLSX.writeFile(wb, `${fileSlug}_adjustments_${ranDate.replace(/\//g, "")}.xlsx`);
+    } catch (err) {
+      setAdjError(err instanceof Error ? err.message : "Excel export failed");
+    } finally {
+      setAdjExporting(false);
+    }
+  }, [location, adjExportRows, adjExportMeta, adjStats]);
+
   const handleGenerateAdjustmentsPDF = useCallback(async () => {
-    if (!location || !adjustmentsForStats || adjustmentsForStats.length === 0) return;
+    if (!location || adjExportRows.length === 0) return;
     setAdjGenerating(true);
     try {
       const { jsPDF } = await import("jspdf");
@@ -357,13 +485,9 @@ export default function FilteredInventoryReportPage() {
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
 
-      const storeName = locationLabel(location);
-      const fullStore = `${location} - ${storeName}`;
-      const title = `${fullStore} - Inventory Adjustments (Last 6 Months)`;
-      const now = new Date();
-      const ranDate = `${String(now.getMonth()+1).padStart(2,"0")}/${String(now.getDate()).padStart(2,"0")}/${String(now.getFullYear()).slice(2)}`;
-      const ranTime = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
-      const ranStr = `Ran: ${ranDate} ${ranTime}`;
+      const { fullStore, ranDate, ranTime, rangeLabel, fileSlug } = adjExportMeta();
+      const title = `${fullStore} - Inventory Adjustments (${rangeLabel})`;
+      const ranStr = `Ran: ${ranDate} ${ranTime} — ${adjExportRows.length} record${adjExportRows.length === 1 ? "" : "s"}`;
       const footerLeft = `${fullStore} Adjustments - ${ranDate}`;
 
       const drawHeaderFooter = () => {
@@ -374,9 +498,8 @@ export default function FilteredInventoryReportPage() {
         doc.text(footerLeft, 36, pageHeight - 24);
       };
 
-      // Section 1 — chronological log over the stats window (newest first)
-      const sorted = [...adjustmentsForStats].sort((a, b) => b.createdAt - a.createdAt);
-      const logBody = sorted.map((a) => [
+      // Section 1 — chronological log over the selected range (newest first)
+      const logBody = adjExportRows.map((a) => [
         new Date(a.createdAt).toLocaleString(undefined, { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }),
         a.itemId,
         a.manufacturerName || "",
@@ -409,7 +532,7 @@ export default function FilteredInventoryReportPage() {
       doc.addPage();
       drawHeaderFooter();
       doc.setFontSize(13); doc.setFont("helvetica", "bold");
-      doc.text("Monthly Activity", 36, 80);
+      doc.text("Monthly Activity (last 6 months)", 36, 80);
       autoTable(doc, {
         head: [["Month", "Adjustments"]],
         body: adjStats.countByYm.map(([ym, n]) => [ymLabel(ym), String(n)]),
@@ -489,14 +612,13 @@ export default function FilteredInventoryReportPage() {
         doc.text(`Page ${i} of ${total}`, pageWidth - 36, pageHeight - 24, { align: "right" });
       }
 
-      const fileSlug = `${location}_${storeName.replace(/[^A-Za-z0-9]+/g, "_")}`;
       doc.save(`${fileSlug}_adjustments_${ranDate.replace(/\//g,"")}.pdf`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "PDF generation failed");
+      setAdjError(err instanceof Error ? err.message : "PDF generation failed");
     } finally {
       setAdjGenerating(false);
     }
-  }, [location, adjustmentsForStats, adjStats]);
+  }, [location, adjExportRows, adjExportMeta, adjStats]);
 
   const handleGenerate = useCallback(async () => {
     if (filteredRows.length === 0) return;
@@ -945,21 +1067,35 @@ export default function FilteredInventoryReportPage() {
                       <option value="all">All time</option>
                     </select>
                     <span className="text-xs theme-text-tertiary">
-                      {filteredAdjustments.length} of {adjustments?.length ?? 0}
-                      {adjustments && adjustments.length >= 50 ? " (last 50)" : ""}
+                      {filteredAdjustments.length} of {adjustments?.length ?? 0} in range
+                      {adjCapped ? ` (capped at ${ADJ_LOG_CAP} — narrow the range)` : ""}
                     </span>
                     <button
                       onClick={handleGenerateAdjustmentsPDF}
-                      disabled={adjGenerating || !adjustments || adjustments.length === 0}
+                      disabled={adjGenerating || adjExportRows.length === 0}
+                      title="Export the rows matching the current filter as a PDF"
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50 bg-purple-500/20 text-purple-700 dark:text-purple-400 hover:bg-purple-500/30 transition-colors"
                     >
                       {adjGenerating ? "Generating…" : "Print PDF"}
+                    </button>
+                    <button
+                      onClick={handleExportAdjustmentsExcel}
+                      disabled={adjExporting || adjExportRows.length === 0}
+                      title="Export the rows matching the current filter as an Excel workbook"
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50 bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/30 transition-colors"
+                    >
+                      {adjExporting ? "Exporting…" : "Export Excel"}
                     </button>
                   </div>
                   {!adjustments ? (
                     <p className="p-4 text-sm theme-text-tertiary">Loading…</p>
                   ) : adjustments.length === 0 ? (
-                    <p className="p-4 text-sm theme-text-tertiary">No adjustments logged for this location yet.</p>
+                    // The query is scoped to the selected range, so an empty
+                    // result means "none in range", not "none ever".
+                    <p className="p-4 text-sm theme-text-tertiary">
+                      No adjustments for this location in {ADJ_RANGE_LABELS[adjRange].toLowerCase()}
+                      {adjRange !== "all" ? " — try widening the date range." : "."}
+                    </p>
                   ) : filteredAdjustments.length === 0 ? (
                     <p className="p-4 text-sm theme-text-tertiary">No adjustments match the current filter.</p>
                   ) : (
@@ -999,7 +1135,7 @@ export default function FilteredInventoryReportPage() {
                       </div>
                       <div className="flex items-center justify-between px-4 py-3 border-t theme-border-secondary">
                         <span className="text-xs theme-text-tertiary">
-                          Showing {adjPage * adjPageSize + 1}–{Math.min((adjPage + 1) * adjPageSize, filteredAdjustments.length)} of {filteredAdjustments.length}
+                          Showing {adjPage * adjEffectivePageSize + 1}–{Math.min((adjPage + 1) * adjEffectivePageSize, filteredAdjustments.length)} of {filteredAdjustments.length}
                         </span>
                         <div className="flex items-center gap-2">
                           <select
@@ -1007,7 +1143,8 @@ export default function FilteredInventoryReportPage() {
                             onChange={(e) => setAdjPageSize(Number(e.target.value))}
                             className="theme-input px-2 py-1 text-xs"
                           >
-                            {[25, 50, 100].map((s) => <option key={s} value={s}>{s}/page</option>)}
+                            {[25, 50, 100, 250, 500].map((s) => <option key={s} value={s}>{s}/page</option>)}
+                            <option value={0}>All</option>
                           </select>
                           <Button variant="ghost" size="sm" disabled={adjPage === 0} onClick={() => setAdjPage((p) => p - 1)}>Prev</Button>
                           <span className="text-xs theme-text-tertiary">{adjPage + 1}/{adjTotalPages}</span>
