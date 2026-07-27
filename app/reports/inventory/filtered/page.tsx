@@ -196,19 +196,24 @@ export default function FilteredInventoryReportPage() {
     return key ? itemLookup.get(key) : undefined;
   }, [adjItemId, itemLookup]);
 
-  // Filter and paginate the log.
+  // The query is lower-bounded server-side by `since`, but ranges like
+  // "last month" also have an upper bound — apply it here so the row
+  // counter's denominator reflects the range, not just the fetch.
+  const adjInRange = useMemo(() => {
+    return (adjustments ?? []).filter(
+      (a) => a.createdAt >= adjRangeBounds.start && a.createdAt < adjRangeBounds.end
+    );
+  }, [adjustments, adjRangeBounds]);
+
+  // Then narrow by the search box.
   const filteredAdjustments = useMemo(() => {
-    const list = adjustments ?? [];
     const q = adjSearch.trim().toLowerCase();
-    return list.filter((a) => {
-      if (a.createdAt < adjRangeBounds.start || a.createdAt >= adjRangeBounds.end) return false;
-      if (q) {
-        const hay = `${a.itemId} ${a.manufacturerName ?? ""} ${a.description ?? ""} ${a.notes ?? ""}`.toLowerCase();
-        if (!hay.includes(q) && !tireSizeMatchesQuery(a.description, adjSearch)) return false;
-      }
-      return true;
+    if (!q) return adjInRange;
+    return adjInRange.filter((a) => {
+      const hay = `${a.itemId} ${a.manufacturerName ?? ""} ${a.description ?? ""} ${a.notes ?? ""}`.toLowerCase();
+      return hay.includes(q) || tireSizeMatchesQuery(a.description, adjSearch);
     });
-  }, [adjustments, adjSearch, adjRangeBounds]);
+  }, [adjInRange, adjSearch]);
 
   // Reset page on filter change.
   useEffect(() => { setAdjPage(0); }, [adjSearch, adjRange, adjPageSize]);
@@ -1067,7 +1072,7 @@ export default function FilteredInventoryReportPage() {
                       <option value="all">All time</option>
                     </select>
                     <span className="text-xs theme-text-tertiary">
-                      {filteredAdjustments.length} of {adjustments?.length ?? 0} in range
+                      {filteredAdjustments.length} of {adjInRange.length} in range
                       {adjCapped ? ` (capped at ${ADJ_LOG_CAP} — narrow the range)` : ""}
                     </span>
                     <button
@@ -1089,7 +1094,7 @@ export default function FilteredInventoryReportPage() {
                   </div>
                   {!adjustments ? (
                     <p className="p-4 text-sm theme-text-tertiary">Loading…</p>
-                  ) : adjustments.length === 0 ? (
+                  ) : adjInRange.length === 0 ? (
                     // The query is scoped to the selected range, so an empty
                     // result means "none in range", not "none ever".
                     <p className="p-4 text-sm theme-text-tertiary">
