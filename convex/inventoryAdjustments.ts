@@ -37,19 +37,25 @@ export const remove = mutation({
   },
 });
 
-// Display query for the adjustments log — capped to avoid Convex's
-// per-query row/bandwidth limits as a location's history grows
-// unbounded. Default cap is 50 most-recent entries.
+// Display query for the adjustments log. Bounded primarily by date
+// (`since`) so the caller can pull a full date range rather than an
+// arbitrary tail; `limit` remains as a safety cap against Convex's
+// per-query row/bandwidth limits on very large histories.
 export const listByLocation = query({
   args: {
     locationCode: v.string(),
+    since: v.optional(v.number()),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const code = args.locationCode.trim().toUpperCase();
     const q = ctx.db
       .query("inventoryAdjustments")
-      .withIndex("by_location_created", (q) => q.eq("locationCode", code))
+      .withIndex("by_location_created", (q) =>
+        // createdAt is always a positive epoch ms, so `0` is an
+        // effective "no lower bound" while keeping one code path.
+        q.eq("locationCode", code).gte("createdAt", args.since ?? 0)
+      )
       .order("desc");
     if (args.limit !== undefined) {
       return await q.take(args.limit);
