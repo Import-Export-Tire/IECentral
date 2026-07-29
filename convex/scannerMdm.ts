@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query, mutation, internalMutation, action } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { requireAdmin } from "./authGuards";
+import { buildRtConfig } from "../lib/scanners/rtConfig";
 
 // ============ FLEET OVERVIEW ============
 
@@ -751,7 +752,10 @@ export const claimProvision = internalMutation({
       });
     }
 
-    // Fetch RT config for the scanner's location
+    // Fetch RT config for the scanner's location. Built by the shared builder so the bytes
+    // are identical to what the wizard pushed over ADB (both writers hit the same file).
+    // A config with problems is NOT returned — writing a knowingly-broken rtlconfig.xml is
+    // worse than writing none, because RT then fails in a way nobody attributes to setup.
     let rtConfigXml: string | undefined;
     if (scanner) {
       const mdmConfig = await ctx.db
@@ -759,12 +763,19 @@ export const claimProvision = internalMutation({
         .withIndex("by_location", (q) => q.eq("locationId", scanner.locationId))
         .first();
       if (mdmConfig) {
-        rtConfigXml = mdmConfig.rtConfigXml || `<RT>
-    <ORIENTATION>PORTRAIT</ORIENTATION>
-    <DEVICEID>${scanner.number}</DEVICEID>
-    <SCALEFACTOR>3.5</SCALEFACTOR>
-    <RTLMOBILEURL>${mdmConfig.rtLocatorUrl}</RTLMOBILEURL>
-</RT>`;
+        const built = buildRtConfig({
+          locationCode: mdmConfig.locationCode,
+          rtLocatorUrl: mdmConfig.rtLocatorUrl,
+          rtDeviceId: mdmConfig.rtDeviceId ?? "",
+          template: mdmConfig.rtConfigXml,
+        });
+        if (built.problems.length > 0) {
+          console.error(
+            `claimProvision: refusing to send RT config for ${mdmConfig.locationCode}: ${built.problems.join("; ")}`,
+          );
+        } else {
+          rtConfigXml = built.xml;
+        }
       }
     }
 
