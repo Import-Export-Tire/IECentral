@@ -318,4 +318,35 @@ export class WebAdbClient {
   getConnection(): AdbConnection | null {
     return this.connection;
   }
+
+  /**
+   * Grant the WRITE_SETTINGS appop so the agent can change SYSTEM settings (screen timeout,
+   * rotation) on its own from now on. This is an appop, not a runtime permission, so
+   * dpm.setPermissionGrantState cannot do it and `pm grant` does not apply — it must be set
+   * over ADB, once, here. Without it every future settings change needs USB again.
+   */
+  async grantWriteSettings(pkg = "com.ietires.scanneragent"): Promise<void> {
+    const out = await this.shell(`appops set ${pkg} WRITE_SETTINGS allow 2>&1`);
+    if (out.trim() && !/^\s*$/.test(out) && /Error|Exception|Unknown/i.test(out)) {
+      throw new Error(`appops WRITE_SETTINGS failed: ${out.trim()}`);
+    }
+  }
+
+  /**
+   * Enable an accessibility service. `enabled_accessibility_services` is a SECURE setting
+   * outside dpm.setSecureSetting's allowlist on API 27, so shell is the only way in — which
+   * is why re-enabling a disabled service later needs USB. Appends to any existing value
+   * rather than clobbering it, and is idempotent.
+   */
+  async enableAccessibilityService(component: string): Promise<void> {
+    const current = (await this.shell("settings get secure enabled_accessibility_services")).trim();
+    const existing = current === "null" || current === "" ? "" : current;
+    if (existing.split(":").includes(component)) {
+      await this.shell("settings put secure accessibility_enabled 1");
+      return;
+    }
+    const next = existing ? `${existing}:${component}` : component;
+    await this.shell(`settings put secure enabled_accessibility_services ${next}`);
+    await this.shell("settings put secure accessibility_enabled 1");
+  }
 }

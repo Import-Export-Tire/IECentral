@@ -279,6 +279,12 @@ export function InstallStep({ session }: { session: Session }) {
           actions.setDeviceOwner(true);
         });
 
+        // Grant the WRITE_SETTINGS appop while we still have USB. This is what makes future
+        // device-settings changes deliverable remotely instead of needing another USB visit.
+        await runStep("grantWriteSettings", "Granting settings-write permission", async () => {
+          await client.grantWriteSettings(AGENT_PKG);
+        });
+
         // 10a. DataWedge: emit a Tab key after each scan (policy-gated, idempotent)
         if (lockPolicy.dataWedgeTab) {
           await runStep("datawedge", "Configuring DataWedge (Tab)", async () => {
