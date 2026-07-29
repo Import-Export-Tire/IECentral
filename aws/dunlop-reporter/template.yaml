@@ -635,6 +635,13 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
+              # NOTE the globs have NO trailing slash before the `*`. When a client
+              # opens the LOGICAL root "/", Transfer enumerates the mapping targets
+              # using the target path *without* a trailing slash, i.e. s3:prefix is
+              # "jmk-uploads/oeival" — which "jmk-uploads/oeival/*" does NOT match.
+              # With the slash, `ls /` returns "Access denied" and the client shows
+              # no folders at all, while `ls /inventory` still works (verified by
+              # A/B-testing both forms against the live server).
               - Sid: List
                 Effect: Allow
                 Action: s3:ListBucket
@@ -642,10 +649,14 @@ Resources:
                 Condition:
                   StringLike:
                     s3:prefix:
-                      - "jmk-uploads/sftp-sales/*"
-                      - "jmk-uploads/oeival/*"
+                      - "jmk-uploads/sftp-sales*"
+                      - "jmk-uploads/oeival*"
               # Upload-only: PutObject only. No GetObject (read) or DeleteObject
               # (delete) — JMK can drop files but cannot download or remove anything.
+              # Keep these ARNs slash-terminated: granting PutObject on the bare
+              # "…/sftp-sales" key would let a client create an object whose name
+              # equals the prefix, which makes Transfer treat the mapped directory
+              # as a file and breaks listing (see the 2026-06-24 marker incident).
               - Sid: UploadOnly
                 Effect: Allow
                 Action: [s3:PutObject]
