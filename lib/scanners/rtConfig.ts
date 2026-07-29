@@ -251,6 +251,14 @@ export function buildRtConfig(input: RtConfigInput): RtConfigResult {
             `rtConfigXml for ${locationCode} has a <${tag}> tag that countTag finds present exactly once, but its content could not be read as plain text — it likely contains a nested inner tag (e.g. <${tag}>abc<FAKE>def</FAKE>ghi</${tag}>); fix the template so <${tag}> contains only text`,
           );
           hasUnreadableRequiredTag = true;
+        } else {
+          const tagContent = readTag(xml, tag);
+          if (tagContent !== null && !tagContent.trim()) {
+            problems.push(
+              `rtConfigXml for ${locationCode} has an empty or whitespace-only <${tag}> tag — each required tag must contain a non-empty value`,
+            );
+            hasUnreadableRequiredTag = true;
+          }
         }
       }
       if (hasUnreadableRequiredTag) {

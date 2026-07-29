@@ -212,4 +212,29 @@ describe("buildRtConfig", () => {
     const r = buildRtConfig({ ...OK, template });
     expect(r.problems.some((p) => /root/i.test(p))).toBe(true);
   });
+
+  // Gap 4 — Critical: empty or whitespace-only required tags pass through as broken config.
+  it("rejects a template with an empty ORIENTATION tag instead of writing empty config to the device", () => {
+    const template = `<RT>
+    <ORIENTATION></ORIENTATION>
+    <DEVICEID>0001</DEVICEID>
+    <SCALEFACTOR>3.5</SCALEFACTOR>
+    <RTLMOBILEURL>https://rtl.example.com/mobile</RTLMOBILEURL>
+</RT>`;
+    const r = buildRtConfig({ ...OK, template });
+    expect(r.problems.length).toBeGreaterThan(0);
+    expect(r.problems.some((p) => p.includes("ORIENTATION"))).toBe(true);
+  });
+
+  it("rejects a template with a whitespace-only SCALEFACTOR tag instead of writing empty config to the device", () => {
+    const template = `<RT>
+    <ORIENTATION>PORTRAIT</ORIENTATION>
+    <DEVICEID>0001</DEVICEID>
+    <SCALEFACTOR>   </SCALEFACTOR>
+    <RTLMOBILEURL>https://rtl.example.com/mobile</RTLMOBILEURL>
+</RT>`;
+    const r = buildRtConfig({ ...OK, template });
+    expect(r.problems.length).toBeGreaterThan(0);
+    expect(r.problems.some((p) => p.includes("SCALEFACTOR"))).toBe(true);
+  });
 });
