@@ -532,6 +532,7 @@ export const upsertMdmConfig = mutation({
     currentRtLocatorVersion: v.optional(v.string()),
     currentAgentVersion: v.optional(v.string()),
     rtConfigXml: v.optional(v.string()),
+    rtDeviceId: v.optional(v.string()),
     notes: v.optional(v.string()),
     userId: v.optional(v.id("users")),
   },

@@ -1081,6 +1081,9 @@ export default defineSchema({
     locationId: v.id("locations"),
     locationCode: v.string(), // "W08", "R10", "W09"
     rtLocatorUrl: v.string(),
+    // RT DEVICEID for this location. CONSTANT per location — every scanner at the store
+    // reports the same value. Never a scanner number; see lib/scanners/rtConfig.ts.
+    rtDeviceId: v.optional(v.string()),
     defaultDeviceIdPrefix: v.string(), // e.g., "W08-"
     screenTimeoutMs: v.number(), // Default 1800000 (30 min)
     screenRotation: v.string(), // "auto" | "portrait" | "landscape"

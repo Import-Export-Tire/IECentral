@@ -43,6 +43,7 @@ const LOCATION_DEFAULTS: Record<string, { code: string; rtUrl: string }> = {
 
 interface ConfigForm {
   rtLocatorUrl: string;
+  rtDeviceId: string;
   defaultDeviceIdPrefix: string;
   screenTimeoutMs: number;
   screenRotation: string;
@@ -76,6 +77,7 @@ function ScannerSettingsContent() {
   const [selectedLocationId, setSelectedLocationId] = useState<Id<"locations"> | null>(null);
   const [form, setForm] = useState<ConfigForm>({
     rtLocatorUrl: "",
+    rtDeviceId: "",
     defaultDeviceIdPrefix: "",
     screenTimeoutMs: 1800000,
     screenRotation: "portrait",
@@ -123,6 +125,7 @@ function ScannerSettingsContent() {
     if (config) {
       setForm({
         rtLocatorUrl: config.rtLocatorUrl,
+        rtDeviceId: config.rtDeviceId ?? "",
         defaultDeviceIdPrefix: config.defaultDeviceIdPrefix,
         screenTimeoutMs: config.screenTimeoutMs,
         screenRotation: config.screenRotation,
@@ -143,6 +146,7 @@ function ScannerSettingsContent() {
       // Set defaults for new config
       setForm({
         rtLocatorUrl: defaults?.rtUrl ?? "",
+        rtDeviceId: "",
         defaultDeviceIdPrefix: defaults ? `${defaults.code}-` : "",
         screenTimeoutMs: 1800000,
         screenRotation: "portrait",
@@ -211,6 +215,7 @@ function ScannerSettingsContent() {
         locationId: selectedLocationId,
         locationCode: defaults?.code ?? location?.name?.substring(0, 3).toUpperCase() ?? "???",
         rtLocatorUrl: form.rtLocatorUrl,
+        rtDeviceId: form.rtDeviceId || undefined,
         defaultDeviceIdPrefix: form.defaultDeviceIdPrefix,
         screenTimeoutMs: form.screenTimeoutMs,
         screenRotation: form.screenRotation,
@@ -317,6 +322,18 @@ function ScannerSettingsContent() {
                     className="theme-input w-full px-3 py-2 text-sm"
                     placeholder="https://..."
                   />
+                  <div className="mt-3">
+                    <label className="block ui-section-label mb-1.5">RT Device ID</label>
+                    <input
+                      value={form.rtDeviceId}
+                      onChange={(e) => setForm({ ...form, rtDeviceId: e.target.value })}
+                      className="theme-input w-full px-3 py-2 text-sm font-mono"
+                      placeholder="0001"
+                    />
+                    <p className="text-xs mt-1.5 theme-text-tertiary">
+                      Same for every scanner at this location. Not a scanner number.
+                    </p>
+                  </div>
                 </div>
                 <div>
                   <label className="block ui-section-label mb-1.5">Device ID Prefix</label>
