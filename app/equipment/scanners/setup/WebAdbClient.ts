@@ -285,10 +285,15 @@ export class WebAdbClient {
     return m ? m[1].toLowerCase() : null;
   }
 
-  /** File contents, or null when the file is missing/unreadable. */
+  /**
+   * File contents, or null when the file does not exist. An existing but empty file
+   * returns "" — deliberately distinct from null, because "never written" and "written
+   * empty" are different failures and a verification report must not conflate them.
+   */
   async readTextFile(devicePath: string): Promise<string | null> {
-    const out = await this.shell(`cat '${devicePath}' 2>/dev/null`);
-    return out.trim().length > 0 ? out : null;
+    const exists = (await this.shell(`[ -f '${devicePath}' ] && echo YES || echo NO`)).trim();
+    if (!exists.startsWith("YES")) return null;
+    return await this.shell(`cat '${devicePath}' 2>/dev/null`);
   }
 
   async getSystemSetting(key: string): Promise<string | null> {
