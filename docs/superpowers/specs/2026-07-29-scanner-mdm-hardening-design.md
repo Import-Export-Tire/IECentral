@@ -71,11 +71,30 @@ Consequences:
 - whether the DataWedge SET_CONFIG intent took
 - whether Device Owner promotion, PIN initialization, or lockdown actually landed
 
-### 2.3 APK selection is "newest LastModified in S3 wins"
+### 2.3 Build selection is mostly solved; the *version label* is not
 
-`fetch_apk.py`'s `get_latest_s3_apk(app)` returns whichever object under `apks/` is
-newest. There is no pinned version, no checksum, and no per-location control. "The right
-files" is currently unfalsifiable.
+**Correction (2026-07-29):** an earlier draft of this spec claimed there was no pinning and
+no checksum. That was wrong — it came from a stale memory rather than the code. What
+actually exists today:
+
+- **Per-location pinning works.** `scannerMdmConfigs.tireTrackApkS3Key` /
+  `rtLocatorApkS3Key` / `agentApkS3Key` are honored by `fetch_apk.py`, editable in the
+  Scanner Settings UI, and fall back to `get_latest_s3_apk()` only when unset.
+- **Checksum verification works.** `fetch_apk.py` returns the S3 object's
+  `x-amz-meta-sha256`, and `apkManifest.ts:93-100` hashes the downloaded bytes and throws
+  `APK SHA-256 mismatch … Aborting install` before `pm install` ever runs.
+
+Two real gaps remain:
+
+- **The version label is manually maintained and therefore untrustworthy.** The `version`
+  returned for each app is `config.currentTireTrackVersion` (or `"unknown"`) — a
+  hand-typed string in the settings form with nothing tying it to the S3 object actually
+  installed. This is the direct cause of the "vunknown" displays. The version must be
+  derived from the artifact, not typed.
+- **No signer check.** Nothing compares the installed package's signer to the expected
+  one, which is what silently broke RT Locator on W08-004.
+- **`sha256` is only present if whoever uploaded the APK set the metadata.** When absent,
+  `apkManifest.ts` skips verification silently. Absence should be visible, not silent.
 
 ### 2.4 PIN enforcement is boot-only
 
@@ -86,13 +105,22 @@ Separately, the detail page's PIN modal (`app/equipment/scanners/[id]/page.tsx:1
 calls `updateScanner({ pin })`, writing the `scanners.pin` DB field **only**. It never
 reaches the device, so the record silently desynchronizes from reality.
 
-### 2.5 Cert retirement strands devices
+### 2.5 Cert retirement — ALREADY FIXED, no work required
 
-`aws/scanner-mdm/lambdas/provision.py` runs `retire_thing_certs()` *before* minting the
-new cert. Any run that provisions but never completes the claim leaves the device holding
-a deleted cert → AWS IoT drops the TLS handshake → permanently offline until rescued by
-hand over ADB. Already hit W08-001 and W08-004. A batch of new scanners multiplies the
-exposure.
+**Correction (2026-07-29):** an earlier draft of this spec listed retire-before-create as an
+open risk and recommended fixing it before the batch. That was wrong, and the question put
+to the user ("fix the cert bug first?") rested on a false premise. The fix already shipped
+in commit `63f6512`, "retire old certs at claim time, not at provision time":
+
+- `provision.py:42` — `retire_thing_certs(thing_name, keep_arn=None)` takes a cert to keep.
+- `provision.py:85` — an `action == "retire"` branch exposes retirement as its own call.
+- `provision.py:135` — an explicit comment records that certs are no longer retired during
+  provisioning.
+- `convex/http.ts:85-101` — the `/claim-provision` route calls the retire endpoint *after* a
+  successful claim, passing `keepCertArn: result.certificateArn`, wrapped so a failure never
+  blocks the claim.
+
+An abandoned or incomplete provision can no longer strand a device. Nothing to build.
 
 ### 2.6 Every remote command today is fire-and-forget with no confirmation
 
@@ -127,7 +155,7 @@ existing telemetry cadence would be useless without an on-demand fast mode.
 | Remote view scope | Live state + on-screen **text** + agent log tail. No pixels: Android 8.1 offers a Device Owner no screenshot API, and MediaProjection requires a per-session on-device consent tap, so unattended pixel capture is not possible on this fleet without root. |
 | PIN change gate | `super_admin` role + typed confirmation + reason, fully audited. |
 | APK selection | Pin an approved build **per location**, verify after install. W08/R10/W09 can differ so a build can be piloted at one store. |
-| Cert stranding | Fix first, before the batch. |
+| Cert stranding | ~~Fix first, before the batch.~~ **Moot — already fixed in `63f6512`.** The question was asked on a false premise; see 2.5. |
 | PIN device enforcement | Instant revert **and** block the Settings UI. |
 | Device Owner restrictions | Block factory reset, block adding accounts, block uninstalling the 3 IET apps. **Not** `DISALLOW_INSTALL_UNKNOWN_SOURCES` (the IET apps are themselves unknown-source) — log sideloads instead. |
 | App allowlist lockdown | Turn ON for the whole batch. |
@@ -199,17 +227,23 @@ every store" and "different per store".
 `W08-###`-style `DEVICEID`s today. Unit 3's "Re-audit over USB" flags them, and
 `push_config` corrects them remotely without a wizard run.
 
-### Unit 2 — Per-location version pinning
+### Unit 2 — Trustworthy build identity (reduced scope — see 2.3)
 
-**Schema:** `scannerMdmConfigs.pinnedBuilds: v.optional(v.object({ tireTrack, rtLocator,
-scannerAgent }))`, each `{ version: string, sha256: string }`.
+Per-location pinning via `*ApkS3Key` and in-browser SHA-256 verification already exist.
+This unit closes the three remaining gaps only:
 
-- `fetch_apk.py` gains version-specific resolution (`apks/{app}-{version}.apk`) beside
-  the existing newest-wins path, which stays as the fallback when nothing is pinned.
-- Scanner Settings grows an **Available builds** panel listing S3 objects per app with a
-  **Pin** button. Pinning records version + sha256 (computed once, server side, via a new
-  Convex action against S3).
-- The wizard hashes each downloaded APK in-browser and refuses to install on mismatch.
+- **Derive the version from the artifact, not a hand-typed field.** `fetch_apk.py` parses
+  the version out of the S3 key (`apks/{app}-{version}.apk`) and prefers the object's
+  `x-amz-meta-version` when present, falling back to `config.current*Version` last. This is
+  what ends "vunknown" at its source.
+- **Surface a missing checksum instead of skipping silently.** When `sha256` is null, the
+  wizard shows an explicit "unverified build" warning and the verification pass records it as
+  `warn` — the operator sees that no integrity check happened.
+- **Expected signer digest** is recorded per app (read from the S3 object at pin time) so
+  Unit 3 can compare it against the installed package.
+
+No new schema. No **Available builds** picker — `*ApkS3Key` already does that job, and
+adding a second mechanism would be a YAGNI violation.
 
 ### Unit 3 — Verification pass
 
@@ -374,18 +408,20 @@ in `getScannersNeedingAttention`.
 
 All restrictions are read back in Unit 3's pass.
 
-### Unit 9 — Cert stranding fix + batch ergonomics
+### Unit 9 — Batch ergonomics (cert fix already shipped)
 
-**Cert fix.** `provision.py` stops retiring certs at provision time. Retirement moves to
-**first successful telemetry after claim** — the device is provably connected on the new
-cert before any old cert dies, so an abandoned wizard run can never strand a scanner.
-Implementation: claim sets `pendingCertRetirement` on the scanner doc;
-`updateScannerTelemetry` sees it, schedules an action that calls a `retire` branch on the
-provision Lambda (which already holds the needed IoT permissions), and clears the flag.
+**Cert fix: nothing to do.** See 2.5 — retire-at-claim shipped in `63f6512`. The design
+described here originally proposed retiring on first telemetry after claim; retiring in the
+`/claim-provision` route is equivalent for the failure mode that mattered (an abandoned
+provision) and is already live, so it stays as is.
 
 **Batch ergonomics**, for programming several scanners in a sitting:
 
-- `scannerLockPolicy.lockdownEnabled` → ON.
+- `scannerLockPolicy.lockdownEnabled` → ON. Note the backend default
+  (`LOCK_POLICY_DEFAULTS`, `convex/scannerMdm.ts:908`) is already `true`; the settings form
+  initializes its local state to `false` (`settings/page.tsx:100`) but that is overwritten
+  from the stored row on load. The live value must be read from the stored row, not assumed
+  from either default.
 - A **Program next scanner** button on Done that resets to Detect while keeping location
   and policy — plug, few clicks, unplug.
 - A **Check now** / **Finish** escape on the Verify step, for the known
@@ -681,19 +717,28 @@ order:
   user is trying to avoid.
 - Everything else can ship afterwards and be delivered remotely, by definition.
 
-**Stage A — unblock the batch (Unit 9's cert fix).** Smallest change, highest risk averted.
-Ship and verify before any new scanner is programmed.
+**~~Stage A — cert fix.~~ Already shipped (`63f6512`); dropped from the plan.**
 
 **Stage B — right files, right config, proven (Units 1, 2, 3).** The core of the first two
-asks. Unit 1 is a prerequisite for Unit 3's RT check and Unit 2 for its version/signer
-checks, so they land together.
+asks, and now the first stage with actual work. Unit 1 is a prerequisite for Unit 3's RT
+check and Unit 2 for its version/signer checks, so they land together.
 
-**Stage C — the USB-only enablers, before the batch.** Small but order-critical: the
-wizard must grant the `WRITE_SETTINGS` appop, enable the accessibility service, add each
-thing to its `scanners-{locationCode}` group, and subscribe the agent to the Jobs topics.
-Every one of these is USB-only or provisioning-time. Getting them into the wizard now is
-what makes Stages D–F deliverable remotely to this batch instead of requiring a second
-pass over every scanner.
+**Stage C — the USB-only enablers, before the batch.** Small but order-critical, because
+these are the only things that cannot be delivered remotely later:
+
+- the `WRITE_SETTINGS` appop grant (shell-only), which is what lets the agent change system
+  settings like screen timeout remotely from then on
+- enabling the accessibility service (`enabled_accessibility_services` is a secure setting
+  beyond `dpm.setSecureSetting`'s reach on API 27)
+- per-location thing groups (`scanners-{locationCode}`) in `provision.py`, so continuous Jobs
+  can target a store and auto-include scanners added later
+
+**Ordering consequence discovered while planning:** enabling the accessibility service
+requires the service to *exist in the installed APK*. So if remote view (Unit 7) and the PIN
+Settings-UI block (Unit 5) are to reach this batch without a second USB visit, the agent
+build containing `ScreenReaderService` must ship **before** the batch is programmed — even
+though the cloud-side features can come later. The Jobs subscription has no such constraint:
+the existing `install_apk` command can update an online agent remotely.
 
 **Stage D — remote fleet updates (Unit 10).** The largest unit: Jobs protocol in the
 agent, job creation and event-bridge Lambdas, deployment tables, Deployments UI. Also the
@@ -710,8 +755,9 @@ Batch ergonomics (the rest of Unit 9) can land with any stage. Lockdown ON is a 
 flip gated only on Stage B's verification pass existing, so a bad lockdown is caught rather
 than shipped.
 
-**If time forces a cut,** Stages A–C are the ones that must precede programming the batch.
-D–F can all reach these scanners over the air afterwards.
+**If time forces a cut,** Stages B and C are the ones that must precede programming the
+batch, plus the agent build carrying `ScreenReaderService` if remote view is wanted on these
+scanners. Everything else can reach them over the air afterwards.
 
 ## 9. Out of scope
 
