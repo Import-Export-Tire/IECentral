@@ -39,27 +39,64 @@ const REQUIRED_TAGS = ["ORIENTATION", "DEVICEID", "SCALEFACTOR", "RTLMOBILEURL"]
 const DEFAULT_ORIENTATION = "PORTRAIT";
 const DEFAULT_SCALE_FACTOR = "3.5";
 
+/**
+ * Escape text for use inside an XML text node. Order matters: `&` must be escaped first,
+ * or the `&` produced by escaping `<`/`>` would itself get re-escaped into `&amp;lt;` etc.
+ */
+function escapeXml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** The canonical default shape, with location-owned values already escaped and trimmed. */
+function buildDefaultXml(deviceId: string, rtLocatorUrl: string): string {
+  return `<RT>
+    <ORIENTATION>${DEFAULT_ORIENTATION}</ORIENTATION>
+    <DEVICEID>${escapeXml(deviceId)}</DEVICEID>
+    <SCALEFACTOR>${DEFAULT_SCALE_FACTOR}</SCALEFACTOR>
+    <RTLMOBILEURL>${escapeXml(rtLocatorUrl)}</RTLMOBILEURL>
+</RT>`;
+}
+
 /** Read a single tag's text. Returns null when the tag is absent. */
 function readTag(xml: string, tag: string): string | null {
   const m = xml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
   return m ? m[1] : null;
 }
 
-/** Replace a tag's text, or append the tag before </RT> when it is missing. */
+/** How many times a tag opens in the document. Used to detect duplicates. */
+function countTag(xml: string, tag: string): number {
+  const m = xml.match(new RegExp(`<${tag}>`, "g"));
+  return m ? m.length : 0;
+}
+
+/**
+ * Replace every occurrence of a tag's text, or append the tag before </RT> when it is
+ * absent. Global (`g` flag): a template with a duplicate required tag is rejected via
+ * `problems` (see the duplicate-tag check in buildRtConfig), but we still substitute every
+ * occurrence here as defense in depth, so a stale conflicting copy of a location-owned
+ * field (DEVICEID, RTLMOBILEURL) can never reach the output even if a caller ignored
+ * `problems`.
+ */
 function writeTag(xml: string, tag: string, value: string): string {
-  const re = new RegExp(`<${tag}>[^<]*</${tag}>`);
+  const re = new RegExp(`<${tag}>[^<]*</${tag}>`, "g");
   if (re.test(xml)) return xml.replace(re, `<${tag}>${value}</${tag}>`);
   return xml.replace("</RT>", `    <${tag}>${value}</${tag}>\n</RT>`);
 }
 
 /**
- * A deliberately narrow well-formedness check: every <TAG> has a matching </TAG> and the
- * document is wrapped in <RT>…</RT>. A real XML parser is unavailable in every runtime this
- * module targets, and RT configs are a fixed flat shape, so this is sufficient and honest
- * about what it checks.
+ * A deliberately narrow well-formedness check: every <TAG> has a matching </TAG>, the
+ * document is wrapped in <RT>…</RT>, and there is exactly one root. A real XML parser is
+ * unavailable in every runtime this module targets, and RT configs are a fixed flat shape,
+ * so this is sufficient and honest about what it checks.
  */
 function isWellFormed(xml: string): boolean {
   if (!/^\s*<RT>[\s\S]*<\/RT>\s*$/.test(xml)) return false;
+  // Real XML permits exactly one root element. Two concatenated <RT>…</RT> blocks would
+  // otherwise sail through the stack check below (each block balances on its own), and the
+  // whole second block — with its own stale DEVICEID/RTLMOBILEURL — would survive into the
+  // output. That is precisely the "which value wins" ambiguity this module exists to kill,
+  // so reject multi-root templates here rather than relying on the generic tag matcher.
+  if (countTag(xml, "RT") !== 1 || countTag(xml, "/RT") !== 1) return false;
   // Match tags by proper nesting (a stack), not by flat position — an outer tag's
   // opening comes first but its closing comes last, so index-aligned comparison of
   // "all opens" vs "all closes" is wrong for any nested shape (which <RT>…</RT> always is).
@@ -105,37 +142,42 @@ export function buildRtConfig(input: RtConfigInput): RtConfigResult {
     );
   }
 
+  // Substitution always uses the trimmed, location-owned values — never the raw input.
+  // Validation above checks `.trim()`ed values too, so a config that validates clean must
+  // also *emit* clean: trimming only at validation time (and splicing the raw string into
+  // the XML) is how two writers that trim differently would produce different bytes for
+  // the same location.
+  const deviceId = rtDeviceId.trim();
+  const locatorUrl = rtLocatorUrl.trim();
+
   // --- start from the template when present, else the canonical default ---
-  let xml =
-    template && template.trim()
-      ? template.trim()
-      : `<RT>
-    <ORIENTATION>${DEFAULT_ORIENTATION}</ORIENTATION>
-    <DEVICEID>${rtDeviceId}</DEVICEID>
-    <SCALEFACTOR>${DEFAULT_SCALE_FACTOR}</SCALEFACTOR>
-    <RTLMOBILEURL>${rtLocatorUrl}</RTLMOBILEURL>
-</RT>`;
+  let xml = template && template.trim() ? template.trim() : buildDefaultXml(deviceId, locatorUrl);
 
   if (!isWellFormed(xml)) {
     problems.push(`rtConfigXml for ${locationCode} is not well-formed XML`);
     // Fall back to the default shape so callers always get a usable `values` object.
-    xml = `<RT>
-    <ORIENTATION>${DEFAULT_ORIENTATION}</ORIENTATION>
-    <DEVICEID>${rtDeviceId}</DEVICEID>
-    <SCALEFACTOR>${DEFAULT_SCALE_FACTOR}</SCALEFACTOR>
-    <RTLMOBILEURL>${rtLocatorUrl}</RTLMOBILEURL>
-</RT>`;
+    xml = buildDefaultXml(deviceId, locatorUrl);
   } else if (template && template.trim()) {
     for (const tag of REQUIRED_TAGS) {
-      if (readTag(xml, tag) === null) {
+      const count = countTag(xml, tag);
+      if (count === 0) {
         problems.push(`rtConfigXml for ${locationCode} is missing required tag <${tag}>`);
+      } else if (count > 1) {
+        // A duplicate required tag is exactly the "which value wins" ambiguity this module
+        // exists to eliminate — reject it. writeTag below still substitutes every
+        // occurrence of DEVICEID/RTLMOBILEURL as defense in depth, so even if a caller
+        // ignores `problems`, no stale conflicting copy of those two fields can reach the
+        // output.
+        problems.push(
+          `rtConfigXml for ${locationCode} has ${count} <${tag}> tags — each required tag must appear exactly once`,
+        );
       }
     }
   }
 
   // --- always substitute the location-owned fields; never trust the template's copies ---
-  xml = writeTag(xml, "DEVICEID", rtDeviceId);
-  xml = writeTag(xml, "RTLMOBILEURL", rtLocatorUrl);
+  xml = writeTag(xml, "DEVICEID", escapeXml(deviceId));
+  xml = writeTag(xml, "RTLMOBILEURL", escapeXml(locatorUrl));
   if (readTag(xml, "ORIENTATION") === null) xml = writeTag(xml, "ORIENTATION", DEFAULT_ORIENTATION);
   if (readTag(xml, "SCALEFACTOR") === null) xml = writeTag(xml, "SCALEFACTOR", DEFAULT_SCALE_FACTOR);
 
@@ -143,9 +185,9 @@ export function buildRtConfig(input: RtConfigInput): RtConfigResult {
     xml,
     values: {
       orientation: readTag(xml, "ORIENTATION") ?? DEFAULT_ORIENTATION,
-      deviceId: readTag(xml, "DEVICEID") ?? rtDeviceId,
+      deviceId,
       scaleFactor: readTag(xml, "SCALEFACTOR") ?? DEFAULT_SCALE_FACTOR,
-      rtLocatorUrl: readTag(xml, "RTLMOBILEURL") ?? rtLocatorUrl,
+      rtLocatorUrl: locatorUrl,
     },
     problems,
   };

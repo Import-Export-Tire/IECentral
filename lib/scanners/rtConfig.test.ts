@@ -69,4 +69,59 @@ describe("buildRtConfig", () => {
     const r = buildRtConfig({ ...OK, template: "<RT><FOO>bar</FOO></RT>" });
     expect(r.problems.some((p) => p.includes("missing required tag"))).toBe(true);
   });
+
+  // Finding 1 — Critical: no XML escaping.
+  it("escapes &, < and > in interpolated values so the output is well-formed XML", () => {
+    const r = buildRtConfig({
+      ...OK,
+      rtLocatorUrl: "https://rtl.example.com/mobile?token=abc&loc=W08",
+    });
+    expect(r.problems).toEqual([]);
+    expect(r.xml).toContain(
+      "<RTLMOBILEURL>https://rtl.example.com/mobile?token=abc&amp;loc=W08</RTLMOBILEURL>",
+    );
+    // The bare, unescaped ampersand must never appear in a text node.
+    expect(r.xml).not.toMatch(/token=abc&loc/);
+  });
+
+  // Finding 2 — Critical: duplicate tags and multi-root templates leave stale values.
+  it("rejects a template with duplicate occurrences of a required tag instead of leaving a stale copy", () => {
+    const template = `<RT>
+    <ORIENTATION>PORTRAIT</ORIENTATION>
+    <DEVICEID>STALE</DEVICEID>
+    <DEVICEID>STALE</DEVICEID>
+    <SCALEFACTOR>3.5</SCALEFACTOR>
+    <RTLMOBILEURL>https://stale.example.com/old</RTLMOBILEURL>
+</RT>`;
+    const r = buildRtConfig({ ...OK, template });
+    expect(r.problems.length).toBeGreaterThan(0);
+    expect(r.xml).not.toContain("STALE");
+  });
+
+  it("rejects a multi-root template (two concatenated <RT> blocks) instead of leaving the second block's stale values", () => {
+    const template = `<RT>
+    <ORIENTATION>PORTRAIT</ORIENTATION>
+    <DEVICEID>0001</DEVICEID>
+    <SCALEFACTOR>3.5</SCALEFACTOR>
+    <RTLMOBILEURL>https://rtl.example.com/mobile</RTLMOBILEURL>
+</RT><RT>
+    <ORIENTATION>PORTRAIT</ORIENTATION>
+    <DEVICEID>STALE</DEVICEID>
+    <SCALEFACTOR>3.5</SCALEFACTOR>
+    <RTLMOBILEURL>https://stale.example.com/old</RTLMOBILEURL>
+</RT>`;
+    const r = buildRtConfig({ ...OK, template });
+    expect(r.problems.length).toBeGreaterThan(0);
+    expect(r.xml).not.toContain("STALE");
+    expect(r.xml).not.toContain("stale.example.com");
+  });
+
+  // Finding 3 — Important: validation trims but substitution does not.
+  it("trims rtDeviceId before substituting so different writers can't emit different bytes", () => {
+    const r = buildRtConfig({ ...OK, rtDeviceId: " 0001 " });
+    expect(r.problems).toEqual([]);
+    expect(r.xml).toContain("<DEVICEID>0001</DEVICEID>");
+    expect(r.xml).not.toContain(" 0001 ");
+    expect(r.values.deviceId).toBe("0001");
+  });
 });
