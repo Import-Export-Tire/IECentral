@@ -11,6 +11,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import SectionHeader from "@/components/ui/SectionHeader";
+import { buildRtConfig } from "@/lib/scanners/rtConfig";
 
 const DEFAULT_BLOATWARE = [
   { pkg: "com.google.android.apps.docs", label: "Google Docs" },
@@ -355,6 +356,44 @@ function ScannerSettingsContent() {
                   rows={6}
                   placeholder={"<RT>\n  <ORIENTATION>PORTRAIT</ORIENTATION>\n  ..."}
                 />
+                {(() => {
+                  // locationCode is not a form field — it is derived at save time from
+                  // LOCATION_DEFAULTS (see handleSave above). Derive it identically here so
+                  // the preview validates exactly what will be saved.
+                  const previewLocation = locations?.find((l) => l._id === selectedLocationId);
+                  const previewCode =
+                    (previewLocation ? LOCATION_DEFAULTS[previewLocation.name] : null)?.code ??
+                    previewLocation?.name?.substring(0, 3).toUpperCase() ??
+                    "???";
+                  const preview = buildRtConfig({
+                    locationCode: previewCode,
+                    rtLocatorUrl: form.rtLocatorUrl,
+                    rtDeviceId: form.rtDeviceId,
+                    template: form.rtConfigXml || undefined,
+                  });
+                  return (
+                    <div className="mt-2 space-y-2">
+                      {preview.problems.length > 0 ? (
+                        <div className="p-2 rounded-lg ui-callout-red text-xs">
+                          <p className="font-semibold mb-1">This config will be rejected:</p>
+                          <ul className="space-y-0.5">
+                            {preview.problems.map((p) => (
+                              <li key={p}>• {p}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : (
+                        <div className="p-2 rounded-lg ui-callout-green text-xs">
+                          Valid — DEVICEID <span className="font-mono">{preview.values.deviceId}</span>,{" "}
+                          URL <span className="font-mono">{preview.values.rtLocatorUrl}</span>
+                        </div>
+                      )}
+                      <pre className={`p-2 rounded-lg text-[11px] font-mono overflow-x-auto theme-border-secondary border ${isDark ? "bg-slate-900/60 theme-text-secondary" : "bg-gray-100 text-gray-700"}`}>
+                        {preview.xml}
+                      </pre>
+                    </div>
+                  );
+                })()}
               </div>
             </Card>
 
