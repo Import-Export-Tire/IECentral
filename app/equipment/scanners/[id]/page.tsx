@@ -77,6 +77,7 @@ function ScannerDetailContent() {
   const personnel = useQuery(api.equipment.listActivePersonnel);
   const provisionCode = useQuery(api.scannerMdm.getProvisionCode, { scannerId });
   const setupLogs = useQuery(api.scannerMdm.listSetupLogsByScanner, scannerId ? { scannerId, limit: 50 } : "skip");
+  const lastVerification = useQuery(api.scannerMdm.getLatestVerification, { scannerId });
 
   // Mutations
   const logCommand = useMutation(api.scannerMdm.logScannerCommand);
@@ -402,6 +403,20 @@ function ScannerDetailContent() {
           </header>
 
           <div className="px-4 sm:px-6 lg:px-8 py-5">
+            {lastVerification && !lastVerification.passed && (
+              <div className="p-3 rounded-xl ui-callout-red text-sm mb-4">
+                <p className="font-semibold">Verification failed</p>
+                <ul className="mt-1 space-y-0.5 text-xs">
+                  {lastVerification.checks
+                    .filter((c) => c.hard && c.status !== "pass")
+                    .map((c) => (
+                      <li key={c.key}>
+                        {c.label} — expected {c.expected}, got {c.observed}
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
               {/* Left Column */}

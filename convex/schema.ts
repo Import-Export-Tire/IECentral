@@ -988,6 +988,25 @@ export default defineSchema({
     updatedBy: v.optional(v.id("users")),
   }),
 
+  // Result of a scanner verification pass. One row per audit; the newest is authoritative.
+  scannerVerifications: defineTable({
+    scannerId: v.id("scanners"),
+    at: v.number(),
+    by: v.optional(v.id("users")),
+    source: v.string(), // "wizard" | "manual" | "remote"
+    passed: v.boolean(),
+    checks: v.array(
+      v.object({
+        key: v.string(),
+        label: v.string(),
+        expected: v.optional(v.string()),
+        observed: v.optional(v.string()),
+        status: v.string(), // "pass" | "fail" | "warn" | "unverified"
+        hard: v.boolean(),
+      }),
+    ),
+  }).index("by_scanner", ["scannerId"]),
+
   // Pickers (order picking devices/equipment)
   pickers: defineTable({
     number: v.string(), // Picker identifier (e.g., "1", "P-01", "PK-A")

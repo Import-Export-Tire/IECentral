@@ -987,3 +987,46 @@ export const updateScannerFromSetup = mutation({
     return { scannerId: args.scannerId, number: scanner.number };
   },
 });
+
+// ============ VERIFICATION ============
+
+const verificationCheck = v.object({
+  key: v.string(),
+  label: v.string(),
+  expected: v.optional(v.string()),
+  observed: v.optional(v.string()),
+  status: v.string(),
+  hard: v.boolean(),
+});
+
+export const recordVerification = mutation({
+  args: {
+    scannerId: v.id("scanners"),
+    source: v.string(),
+    passed: v.boolean(),
+    checks: v.array(verificationCheck),
+    actingUserId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("scannerVerifications", {
+      scannerId: args.scannerId,
+      at: Date.now(),
+      by: args.actingUserId,
+      source: args.source,
+      passed: args.passed,
+      checks: args.checks,
+    });
+  },
+});
+
+export const getLatestVerification = query({
+  args: { scannerId: v.id("scanners") },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("scannerVerifications")
+      .withIndex("by_scanner", (q) => q.eq("scannerId", args.scannerId))
+      .order("desc")
+      .take(1);
+    return rows[0] ?? null;
+  },
+});

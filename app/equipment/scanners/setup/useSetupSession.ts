@@ -134,7 +134,18 @@ function reducer(state: SetupState, action: Action): SetupState {
     case "SET_VERIFICATION":
       return { ...state, verification: action.checks };
     case "CONFIRM_SCAN_TEST":
-      return { ...state, scanTestConfirmed: true };
+      // Flip the dataWedgeScanTest check to pass so the on-screen list and anything derived
+      // from state.verification (e.g. what gets persisted) reflect the human confirmation.
+      // Only that one check's status/observed changes — every other check is left untouched.
+      return {
+        ...state,
+        scanTestConfirmed: true,
+        verification: state.verification
+          ? state.verification.map((c) =>
+              c.key === "dataWedgeScanTest" ? { ...c, status: "pass", observed: "confirmed" } : c,
+            )
+          : state.verification,
+      };
     default:
       return state;
   }

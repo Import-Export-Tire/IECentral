@@ -30,6 +30,7 @@ export function InstallStep({ session }: { session: Session }) {
   const markComplete = useMutation(api.scannerMdm.markScannerSetupComplete);
   const updateScanner = useMutation(api.scannerMdm.updateScannerFromSetup);
   const storePendingProvision = useMutation(api.scannerMdm.storePendingProvision);
+  const recordVerification = useMutation(api.scannerMdm.recordVerification);
   const lockPolicy = useQuery(api.scannerMdm.getLockPolicy, {});
   const mdmConfig = useQuery(
     api.scannerMdm.getMdmConfigByCode,
@@ -384,6 +385,15 @@ export function InstallStep({ session }: { session: Session }) {
           });
 
           actions.setVerification(checks);
+          if (state.scannerId) {
+            await recordVerification({
+              scannerId: state.scannerId,
+              source: "wizard",
+              passed: allHardChecksPassed(checks),
+              checks,
+              actingUserId: user?._id,
+            }).catch(() => {});
+          }
           if (!allHardChecksPassed(checks)) {
             const failed = checks
               .filter((c) => c.hard && c.status === "fail")
