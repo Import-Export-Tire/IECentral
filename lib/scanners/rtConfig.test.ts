@@ -124,4 +124,56 @@ describe("buildRtConfig", () => {
     expect(r.xml).not.toContain(" 0001 ");
     expect(r.values.deviceId).toBe("0001");
   });
+
+  // Gap 1 — Critical: template-owned text (ORIENTATION here) is neither escaped nor
+  // validated, so a raw `&` sails through into the output producing illegal XML.
+  it("rejects a template with a raw & in a template-owned text node instead of emitting illegal XML", () => {
+    const template = `<RT>
+    <ORIENTATION>PORTRAIT & LANDSCAPE</ORIENTATION>
+    <DEVICEID>0001</DEVICEID>
+    <SCALEFACTOR>3.5</SCALEFACTOR>
+    <RTLMOBILEURL>https://rtl.example.com/mobile</RTLMOBILEURL>
+</RT>`;
+    const r = buildRtConfig({ ...OK, template });
+    expect(r.problems.length).toBeGreaterThan(0);
+    // The raw, unescaped ampersand must never reach the output.
+    expect(r.xml).not.toMatch(/PORTRAIT & LANDSCAPE/);
+    expect(r.xml).not.toMatch(/&(?!(?:amp|lt|gt|apos|quot|#[0-9]+|#x[0-9a-fA-F]+);)/);
+  });
+
+  // Gap 2 — Critical, compounding: a raw `<` in template text is invisible to the
+  // structural tag-matcher, so readTag(...) returns null for a tag that is actually
+  // present and the code appends a *second*, duplicate default tag before </RT> — leaving
+  // both the malformed original and the appended duplicate, with problems left empty.
+  it("rejects a template with a raw < in a template text node instead of appending a duplicate tag", () => {
+    const template = `<RT>
+    <ORIENTATION>PORTRAIT</ORIENTATION>
+    <DEVICEID>0001</DEVICEID>
+    <SCALEFACTOR>3.5 < 4</SCALEFACTOR>
+    <RTLMOBILEURL>https://rtl.example.com/mobile</RTLMOBILEURL>
+</RT>`;
+    const r = buildRtConfig({ ...OK, template });
+    expect(r.problems.length).toBeGreaterThan(0);
+    // No duplicate-appended <SCALEFACTOR> — exactly one occurrence in the (fallback) output.
+    expect((r.xml.match(/<SCALEFACTOR>/g) ?? []).length).toBe(1);
+    expect(r.xml).not.toMatch(/3\.5 < 4/);
+  });
+
+  // Minor: the multi-root case should get a specific message, not the generic
+  // "not well-formed XML" wording, so someone debugging a bad template gets real signal.
+  it("gives a multi-root template a message that specifically calls out multiple roots", () => {
+    const template = `<RT>
+    <ORIENTATION>PORTRAIT</ORIENTATION>
+    <DEVICEID>0001</DEVICEID>
+    <SCALEFACTOR>3.5</SCALEFACTOR>
+    <RTLMOBILEURL>https://rtl.example.com/mobile</RTLMOBILEURL>
+</RT><RT>
+    <ORIENTATION>PORTRAIT</ORIENTATION>
+    <DEVICEID>STALE</DEVICEID>
+    <SCALEFACTOR>3.5</SCALEFACTOR>
+    <RTLMOBILEURL>https://stale.example.com/old</RTLMOBILEURL>
+</RT>`;
+    const r = buildRtConfig({ ...OK, template });
+    expect(r.problems.some((p) => /root/i.test(p))).toBe(true);
+  });
 });

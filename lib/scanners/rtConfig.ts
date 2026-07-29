@@ -88,15 +88,21 @@ function writeTag(xml: string, tag: string, value: string): string {
  * document is wrapped in <RT>…</RT>, and there is exactly one root. A real XML parser is
  * unavailable in every runtime this module targets, and RT configs are a fixed flat shape,
  * so this is sufficient and honest about what it checks.
+ *
+ * Returns null when the document is structurally sound, or a specific problem description
+ * when it is not — so callers (and anyone debugging a bad template) get real signal about
+ * *which* structural rule was broken, instead of one generic "not well-formed" bucket.
  */
-function isWellFormed(xml: string): boolean {
-  if (!/^\s*<RT>[\s\S]*<\/RT>\s*$/.test(xml)) return false;
+function findStructuralProblem(xml: string): string | null {
+  if (!/^\s*<RT>[\s\S]*<\/RT>\s*$/.test(xml)) return "not well-formed XML";
   // Real XML permits exactly one root element. Two concatenated <RT>…</RT> blocks would
   // otherwise sail through the stack check below (each block balances on its own), and the
   // whole second block — with its own stale DEVICEID/RTLMOBILEURL — would survive into the
   // output. That is precisely the "which value wins" ambiguity this module exists to kill,
   // so reject multi-root templates here rather than relying on the generic tag matcher.
-  if (countTag(xml, "RT") !== 1 || countTag(xml, "/RT") !== 1) return false;
+  if (countTag(xml, "RT") !== 1 || countTag(xml, "/RT") !== 1) {
+    return "has more than one root <RT> element — a template must contain exactly one <RT>...</RT> document";
+  }
   // Match tags by proper nesting (a stack), not by flat position — an outer tag's
   // opening comes first but its closing comes last, so index-aligned comparison of
   // "all opens" vs "all closes" is wrong for any nested shape (which <RT>…</RT> always is).
@@ -106,12 +112,44 @@ function isWellFormed(xml: string): boolean {
   while ((match = tagPattern.exec(xml)) !== null) {
     const [, isClosing, tag] = match;
     if (isClosing) {
-      if (stack.pop() !== tag) return false;
+      if (stack.pop() !== tag) return "not well-formed XML";
     } else {
       stack.push(tag);
     }
   }
-  return stack.length === 0;
+  return stack.length === 0 ? null : "not well-formed XML";
+}
+
+/**
+ * A raw `&`, `<`, or `>` in any text node (i.e. any content NOT matched as a tag by
+ * `findStructuralProblem`'s tag pattern) is illegal in XML and template-owned text is
+ * rejected rather than silently escaped — see the module-owned vs template-owned split in
+ * `buildRtConfig`. Segmenting on the same tag pattern used for structural validation is
+ * what catches this: a stray `< ` (e.g. `3.5 < 4`) doesn't match `<(\/?)([A-Z]+)>`, so it
+ * falls into a "between tags" text segment here even though the structural stack-matcher
+ * walks right past it.
+ *
+ * Returns the first illegal character found, or null when every text node is clean.
+ * Already-escaped entities (`&amp;`, `&#39;`, etc.) are not flagged — only a bare `&` that
+ * isn't the start of a recognized entity counts as raw.
+ */
+function findIllegalTextContent(xml: string): string | null {
+  const RAW_AMP = /&(?!(?:amp|lt|gt|apos|quot|#[0-9]+|#x[0-9a-fA-F]+);)/;
+  const tagPattern = /<(\/?)([A-Z]+)>/g;
+  let lastEnd = 0;
+  let match: RegExpExecArray | null;
+  const checkSegment = (segment: string): string | null => {
+    const angleBracket = segment.match(/[<>]/);
+    if (angleBracket) return angleBracket[0];
+    if (RAW_AMP.test(segment)) return "&";
+    return null;
+  };
+  while ((match = tagPattern.exec(xml)) !== null) {
+    const bad = checkSegment(xml.slice(lastEnd, match.index));
+    if (bad) return bad;
+    lastEnd = tagPattern.lastIndex;
+  }
+  return checkSegment(xml.slice(lastEnd));
 }
 
 export function buildRtConfig(input: RtConfigInput): RtConfigResult {
@@ -153,24 +191,41 @@ export function buildRtConfig(input: RtConfigInput): RtConfigResult {
   // --- start from the template when present, else the canonical default ---
   let xml = template && template.trim() ? template.trim() : buildDefaultXml(deviceId, locatorUrl);
 
-  if (!isWellFormed(xml)) {
-    problems.push(`rtConfigXml for ${locationCode} is not well-formed XML`);
+  const structuralProblem = findStructuralProblem(xml);
+  if (structuralProblem) {
+    problems.push(`rtConfigXml for ${locationCode} ${structuralProblem}`);
     // Fall back to the default shape so callers always get a usable `values` object.
     xml = buildDefaultXml(deviceId, locatorUrl);
   } else if (template && template.trim()) {
-    for (const tag of REQUIRED_TAGS) {
-      const count = countTag(xml, tag);
-      if (count === 0) {
-        problems.push(`rtConfigXml for ${locationCode} is missing required tag <${tag}>`);
-      } else if (count > 1) {
-        // A duplicate required tag is exactly the "which value wins" ambiguity this module
-        // exists to eliminate — reject it. writeTag below still substitutes every
-        // occurrence of DEVICEID/RTLMOBILEURL as defense in depth, so even if a caller
-        // ignores `problems`, no stale conflicting copy of those two fields can reach the
-        // output.
-        problems.push(
-          `rtConfigXml for ${locationCode} has ${count} <${tag}> tags — each required tag must appear exactly once`,
-        );
+    // Template-owned text (ORIENTATION, SCALEFACTOR, and anything else a template might
+    // carry) is rejected, not escaped, when it contains a raw &, < or > — silently
+    // rewriting a caller's template content changes their intent behind their back, and
+    // guarantee (b) (problems non-empty for anything that would break on a device) has no
+    // carve-out for fields this module doesn't own. This also closes the compounding bug
+    // where a raw `<` (invisible to the structural tag-matcher) made `readTag` report a
+    // required tag absent while `countTag` reported it present, causing a duplicate
+    // default tag to be appended alongside the malformed original.
+    const illegalChar = findIllegalTextContent(xml);
+    if (illegalChar) {
+      problems.push(
+        `rtConfigXml for ${locationCode} has an unescaped '${illegalChar}' in template text — raw &, < and > are not allowed there (use &amp;, &lt;, &gt;)`,
+      );
+      xml = buildDefaultXml(deviceId, locatorUrl);
+    } else {
+      for (const tag of REQUIRED_TAGS) {
+        const count = countTag(xml, tag);
+        if (count === 0) {
+          problems.push(`rtConfigXml for ${locationCode} is missing required tag <${tag}>`);
+        } else if (count > 1) {
+          // A duplicate required tag is exactly the "which value wins" ambiguity this
+          // module exists to eliminate — reject it. writeTag below still substitutes every
+          // occurrence of DEVICEID/RTLMOBILEURL as defense in depth, so even if a caller
+          // ignores `problems`, no stale conflicting copy of those two fields can reach the
+          // output.
+          problems.push(
+            `rtConfigXml for ${locationCode} has ${count} <${tag}> tags — each required tag must appear exactly once`,
+          );
+        }
       }
     }
   }
