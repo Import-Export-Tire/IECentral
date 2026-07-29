@@ -40,8 +40,10 @@ export function InstallStep({ session }: { session: Session }) {
 
   useEffect(() => {
     if (!lockPolicy || started) return;
-    // New flow needs the location's MDM config; update flow tolerates its absence (uses fallbacks).
-    if (session.state.mode === "new" && !mdmConfig) return;
+    // undefined = query still loading (wait); null = location genuinely has no config
+    // (proceed — the RT config step fails with a message naming the missing fields, which
+    // is far better than hanging here with no explanation).
+    if (mdmConfig === undefined) return;
     setStarted(true);
     let cancelled = false;
 
