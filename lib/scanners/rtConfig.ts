@@ -212,6 +212,27 @@ export function buildRtConfig(input: RtConfigInput): RtConfigResult {
       );
       xml = buildDefaultXml(deviceId, locatorUrl);
     } else {
+      // countTag (a literal `<TAG>` substring count) and readTag (a `[^<]*` capture between
+      // open and close) are two different notions of "this tag is present," and nothing
+      // upstream guarantees they agree. findIllegalTextContent segments on the same
+      // uppercase-only tagPattern (/<(\/?)([A-Z]+)>/g) that findStructuralProblem's stack
+      // check uses, so an all-uppercase nested pseudo-tag — e.g.
+      // <ORIENTATION>abc<FAKE>def</FAKE>ghi</ORIENTATION> — is consumed as legitimate tag
+      // boundaries by both of those checks: the document is structurally sound (properly
+      // nested) and every "between tags" text segment (abc / def / ghi) is clean, so
+      // neither catches it. countTag(xml, "ORIENTATION") still finds exactly one
+      // <ORIENTATION> open, so the missing/duplicate check below stays quiet too. But
+      // readTag's `[^<]*` capture cannot cross the embedded `<FAKE>`, so it returns null —
+      // "tag absent" — for a tag countTag insists is present exactly once. Left
+      // unreconciled, that disagreement reaches writeTag's "tag absent, append a default"
+      // branch, which appends a duplicate tag before </RT> while the malformed original
+      // survives, with `problems` empty. Reconcile it explicitly, for every required tag
+      // (not just the module-owned ones — the defect reproduces identically on
+      // ORIENTATION/SCALEFACTOR, which this module doesn't own the values of, because the
+      // append-on-null-readTag branch at the bottom of this function fires for those too),
+      // and treat the disagreement itself as a hard problem rather than letting either
+      // side's answer silently win.
+      let hasUnreadableRequiredTag = false;
       for (const tag of REQUIRED_TAGS) {
         const count = countTag(xml, tag);
         if (count === 0) {
@@ -225,7 +246,20 @@ export function buildRtConfig(input: RtConfigInput): RtConfigResult {
           problems.push(
             `rtConfigXml for ${locationCode} has ${count} <${tag}> tags — each required tag must appear exactly once`,
           );
+        } else if (readTag(xml, tag) === null) {
+          problems.push(
+            `rtConfigXml for ${locationCode} has a <${tag}> tag that countTag finds present exactly once, but its content could not be read as plain text — it likely contains a nested inner tag (e.g. <${tag}>abc<FAKE>def</FAKE>ghi</${tag}>); fix the template so <${tag}> contains only text`,
+          );
+          hasUnreadableRequiredTag = true;
         }
+      }
+      if (hasUnreadableRequiredTag) {
+        // Same treatment as the illegalChar and structural-problem paths above: discard the
+        // template outright rather than letting the unconditional writeTag calls below run
+        // against it. Without this, the append-a-default branch would still fire per-tag
+        // for exactly the tags we just flagged as unreadable — reproducing the duplicate-
+        // append bug this check exists to close, just one call later.
+        xml = buildDefaultXml(deviceId, locatorUrl);
       }
     }
   }

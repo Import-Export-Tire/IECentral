@@ -161,6 +161,42 @@ describe("buildRtConfig", () => {
 
   // Minor: the multi-root case should get a specific message, not the generic
   // "not well-formed XML" wording, so someone debugging a bad template gets real signal.
+  // Gap 3 — Critical, the countTag/readTag disagreement itself. A nested pseudo-tag
+  // (all-uppercase, so findStructuralProblem's and findIllegalTextContent's shared
+  // tagPattern /<(\/?)([A-Z]+)>/g happily consumes it as a legitimate tag boundary) leaves
+  // the outer tag structurally sound and free of "illegal text content" by that check's
+  // definition, yet unreadable by readTag's `[^<]*` capture (which requires zero `<`
+  // between open and close). countTag still reports exactly 1 occurrence, so the
+  // missing/duplicate loop stays quiet, and writeTag's "tag absent, append a default"
+  // branch fires — leaving both the malformed original AND a duplicate appended tag, with
+  // problems left empty. Template-owned field:
+  it("rejects a template with a nested pseudo-tag inside ORIENTATION instead of appending a duplicate tag", () => {
+    const template = `<RT>
+    <ORIENTATION>abc<FAKE>def</FAKE>ghi</ORIENTATION>
+    <DEVICEID>0001</DEVICEID>
+    <SCALEFACTOR>3.5</SCALEFACTOR>
+    <RTLMOBILEURL>https://rtl.example.com/mobile</RTLMOBILEURL>
+</RT>`;
+    const r = buildRtConfig({ ...OK, template });
+    expect(r.problems.length).toBeGreaterThan(0);
+    expect((r.xml.match(/<ORIENTATION>/g) ?? []).length).toBe(1);
+  });
+
+  // Same shape, module-owned field (DEVICEID) — the defect reproduces symmetrically here,
+  // and it is the more dangerous case since DEVICEID is the field this module exists to
+  // guarantee is constant per location.
+  it("rejects a template with a nested pseudo-tag inside DEVICEID instead of appending a duplicate tag", () => {
+    const template = `<RT>
+    <ORIENTATION>PORTRAIT</ORIENTATION>
+    <DEVICEID>abc<FAKE>def</FAKE>ghi</DEVICEID>
+    <SCALEFACTOR>3.5</SCALEFACTOR>
+    <RTLMOBILEURL>https://rtl.example.com/mobile</RTLMOBILEURL>
+</RT>`;
+    const r = buildRtConfig({ ...OK, template });
+    expect(r.problems.length).toBeGreaterThan(0);
+    expect((r.xml.match(/<DEVICEID>/g) ?? []).length).toBe(1);
+  });
+
   it("gives a multi-root template a message that specifically calls out multiple roots", () => {
     const template = `<RT>
     <ORIENTATION>PORTRAIT</ORIENTATION>
