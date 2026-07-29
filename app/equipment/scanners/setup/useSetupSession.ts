@@ -32,7 +32,6 @@ export type SetupState = {
   locationCode: string | null;
   locationName: string | null;
   scannerNumber: string | null;
-  rtDeviceId: string;
   scannerId: Id<"scanners"> | null;
   provisionCode: string | null;
   pin: string | null;
@@ -49,7 +48,7 @@ type Action =
   | { type: "RESET" }
   | { type: "SET_CONNECTION"; connection: AdbConnection }
   | { type: "SET_LOCATION"; code: string; name: string }
-  | { type: "SET_IDENTITY"; scannerNumber: string; rtDeviceId: string }
+  | { type: "SET_IDENTITY"; scannerNumber: string }
   | { type: "SET_GENERATED"; scannerId: Id<"scanners">; provisionCode: string; pin: string }
   | { type: "STEP"; step: StepName }
   | { type: "PROGRESS"; key: string; status: SetupState["installProgress"][string]["status"]; message?: string; percent?: number }
@@ -67,7 +66,6 @@ function initialState(client: WebAdbClient): SetupState {
     locationCode: null,
     locationName: null,
     scannerNumber: null,
-    rtDeviceId: "0001",
     scannerId: null,
     provisionCode: null,
     pin: null,
@@ -90,7 +88,7 @@ function reducer(state: SetupState, action: Action): SetupState {
     case "SET_LOCATION":
       return { ...state, locationCode: action.code, locationName: action.name };
     case "SET_IDENTITY":
-      return { ...state, scannerNumber: action.scannerNumber, rtDeviceId: action.rtDeviceId };
+      return { ...state, scannerNumber: action.scannerNumber };
     case "SET_GENERATED":
       return { ...state, scannerId: action.scannerId, provisionCode: action.provisionCode, pin: action.pin };
     case "STEP":
@@ -141,8 +139,8 @@ export function useSetupSession() {
       reset: () => dispatch({ type: "RESET" }),
       setConnection: (connection: AdbConnection) => dispatch({ type: "SET_CONNECTION", connection }),
       setLocation: (code: string, name: string) => dispatch({ type: "SET_LOCATION", code, name }),
-      setIdentity: (scannerNumber: string, rtDeviceId: string) =>
-        dispatch({ type: "SET_IDENTITY", scannerNumber, rtDeviceId }),
+      setIdentity: (scannerNumber: string) =>
+        dispatch({ type: "SET_IDENTITY", scannerNumber }),
       setGenerated: (scannerId: Id<"scanners">, provisionCode: string, pin: string) =>
         dispatch({ type: "SET_GENERATED", scannerId, provisionCode, pin }),
       goToStep: (step: StepName) => dispatch({ type: "STEP", step }),

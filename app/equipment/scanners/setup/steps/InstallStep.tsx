@@ -7,6 +7,7 @@ import { useAuth } from "../../../../auth-context";
 import { useSetupSession } from "../useSetupSession";
 import { fetchApk } from "../apkManifest";
 import { IET_PACKAGES, ESSENTIAL_SYSTEM_PREFIXES, ESSENTIAL_SYSTEM_EXACT } from "../WebAdbClient";
+import { buildRtConfig } from "@/lib/scanners/rtConfig";
 
 type Session = ReturnType<typeof useSetupSession>;
 
@@ -206,22 +207,24 @@ export function InstallStep({ session }: { session: Session }) {
           actions.recordInstalledVersion("scannerAgent", apks!.versions.scannerAgent);
         });
 
-        // 6. Push RT config
+        // 6. Push RT config. Built by the shared builder and hard-failed on any problem:
+        // a silently-broken rtlconfig.xml is the failure mode this whole change exists to
+        // stop. The agent writes the same bytes at claim time, so the double write is a
+        // harmless no-op instead of last-write-wins.
+        let builtRtXml: string | undefined;
         await runStep("pushRtConfig", "Pushing RT config", async () => {
-          const xml =
-            mdmConfig?.rtConfigXml ??
-            `<RT>
-    <ORIENTATION>PORTRAIT</ORIENTATION>
-    <DEVICEID>${state.rtDeviceId}</DEVICEID>
-    <SCALEFACTOR>3.5</SCALEFACTOR>
-    <RTLMOBILEURL>${mdmConfig?.rtLocatorUrl ?? ""}</RTLMOBILEURL>
-</RT>`;
-          const finalXml = xml.replace(
-            /<DEVICEID>[^<]*<\/DEVICEID>/,
-            `<DEVICEID>${state.rtDeviceId}</DEVICEID>`,
-          );
+          const built = buildRtConfig({
+            locationCode: state.locationCode!,
+            rtLocatorUrl: mdmConfig?.rtLocatorUrl ?? "",
+            rtDeviceId: mdmConfig?.rtDeviceId ?? "",
+            template: mdmConfig?.rtConfigXml,
+          });
+          if (built.problems.length > 0) {
+            throw new Error(`RT config invalid: ${built.problems.join("; ")}`);
+          }
+          builtRtXml = built.xml;
           await client.shell(`mkdir -p '/sdcard/My Documents'`);
-          await client.pushTextFile(finalXml, "/sdcard/My Documents/rtlconfig.xml");
+          await client.pushTextFile(built.xml, "/sdcard/My Documents/rtlconfig.xml");
         });
 
         // 7. Grant permissions
