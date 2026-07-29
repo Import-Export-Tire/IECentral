@@ -386,7 +386,7 @@ export function InstallStep({ session }: { session: Session }) {
           actions.setVerification(checks);
           if (!allHardChecksPassed(checks)) {
             const failed = checks
-              .filter((c) => c.hard && c.status !== "pass")
+              .filter((c) => c.hard && c.status === "fail")
               .map((c) => `${c.label}: expected ${c.expected}, got ${c.observed}`);
             throw new Error(`Verification failed — ${failed.join(" | ")}`);
           }

@@ -5,7 +5,11 @@
 // runs from the wizard over ADB and (later) from the agent reporting remotely, so a scanner
 // is judged by identical rules either way.
 //
-// `hard: true` blocks the wizard from reaching Done. `warn`/`unverified` never block.
+// `hard: true` blocks the wizard from reaching Done, but only when a check's status is
+// `fail`. `warn` and `unverified` are recorded and surfaced same as any other status, but
+// they never block — regardless of the `hard` flag. "Nothing to compare against" (warn) and
+// "cannot be checked automatically" (unverified) are not the same claim as "checked and
+// wrong" (fail), and only the latter should stop a scanner from being handed out.
 
 export type CheckStatus = "pass" | "fail" | "warn" | "unverified";
 
@@ -224,5 +228,5 @@ export function buildChecks(input: VerifyInput): Check[] {
 }
 
 export function allHardChecksPassed(checks: Check[]): boolean {
-  return checks.every((c) => !c.hard || c.status === "pass");
+  return checks.every((c) => !c.hard || c.status !== "fail");
 }

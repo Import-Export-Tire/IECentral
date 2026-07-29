@@ -6,6 +6,7 @@ import {
   compareVersion,
   buildChecks,
   allHardChecksPassed,
+  type Check,
 } from "./verify";
 
 // Captured from a Zebra TC51 (Android 8.1) running agent 1.2.1.
@@ -228,5 +229,55 @@ describe("buildChecks", () => {
     const rt = checks.find((c) => c.key === "rtConfigMatches")!;
     expect(rt.observed).toBe("(file missing)");
     expect(rt.status).toBe("fail");
+  });
+
+  it("yields allHardChecksPassed === true when a device is correctly configured in every respect except that no app versions were pinned", () => {
+    // The exact production scenario: a location's optional "Current Version" fields are blank,
+    // so expected.versions are all null and compareVersion returns "warn" for all three
+    // hard version checks. Everything else about the device matches intent.
+    const checks = buildChecks({
+      ...base,
+      expected: {
+        ...base.expected,
+        versions: { tireTrack: null, rtLocator: null, scannerAgent: null },
+      },
+    });
+    const versionChecks = checks.filter((c) => c.key.startsWith("version_"));
+    expect(versionChecks).toHaveLength(3);
+    for (const c of versionChecks) {
+      expect(c.status).toBe("warn");
+      expect(c.hard).toBe(true);
+    }
+    expect(allHardChecksPassed(checks)).toBe(true);
+  });
+});
+
+describe("allHardChecksPassed", () => {
+  it("returns true when a hard check has status warn", () => {
+    const checks: Check[] = [
+      { key: "a", label: "A", status: "warn", hard: true },
+    ];
+    expect(allHardChecksPassed(checks)).toBe(true);
+  });
+
+  it("returns true when a hard check has status unverified", () => {
+    const checks: Check[] = [
+      { key: "a", label: "A", status: "unverified", hard: true },
+    ];
+    expect(allHardChecksPassed(checks)).toBe(true);
+  });
+
+  it("returns false when a hard check has status fail", () => {
+    const checks: Check[] = [
+      { key: "a", label: "A", status: "fail", hard: true },
+    ];
+    expect(allHardChecksPassed(checks)).toBe(false);
+  });
+
+  it("returns true when a non-hard check has status fail", () => {
+    const checks: Check[] = [
+      { key: "a", label: "A", status: "fail", hard: false },
+    ];
+    expect(allHardChecksPassed(checks)).toBe(true);
   });
 });
