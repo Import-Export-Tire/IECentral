@@ -81,8 +81,11 @@ def resolve_version(key, config_version):
     try:
         head = s3.head_object(Bucket=S3_BUCKET, Key=key)
         meta_version = head.get("Metadata", {}).get("version")
-        if meta_version:
-            return meta_version
+        # Require real content: a whitespace-only value is truthy in Python and would be
+        # returned verbatim as the version, which is a confidently-wrong answer. Falling
+        # through to the key-parsed version is always better than reporting a blank one.
+        if meta_version and meta_version.strip():
+            return meta_version.strip()
     except Exception as e:
         print(f"resolve_version: head_object failed for {key}: {e}")
 
