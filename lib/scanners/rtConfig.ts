@@ -1,0 +1,152 @@
+// lib/scanners/rtConfig.ts
+// Single source of truth for RT Locator config (rtlconfig.xml).
+//
+// Why this module exists: rtlconfig.xml used to be generated in four places with three
+// different DEVICEID semantics, and it is written twice per setup run — once by the wizard
+// over ADB, once by the agent at claim time. Whichever wrote last won, so the DEVICEID that
+// landed on a device depended on whether a location template happened to exist.
+//
+// DEVICEID is CONSTANT PER LOCATION, never per scanner. Every scanner at a store must carry
+// the same value. Templates are never trusted for DEVICEID or RTLMOBILEURL — those are always
+// substituted from the location config — so all writers produce identical bytes.
+//
+// Pure: no React, no Convex, no I/O. Safe to import from the browser, Convex, and Node.
+
+export type RtConfigInput = {
+  locationCode: string;
+  rtLocatorUrl: string;
+  rtDeviceId: string;
+  /** Optional per-location template from scannerMdmConfigs.rtConfigXml. */
+  template?: string;
+};
+
+export type RtConfigValues = {
+  orientation: string;
+  deviceId: string;
+  scaleFactor: string;
+  rtLocatorUrl: string;
+};
+
+export type RtConfigResult = {
+  xml: string;
+  values: RtConfigValues;
+  /** Non-empty means DO NOT WRITE THIS CONFIG. Callers must treat it as a hard failure. */
+  problems: string[];
+};
+
+const REQUIRED_TAGS = ["ORIENTATION", "DEVICEID", "SCALEFACTOR", "RTLMOBILEURL"] as const;
+
+const DEFAULT_ORIENTATION = "PORTRAIT";
+const DEFAULT_SCALE_FACTOR = "3.5";
+
+/** Read a single tag's text. Returns null when the tag is absent. */
+function readTag(xml: string, tag: string): string | null {
+  const m = xml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
+  return m ? m[1] : null;
+}
+
+/** Replace a tag's text, or append the tag before </RT> when it is missing. */
+function writeTag(xml: string, tag: string, value: string): string {
+  const re = new RegExp(`<${tag}>[^<]*</${tag}>`);
+  if (re.test(xml)) return xml.replace(re, `<${tag}>${value}</${tag}>`);
+  return xml.replace("</RT>", `    <${tag}>${value}</${tag}>\n</RT>`);
+}
+
+/**
+ * A deliberately narrow well-formedness check: every <TAG> has a matching </TAG> and the
+ * document is wrapped in <RT>…</RT>. A real XML parser is unavailable in every runtime this
+ * module targets, and RT configs are a fixed flat shape, so this is sufficient and honest
+ * about what it checks.
+ */
+function isWellFormed(xml: string): boolean {
+  if (!/^\s*<RT>[\s\S]*<\/RT>\s*$/.test(xml)) return false;
+  // Match tags by proper nesting (a stack), not by flat position — an outer tag's
+  // opening comes first but its closing comes last, so index-aligned comparison of
+  // "all opens" vs "all closes" is wrong for any nested shape (which <RT>…</RT> always is).
+  const tagPattern = /<(\/?)([A-Z]+)>/g;
+  const stack: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = tagPattern.exec(xml)) !== null) {
+    const [, isClosing, tag] = match;
+    if (isClosing) {
+      if (stack.pop() !== tag) return false;
+    } else {
+      stack.push(tag);
+    }
+  }
+  return stack.length === 0;
+}
+
+export function buildRtConfig(input: RtConfigInput): RtConfigResult {
+  const problems: string[] = [];
+  const { locationCode, rtLocatorUrl, rtDeviceId, template } = input;
+
+  // --- validate the inputs the location config owns ---
+  if (!rtLocatorUrl.trim()) {
+    problems.push(`rtLocatorUrl is empty — set it in Scanner Settings for ${locationCode}`);
+  } else {
+    let parsed: URL | null = null;
+    try {
+      parsed = new URL(rtLocatorUrl);
+    } catch {
+      parsed = null;
+    }
+    if (!parsed || !/^https?:$/.test(parsed.protocol)) {
+      problems.push(`rtLocatorUrl "${rtLocatorUrl}" is not a valid http(s) URL`);
+    }
+  }
+
+  if (!rtDeviceId.trim()) {
+    problems.push(`rtDeviceId is empty — set it in Scanner Settings for ${locationCode}`);
+  } else if (/^[A-Z]\d{2}-\d+$/.test(rtDeviceId.trim())) {
+    // Guards the historical bug: convex/scannerMdm.ts used to write scanner.number here.
+    problems.push(
+      `rtDeviceId "${rtDeviceId}" looks like a scanner number — DEVICEID is constant per location, not per scanner`,
+    );
+  }
+
+  // --- start from the template when present, else the canonical default ---
+  let xml =
+    template && template.trim()
+      ? template.trim()
+      : `<RT>
+    <ORIENTATION>${DEFAULT_ORIENTATION}</ORIENTATION>
+    <DEVICEID>${rtDeviceId}</DEVICEID>
+    <SCALEFACTOR>${DEFAULT_SCALE_FACTOR}</SCALEFACTOR>
+    <RTLMOBILEURL>${rtLocatorUrl}</RTLMOBILEURL>
+</RT>`;
+
+  if (!isWellFormed(xml)) {
+    problems.push(`rtConfigXml for ${locationCode} is not well-formed XML`);
+    // Fall back to the default shape so callers always get a usable `values` object.
+    xml = `<RT>
+    <ORIENTATION>${DEFAULT_ORIENTATION}</ORIENTATION>
+    <DEVICEID>${rtDeviceId}</DEVICEID>
+    <SCALEFACTOR>${DEFAULT_SCALE_FACTOR}</SCALEFACTOR>
+    <RTLMOBILEURL>${rtLocatorUrl}</RTLMOBILEURL>
+</RT>`;
+  } else if (template && template.trim()) {
+    for (const tag of REQUIRED_TAGS) {
+      if (readTag(xml, tag) === null) {
+        problems.push(`rtConfigXml for ${locationCode} is missing required tag <${tag}>`);
+      }
+    }
+  }
+
+  // --- always substitute the location-owned fields; never trust the template's copies ---
+  xml = writeTag(xml, "DEVICEID", rtDeviceId);
+  xml = writeTag(xml, "RTLMOBILEURL", rtLocatorUrl);
+  if (readTag(xml, "ORIENTATION") === null) xml = writeTag(xml, "ORIENTATION", DEFAULT_ORIENTATION);
+  if (readTag(xml, "SCALEFACTOR") === null) xml = writeTag(xml, "SCALEFACTOR", DEFAULT_SCALE_FACTOR);
+
+  return {
+    xml,
+    values: {
+      orientation: readTag(xml, "ORIENTATION") ?? DEFAULT_ORIENTATION,
+      deviceId: readTag(xml, "DEVICEID") ?? rtDeviceId,
+      scaleFactor: readTag(xml, "SCALEFACTOR") ?? DEFAULT_SCALE_FACTOR,
+      rtLocatorUrl: readTag(xml, "RTLMOBILEURL") ?? rtLocatorUrl,
+    },
+    problems,
+  };
+}
