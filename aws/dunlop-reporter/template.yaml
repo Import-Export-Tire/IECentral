@@ -395,6 +395,36 @@ Resources:
             Method: put
             RestApiId: !Ref DunlopApi
 
+  # Dry-run SFTP connectivity check. Separate from ManageSettingsFunction so
+  # attaching a VPC (needed to egress via the whitelisted static IP) doesn't
+  # add cold-start latency to the plain settings GET/PUT.
+  TestSftpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: dunlop-test-sftp
+      Handler: test_sftp.handler
+      CodeUri: lambdas/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds:
+          - !Ref PrivateSubnet
+          - !Ref PrivateSubnet2
+      Environment:
+        Variables:
+          SFTP_SECRETS_ARN: !Ref SftpCredentials
+      Layers:
+        - !Ref ParamikoLayer
+      Events:
+        ApiPost:
+          Type: Api
+          Properties:
+            Path: /dunlop/settings/test
+            Method: post
+            RestApiId: !Ref DunlopApi
+
   ImapRelayFunction:
     Type: AWS::Serverless::Function
     Properties:

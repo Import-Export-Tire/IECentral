@@ -897,14 +897,38 @@ interface SftpCreds {
   directory: string;
 }
 
+const EMPTY_CREDS: SftpCreds = { host: "", port: 22, username: "", password: "", directory: "inbound" };
+
+interface SftpTestResult {
+  env: string;
+  host: string;
+  port: number;
+  username: string;
+  directory: string;
+  ok: boolean;
+  stage: string | null;
+  error: string | null;
+  elapsedMs: number | null;
+  fileCount: number | null;
+}
+
 function SettingsTab({ isDark }: { isDark: boolean }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
-  const [devCreds, setDevCreds] = useState<SftpCreds>({ host: "", port: 22, username: "", password: "", directory: "inbound" });
-  const [prodCreds, setProdCreds] = useState<SftpCreds>({ host: "", port: 22, username: "", password: "", directory: "inbound" });
+  const [devCreds, setDevCreds] = useState<SftpCreds>(EMPTY_CREDS);
+  const [prodCreds, setProdCreds] = useState<SftpCreds>(EMPTY_CREDS);
   const [showPasswords, setShowPasswords] = useState(false);
+
+  // Snapshot of what's actually stored in Secrets Manager. The connection
+  // test runs against the *saved* credentials, so we compare against this
+  // to stop anyone testing while the form has unsaved edits — that would
+  // silently exercise the old password and report a misleading result.
+  const [savedSnapshot, setSavedSnapshot] = useState<{ dev: SftpCreds; prod: SftpCreds }>({ dev: EMPTY_CREDS, prod: EMPTY_CREDS });
+
+  const [testing, setTesting] = useState<"dev" | "prod" | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, SftpTestResult | { error: string }>>({});
 
   useEffect(() => {
     (async () => {
@@ -914,6 +938,7 @@ function SettingsTab({ isDark }: { isDark: boolean }) {
           const data = await res.json();
           if (data.sftp_dev) setDevCreds(data.sftp_dev);
           if (data.sftp_prod) setProdCreds(data.sftp_prod);
+          setSavedSnapshot({ dev: data.sftp_dev ?? EMPTY_CREDS, prod: data.sftp_prod ?? EMPTY_CREDS });
         }
       } catch { /* ignore */ } finally {
         setLoading(false);
@@ -932,12 +957,37 @@ function SettingsTab({ isDark }: { isDark: boolean }) {
         body: JSON.stringify({ sftp_dev: devCreds, sftp_prod: prodCreds }),
       });
       if (!res.ok) throw new Error("Failed to save");
+      // A successful save makes the form the new baseline, which re-enables
+      // the test buttons.
+      setSavedSnapshot({ dev: devCreds, prod: prodCreds });
+      setTestResults({});
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
       setError("Failed to save credentials");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTest = async (env: "dev" | "prod") => {
+    setTesting(env);
+    setTestResults((prev) => ({ ...prev, [env]: undefined as never }));
+    try {
+      const res = await fetch(`${API_BASE}/settings/test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ env }),
+      });
+      const data = await res.json();
+      setTestResults((prev) => ({
+        ...prev,
+        [env]: res.ok ? data : { error: data?.error || `Test failed (HTTP ${res.status})` },
+      }));
+    } catch {
+      setTestResults((prev) => ({ ...prev, [env]: { error: "Could not reach the test endpoint" } }));
+    } finally {
+      setTesting(null);
     }
   };
 
@@ -963,12 +1013,60 @@ function SettingsTab({ isDark }: { isDark: boolean }) {
         }
       />
 
-      {[
-        { label: "Dev Environment", creds: devCreds, setCreds: setDevCreds },
-        { label: "Prod Environment", creds: prodCreds, setCreds: setProdCreds },
-      ].map(({ label, creds, setCreds }) => (
+      {([
+        { label: "Dev Environment", env: "dev" as const, creds: devCreds, setCreds: setDevCreds },
+        { label: "Prod Environment", env: "prod" as const, creds: prodCreds, setCreds: setProdCreds },
+      ]).map(({ label, env, creds, setCreds }) => {
+        const dirty = JSON.stringify(creds) !== JSON.stringify(savedSnapshot[env]);
+        const result = testResults[env];
+        return (
         <Card key={label}>
-          <div className="ui-section-label mb-3">{label}</div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="ui-section-label">{label}</div>
+            <div className="flex items-center gap-2">
+              {dirty && (
+                <span className="text-[11px] theme-text-tertiary">Save to test</span>
+              )}
+              <button
+                onClick={() => handleTest(env)}
+                disabled={testing !== null || dirty}
+                title={dirty
+                  ? "You have unsaved changes. The test uses the saved credentials, so save first."
+                  : "Connect, authenticate, and list the drop directory. No file is sent."}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50 bg-blue-500/20 text-blue-700 dark:text-blue-400 hover:bg-blue-500/30 transition-colors"
+              >
+                {testing === env ? "Testing…" : "Test connection"}
+              </button>
+            </div>
+          </div>
+
+          {result && (
+            <div
+              className={`mb-3 rounded-lg px-3 py-2 text-xs ${
+                "ok" in result && result.ok
+                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                  : "bg-red-500/10 text-red-700 dark:text-red-400"
+              }`}
+            >
+              {"ok" in result && result.ok ? (
+                <>
+                  <span className="font-semibold">Connected.</span>{" "}
+                  Authenticated as <span className="font-mono">{result.username}</span> and read{" "}
+                  <span className="font-mono">{result.directory}</span>
+                  {result.fileCount !== null ? ` (${result.fileCount} file${result.fileCount === 1 ? "" : "s"})` : ""}
+                  {result.elapsedMs !== null ? ` in ${result.elapsedMs}ms` : ""}. No file was sent.
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold">
+                    Failed{"stage" in result && result.stage ? ` at ${result.stage}` : ""}.
+                  </span>{" "}
+                  {"error" in result ? result.error : "Unknown error"}
+                </>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium mb-1 theme-text-tertiary">Host</label>
@@ -992,7 +1090,8 @@ function SettingsTab({ isDark }: { isDark: boolean }) {
             </div>
           </div>
         </Card>
-      ))}
+        );
+      })}
 
       <div className="flex items-center gap-3">
         <Button
