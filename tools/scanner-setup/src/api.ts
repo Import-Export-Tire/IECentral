@@ -43,6 +43,7 @@ export interface SetupConfig {
   wifiPassword?: string;
   tireTrackApkSource: string;
   rtConfigXml?: string;
+  rtDeviceId?: string;
   currentTireTrackVersion?: string;
   currentRtLocatorVersion?: string;
   currentAgentVersion?: string;

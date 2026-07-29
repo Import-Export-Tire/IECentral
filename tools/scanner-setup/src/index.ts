@@ -7,6 +7,7 @@ import * as path from "path";
 import * as os from "os";
 import * as adb from "./adb";
 import * as api from "./api";
+import { buildRtConfig } from "../../../lib/scanners/rtConfig";
 
 const LOCATIONS: Record<string, { name: string; code: string }> = {
   "1": { name: "Latrobe", code: "W08" },
@@ -391,12 +392,17 @@ async function pushRtConfig(adbSerial: string, config: api.SetupConfig) {
   if (!config.rtConfigXml && !config.rtLocatorUrl) return;
 
   console.log("Pushing RT config...");
-  const xml = config.rtConfigXml || `<RT>
-    <ORIENTATION>PORTRAIT</ORIENTATION>
-    <DEVICEID>0001</DEVICEID>
-    <SCALEFACTOR>3.5</SCALEFACTOR>
-    <RTLMOBILEURL>${config.rtLocatorUrl}</RTLMOBILEURL>
-</RT>`;
+  const built = buildRtConfig({
+    locationCode: config.locationCode ?? "unknown",
+    rtLocatorUrl: config.rtLocatorUrl ?? "",
+    rtDeviceId: config.rtDeviceId ?? "",
+    template: config.rtConfigXml,
+  });
+  if (built.problems.length > 0) {
+    console.error(chalk.red(`✗ RT config invalid: ${built.problems.join("; ")}`));
+    return;
+  }
+  const xml = built.xml;
 
   const tempFile = path.join(os.tmpdir(), "rtlconfig.xml");
   fs.writeFileSync(tempFile, xml);
