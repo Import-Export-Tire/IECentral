@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   parseDeviceOwner,
   parseActiveRestrictions,
+  parsePasswordSufficient,
   compareVersion,
   buildChecks,
   allHardChecksPassed,
@@ -27,6 +28,31 @@ Current Device Policy Manager state:
     admin=ComponentInfo{com.other.app/com.other.app.Receiver}
 `;
 
+// Realistic provisioning failure: ownership never transferred to us — another admin
+// is the actual Device Owner, and our package only shows up as an *enrolled admin* in
+// the section that follows. Because "Enabled Device Admins (User 0, provisioningState:
+// 2):" contains parentheses, the old terminator regex `(?=\n\s*\w[\w ]*:|\n*$)` cannot
+// match it, so the "Device Owner:" section over-extends into this block and a bare
+// `.includes(pkg)` finds our package where it must not.
+const DUMP_OWNER_IS_OTHER = `
+Current Device Policy Manager state:
+  Device Owner:
+    package=com.other.mdm
+  Enabled Device Admins (User 0, provisioningState: 2):
+    admin=ComponentInfo{com.ietires.scanneragent/com.ietires.scanneragent.DeviceAdminReceiver}
+`;
+
+// The owner's package name is a superstring of ours — a loose `.includes` would match
+// this even though `com.ietires.scanneragentx` is not `com.ietires.scanneragent`.
+const DUMP_OWNER_SUPERSTRING = `
+Current Device Policy Manager state:
+  Device Owner:
+    admin=ComponentInfo{com.ietires.scanneragentx/com.ietires.scanneragentx.DeviceAdminReceiver}
+    package=com.ietires.scanneragentx
+  Enabled Device Admins (User 0, provisioningState: 2):
+    admin=ComponentInfo{com.ietires.scanneragentx/com.ietires.scanneragentx.DeviceAdminReceiver}
+`;
+
 describe("parseDeviceOwner", () => {
   it("detects our package as device owner", () => {
     expect(parseDeviceOwner(DUMP_OWNER, "com.ietires.scanneragent")).toBe(true);
@@ -37,6 +63,12 @@ describe("parseDeviceOwner", () => {
   it("does not match a different package that merely appears in the dump", () => {
     expect(parseDeviceOwner(DUMP_NO_OWNER, "com.other.app")).toBe(false);
   });
+  it("returns false when another package is the real owner and ours is merely an enrolled admin listed after it (parenthesized header)", () => {
+    expect(parseDeviceOwner(DUMP_OWNER_IS_OTHER, "com.ietires.scanneragent")).toBe(false);
+  });
+  it("returns false when the owner's package name is a superstring of ours", () => {
+    expect(parseDeviceOwner(DUMP_OWNER_SUPERSTRING, "com.ietires.scanneragent")).toBe(false);
+  });
 });
 
 describe("parseActiveRestrictions", () => {
@@ -45,6 +77,18 @@ describe("parseActiveRestrictions", () => {
   });
   it("returns an empty array when none are set", () => {
     expect(parseActiveRestrictions(DUMP_NO_OWNER)).toEqual([]);
+  });
+});
+
+describe("parsePasswordSufficient", () => {
+  it("returns true when the dump reports the password as sufficient", () => {
+    expect(parsePasswordSufficient("isActivePasswordSufficient=true")).toBe(true);
+  });
+  it("returns false when the dump reports the password as insufficient", () => {
+    expect(parsePasswordSufficient("isActivePasswordSufficient=false")).toBe(false);
+  });
+  it("returns null when the field is absent from the dump", () => {
+    expect(parsePasswordSufficient("some other unrelated dump text")).toBe(null);
   });
 });
 
@@ -152,5 +196,37 @@ describe("buildChecks", () => {
       observed: { ...base.observed, screenOffTimeoutMs: "60000" },
     });
     expect(checks.find((c) => c.key === "screenTimeout")!.status).toBe("fail");
+  });
+
+  it("passes rtConfigMatches when the device file is pretty-printed but content-identical to the compact expected XML", () => {
+    const checks = buildChecks({
+      ...base,
+      expected: { ...base.expected, rtConfigXml: "<RT><DEVICEID>0001</DEVICEID></RT>" },
+      observed: {
+        ...base.observed,
+        rtConfigXml: "<RT>\n  <DEVICEID>0001</DEVICEID>\n</RT>\n",
+      },
+    });
+    expect(checks.find((c) => c.key === "rtConfigMatches")!.status).toBe("pass");
+  });
+
+  it("labels an existing-but-empty RT config file distinctly from a missing one", () => {
+    const checks = buildChecks({
+      ...base,
+      observed: { ...base.observed, rtConfigXml: "" },
+    });
+    const rt = checks.find((c) => c.key === "rtConfigMatches")!;
+    expect(rt.observed).toBe("(file empty)");
+    expect(rt.status).toBe("fail");
+  });
+
+  it("still labels a genuinely missing RT config file as missing", () => {
+    const checks = buildChecks({
+      ...base,
+      observed: { ...base.observed, rtConfigXml: null },
+    });
+    const rt = checks.find((c) => c.key === "rtConfigMatches")!;
+    expect(rt.observed).toBe("(file missing)");
+    expect(rt.status).toBe("fail");
   });
 });

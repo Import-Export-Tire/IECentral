@@ -50,9 +50,32 @@ const APP_LABELS: Record<AppKey, string> = {
 
 /** True when `pkg` is the active Device Owner, per `dumpsys device_policy`. */
 export function parseDeviceOwner(dump: string, pkg: string): boolean {
-  const section = dump.match(/Device Owner:[\s\S]*?(?=\n\s*\w[\w ]*:|\n*$)/);
-  if (!section) return false;
-  return section[0].includes(pkg);
+  const lines = dump.split(/\r\n|\r|\n/);
+  const headerIndex = lines.findIndex((l) => /Device Owner:/.test(l));
+  if (headerIndex === -1) return false;
+
+  const headerLine = lines[headerIndex];
+  const headerIndent = /^[ \t]*/.exec(headerLine)![0].length;
+
+  // Anything on the header line itself, after "Device Owner:", belongs to the section too.
+  const trailing = headerLine.slice(headerLine.indexOf("Device Owner:") + "Device Owner:".length);
+  const sectionLines: string[] = trailing.trim() ? [trailing] : [];
+
+  for (let i = headerIndex + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() === "") continue; // blank lines don't end the section
+    const indent = /^[ \t]*/.exec(line)![0].length;
+    if (indent <= headerIndent) break;
+    sectionLines.push(line);
+  }
+
+  const section = sectionLines.join("\n");
+  const escaped = pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const ownerPattern = new RegExp(
+    `(?:package=${escaped}\\s*$)|(?:admin=ComponentInfo\\{${escaped}/)`,
+    "m",
+  );
+  return ownerPattern.test(section);
 }
 
 /** Restriction names from the `User restrictions:` block. */
@@ -80,9 +103,12 @@ export function compareVersion(
   return expected === observed ? "pass" : "fail";
 }
 
-/** Collapse whitespace so a trailing newline from `cat` is not a mismatch. */
+/** Collapse whitespace so a trailing newline from `cat` — or pretty-printing — is not a mismatch. */
 function normalizeXml(xml: string): string {
-  return xml.replace(/\s+/g, " ").trim();
+  return xml
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/>\s+</g, "><");
 }
 
 export function buildChecks(input: VerifyInput): Check[] {
@@ -137,7 +163,12 @@ export function buildChecks(input: VerifyInput): Check[] {
     key: "rtConfigMatches",
     label: "RT config on device matches intent",
     expected: normalizeXml(expected.rtConfigXml),
-    observed: observed.rtConfigXml ? normalizeXml(observed.rtConfigXml) : "(file missing)",
+    observed:
+      observed.rtConfigXml === null
+        ? "(file missing)"
+        : observed.rtConfigXml === ""
+          ? "(file empty)"
+          : normalizeXml(observed.rtConfigXml),
     status:
       observed.rtConfigXml && normalizeXml(observed.rtConfigXml) === normalizeXml(expected.rtConfigXml)
         ? "pass"
