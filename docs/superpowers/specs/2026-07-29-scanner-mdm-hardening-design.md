@@ -4,8 +4,9 @@
 **Status:** Approved (design), pending implementation plan
 **Context:** A batch of new Zebra TC51 scanners is about to be programmed. Before that
 happens, the setup wizard needs to prove what it installed, the RT config needs to stop
-being ambiguous, the lock PIN needs to be genuinely unchangeable by employees, and the
-fleet needs a remote-view capability for troubleshooting.
+being ambiguous, the lock PIN needs to be genuinely unchangeable by employees, the fleet
+needs a remote-view capability for troubleshooting, and — the largest piece — updates
+must be pushable to any scanner without physically finding it and plugging it in.
 
 Related: `docs/superpowers/specs/2026-06-03-scanner-pin-management-design.md` (the
 Device-Owner PIN work this builds on).
@@ -21,6 +22,8 @@ Four asks, in the user's words:
 3. "Tighten it down so employees can not change the pin number at all. Pin number
    assigned and requires something special to change."
 4. "Remote viewing would be helpful."
+5. "I also need the ability to remote push updates to whatever is needed on the device. I
+   dont want to have to find the scanner and plug it in."
 
 Plus one risk the batch makes urgent: the known cert-retirement bug that strands
 scanners offline.
@@ -91,7 +94,26 @@ a deleted cert → AWS IoT drops the TLS handshake → permanently offline until
 hand over ADB. Already hit W08-001 and W08-004. A batch of new scanners multiplies the
 exposure.
 
-### 2.6 Telemetry interval is 5 minutes
+### 2.6 Every remote command today is fire-and-forget with no confirmation
+
+Two independent defects combine into total silent failure:
+
+- **`MqttService.kt:130` sets `isCleanSession = true`.** With no persistent session, AWS
+  IoT does not queue messages for a disconnected client. A command published to a scanner
+  that is powered off, docked in a drawer, or out of Wi-Fi range is **discarded
+  permanently** — no queue, no retry, no error.
+- **The `ack` topic is never consumed.** The agent publishes to
+  `cmd/scanners/{thing}/ack` (`MqttService.kt:362`) and the cert policy grants it
+  (`template.yaml:89`), but `template.yaml` defines exactly one IoT rule —
+  `scanner_telemetry_to_lambda` on `dt/scanners/+/telemetry`. There is no rule, Lambda, or
+  Convex route for acks. `updateCommandStatus` (`convex/scannerMdm.ts:437`) has **zero
+  callers**.
+
+Net effect: pressing Restart on an offline scanner looks successful in the UI and does
+nothing, forever, with no way to tell. Any "push updates to the fleet" feature built on
+this foundation would fail silently on exactly the devices most likely to need it.
+
+### 2.7 Telemetry interval is 5 minutes
 
 `MqttService.TELEMETRY_INTERVAL_MS = 5 * 60 * 1000`. Any "live" view built on the
 existing telemetry cadence would be useless without an on-demand fast mode.
@@ -110,6 +132,10 @@ existing telemetry cadence would be useless without an on-demand fast mode.
 | Device Owner restrictions | Block factory reset, block adding accounts, block uninstalling the 3 IET apps. **Not** `DISALLOW_INSTALL_UNKNOWN_SOURCES` (the IET apps are themselves unknown-source) — log sideloads instead. |
 | App allowlist lockdown | Turn ON for the whole batch. |
 | RT `DEVICEID` | Constant per location, never per scanner. |
+| Remote push transport | **Full AWS IoT Jobs.** Durable per-device job executions that survive an offline device indefinitely, with native status tracking, rollout rate control, abort criteria, retries, and maintenance windows. |
+| When updates apply | Off-hours maintenance window, deferred until idle/charging, with a per-deployment **Apply now** override. |
+| What is pushable | Everything: app builds, RT config, device settings, policies/restrictions/lockdown, agent self-update, PIN rotation. |
+| Rollout style | Canary (1–2 scanners) → verify → release to the rest, with a Stop button. |
 
 Deliberately **not** set: `DISALLOW_DEBUGGING_FEATURES`, which would lock the WebUSB
 setup wizard out of the device entirely.
@@ -239,6 +265,19 @@ Indexed `by_scanner`. **The wizard cannot reach Done with a failing hard check**
 and `unverified` do not block. The fleet page gains an audit column; the detail page
 shows a red banner on failure.
 
+**The audit runs remotely too.** Almost every check above is answerable by the agent
+itself without ADB: installed versions and the signer digest via `PackageManager`
+(`GET_SIGNATURES`), the config file by reading it, settings via `Settings.System`,
+restrictions and Device Owner via `DevicePolicyManager`, hidden packages via
+`isApplicationHidden`. So `lib/scannerVerify.ts` defines the check list and both callers
+produce the same `scannerVerifications` rows — `source: "wizard"` over USB, or
+`source: "remote"` reported at the end of a deployment (Unit 10). This is what makes a
+remote push trustworthy: the device proves the new state rather than merely acknowledging
+the instruction.
+
+Only two checks stay USB-only: the DataWedge scan test (needs a human with a barcode) and
+re-enabling the accessibility service if it has been turned off.
+
 ### Unit 4 — PIN lockdown, device side
 
 `DeviceAdminReceiver.onPasswordChanged()` → re-assert the stored system PIN immediately.
@@ -352,6 +391,149 @@ provision Lambda (which already holds the needed IoT permissions), and clears th
 - A **Check now** / **Finish** escape on the Verify step, for the known
   `getScannerDetail` auto-advance hiccup.
 
+### Unit 10 — Remote fleet updates via AWS IoT Jobs
+
+The largest unit, and the answer to "I don't want to find the scanner and plug it in."
+
+**Split of responsibilities.** The existing low-latency command topic stays for one-shot
+interactive actions that only make sense on an online device — `lock`, `unlock`,
+`restart`, `get_screen`. Everything that must survive an offline device becomes a **Job**:
+app installs, RT config, device settings, policies/restrictions/lockdown, agent
+self-update, PIN rotation. Additionally, the `ack` topic gets bridged (new IoT rule →
+Lambda → Convex route calling the currently-orphaned `updateCommandStatus`) so one-shot
+commands stop failing silently, and `isCleanSession` becomes `false` so an in-flight
+command survives a brief reconnect.
+
+**Thing groups.** `provision.py` adds each thing to a `scanners-{locationCode}` thing
+group at creation. This unlocks the property that matters most for the batch: a
+**CONTINUOUS** job targeting that group automatically rolls out to scanners added
+*later* — so a newly provisioned scanner picks up the current desired state with no
+further action.
+
+**Agent — Jobs protocol.** Verified topics and payloads (AWS IoT Jobs device MQTT API):
+
+- subscribe `$aws/things/{thing}/jobs/notify-next` — pushed whenever the next pending
+  execution changes
+- on connect, publish `$aws/things/{thing}/jobs/$next/get` with
+  `includeJobDocument: true` — this is what makes an offline device converge on
+  reconnect
+- `$aws/things/{thing}/jobs/{jobId}/update` with `status` ∈ `IN_PROGRESS` / `SUCCEEDED` /
+  `FAILED` / `REJECTED`, plus `statusDetails` for progress text and `stepTimeoutInMinutes`
+  to arm a step timer per phase (download / install / verify)
+
+**`FAILED` vs `REJECTED` matters and is not cosmetic.** AWS retries only `FAILED` and
+`TIMED_OUT`. So the agent reports `FAILED` for genuinely retryable problems (download
+interrupted, transient install failure) and `REJECTED` for permanent ones (checksum
+mismatch, signature mismatch, unsupported payload) — otherwise a device that can never
+succeed burns the retry budget and incurs charges on every attempt.
+
+**Job document.** Small — a few KB, describing intent rather than carrying payloads:
+
+```json
+{
+  "version": "1",
+  "action": "apply-desired-state",
+  "applyWindow": { "deferUntilWindow": true, "requireCharging": false },
+  "apps": [
+    { "pkg": "com.importexporttire.tiretrack", "version": "2.0.2",
+      "sha256": "...", "url": "${aws:iot:s3-presigned-url:https://s3.us-east-1.amazonaws.com/ietires-scanner-assets/apks/tiretrack-2.0.2.apk}" }
+  ],
+  "rtConfigXml": "<RT>…</RT>",
+  "settings": { "screenOffTimeoutMs": 1800000, "accelerometerRotation": 0 },
+  "policy": { "restrictions": [...], "uninstallBlocked": [...], "hiddenPackages": [...] },
+  "rotatePin": false
+}
+```
+
+APKs are delivered by `${aws:iot:s3-presigned-url:<s3-uri>}` placeholders, which AWS
+substitutes when the device fetches the document — so no APK bytes are embedded and
+`command.py`'s manual presigning goes away. Requires `presignedUrlConfig` with a `roleArn`
+and `expiresInSec`.
+
+**Correctness detail that shapes the deferral design:** `expiresInSec` maxes out at 3600
+(one hour). A device that fetches a job document in the afternoon and defers the install
+to 2am would find a dead URL. Therefore **the agent must re-fetch its job document
+immediately before downloading** (`$aws/things/{thing}/jobs/{jobId}/get` with
+`includeJobDocument: true`) rather than reusing an earlier copy. This is belt-and-braces
+with the maintenance window below, which already narrows rollout to the window.
+
+**Off-hours application, two independent layers:**
+
+1. **Server-side** — `SchedulingConfig` with a recurring `maintenanceWindows` cron on a
+   CONTINUOUS job. AWS only rolls out during the window; at window end, rollout stops and
+   the job returns to `SCHEDULED` with `QUEUED` executions held for the next window. Note
+   the constraints: maintenance windows apply to **continuous jobs only**, and max window
+   duration is 23h50m.
+2. **Device-side** — the agent is the final authority: it holds a job at `IN_PROGRESS`
+   with a `statusDetails` of "deferred — device in use" until it is idle (screen off) and,
+   if `requireCharging`, on the charger. `applyWindow.deferUntilWindow: false` is the
+   **Apply now** override.
+
+Both layers are needed: the server-side window prevents mid-shift rollout, the device-side
+check prevents interrupting someone mid-scan inside the window.
+
+**Canary rollout.** A Convex `scannerDeployments` record owns the operation and creates
+**two** IoT jobs: a canary job targeting 1–2 named things, then — only after those report
+`SUCCEEDED` *and* pass the remote audit (below) — a second job for the remainder. Stop is
+`CancelJob` on the main job. `abortConfig` provides a second, automatic safety net
+(cancel when a threshold percentage report `FAILED`), and `jobExecutionsRolloutConfig`
+caps notifications per minute.
+
+**Progress into Convex without polling.** Job and job-execution events must be explicitly
+enabled (`UpdateEventConfigurations`); they then publish to
+`$aws/events/jobExecution/{jobId}/{status}`, which an IoT topic rule forwards to a Lambda
+→ a new Convex webhook → per-device rows on the deployment.
+
+**New tables:**
+
+```ts
+scannerDeployments: {
+  createdAt, createdBy,
+  kind: v.string(),          // "apps" | "config" | "policy" | "agent" | "pin" | "mixed"
+  targetLocationCode: v.optional(v.string()),
+  payload: v.any(),          // the intent that becomes the job document
+  canaryThingNames: v.array(v.string()),
+  canaryJobId: v.optional(v.string()),
+  mainJobId: v.optional(v.string()),
+  status: v.string(),        // "canary" | "canary_failed" | "rolling" | "complete" | "aborted"
+  applyNow: v.boolean(),
+}
+
+scannerDeploymentTargets: {
+  deploymentId: v.id("scannerDeployments"),
+  scannerId: v.id("scanners"),
+  thingName: v.string(),
+  jobId: v.string(),
+  status: v.string(),        // QUEUED | IN_PROGRESS | SUCCEEDED | FAILED | TIMED_OUT | REJECTED | CANCELED
+  statusDetail: v.optional(v.string()),
+  updatedAt: v.number(),
+}
+```
+
+Both indexed `by_deployment`; targets also `by_scanner`.
+
+**Web UI** — a new **Deployments** page: choose what to push (pinned build / RT config /
+policy / agent / PIN rotation), choose target (location or hand-picked scanners), pick
+canary devices, then watch a per-device progress table driven by the job-execution events.
+Stop halts the remainder. Every deployment is audited with who and why.
+
+**Agent self-update safety.** The agent installing itself is the one action that can
+strand the fleet. Rules: report `IN_PROGRESS` → download → verify sha256 → *then*
+`SUCCEEDED` **before** committing the install (the process dies during self-install, so a
+post-install report is impossible); refuse to self-install a build whose versionCode is
+lower than current unless the job document sets an explicit downgrade flag; and always
+canary the agent to one scanner first. A failed self-update leaves the previous agent
+running because `pm install -r` is atomic.
+
+**What still requires USB, exactly once per device.** Being straight about the limits:
+Device Owner promotion (`dpm set-device-owner` needs shell and an account-free device),
+enabling the accessibility service (`enabled_accessibility_services` is a secure setting
+that `dpm.setSecureSetting` cannot reach on API 27), the `WRITE_SETTINGS` appop that lets
+the agent change system settings like screen timeout remotely thereafter, and the initial
+IoT certificate. **After that first USB session, everything in this unit is remote
+forever.** The corollary is that if the accessibility service is ever disabled on a
+device, re-enabling it needs USB — so the verification pass treats it as a hard check.
+
 ---
 
 ## 5. Data flow
@@ -378,15 +560,33 @@ agent telemetry (5 min, or ~3s in fast mode)
   → first telemetry after claim also triggers cert retirement
 ```
 
-**Commands (cloud → agent):**
+**One-shot commands (cloud → agent, online devices only):**
 
 ```
 UI → /api/scanner-mdm/command (role gate) → API GW → command.py
   → iot_data.publish cmd/scanners/{thing}/{command}
   → MqttService.handleCommand → ack
+  → NEW: IoT rule on cmd/scanners/+/ack → Lambda → Convex → updateCommandStatus
 ```
 
 New commands: `get_screen`, `apply_policies`. `update_pin` extended with `payload.pin`.
+
+**Remote updates (cloud → agent, survives offline devices):**
+
+```
+Deployments UI → scannerDeployments record
+  → Lambda CreateJob (canary: 1–2 things; then main: scanners-{loc} thing group)
+     with presignedUrlConfig, SchedulingConfig maintenance window,
+     jobExecutionsRolloutConfig, abortConfig, timeoutConfig, retryConfig
+  → device receives $aws/things/{thing}/jobs/notify-next
+     (or fetches $next/get on reconnect — this is the offline-convergence path)
+  → agent: IN_PROGRESS → defer until window + idle → RE-FETCH job doc for a fresh
+     presigned URL → download → verify sha256 + signer → apply → remote audit
+     → SUCCEEDED (or FAILED if retryable / REJECTED if permanent)
+  → $aws/events/jobExecution/{jobId}/{status} → IoT rule → Lambda → Convex webhook
+     → scannerDeploymentTargets rows
+  → canary SUCCEEDED + audit passed → release main job
+```
 
 ---
 
@@ -405,6 +605,24 @@ New commands: `get_screen`, `apply_policies`. `update_pin` extended with `payloa
   enabled" rather than hanging; the verification pass flags it.
 - **Verification hard-fail** — the wizard blocks Done and shows which checks failed with
   observed values, so the scanner is not handed out.
+- **Expired presigned URL** — prevented by re-fetching the job document immediately before
+  download; if a download still 403s, report `FAILED` (retryable) so the next attempt gets
+  a fresh URL.
+- **Checksum or signer mismatch in a job** — report `REJECTED`, not `FAILED`. It can never
+  succeed on retry, and retries cost money.
+- **Job stuck in `IN_PROGRESS`** — `timeoutConfig.inProgressTimeoutInMinutes` moves it to
+  `TIMED_OUT`, which is retryable. Step timers arm each phase (download / install /
+  verify) separately.
+- **A bad build reaching the fleet** — three layers: canary gating in Convex, `abortConfig`
+  cancelling the job past a failure threshold, and the remote audit refusing to report
+  success on a device whose post-apply state does not match intent.
+- **Agent self-update failure** — `pm install -r` is atomic, so the previous agent keeps
+  running; downgrade is refused unless explicitly flagged; and self-update is always
+  canaried first.
+- **Deployment to a scanner that never comes back online** — the job execution stays
+  `QUEUED` indefinitely and the Deployments page shows it as never-applied, which is the
+  honest state rather than a false success. This is the specific failure mode that is
+  invisible today.
 
 ---
 
@@ -433,29 +651,67 @@ scan test, then the rest of the batch.
 **Cert fix:** deliberately abandon a wizard run mid-claim and confirm the device stays
 online on its existing cert.
 
+**Remote updates (Unit 10)** — the tests that matter are the offline and failure paths,
+because the happy path is the easy one:
+
+- **Offline convergence:** power a scanner off, create a deployment, confirm the execution
+  sits `QUEUED` and the UI says never-applied (not success), then power on and confirm it
+  converges unprompted.
+- **Deferral:** create a deployment with `deferUntilWindow`, confirm the device holds at
+  `IN_PROGRESS` with a "deferred" detail and does not install mid-shift; then confirm
+  **Apply now** bypasses it.
+- **Stale URL:** force a deferral across an hour boundary and confirm the re-fetch produces
+  a working URL — this is the bug this design exists to avoid.
+- **Canary gate:** deploy a deliberately bad APK (wrong sha256) to the canary and confirm
+  it reports `REJECTED`, the main job is never created, and no other scanner is touched.
+- **Ack bridge:** confirm a one-shot command against an offline scanner now surfaces as
+  unconfirmed rather than silently "sent".
+- **Agent self-update:** canary an agent build on W08-001, confirm it reports `SUCCEEDED`
+  before committing and comes back on the new version; confirm a downgrade is refused.
+
 ---
 
 ## 8. Implementation order
 
-Nine units is more than one sitting, and the batch is waiting. The plan should stage them
-so the batch is unblocked as early as possible, with each stage independently shippable:
+Ten units is well beyond one sitting, and the batch is waiting. Two constraints drive the
+order:
 
-**Stage A — unblock the batch (Unit 9's cert fix).** Smallest change, highest risk
-averted. Ship and verify before any new scanner is programmed.
+- Anything that must be configured over USB has to be **in the wizard before the batch is
+  programmed**, or those scanners need a second USB visit — which is the exact outcome the
+  user is trying to avoid.
+- Everything else can ship afterwards and be delivered remotely, by definition.
 
-**Stage B — right files, right config, proven (Units 1, 2, 3).** The core of the user's
-first two asks. Unit 1 is a prerequisite for Unit 3's RT check, and Unit 2 is a
-prerequisite for Unit 3's version/signer checks, so these land together.
+**Stage A — unblock the batch (Unit 9's cert fix).** Smallest change, highest risk averted.
+Ship and verify before any new scanner is programmed.
 
-**Stage C — PIN lockdown (Units 4, 6, then 5).** Units 4 and 6 are the substance; Unit 5
-depends on the accessibility service and so lands with or after Stage D.
+**Stage B — right files, right config, proven (Units 1, 2, 3).** The core of the first two
+asks. Unit 1 is a prerequisite for Unit 3's RT check and Unit 2 for its version/signer
+checks, so they land together.
 
-**Stage D — remote view and restrictions (Units 7, 8).** Unit 7 introduces the
-accessibility service that Unit 5 needs; Unit 8 rides the same telemetry additions.
+**Stage C — the USB-only enablers, before the batch.** Small but order-critical: the
+wizard must grant the `WRITE_SETTINGS` appop, enable the accessibility service, add each
+thing to its `scanners-{locationCode}` group, and subscribe the agent to the Jobs topics.
+Every one of these is USB-only or provisioning-time. Getting them into the wizard now is
+what makes Stages D–F deliverable remotely to this batch instead of requiring a second
+pass over every scanner.
 
-Batch ergonomics (the rest of Unit 9) can land with any stage — they are independent and
-small. Lockdown ON is a policy flip, gated only on Stage B's verification pass existing so
-a bad lockdown is caught rather than shipped.
+**Stage D — remote fleet updates (Unit 10).** The largest unit: Jobs protocol in the
+agent, job creation and event-bridge Lambdas, deployment tables, Deployments UI. Also the
+ack bridge and `isCleanSession = false`, which are small and independently valuable.
+
+**Stage E — PIN lockdown (Units 4, 6, 5).** Units 4 and 6 are the substance. Unit 5's
+Settings-UI block needs the accessibility service, which Stage C installed and Unit 7
+consumes.
+
+**Stage F — remote view and restrictions (Units 7, 8).** Both ride the telemetry additions;
+Unit 8's restrictions are then pushable via Stage D rather than needing USB.
+
+Batch ergonomics (the rest of Unit 9) can land with any stage. Lockdown ON is a policy
+flip gated only on Stage B's verification pass existing, so a bad lockdown is caught rather
+than shipped.
+
+**If time forces a cut,** Stages A–C are the ones that must precede programming the batch.
+D–F can all reach these scanners over the air afterwards.
 
 ## 9. Out of scope
 
@@ -467,3 +723,10 @@ a bad lockdown is caught rather than shipped.
   the `authGuards` helpers, consistent with the rest of the codebase.
 - Retiring `tools/scanner-setup` (the legacy CLI). It is updated to use `buildRtConfig`
   so it cannot write a conflicting config, but it is not removed.
+- Remote Wi-Fi provisioning. A Device Owner can add networks programmatically, and it would
+  help at a new store, but no current ask depends on it.
+- Remotely re-enabling a disabled accessibility service, or remotely promoting a device to
+  Device Owner. Both need shell; both stay USB-only. See the end of Unit 10 for the full
+  list of what remains USB-only exactly once per device.
+- Rescuing a scanner that has never connected since provisioning. Jobs converge on
+  reconnect, but a device that never reconnects still needs hands on it.
