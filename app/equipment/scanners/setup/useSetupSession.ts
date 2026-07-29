@@ -4,6 +4,7 @@
 import { useReducer, useMemo, useRef } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import { WebAdbClient, AdbConnection } from "./WebAdbClient";
+import type { Check } from "@/lib/scanners/verify";
 
 export type StepName =
   | "detect" | "location" | "identity" | "generate"
@@ -42,6 +43,8 @@ export type SetupState = {
   existingScanner: ExistingScanner | null;
   manage: ManageFields;
   deviceOwner: boolean;
+  verification: Check[] | null;
+  scanTestConfirmed: boolean;
 };
 
 type Action =
@@ -56,7 +59,9 @@ type Action =
   | { type: "ERROR"; message: string }
   | { type: "SET_UPDATE_MODE"; scanner: ExistingScanner }
   | { type: "SET_MANAGE"; fields: Partial<ManageFields> }
-  | { type: "SET_DEVICE_OWNER"; value: boolean };
+  | { type: "SET_DEVICE_OWNER"; value: boolean }
+  | { type: "SET_VERIFICATION"; checks: Check[] }
+  | { type: "CONFIRM_SCAN_TEST" };
 
 function initialState(client: WebAdbClient): SetupState {
   return {
@@ -76,6 +81,8 @@ function initialState(client: WebAdbClient): SetupState {
     existingScanner: null,
     manage: { conditionNotes: "", status: "available", assignedTo: null },
     deviceOwner: false,
+    verification: null,
+    scanTestConfirmed: false,
   };
 }
 
@@ -124,6 +131,10 @@ function reducer(state: SetupState, action: Action): SetupState {
       return { ...state, manage: { ...state.manage, ...action.fields } };
     case "SET_DEVICE_OWNER":
       return { ...state, deviceOwner: action.value };
+    case "SET_VERIFICATION":
+      return { ...state, verification: action.checks };
+    case "CONFIRM_SCAN_TEST":
+      return { ...state, scanTestConfirmed: true };
     default:
       return state;
   }
@@ -152,6 +163,8 @@ export function useSetupSession() {
       setUpdateMode: (scanner: ExistingScanner) => dispatch({ type: "SET_UPDATE_MODE", scanner }),
       setManage: (fields: Partial<ManageFields>) => dispatch({ type: "SET_MANAGE", fields }),
       setDeviceOwner: (value: boolean) => dispatch({ type: "SET_DEVICE_OWNER", value }),
+      setVerification: (checks: Check[]) => dispatch({ type: "SET_VERIFICATION", checks }),
+      confirmScanTest: () => dispatch({ type: "CONFIRM_SCAN_TEST" }),
     }),
     [],
   );

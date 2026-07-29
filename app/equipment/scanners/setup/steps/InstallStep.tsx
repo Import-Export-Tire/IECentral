@@ -8,6 +8,7 @@ import { useSetupSession } from "../useSetupSession";
 import { fetchApk } from "../apkManifest";
 import { IET_PACKAGES, ESSENTIAL_SYSTEM_PREFIXES, ESSENTIAL_SYSTEM_EXACT } from "../WebAdbClient";
 import { buildRtConfig } from "@/lib/scanners/rtConfig";
+import { buildChecks, allHardChecksPassed } from "@/lib/scanners/verify";
 
 type Session = ReturnType<typeof useSetupSession>;
 
@@ -314,6 +315,81 @@ export function InstallStep({ session }: { session: Session }) {
         // 11. Launch SetupActivity
         await runStep("launchSetupActivity", "Launching Scanner Agent setup", async () => {
           await client.launchActivity(`${AGENT_PKG}/.SetupActivity`);
+        });
+
+        // 12. Verify: read the real state back off the device and compare it to intent.
+        // Everything above reported success merely because a shell command didn't throw.
+        await runStep("verify", "Verifying device state", async () => {
+          if (builtRtXml === undefined) {
+            // Unreachable in practice: pushRtConfig (step 6) assigns builtRtXml before it can
+            // succeed, and any throw there aborts the outer try/catch before this step runs.
+            // Guarded explicitly anyway so a future reorder fails loudly instead of comparing
+            // against `undefined` silently.
+            throw new Error("Internal error: RT config XML was never built — cannot verify device state");
+          }
+          const expectedRtXml = builtRtXml;
+
+          const [ttV, rtlV, agentV] = await Promise.all([
+            client.getPackageVersion(TIRETRACK_PKG),
+            client.getPackageVersion(RTL_PKG),
+            client.getPackageVersion(AGENT_PKG),
+          ]);
+          const onDeviceXml = await client.readTextFile("/sdcard/My Documents/rtlconfig.xml");
+          const timeout = await client.getSystemSetting("screen_off_timeout");
+          const rotation = await client.getSystemSetting("accelerometer_rotation");
+          const dump = await client.dumpDevicePolicy();
+
+          // Observed only — there is no trustworthy expected digest yet (see note below).
+          // Logged so the first few scanners' digests can be promoted to expected values later.
+          const signerDigests: Record<string, string | null> = {
+            [TIRETRACK_PKG]: await client.getPackageSignerDigest(TIRETRACK_PKG),
+            [RTL_PKG]: await client.getPackageSignerDigest(RTL_PKG),
+            [AGENT_PKG]: await client.getPackageSignerDigest(AGENT_PKG),
+          };
+          console.info("observed signer digests", signerDigests);
+
+          const checks = buildChecks({
+            expected: {
+              versions: {
+                tireTrack: apks!.versions.tireTrack === "unknown" ? null : apks!.versions.tireTrack,
+                rtLocator: apks!.versions.rtLocator === "unknown" ? null : apks!.versions.rtLocator,
+                scannerAgent:
+                  apks!.versions.scannerAgent === "unknown" ? null : apks!.versions.scannerAgent,
+              },
+              rtConfigXml: expectedRtXml,
+              screenOffTimeoutMs: mdmConfig?.screenTimeoutMs ?? 1800000,
+              accelerometerRotation: mdmConfig?.screenRotation === "landscape" ? 1 : 0,
+              // No trustworthy source for an expected signer digest yet — see note below.
+              // Leaving this empty makes buildChecks skip signer rows entirely rather than
+              // fabricate a comparison that would always pass.
+              signerDigests: {},
+              sha256Present: {
+                tireTrack: urls!.tireTrack.sha256 !== null,
+                rtLocator: urls!.rtLocator.sha256 !== null,
+                scannerAgent: urls!.scannerAgent.sha256 !== null,
+              },
+            },
+            observed: {
+              versions: { tireTrack: ttV, rtLocator: rtlV, scannerAgent: agentV },
+              rtConfigXml: onDeviceXml,
+              screenOffTimeoutMs: timeout,
+              accelerometerRotation: rotation,
+              devicePolicyDump: dump,
+              signerDigests,
+              // The DataWedge scan test cannot be automated (the wizard can't emit a barcode
+              // and SET_CONFIG's result isn't readable over ADB) — the technician confirms it
+              // in the Verify step's checkbox, which is what feeds this field on a re-run.
+              dataWedgeScanTestConfirmed: false,
+            },
+          });
+
+          actions.setVerification(checks);
+          if (!allHardChecksPassed(checks)) {
+            const failed = checks
+              .filter((c) => c.hard && c.status !== "pass")
+              .map((c) => `${c.label}: expected ${c.expected}, got ${c.observed}`);
+            throw new Error(`Verification failed — ${failed.join(" | ")}`);
+          }
         });
 
         // Record completion

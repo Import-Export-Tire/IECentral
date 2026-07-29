@@ -43,6 +43,51 @@ export function VerifyStep({ session }: { session: Session }) {
     <div className="space-y-4">
       <h3 className="text-[15px] font-semibold theme-text-primary">Last step — finish on the scanner</h3>
 
+      {session.state.verification && (
+        <div className="space-y-2">
+          <h4 className="text-[13px] font-semibold theme-text-primary">Verification</h4>
+          <ul className="space-y-1">
+            {session.state.verification.map((c) => (
+              <li key={c.key} className="flex items-start gap-2 text-xs">
+                <span
+                  className={
+                    c.status === "pass"
+                      ? "text-emerald-500"
+                      : c.status === "fail"
+                        ? "text-red-500"
+                        : "text-amber-500"
+                  }
+                >
+                  {c.status === "pass" ? "✓" : c.status === "fail" ? "✗" : "!"}
+                </span>
+                <span className="theme-text-secondary">
+                  {c.label}
+                  {c.status !== "pass" && (
+                    <span className="theme-text-tertiary">
+                      {" "}
+                      — expected {c.expected}, got {c.observed}
+                    </span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {!session.state.scanTestConfirmed && (
+            <label className="flex items-start gap-2 text-xs theme-text-secondary p-2 rounded-lg ui-callout-amber">
+              <input
+                type="checkbox"
+                onChange={() => session.actions.confirmScanTest()}
+                className="mt-0.5"
+              />
+              <span>
+                Scan a barcode into a text field on the scanner and confirm the cursor
+                advances (DataWedge Tab). This can&apos;t be checked automatically.
+              </span>
+            </label>
+          )}
+        </div>
+      )}
+
       <div className="space-y-3 text-sm">
         <p className="theme-text-secondary">
           The <strong>IE Scanner Agent · Setup</strong> screen is now open{" "}
