@@ -8,7 +8,7 @@ import { useSetupSession } from "../useSetupSession";
 import { fetchApk } from "../apkManifest";
 import { IET_PACKAGES, ESSENTIAL_SYSTEM_PREFIXES, ESSENTIAL_SYSTEM_EXACT } from "../WebAdbClient";
 import { buildRtConfig } from "@/lib/scanners/rtConfig";
-import { buildChecks, allHardChecksPassed } from "@/lib/scanners/verify";
+import { buildChecks, allHardChecksPassed, normalizePinnedVersion } from "@/lib/scanners/verify";
 
 type Session = ReturnType<typeof useSetupSession>;
 
@@ -90,6 +90,28 @@ export function InstallStep({ session }: { session: Session }) {
         const client = session.state.client;
         const { state, actions } = session;
         if (!state.locationCode) throw new Error("Missing locationCode");
+
+        // -1. Validate the RT config before any expensive work begins. mdmConfig is already
+        // resolved by the time we get here, but the RT config itself used to not get built
+        // until step 6 — after several minutes of downloading and installing three APKs over
+        // USB. A blank settings field would abort the run there, leaving a half-provisioned
+        // device: APKs installed, but no Device Owner, no DataWedge, no lockdown, no
+        // SetupActivity launched. Built exactly once; step 6's push and step 12's comparison
+        // both reuse this same result, so the pushed bytes and the verified bytes can never
+        // diverge.
+        let builtRtConfig: ReturnType<typeof buildRtConfig> | undefined;
+        await runStep("validateRtConfig", "Validating RT config", async () => {
+          const built = buildRtConfig({
+            locationCode: state.locationCode!,
+            rtLocatorUrl: mdmConfig?.rtLocatorUrl ?? "",
+            rtDeviceId: mdmConfig?.rtDeviceId ?? "",
+            template: mdmConfig?.rtConfigXml,
+          });
+          if (built.problems.length > 0) {
+            throw new Error(`RT config invalid: ${built.problems.join("; ")}`);
+          }
+          builtRtConfig = built;
+        });
 
         // 0. Update flow: mint a fresh certificate + claim code. The new-scanner flow
         // does this in GenerateStep, but the update flow skips Generate — so without this
@@ -211,22 +233,12 @@ export function InstallStep({ session }: { session: Session }) {
           actions.recordInstalledVersion("scannerAgent", apks!.versions.scannerAgent);
         });
 
-        // 6. Push RT config. Built by the shared builder and hard-failed on any problem:
-        // a silently-broken rtlconfig.xml is the failure mode this whole change exists to
-        // stop. The agent writes the same bytes at claim time, so the double write is a
-        // harmless no-op instead of last-write-wins.
-        let builtRtXml: string | undefined;
+        // 6. Push RT config. Already validated and built up front (step -1) — reused here,
+        // not rebuilt, so the pushed bytes are exactly the bytes step 12 verifies against.
+        // The agent writes the same bytes at claim time, so the double write is a harmless
+        // no-op instead of last-write-wins.
         await runStep("pushRtConfig", "Pushing RT config", async () => {
-          const built = buildRtConfig({
-            locationCode: state.locationCode!,
-            rtLocatorUrl: mdmConfig?.rtLocatorUrl ?? "",
-            rtDeviceId: mdmConfig?.rtDeviceId ?? "",
-            template: mdmConfig?.rtConfigXml,
-          });
-          if (built.problems.length > 0) {
-            throw new Error(`RT config invalid: ${built.problems.join("; ")}`);
-          }
-          builtRtXml = built.xml;
+          const built = builtRtConfig!;
           await client.shell(`mkdir -p '/sdcard/My Documents'`);
           await client.pushTextFile(built.xml, "/sdcard/My Documents/rtlconfig.xml");
         });
@@ -321,14 +333,14 @@ export function InstallStep({ session }: { session: Session }) {
         // 12. Verify: read the real state back off the device and compare it to intent.
         // Everything above reported success merely because a shell command didn't throw.
         await runStep("verify", "Verifying device state", async () => {
-          if (builtRtXml === undefined) {
-            // Unreachable in practice: pushRtConfig (step 6) assigns builtRtXml before it can
-            // succeed, and any throw there aborts the outer try/catch before this step runs.
-            // Guarded explicitly anyway so a future reorder fails loudly instead of comparing
-            // against `undefined` silently.
+          if (builtRtConfig === undefined) {
+            // Unreachable in practice: validateRtConfig (step -1) assigns builtRtConfig
+            // before it can succeed, and any throw there aborts the outer try/catch before
+            // this step runs. Guarded explicitly anyway so a future reorder fails loudly
+            // instead of comparing against `undefined` silently.
             throw new Error("Internal error: RT config XML was never built — cannot verify device state");
           }
-          const expectedRtXml = builtRtXml;
+          const expectedRtXml = builtRtConfig.xml;
 
           const [ttV, rtlV, agentV] = await Promise.all([
             client.getPackageVersion(TIRETRACK_PKG),
@@ -351,11 +363,15 @@ export function InstallStep({ session }: { session: Session }) {
 
           const checks = buildChecks({
             expected: {
+              // normalizePinnedVersion treats anything that isn't a real dotted version
+              // (e.g. "unknown", the "latest" sentinel a stale expo-source config can hand
+              // back, "") as not-pinned. A wrong expected version is worse than an absent
+              // one: compareVersion("latest", "2.0.1") would report "fail" on a hard check
+              // and block a correct device forever.
               versions: {
-                tireTrack: apks!.versions.tireTrack === "unknown" ? null : apks!.versions.tireTrack,
-                rtLocator: apks!.versions.rtLocator === "unknown" ? null : apks!.versions.rtLocator,
-                scannerAgent:
-                  apks!.versions.scannerAgent === "unknown" ? null : apks!.versions.scannerAgent,
+                tireTrack: normalizePinnedVersion(apks!.versions.tireTrack),
+                rtLocator: normalizePinnedVersion(apks!.versions.rtLocator),
+                scannerAgent: normalizePinnedVersion(apks!.versions.scannerAgent),
               },
               rtConfigXml: expectedRtXml,
               screenOffTimeoutMs: mdmConfig?.screenTimeoutMs ?? 1800000,

@@ -107,6 +107,22 @@ export function compareVersion(
   return expected === observed ? "pass" : "fail";
 }
 
+/**
+ * A "pinned" expected version must be a real dotted version number (e.g. "2.0.1"),
+ * never a sentinel. Sources upstream (fetch_apk.py's expo branch, a typed config
+ * field, a stale default) can hand back "unknown", "latest", "", or garbage — any of
+ * those flowing into `compareVersion` as `expected` produces a confident but false
+ * comparison (`compareVersion("latest", "2.0.1")` → "fail" on a hard check), which is
+ * worse than having no expectation at all ("warn"). Anything that isn't a plain
+ * `\d+(\.\d+)+` string is normalized to null ("not pinned") here, once, so every
+ * caller judges the same way.
+ */
+export function normalizePinnedVersion(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const trimmed = v.trim();
+  return /^\d+(\.\d+)+$/.test(trimmed) ? trimmed : null;
+}
+
 /** Collapse whitespace so a trailing newline from `cat` — or pretty-printing — is not a mismatch. */
 function normalizeXml(xml: string): string {
   return xml

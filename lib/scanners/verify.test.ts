@@ -6,6 +6,7 @@ import {
   compareVersion,
   buildChecks,
   allHardChecksPassed,
+  normalizePinnedVersion,
   type Check,
 } from "./verify";
 
@@ -279,5 +280,48 @@ describe("allHardChecksPassed", () => {
       { key: "a", label: "A", status: "fail", hard: false },
     ];
     expect(allHardChecksPassed(checks)).toBe(true);
+  });
+});
+
+// A wrong expected version is worse than an absent one: compareVersion("latest", "2.0.1")
+// would report "fail" on a hard check, permanently blocking a correct device. Every
+// sentinel/placeholder value a source might hand back must normalize to null ("not
+// pinned" → compareVersion returns "warn") instead of being trusted as a real expectation.
+describe("normalizePinnedVersion", () => {
+  it("passes through a real dotted version", () => {
+    expect(normalizePinnedVersion("2.0.1")).toBe("2.0.1");
+  });
+
+  it("accepts a two-part version", () => {
+    expect(normalizePinnedVersion("1.0")).toBe("1.0");
+  });
+
+  it("accepts a four-part version", () => {
+    expect(normalizePinnedVersion("1.2.3.4")).toBe("1.2.3.4");
+  });
+
+  it("rejects the 'unknown' sentinel", () => {
+    expect(normalizePinnedVersion("unknown")).toBeNull();
+  });
+
+  it("rejects the 'latest' sentinel", () => {
+    expect(normalizePinnedVersion("latest")).toBeNull();
+  });
+
+  it("rejects an empty string", () => {
+    expect(normalizePinnedVersion("")).toBeNull();
+  });
+
+  it("rejects non-numeric garbage", () => {
+    expect(normalizePinnedVersion("beta")).toBeNull();
+  });
+
+  it("rejects null and undefined", () => {
+    expect(normalizePinnedVersion(null)).toBeNull();
+    expect(normalizePinnedVersion(undefined)).toBeNull();
+  });
+
+  it("trims whitespace before validating", () => {
+    expect(normalizePinnedVersion("  2.0.1  ")).toBe("2.0.1");
   });
 });

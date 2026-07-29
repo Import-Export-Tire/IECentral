@@ -131,7 +131,17 @@ def handler(event, context):
                 try:
                     expo_url = get_expo_build_url()
                     if expo_url:
-                        version = config.get("currentTireTrackVersion", "latest")
+                        # There is no S3 key here, so resolve_version's key-parsed fallback
+                        # doesn't apply — but the same honesty rule does: a sentinel like
+                        # "latest" is a confidently-wrong answer once it reaches the wizard's
+                        # hard-fail version comparison, so require real content (same
+                        # whitespace-only guard as resolve_version) or report "unknown".
+                        raw_version = config.get("currentTireTrackVersion")
+                        version = (
+                            raw_version.strip()
+                            if raw_version and raw_version.strip()
+                            else "unknown"
+                        )
                         return response(200, {
                             "downloadUrl": expo_url,
                             "version": version,

@@ -7,6 +7,7 @@ import { LinuxFileType } from "@yume-chan/adb";
 import { AdbDaemonWebUsbDeviceManager } from "@yume-chan/adb-daemon-webusb";
 import AdbWebCredentialStore from "@yume-chan/adb-credential-web";
 import { ReadableStream } from "@yume-chan/stream-extra";
+import { parseDeviceOwner } from "@/lib/scanners/verify";
 
 export const IET_PACKAGES = {
   tireTrack: "com.importexporttire.tiretrack",
@@ -209,7 +210,13 @@ export class WebAdbClient {
 
   async isDeviceOwner(pkg = "com.ietires.scanneragent"): Promise<boolean> {
     const out = await this.shell("dumpsys device_policy");
-    return new RegExp(`Device Owner:[\\s\\S]*?${pkg.replace(/\./g, "\\.")}`).test(out);
+    // Delegates to the strict section-scoped parser (lib/scanners/verify.ts) instead of
+    // its own loose regex. The old `Device Owner:[\s\S]*?<pkg>` spanned the whole dump,
+    // so when a *different* admin held real ownership and our package only appeared later
+    // as an enrolled "Enabled Device Admin," this returned a false `true` — the wizard then
+    // skipped `dpm set-device-owner`, and step 12's strict check (which used the correct
+    // parser all along) failed identically on every retry. One parser, one truth.
+    return parseDeviceOwner(out, pkg);
   }
 
   async setDeviceOwner(component = "com.ietires.scanneragent/.DeviceAdminReceiver"): Promise<void> {
@@ -320,15 +327,41 @@ export class WebAdbClient {
   }
 
   /**
+   * Read-only: the current mode of an appop for a package (e.g. "allow", "ignore", "deny",
+   * "default"), or null when the output can't be parsed. `appops get <pkg> <op>` is readable
+   * over ADB, which is what makes a real readback — rather than a string-sniffing heuristic
+   * on the `set` command's output — possible for `grantWriteSettings` below.
+   */
+  async getAppOpMode(pkg: string, op: string): Promise<string | null> {
+    const out = await this.shell(`appops get ${pkg} ${op} 2>&1`);
+    // Observed shapes across Android versions: "WRITE_SETTINGS: allow" and
+    // "Uid mode: allow; User mode: allow" (last token on the line wins in both).
+    const m = out.match(/:\s*(\w+)\s*;?\s*$/m);
+    return m ? m[1].toLowerCase() : null;
+  }
+
+  /**
    * Grant the WRITE_SETTINGS appop so the agent can change SYSTEM settings (screen timeout,
    * rotation) on its own from now on. This is an appop, not a runtime permission, so
    * dpm.setPermissionGrantState cannot do it and `pm grant` does not apply — it must be set
-   * over ADB, once, here. Without it every future settings change needs USB again.
+   * over ADB, once, here. Without it every future settings change needs USB again, and
+   * silent failure here is invisible until someone notices settings aren't changing remotely.
+   *
+   * The previous check (`out.trim() && !/^\s*$/.test(out) && /Error|Exception|Unknown/i.test(out)`)
+   * only caught three specific words in the `set` command's own output and never actually
+   * confirmed the grant took. This reads the op back with `appops get` — the actual state —
+   * and throws with the observed value if it isn't "allow".
    */
   async grantWriteSettings(pkg = "com.ietires.scanneragent"): Promise<void> {
     const out = await this.shell(`appops set ${pkg} WRITE_SETTINGS allow 2>&1`);
-    if (out.trim() && !/^\s*$/.test(out) && /Error|Exception|Unknown/i.test(out)) {
+    if (/Error|Exception|Unknown/i.test(out)) {
       throw new Error(`appops WRITE_SETTINGS failed: ${out.trim()}`);
+    }
+    const mode = await this.getAppOpMode(pkg, "WRITE_SETTINGS");
+    if (mode !== "allow") {
+      throw new Error(
+        `WRITE_SETTINGS grant did not take — appops get reports "${mode ?? "(unreadable)"}"`,
+      );
     }
   }
 
