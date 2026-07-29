@@ -264,6 +264,52 @@ export class WebAdbClient {
     );
   }
 
+  /** Installed versionName, or null when the package is absent. */
+  async getPackageVersion(pkg: string): Promise<string | null> {
+    const out = await this.shell(`dumpsys package ${pkg} | grep versionName`);
+    const m = out.match(/versionName=(\S+)/);
+    return m ? m[1].trim() : null;
+  }
+
+  /**
+   * The signing certificate digest, used to catch a vendor-signed or otherwise foreign
+   * pre-existing copy of an app — the failure that silently broke RT Locator on W08-004.
+   * Android 8.1's dumpsys exposes this as `signatures=[...]` / a `cert` digest depending on
+   * build, so both shapes are matched.
+   */
+  async getPackageSignerDigest(pkg: string): Promise<string | null> {
+    const out = await this.shell(`dumpsys package ${pkg}`);
+    const m =
+      out.match(/signatures=\[([0-9a-fA-F]+)/) ??
+      out.match(/cert\s+\d+:\s*([0-9a-fA-F]{8,})/);
+    return m ? m[1].toLowerCase() : null;
+  }
+
+  /** File contents, or null when the file is missing/unreadable. */
+  async readTextFile(devicePath: string): Promise<string | null> {
+    const out = await this.shell(`cat '${devicePath}' 2>/dev/null`);
+    return out.trim().length > 0 ? out : null;
+  }
+
+  async getSystemSetting(key: string): Promise<string | null> {
+    const out = (await this.shell(`settings get system ${key}`)).trim();
+    return out === "null" || out === "" ? null : out;
+  }
+
+  async getSecureSetting(key: string): Promise<string | null> {
+    const out = (await this.shell(`settings get secure ${key}`)).trim();
+    return out === "null" || out === "" ? null : out;
+  }
+
+  async dumpDevicePolicy(): Promise<string> {
+    return this.shell("dumpsys device_policy");
+  }
+
+  async isUninstallBlocked(pkg: string): Promise<boolean> {
+    const out = await this.shell(`pm get-uninstall-blocked ${pkg} 2>&1`);
+    return /true/i.test(out);
+  }
+
   getConnection(): AdbConnection | null {
     return this.connection;
   }
