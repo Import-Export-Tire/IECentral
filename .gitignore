@@ -52,3 +52,8 @@ aws/dunlop-reporter/samconfig.toml
 
 # Claude Code agent worktrees (scratch)
 .claude/worktrees/
+
+# Android Gradle local caches (binary; conflict on every build)
+android/scanner-agent/.gradle/
+android/scanner-agent/app/build/
+android/scanner-agent/build/
