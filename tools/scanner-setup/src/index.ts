@@ -189,7 +189,7 @@ async function updateExistingScanner(
   console.log(chalk.bold("\n--- Updating Scanner ---\n"));
 
   // Download and install latest APKs
-  await downloadAndInstallApks(adbSerial, locationCode);
+  await downloadAndInstallApks(adbSerial, locationCode, config.usesRtLocator !== false);
 
   // Push config
   await pushRtConfig(adbSerial, config);
@@ -228,7 +228,7 @@ async function fullSetup(
   console.log(chalk.green(`✓ PIN: ${chalk.yellow.bold(pin)}`));
 
   // Download and install APKs
-  await downloadAndInstallApks(adbSerial, locationCode);
+  await downloadAndInstallApks(adbSerial, locationCode, config.usesRtLocator !== false);
 
   // Push RT config
   await pushRtConfig(adbSerial, config);
@@ -359,10 +359,16 @@ async function fullSetup(
   console.log("");
 }
 
-async function downloadAndInstallApks(adbSerial: string, locationCode: string) {
+async function downloadAndInstallApks(adbSerial: string, locationCode: string, usesRtLocator: boolean) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "scanner-apks-"));
 
-  for (const app of ["tiretrack", "rtlocator", "agent"] as const) {
+  // Skip RT Locator entirely for locations that don't use it — mirrors the wizard's
+  // InstallStep.tsx skip, and avoids fetching an APK the Lambda 404s on for these locations.
+  const apps = (["tiretrack", "rtlocator", "agent"] as const).filter(
+    (app) => app !== "rtlocator" || usesRtLocator,
+  );
+
+  for (const app of apps) {
     console.log(`Fetching ${app} APK...`);
     try {
       const apkInfo = await api.getApkUrl(app, locationCode);
@@ -389,6 +395,15 @@ async function downloadAndInstallApks(adbSerial: string, locationCode: string) {
 }
 
 async function pushRtConfig(adbSerial: string, config: api.SetupConfig) {
+  // undefined = uses RT Locator (today's default, preserved for every existing location) —
+  // only an explicit `false` opts a location out, same rule the wizard applies. A location
+  // like W09/Chestnut that doesn't use RT Locator has no rtLocatorUrl and no rtDeviceId by
+  // design, so buildRtConfig would otherwise report those as problems on every single run.
+  if (config.usesRtLocator === false) {
+    console.log(chalk.gray("RT Locator not used at this location — skipping RT config push."));
+    return;
+  }
+
   if (!config.rtConfigXml && !config.rtLocatorUrl) return;
 
   console.log("Pushing RT config...");

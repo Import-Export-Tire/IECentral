@@ -180,8 +180,11 @@ export function buildChecks(input: VerifyInput): Check[] {
   }
 
   // --- integrity of what we installed ---
+  // RT Locator is excluded from consideration entirely when this location doesn't use it —
+  // there is no APK to have a checksum for, so it must never surface as "missing" here. Same
+  // "not applicable, not missing" rule the version and rtConfig checks below already apply.
   const missingChecksums = (Object.keys(APP_LABELS) as AppKey[]).filter(
-    (a) => !expected.sha256Present[a],
+    (a) => (a !== "rtLocator" || expected.usesRtLocator) && !expected.sha256Present[a],
   );
   checks.push({
     key: "sha256Verified",

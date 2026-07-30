@@ -890,11 +890,19 @@ export const markScannerSetupComplete = mutation({
   },
 });
 
-// Returns presigned S3 URLs (+ SHAs) for the three APKs the setup wizard needs.
-// Internally calls the AWS Lambda 3 times in parallel.
+// Returns presigned S3 URLs (+ SHAs) for the APKs the setup wizard needs.
+// Internally calls the AWS Lambda in parallel (3 times, or 2 when RT Locator is excluded).
 // Must be an action (not query) because of fetch().
 export const getApkDownloadUrls = action({
-  args: { locationCode: v.string() },
+  args: {
+    locationCode: v.string(),
+    // false for locations whose scannerMdmConfigs.usesRtLocator is false (e.g. W09/Chestnut).
+    // The Lambda 404s "RT Locator APK not found" when no RT Locator APK can be resolved for
+    // a location, and that one rejection would otherwise fail the whole Promise.all before
+    // the wizard's usesRtLocator skip logic is ever reached. Omitted/undefined = true, so
+    // every existing caller keeps fetching all three, unchanged.
+    includeRtLocator: v.optional(v.boolean()),
+  },
   handler: async (_ctx, args) => {
     const baseUrl = "https://7brylwlei6.execute-api.us-east-1.amazonaws.com/prod/scanner-mdm/apk";
     const fetchOne = async (app: string) => {
@@ -909,9 +917,12 @@ export const getApkDownloadUrls = action({
         s3Key: (json.s3Key ?? null) as string | null,
       };
     };
+    const includeRtLocator = args.includeRtLocator ?? true;
+    // rtLocator is `null` (not omitted) when excluded, so every caller has to handle its
+    // absence explicitly rather than accidentally reading through a missing property.
     const [tireTrack, rtLocator, scannerAgent] = await Promise.all([
       fetchOne("tiretrack"),
-      fetchOne("rtlocator"),
+      includeRtLocator ? fetchOne("rtlocator") : Promise.resolve(null),
       fetchOne("agent"),
     ]);
     return { tireTrack, rtLocator, scannerAgent };

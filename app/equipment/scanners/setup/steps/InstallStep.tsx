@@ -166,19 +166,23 @@ export function InstallStep({ session }: { session: Session }) {
           });
         }
 
-        // 1. Fetch APK URLs
+        // 1. Fetch APK URLs. RT Locator's URL is excluded entirely for locations that don't
+        // use it — the Lambda 404s "RT Locator APK not found" for those, and fetching it
+        // anyway would fail this whole step (Promise.all) before the skip logic below is
+        // ever reached.
         let urls: Awaited<ReturnType<typeof getApkUrls>> | undefined;
         await runStep("getUrls", "Fetching APK URLs", async () => {
-          urls = await getApkUrls({ locationCode: state.locationCode! });
+          urls = await getApkUrls({ locationCode: state.locationCode!, includeRtLocator: usesRtLocator });
         });
 
-        // 2. Download all three APKs in parallel
+        // 2. Download APKs in parallel. RT Locator is skipped when there is no URL for it
+        // (mirrors includeRtLocator above — urls.rtLocator is null in that case).
         let apks:
           | {
-              rtlBuf: ArrayBuffer;
+              rtlBuf: ArrayBuffer | null;
               ttBuf: ArrayBuffer;
               agentBuf: ArrayBuffer;
-              versions: { tireTrack: string; rtLocator: string; scannerAgent: string };
+              versions: { tireTrack: string; rtLocator: string | null; scannerAgent: string };
             }
           | undefined;
         await runStep("downloadApks", "Downloading APKs", async () => {
@@ -186,7 +190,7 @@ export function InstallStep({ session }: { session: Session }) {
             actions.reportProgress(`download-${label}`, "in-progress", `Downloading ${label}`, pct);
 
           const [rtlBuf, ttBuf, agentBuf] = await Promise.all([
-            fetchApk(urls!.rtLocator, onProgressFor("rtl")),
+            urls!.rtLocator ? fetchApk(urls!.rtLocator, onProgressFor("rtl")) : Promise.resolve(null),
             fetchApk(urls!.tireTrack, onProgressFor("tiretrack")),
             fetchApk(urls!.scannerAgent, onProgressFor("agent")),
           ]);
@@ -196,7 +200,7 @@ export function InstallStep({ session }: { session: Session }) {
             agentBuf,
             versions: {
               tireTrack: urls!.tireTrack.version,
-              rtLocator: urls!.rtLocator.version,
+              rtLocator: urls!.rtLocator ? urls!.rtLocator.version : null,
               scannerAgent: urls!.scannerAgent.version,
             },
           };
@@ -207,17 +211,19 @@ export function InstallStep({ session }: { session: Session }) {
         // worker can tap, which is worse than not installing it at all.
         if (usesRtLocator) {
           await runStep("installRtl", "Installing RT Locator", async () => {
+            // Non-null: usesRtLocator true ⇒ includeRtLocator was true above ⇒ rtlBuf/version
+            // were populated by step 2 (or that step itself already threw).
             try {
-              await client.installApk(apks!.rtlBuf);
+              await client.installApk(apks!.rtlBuf!);
             } catch (e: unknown) {
               if (/INSTALL_FAILED_UPDATE_INCOMPATIBLE/.test(String(e instanceof Error ? e.message : e))) {
                 await client.uninstall(RTL_PKG);
-                await client.installApk(apks!.rtlBuf);
+                await client.installApk(apks!.rtlBuf!);
               } else {
                 throw e;
               }
             }
-            actions.recordInstalledVersion("rtLocator", apks!.versions.rtLocator);
+            actions.recordInstalledVersion("rtLocator", apks!.versions.rtLocator!);
           });
         } else {
           actions.reportProgress("installRtl", "skipped", "RT Locator not used at this location — skipped");
@@ -418,7 +424,11 @@ export function InstallStep({ session }: { session: Session }) {
               signerDigests: {},
               sha256Present: {
                 tireTrack: urls!.tireTrack.sha256 !== null,
-                rtLocator: urls!.rtLocator.sha256 !== null,
+                // No RT Locator entry at all when this location doesn't use it — not
+                // "missing", just not applicable. buildChecks excludes rtLocator from the
+                // aggregate checksum check when usesRtLocator is false, so this value is
+                // never actually read in that case; false here is just a safe placeholder.
+                rtLocator: urls!.rtLocator ? urls!.rtLocator.sha256 !== null : false,
                 scannerAgent: urls!.scannerAgent.sha256 !== null,
               },
               usesRtLocator,
@@ -461,7 +471,9 @@ export function InstallStep({ session }: { session: Session }) {
         // what was *downloaded*, not what was installed).
         const installedApps = {
           tireTrack: state.installedVersions.tireTrack ?? apks!.versions.tireTrack,
-          rtLocator: usesRtLocator ? (state.installedVersions.rtLocator ?? apks!.versions.rtLocator) : undefined,
+          rtLocator: usesRtLocator
+            ? (state.installedVersions.rtLocator ?? apks!.versions.rtLocator ?? undefined)
+            : undefined,
           scannerAgent: state.installedVersions.scannerAgent ?? apks!.versions.scannerAgent,
         };
         if (state.mode === "update") {

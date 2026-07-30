@@ -47,6 +47,9 @@ export interface SetupConfig {
   currentTireTrackVersion?: string;
   currentRtLocatorVersion?: string;
   currentAgentVersion?: string;
+  // undefined = uses RT Locator (today's default, preserved for every existing location).
+  // Only an explicit `false` opts a location out.
+  usesRtLocator?: boolean;
 }
 
 export async function getSetupConfig(locationCode: string): Promise<SetupConfig> {
