@@ -534,6 +534,7 @@ export const upsertMdmConfig = mutation({
     currentAgentVersion: v.optional(v.string()),
     rtConfigXml: v.optional(v.string()),
     rtDeviceId: v.optional(v.string()),
+    usesRtLocator: v.optional(v.boolean()),
     notes: v.optional(v.string()),
     userId: v.optional(v.id("users")),
   },
@@ -762,7 +763,9 @@ export const claimProvision = internalMutation({
         .query("scannerMdmConfigs")
         .withIndex("by_location", (q) => q.eq("locationId", scanner.locationId))
         .first();
-      if (mdmConfig) {
+      // undefined = uses RT Locator (today's default behavior, preserved for every
+      // existing row). Only an explicit `false` opts a location out.
+      if (mdmConfig && mdmConfig.usesRtLocator !== false) {
         const built = buildRtConfig({
           locationCode: mdmConfig.locationCode,
           rtLocatorUrl: mdmConfig.rtLocatorUrl,
@@ -777,6 +780,8 @@ export const claimProvision = internalMutation({
           rtConfigXml = built.xml;
         }
       }
+      // mdmConfig.usesRtLocator === false: deliberate opt-out, not an error — rtConfigXml
+      // stays undefined and nothing is logged.
     }
 
     return {

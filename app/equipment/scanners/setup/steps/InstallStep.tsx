@@ -91,6 +91,11 @@ export function InstallStep({ session }: { session: Session }) {
         const { state, actions } = session;
         if (!state.locationCode) throw new Error("Missing locationCode");
 
+        // undefined = uses RT Locator (today's default behavior for every existing
+        // location). Only an explicit `false` on the location's MDM config opts it out —
+        // never inferred from a blank rtLocatorUrl.
+        const usesRtLocator = mdmConfig?.usesRtLocator ?? true;
+
         // -1. Validate the RT config before any expensive work begins. mdmConfig is already
         // resolved by the time we get here, but the RT config itself used to not get built
         // until step 6 — after several minutes of downloading and installing three APKs over
@@ -99,19 +104,28 @@ export function InstallStep({ session }: { session: Session }) {
         // SetupActivity launched. Built exactly once; step 6's push and step 12's comparison
         // both reuse this same result, so the pushed bytes and the verified bytes can never
         // diverge.
+        //
+        // Locations that don't use RT Locator at all (e.g. W09/Chestnut) skip this
+        // validation entirely — there is nothing to validate, and a blank rtLocatorUrl here
+        // is expected, not an error.
         let builtRtConfig: ReturnType<typeof buildRtConfig> | undefined;
-        await runStep("validateRtConfig", "Validating RT config", async () => {
-          const built = buildRtConfig({
-            locationCode: state.locationCode!,
-            rtLocatorUrl: mdmConfig?.rtLocatorUrl ?? "",
-            rtDeviceId: mdmConfig?.rtDeviceId ?? "",
-            template: mdmConfig?.rtConfigXml,
+        if (usesRtLocator) {
+          await runStep("validateRtConfig", "Validating RT config", async () => {
+            const built = buildRtConfig({
+              locationCode: state.locationCode!,
+              rtLocatorUrl: mdmConfig?.rtLocatorUrl ?? "",
+              rtDeviceId: mdmConfig?.rtDeviceId ?? "",
+              template: mdmConfig?.rtConfigXml,
+            });
+            if (built.problems.length > 0) {
+              throw new Error(`RT config invalid: ${built.problems.join("; ")}`);
+            }
+            builtRtConfig = built;
           });
-          if (built.problems.length > 0) {
-            throw new Error(`RT config invalid: ${built.problems.join("; ")}`);
-          }
-          builtRtConfig = built;
-        });
+        } else {
+          actions.reportProgress("validateRtConfig", "skipped", "RT Locator not used at this location — skipped");
+          log("validateRtConfig", "skipped");
+        }
 
         // 0. Update flow: mint a fresh certificate + claim code. The new-scanner flow
         // does this in GenerateStep, but the update flow skips Generate — so without this
@@ -188,20 +202,27 @@ export function InstallStep({ session }: { session: Session }) {
           };
         });
 
-        // 3. Install RTL
-        await runStep("installRtl", "Installing RT Locator", async () => {
-          try {
-            await client.installApk(apks!.rtlBuf);
-          } catch (e: unknown) {
-            if (/INSTALL_FAILED_UPDATE_INCOMPATIBLE/.test(String(e instanceof Error ? e.message : e))) {
-              await client.uninstall(RTL_PKG);
+        // 3. Install RTL. Skipped entirely for locations that don't use RT Locator — an
+        // app that will never be configured leaves a broken launcher icon a warehouse
+        // worker can tap, which is worse than not installing it at all.
+        if (usesRtLocator) {
+          await runStep("installRtl", "Installing RT Locator", async () => {
+            try {
               await client.installApk(apks!.rtlBuf);
-            } else {
-              throw e;
+            } catch (e: unknown) {
+              if (/INSTALL_FAILED_UPDATE_INCOMPATIBLE/.test(String(e instanceof Error ? e.message : e))) {
+                await client.uninstall(RTL_PKG);
+                await client.installApk(apks!.rtlBuf);
+              } else {
+                throw e;
+              }
             }
-          }
-          actions.recordInstalledVersion("rtLocator", apks!.versions.rtLocator);
-        });
+            actions.recordInstalledVersion("rtLocator", apks!.versions.rtLocator);
+          });
+        } else {
+          actions.reportProgress("installRtl", "skipped", "RT Locator not used at this location — skipped");
+          log("installRtl", "skipped");
+        }
 
         // 4. Install TireTrack
         await runStep("installTireTrack", "Installing TireTrack", async () => {
@@ -237,21 +258,33 @@ export function InstallStep({ session }: { session: Session }) {
         // not rebuilt, so the pushed bytes are exactly the bytes step 12 verifies against.
         // The agent writes the same bytes at claim time, so the double write is a harmless
         // no-op instead of last-write-wins.
-        await runStep("pushRtConfig", "Pushing RT config", async () => {
-          const built = builtRtConfig!;
-          await client.shell(`mkdir -p '/sdcard/My Documents'`);
-          await client.pushTextFile(built.xml, "/sdcard/My Documents/rtlconfig.xml");
-        });
+        //
+        // Skipped for locations that don't use RT Locator — there is no config to write.
+        if (usesRtLocator) {
+          await runStep("pushRtConfig", "Pushing RT config", async () => {
+            const built = builtRtConfig!;
+            await client.shell(`mkdir -p '/sdcard/My Documents'`);
+            await client.pushTextFile(built.xml, "/sdcard/My Documents/rtlconfig.xml");
+          });
+        } else {
+          actions.reportProgress("pushRtConfig", "skipped", "RT Locator not used at this location — skipped");
+          log("pushRtConfig", "skipped");
+        }
 
-        // 7. Grant permissions
+        // 7. Grant permissions. RT Locator's own grants are skipped when it was never
+        // installed (usesRtLocator: false) — nothing to grant permissions to.
         await runStep("grantPerms", "Granting permissions", async () => {
           const grants: Array<[string, string]> = [
             [TIRETRACK_PKG, "android.permission.CAMERA"],
             [TIRETRACK_PKG, "android.permission.READ_EXTERNAL_STORAGE"],
             [TIRETRACK_PKG, "android.permission.WRITE_EXTERNAL_STORAGE"],
             [TIRETRACK_PKG, "android.permission.RECORD_AUDIO"],
-            [RTL_PKG, "android.permission.READ_EXTERNAL_STORAGE"],
-            [RTL_PKG, "android.permission.WRITE_EXTERNAL_STORAGE"],
+            ...(usesRtLocator
+              ? ([
+                  [RTL_PKG, "android.permission.READ_EXTERNAL_STORAGE"],
+                  [RTL_PKG, "android.permission.WRITE_EXTERNAL_STORAGE"],
+                ] as Array<[string, string]>)
+              : []),
             [AGENT_PKG, "android.permission.ACCESS_FINE_LOCATION"],
             [AGENT_PKG, "android.permission.ACCESS_COARSE_LOCATION"],
             [AGENT_PKG, "android.permission.READ_EXTERNAL_STORAGE"],
@@ -333,14 +366,17 @@ export function InstallStep({ session }: { session: Session }) {
         // 12. Verify: read the real state back off the device and compare it to intent.
         // Everything above reported success merely because a shell command didn't throw.
         await runStep("verify", "Verifying device state", async () => {
-          if (builtRtConfig === undefined) {
+          if (usesRtLocator && builtRtConfig === undefined) {
             // Unreachable in practice: validateRtConfig (step -1) assigns builtRtConfig
             // before it can succeed, and any throw there aborts the outer try/catch before
             // this step runs. Guarded explicitly anyway so a future reorder fails loudly
             // instead of comparing against `undefined` silently.
             throw new Error("Internal error: RT config XML was never built — cannot verify device state");
           }
-          const expectedRtXml = builtRtConfig.xml;
+          // Locations that don't use RT Locator never built a config (step -1 was skipped),
+          // so there is nothing to compare — buildChecks reports the RT checks as skipped
+          // by configuration when usesRtLocator is false, ignoring this value entirely.
+          const expectedRtXml = usesRtLocator ? builtRtConfig!.xml : "";
 
           const [ttV, rtlV, agentV] = await Promise.all([
             client.getPackageVersion(TIRETRACK_PKG),
@@ -385,6 +421,7 @@ export function InstallStep({ session }: { session: Session }) {
                 rtLocator: urls!.rtLocator.sha256 !== null,
                 scannerAgent: urls!.scannerAgent.sha256 !== null,
               },
+              usesRtLocator,
             },
             observed: {
               versions: { tireTrack: ttV, rtLocator: rtlV, scannerAgent: agentV },
@@ -418,10 +455,13 @@ export function InstallStep({ session }: { session: Session }) {
           }
         });
 
-        // Record completion
+        // Record completion. rtLocator is left undefined when this location doesn't use
+        // RT Locator — it was never installed, so recording a version for it here would
+        // misrepresent the device's actual state (apks!.versions.rtLocator only reflects
+        // what was *downloaded*, not what was installed).
         const installedApps = {
           tireTrack: state.installedVersions.tireTrack ?? apks!.versions.tireTrack,
-          rtLocator: state.installedVersions.rtLocator ?? apks!.versions.rtLocator,
+          rtLocator: usesRtLocator ? (state.installedVersions.rtLocator ?? apks!.versions.rtLocator) : undefined,
           scannerAgent: state.installedVersions.scannerAgent ?? apks!.versions.scannerAgent,
         };
         if (state.mode === "update") {

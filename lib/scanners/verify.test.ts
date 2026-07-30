@@ -118,6 +118,7 @@ describe("buildChecks", () => {
       accelerometerRotation: 0,
       signerDigests: {} as Record<string, string | null>,
       sha256Present: { tireTrack: true, rtLocator: true, scannerAgent: true },
+      usesRtLocator: true,
     },
     observed: {
       versions: { tireTrack: "2.0.1", rtLocator: "1.0", scannerAgent: "1.2.1" },
@@ -249,6 +250,82 @@ describe("buildChecks", () => {
       expect(c.status).toBe("warn");
       expect(c.hard).toBe(true);
     }
+    expect(allHardChecksPassed(checks)).toBe(true);
+  });
+});
+
+// W09/Chestnut does not use RT Locator at all. usesRtLocator: false is the explicit,
+// first-class opt-out — not inferred from a blank rtLocatorUrl — and must not be treated
+// as a failure anywhere in the check list.
+describe("buildChecks — usesRtLocator opt-out", () => {
+  const base = {
+    expected: {
+      versions: { tireTrack: "2.0.1", rtLocator: "1.0", scannerAgent: "1.2.1" },
+      rtConfigXml: "<RT><DEVICEID>0001</DEVICEID></RT>",
+      screenOffTimeoutMs: 1800000,
+      accelerometerRotation: 0,
+      signerDigests: {} as Record<string, string | null>,
+      sha256Present: { tireTrack: true, rtLocator: true, scannerAgent: true },
+      usesRtLocator: true,
+    },
+    observed: {
+      versions: { tireTrack: "2.0.1", rtLocator: "1.0", scannerAgent: "1.2.1" },
+      rtConfigXml: "<RT><DEVICEID>0001</DEVICEID></RT>",
+      screenOffTimeoutMs: "1800000",
+      accelerometerRotation: "0",
+      devicePolicyDump: DUMP_OWNER,
+      signerDigests: {} as Record<string, string | null>,
+      dataWedgeScanTestConfirmed: false,
+    },
+  };
+
+  it("usesRtLocator: false — rtConfigMatches is neither pass nor fail, and is not hard", () => {
+    const checks = buildChecks({
+      ...base,
+      expected: { ...base.expected, usesRtLocator: false },
+    });
+    const rt = checks.find((c) => c.key === "rtConfigMatches")!;
+    expect(rt.status).not.toBe("fail");
+    expect(rt.status).not.toBe("pass");
+    expect(rt.hard).toBe(false);
+  });
+
+  it("usesRtLocator: false with RT Locator genuinely absent (W09 case) — allHardChecksPassed is true", () => {
+    const checks = buildChecks({
+      ...base,
+      expected: {
+        ...base.expected,
+        usesRtLocator: false,
+        versions: { ...base.expected.versions, rtLocator: null },
+      },
+      observed: {
+        ...base.observed,
+        rtConfigXml: null,
+        versions: { ...base.observed.versions, rtLocator: null },
+      },
+    });
+    expect(allHardChecksPassed(checks)).toBe(true);
+  });
+
+  it("usesRtLocator: true with a real RT config problem — rtConfigMatches still fails and still blocks (unchanged existing behavior)", () => {
+    const checks = buildChecks({
+      ...base,
+      expected: { ...base.expected, usesRtLocator: true },
+      observed: { ...base.observed, rtConfigXml: "<RT><DEVICEID>WRONG</DEVICEID></RT>" },
+    });
+    const rt = checks.find((c) => c.key === "rtConfigMatches")!;
+    expect(rt.status).toBe("fail");
+    expect(rt.hard).toBe(true);
+    expect(allHardChecksPassed(checks)).toBe(false);
+  });
+
+  it("usesRtLocator: true with everything correct — still passes (opt-out did not loosen the normal path)", () => {
+    const checks = buildChecks({
+      ...base,
+      expected: { ...base.expected, usesRtLocator: true },
+    });
+    const failures = checks.filter((c) => c.hard && c.status !== "pass");
+    expect(failures).toEqual([]);
     expect(allHardChecksPassed(checks)).toBe(true);
   });
 });

@@ -32,6 +32,10 @@ export type VerifyInput = {
     accelerometerRotation: number;
     signerDigests: Record<string, string | null>;
     sha256Present: Record<AppKey, boolean>;
+    // False = this location does not use RT Locator at all. When false, the RT config
+    // check and the RT Locator version check are reported as skipped-by-configuration
+    // rather than failed — RT Locator was deliberately never installed or configured.
+    usesRtLocator: boolean;
   };
   observed: {
     versions: Record<AppKey, string | null>;
@@ -137,6 +141,20 @@ export function buildChecks(input: VerifyInput): Check[] {
 
   // --- installed app versions ---
   for (const app of Object.keys(APP_LABELS) as AppKey[]) {
+    if (app === "rtLocator" && !expected.usesRtLocator) {
+      // This location does not use RT Locator — it was deliberately never installed, so
+      // "not installed" is not a failure here. Reported honestly as unverified (skipped by
+      // configuration), never as a pass, and never hard.
+      checks.push({
+        key: `version_${app}`,
+        label: `${APP_LABELS[app]} version`,
+        expected: "(not used at this location)",
+        observed: observed.versions[app] ?? "(not installed)",
+        status: "unverified",
+        hard: false,
+      });
+      continue;
+    }
     checks.push({
       key: `version_${app}`,
       label: `${APP_LABELS[app]} version`,
@@ -179,22 +197,37 @@ export function buildChecks(input: VerifyInput): Check[] {
   });
 
   // --- RT config actually on the device ---
-  checks.push({
-    key: "rtConfigMatches",
-    label: "RT config on device matches intent",
-    expected: normalizeXml(expected.rtConfigXml),
-    observed:
-      observed.rtConfigXml === null
-        ? "(file missing)"
-        : observed.rtConfigXml === ""
-          ? "(file empty)"
-          : normalizeXml(observed.rtConfigXml),
-    status:
-      observed.rtConfigXml && normalizeXml(observed.rtConfigXml) === normalizeXml(expected.rtConfigXml)
-        ? "pass"
-        : "fail",
-    hard: true,
-  });
+  if (!expected.usesRtLocator) {
+    // This location does not use RT Locator at all — the wizard skips both the install
+    // and the rtlconfig.xml write, so there is nothing to compare. Recorded as unverified
+    // (skipped by configuration), never as a pass — a skipped check must never read as a
+    // check that ran and succeeded — and never hard, so it cannot block a W09-style device.
+    checks.push({
+      key: "rtConfigMatches",
+      label: "RT config on device matches intent",
+      expected: "(RT Locator not used at this location)",
+      observed: "skipped — usesRtLocator is false",
+      status: "unverified",
+      hard: false,
+    });
+  } else {
+    checks.push({
+      key: "rtConfigMatches",
+      label: "RT config on device matches intent",
+      expected: normalizeXml(expected.rtConfigXml),
+      observed:
+        observed.rtConfigXml === null
+          ? "(file missing)"
+          : observed.rtConfigXml === ""
+            ? "(file empty)"
+            : normalizeXml(observed.rtConfigXml),
+      status:
+        observed.rtConfigXml && normalizeXml(observed.rtConfigXml) === normalizeXml(expected.rtConfigXml)
+          ? "pass"
+          : "fail",
+      hard: true,
+    });
+  }
 
   // --- device settings ---
   checks.push({

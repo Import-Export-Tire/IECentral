@@ -1103,6 +1103,10 @@ export default defineSchema({
     // RT DEVICEID for this location. CONSTANT per location — every scanner at the store
     // reports the same value. Never a scanner number; see lib/scanners/rtConfig.ts.
     rtDeviceId: v.optional(v.string()),
+    // False = this location does not use RT Locator at all (e.g. W09/Chestnut). When false,
+    // the wizard skips both the RT Locator install and the rtlconfig.xml write, and the
+    // verification pass records the RT checks as skipped rather than failed.
+    usesRtLocator: v.optional(v.boolean()),
     defaultDeviceIdPrefix: v.string(), // e.g., "W08-"
     screenTimeoutMs: v.number(), // Default 1800000 (30 min)
     screenRotation: v.string(), // "auto" | "portrait" | "landscape"
