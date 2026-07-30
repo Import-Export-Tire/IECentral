@@ -66,6 +66,20 @@ class SetupActivity : Activity() {
             setBackgroundColor(Color.WHITE)
         }
 
+        // Import Export Tire branding. This is the screen a technician looks at for the whole
+        // provisioning run, so it's where the logo earns its place. Scaled by width with the
+        // aspect ratio preserved — the asset is 728x208 and has no alpha, which is fine against
+        // this screen's white background but would show as a white box on a dark one.
+        layout.addView(ImageView(this).apply {
+            setImageResource(R.drawable.iet_logo)
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = "Import Export Tire"
+            layoutParams = LinearLayout.LayoutParams(dp(240), LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(24)
+            }
+        })
+
         layout.addView(TextView(this).apply {
             text = "IE Scanner Agent"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
