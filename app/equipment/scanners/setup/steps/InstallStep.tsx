@@ -15,6 +15,7 @@ type Session = ReturnType<typeof useSetupSession>;
 const TIRETRACK_PKG = "com.importexporttire.tiretrack";
 const RTL_PKG = "com.rt_systems.rtlhandsfree";
 const AGENT_PKG = "com.ietires.scanneragent";
+const SCREEN_READER_COMPONENT = `${AGENT_PKG}/${AGENT_PKG}.ScreenReaderService`;
 
 const STATUS_ICON: Record<string, string> = {
   success: "✓",
@@ -336,6 +337,22 @@ export function InstallStep({ session }: { session: Session }) {
         // device-settings changes deliverable remotely instead of needing another USB visit.
         await runStep("grantWriteSettings", "Granting settings-write permission", async () => {
           await client.grantWriteSettings(AGENT_PKG);
+        });
+
+        // Enable the screen reader that powers remote troubleshooting and the PIN-settings
+        // block. This is the LAST USB-only step: enabled_accessibility_services is a secure
+        // setting outside dpm.setSecureSetting's reach on API 27, so shell is the only way in.
+        // Miss it here and the scanner has to be physically collected to add it later.
+        // (Verified on a TC51 that this survives an agent APK update, so remote agent updates
+        // do not silently switch remote troubleshooting off.)
+        await runStep("accessibility", "Enabling screen reader", async () => {
+          await client.enableAccessibilityService(SCREEN_READER_COMPONENT);
+          const enabled = await client.getSecureSetting("enabled_accessibility_services");
+          if (!enabled || !enabled.split(":").includes(SCREEN_READER_COMPONENT)) {
+            throw new Error(
+              `Screen reader not enabled — enabled_accessibility_services reads "${enabled ?? "(unset)"}"`,
+            );
+          }
         });
 
         // 10a. DataWedge: emit a Tab key after each scan (policy-gated, idempotent)
