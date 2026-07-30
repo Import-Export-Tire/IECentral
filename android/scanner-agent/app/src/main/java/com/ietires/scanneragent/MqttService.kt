@@ -91,6 +91,8 @@ class MqttService : Service() {
     }
 
     private var mqttClient: MqttAsyncClient? = null
+    // AWS IoT Jobs client — the "even if it's on next powerup" mechanism. See JobsClient.kt.
+    private var jobsClient: JobsClient? = null
     private val handler = Handler(Looper.getMainLooper())
     private var thingName: String = ""
     private var iotEndpoint: String = ""
@@ -182,7 +184,12 @@ class MqttService : Service() {
     private fun connectMqtt() {
         val serverUri = "ssl://$iotEndpoint:8883"
         Log.i(TAG, "Connecting to $serverUri as $thingName")
-        mqttClient = MqttAsyncClient(serverUri, thingName, MemoryPersistence())
+        val client = MqttAsyncClient(serverUri, thingName, MemoryPersistence())
+        mqttClient = client
+        // AWS IoT Jobs client — clientId IS the thing name (see MqttAsyncClient construction
+        // above), and every jobs/* topic is keyed off it. Wired here (not lazily) so it exists
+        // before the first connectComplete fires.
+        jobsClient = JobsClient(client, thingName, applicationContext, ::executeJobCommand)
 
         mqttClient?.setCallback(object : MqttCallbackExtended {
             override fun connectComplete(reconnect: Boolean, serverURI: String) {
@@ -190,6 +197,14 @@ class MqttService : Service() {
                 updateNotification("Connected")
                 subscribeToCommands()
                 startTelemetryLoop()
+                // Jobs offline-convergence: subscribes to notify-next + $next/get response
+                // topics, then asks "what's next for me?" — this is what makes a job queued
+                // while this scanner was off/out-of-range run now instead of never.
+                try {
+                    jobsClient?.onConnected()
+                } catch (e: Exception) {
+                    Log.e(TAG, "jobsClient.onConnected failed: ${e.message}", e)
+                }
             }
 
             override fun connectionLost(cause: Throwable?) {
@@ -198,7 +213,19 @@ class MqttService : Service() {
             }
 
             override fun messageArrived(topic: String, message: MqttMessage) {
-                handleCommand(topic, message)
+                // A malformed/unexpected message on either path must never crash this callback
+                // — this service holds the only channel back to a remote scanner, so an
+                // uncaught exception here is effectively a lost device until someone drives out
+                // with a USB cable.
+                try {
+                    if (topic.startsWith("\$aws/things/$thingName/jobs/")) {
+                        jobsClient?.onMessage(topic, message)
+                    } else {
+                        handleCommand(topic, message)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "messageArrived($topic) failed: ${e.message}", e)
+                }
             }
 
             override fun deliveryComplete(token: IMqttDeliveryToken) {}
@@ -206,6 +233,12 @@ class MqttService : Service() {
 
         val options = MqttConnectOptions().apply {
             isAutomaticReconnect = true
+            // Deliberately NOT false. AWS IoT Jobs (JobsClient, wired above) makes a persistent
+            // session unnecessary — a job execution stays QUEUED server-side regardless of
+            // session state until this device reports a terminal status — and MemoryPersistence
+            // wouldn't survive a process restart anyway, so isCleanSession=false here would add
+            // real risk (stale queued cmd/scanners/# messages replayed on reconnect) for zero
+            // actual benefit.
             isCleanSession = true
             connectionTimeout = 30
             keepAliveInterval = 60
@@ -473,21 +506,75 @@ class MqttService : Service() {
         )
     }
 
-    private fun updatePin() {
+    /** AWS IoT Jobs entry point: executes a command by calling the SAME private handlers the
+     *  cmd/scanners/# path above uses (lockDevice, unlockDevice, ...), so behaviour cannot
+     *  drift between the two delivery mechanisms. Returns a best-effort outcome for job status
+     *  reporting; the cmd/scanners/# path ignores this return value and keeps its existing
+     *  unconditional "acknowledged" semantics unchanged.
+     *
+     *  install_apk is NOT handled here — JobsClient runs it directly off-thread (download +
+     *  sha256 verify + self-update safety) and only reuses the low-level PackageInstaller
+     *  session mechanics, since its success/failure timing needs are different from every other
+     *  command. "wipe" is also deliberately not offered over Jobs at all — no job document,
+     *  however old or malformed, should ever be able to factory-reset a fleet scanner
+     *  unattended; it's simply not in the command vocabulary Jobs supports (see the spec list
+     *  this was built against). */
+    internal fun executeJobCommand(command: String, payload: JSONObject?): JobOutcome {
+        return try {
+            when (command) {
+                "lock" -> if (lockDevice()) JobOutcome.Success else JobOutcome.Retryable("device admin not active")
+                "unlock" -> { unlockDevice(); JobOutcome.Success }
+                // restartDevice() actually reboots — the caller (JobsClient) MUST report
+                // SUCCEEDED before invoking this, since nothing can publish afterward.
+                "restart" -> { restartDevice(); JobOutcome.Success }
+                "uninstall_app" -> {
+                    val pkg = payload?.optString("packageName")
+                    if (pkg.isNullOrBlank()) JobOutcome.Permanent("uninstall_app: packageName missing or blank")
+                    else { uninstallApp(payload); JobOutcome.Success }
+                }
+                "push_config" -> {
+                    val xml = payload?.optString("configXml")
+                    if (xml.isNullOrBlank()) JobOutcome.Permanent("push_config: configXml missing or blank")
+                    else { pushConfig(payload); JobOutcome.Success }
+                }
+                "update_pin" -> if (updatePin()) JobOutcome.Success else JobOutcome.Retryable("setPin failed")
+                "apply_policies" -> {
+                    applyPolicies(); publishTelemetry()
+                    if (isDeviceOwner()) JobOutcome.Success else JobOutcome.Retryable("not device owner — policies not applied")
+                }
+                "get_screen" -> { enterFastPublishMode(); JobOutcome.Success }
+                else -> JobOutcome.Permanent("Unrecognized command: $command")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "executeJobCommand($command) threw: ${e.message}", e)
+            JobOutcome.Retryable(e.message ?: e.javaClass.simpleName)
+        }
+    }
+
+    /** Returns true if the PIN was actually applied (pinManager.setPin succeeded) — used by
+     *  executeJobCommand to report FAILED (retryable) instead of a false SUCCEEDED. The
+     *  cmd/scanners/# path above ignores the return value; behaviour there is unchanged. */
+    private fun updatePin(): Boolean {
         val pin = pinManager.generatePin()
         val applied = pinManager.setPin(pin)
         Log.i(TAG, "update_pin: managed=${applied != null}")
         publishTelemetry() // report new pin/status over the bridged telemetry path
+        return applied != null
     }
 
-    private fun lockDevice() {
+    /** Returns true if lockNow() was actually invoked (device admin active) — used by
+     *  executeJobCommand to distinguish success from failure. The cmd/scanners/# path above
+     *  ignores the return value; behaviour there is unchanged. */
+    private fun lockDevice(): Boolean {
         val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
         val admin = ComponentName(this, DeviceAdminReceiver::class.java)
-        if (dpm.isAdminActive(admin)) {
+        return if (dpm.isAdminActive(admin)) {
             dpm.lockNow()
             Log.i(TAG, "Device locked")
+            true
         } else {
             Log.w(TAG, "Device admin not active, cannot lock")
+            false
         }
     }
 
@@ -530,28 +617,37 @@ class MqttService : Service() {
         }
     }
 
-    private fun restartDevice() {
+    /** Returns true if a reboot mechanism was invoked without an immediately-thrown exception.
+     *  This actually reboots — for the Jobs path (executeJobCommand), the job's terminal status
+     *  must be reported to AWS BEFORE this is called, not after (see JobsClient.startExecution's
+     *  "restart" branch); there is no way to publish anything once the process is gone. The
+     *  cmd/scanners/# path above ignores the return value; behaviour there is unchanged. */
+    private fun restartDevice(): Boolean {
         // Try device owner reboot first (cleanest), then fallbacks
         if (isDeviceOwner()) {
             try {
                 val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
                 val admin = ComponentName(this, DeviceAdminReceiver::class.java)
                 dpm.reboot(admin)
-                return
+                return true
             } catch (e: Exception) {
                 Log.w(TAG, "Device owner reboot failed: ${e.message}")
             }
         }
         try {
             Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot"))
+            return true
         } catch (e: Exception) {
             try {
                 Runtime.getRuntime().exec("reboot")
+                return true
             } catch (e2: Exception) {
                 try {
                     Runtime.getRuntime().exec(arrayOf("am", "broadcast", "-a", "android.intent.action.REBOOT"))
+                    return true
                 } catch (e3: Exception) {
                     Log.e(TAG, "All reboot methods failed: ${e3.message}")
+                    return false
                 }
             }
         }
@@ -761,7 +857,14 @@ class MqttService : Service() {
                 // UserManager has no DISALLOW_ADD_ACCOUNT constant — DISALLOW_MODIFY_ACCOUNTS
                 // is the real restriction governing adding/removing accounts on-device.
                 UserManager.DISALLOW_MODIFY_ACCOUNTS,
-                UserManager.DISALLOW_SAFE_BOOT
+                UserManager.DISALLOW_SAFE_BOOT,
+                // Blocks Settings > Apps > Force stop / Clear data. Verified on a TC51 that a
+                // force-stop wipes enabled_accessibility_services outright (Android's app
+                // "stopped" state disables accessibility services), which would permanently
+                // kill remote troubleshooting on that scanner — and re-enabling it needs a
+                // shell, i.e. physically collecting the device. This restriction is what makes
+                // the screen reader survive an employee poking around in Settings.
+                UserManager.DISALLOW_APPS_CONTROL
             )) {
                 val ok = try {
                     dpm.addUserRestriction(admin, restriction)
