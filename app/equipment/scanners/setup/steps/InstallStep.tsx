@@ -345,6 +345,15 @@ export function InstallStep({ session }: { session: Session }) {
         // Miss it here and the scanner has to be physically collected to add it later.
         // (Verified on a TC51 that this survives an agent APK update, so remote agent updates
         // do not silently switch remote troubleshooting off.)
+        // Stop the device demanding "install anyway" on every app. The IET apps are
+        // debug-signed so Play Protect flags them, and the agent's setup screen otherwise
+        // stalls asking for the "Install unknown apps" permission by hand — twenty scanners
+        // of tapping through warnings.
+        await runStep("installPrompts", "Suppressing install warnings", async () => {
+          const applied = await client.suppressInstallPrompts(AGENT_PKG);
+          log("installPrompts", "success", undefined, `applied: ${applied.join(",") || "none"}`);
+        });
+
         await runStep("accessibility", "Enabling screen reader", async () => {
           await client.enableAccessibilityService(SCREEN_READER_COMPONENT);
           const enabled = await client.getSecureSetting("enabled_accessibility_services");

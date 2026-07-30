@@ -271,6 +271,37 @@ export class WebAdbClient {
    * is how you brick a device. Verified against a TC51 (Android 8.1): `cmd package
    * query-activities` exists there and returns `pkg/Activity` pairs.
    */
+  /**
+   * Stop the device interrupting setup with install warnings.
+   *
+   * The three IET apps are debug-signed, so Google's package verifier doesn't recognise them
+   * and Play Protect shows "blocked as unsafe — install anyway", which a technician has to tap
+   * through on every scanner. The agent's own setup screen also needs the install-packages
+   * appop, or it stalls asking someone to enable "Install unknown apps" by hand.
+   *
+   * Every command is best-effort: these settings vary across Zebra builds, and none of them is
+   * worth failing a provisioning run over. Returns what actually applied so it can be logged.
+   */
+  async suppressInstallPrompts(pkg = "com.ietires.scanneragent"): Promise<string[]> {
+    const applied: string[] = [];
+    const attempts: Array<[string, string]> = [
+      ["package_verifier_enable", "settings put global package_verifier_enable 0"],
+      ["verifier_verify_adb_installs", "settings put global verifier_verify_adb_installs 0"],
+      ["package_verifier_user_consent", "settings put secure package_verifier_user_consent -1"],
+      ["request_install_packages_appop", `appops set ${pkg} REQUEST_INSTALL_PACKAGES allow`],
+    ];
+    for (const [label, cmd] of attempts) {
+      try {
+        const out = await this.shell(`${cmd} 2>&1`);
+        if (/Error|Exception|Unknown|Invalid/i.test(out)) continue;
+        applied.push(label);
+      } catch {
+        /* not supported on this build — skip */
+      }
+    }
+    return applied;
+  }
+
   async listLaunchablePackages(): Promise<string[]> {
     const out = await this.shell(
       "cmd package query-activities --brief -a android.intent.action.MAIN " +
