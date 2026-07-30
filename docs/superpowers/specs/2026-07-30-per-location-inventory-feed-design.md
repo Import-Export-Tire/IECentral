@@ -230,10 +230,17 @@ Feed-live threshold logic gets vitest coverage on the TS side (`npm test`).
 
 ## Infrastructure and permissions
 
-- `s3:DeleteObject` on `jmk-uploads/oeival/*` for the processor's role. The SFTP
+- `s3:DeleteObject` is **already granted** to `LambdaExecutionRole` on this
+  bucket via the `DunlopReporterS3Access` policy — no change needed. The SFTP
   role is untouched and stays upload-only.
+- `s3:PutObjectTagging` added to `LambdaExecutionRole` (see lifecycle below).
 - Reserved concurrency of 1 on `dunlop-oeival-processor`.
-- S3 lifecycle rule expiring stamped archive files after 90 days.
+- S3 lifecycle rule expiring stamped archive files after 90 days, filtered by
+  **object tag**, not path prefix. Lifecycle prefixes cannot wildcard mid-path,
+  so the narrowest literal prefix covering `<LOC>/<YYYYMM>/` is
+  `jmk-uploads/oeival/` — which would also expire the daily full snapshots and
+  the `_cache/` objects the reports depend on. Stamped objects are therefore
+  written with the tag `lifecycle=location-archive` and the rule filters on it.
 - `tzdata` added to `aws/dunlop-reporter/lambdas/requirements.txt` — the Lambda
   Python runtime ships no IANA zone data, so `zoneinfo` would fail at runtime
   and the Eastern timestamp depends on it.
