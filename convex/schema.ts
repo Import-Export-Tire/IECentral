@@ -1147,6 +1147,25 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_issued", ["issuedAt"]),
 
+  // Durable remote commands sent via AWS IoT Jobs (survive an offline scanner — the
+  // execution sits QUEUED until the device reconnects, unlike scannerCommandLog's
+  // fire-and-forget cmd/scanners/# path). One row per job created; updateJobStatus is
+  // patched in later by the (not-yet-built) job-execution event bridge.
+  scannerJobs: defineTable({
+    scannerId: v.id("scanners"),
+    scannerNumber: v.string(), // Denormalized for display
+    jobId: v.string(),
+    command: v.string(), // "lock" | "unlock" | "restart" | "install_apk" | "uninstall_app" | "push_config" | "update_pin" | "apply_policies"
+    payload: v.optional(v.any()),
+    status: v.string(), // "QUEUED" | "IN_PROGRESS" | "SUCCEEDED" | "FAILED" | "TIMED_OUT" | "REJECTED" | "CANCELED"
+    statusDetail: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    createdBy: v.optional(v.id("users")),
+  })
+    .index("by_scanner", ["scannerId"])
+    .index("by_jobId", ["jobId"]),
+
   // Scanner provision codes — temporary claim codes for web-based provisioning
   scannerProvisionCodes: defineTable({
     code: v.string(), // 6-char uppercase alphanumeric claim code

@@ -476,6 +476,81 @@ export const getScannerCommandHistory = query({
   },
 });
 
+// ============ DURABLE JOBS (AWS IoT Jobs) ============
+// scannerCommandLog above is the fire-and-forget cmd/scanners/# audit trail. scannerJobs is
+// separate: it tracks commands sent as AWS IoT Job executions, which sit QUEUED on a device
+// that's offline rather than being silently discarded — "did it land?" needs a real answer
+// instead of always reading as success.
+
+export const recordJob = mutation({
+  args: {
+    scannerId: v.id("scanners"),
+    jobId: v.string(),
+    command: v.string(),
+    payload: v.optional(v.any()),
+    createdBy: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    const scanner = await ctx.db.get(args.scannerId);
+    if (!scanner) throw new Error("Scanner not found");
+
+    const now = Date.now();
+    const id = await ctx.db.insert("scannerJobs", {
+      scannerId: args.scannerId,
+      scannerNumber: scanner.number,
+      jobId: args.jobId,
+      command: args.command,
+      payload: args.payload,
+      status: "QUEUED",
+      createdAt: now,
+      updatedAt: now,
+      createdBy: args.createdBy,
+    });
+
+    return { id };
+  },
+});
+
+// Bridges real AWS job-execution status changes into Convex. Not yet called by anything —
+// the job-execution event Lambda/webhook that would invoke this is a later task — but the
+// shape is settled now so that piece can be added without touching this file again.
+export const updateJobStatus = mutation({
+  args: {
+    jobId: v.string(),
+    status: v.string(),
+    statusDetail: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const job = await ctx.db
+      .query("scannerJobs")
+      .withIndex("by_jobId", (q) => q.eq("jobId", args.jobId))
+      .first();
+    if (!job) throw new Error(`Job ${args.jobId} not found`);
+
+    await ctx.db.patch(job._id, {
+      status: args.status,
+      statusDetail: args.statusDetail,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+export const listJobsForScanner = query({
+  args: {
+    scannerId: v.id("scanners"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("scannerJobs")
+      .withIndex("by_scanner", (q) => q.eq("scannerId", args.scannerId))
+      .order("desc")
+      .take(args.limit ?? 20);
+  },
+});
+
 // ============ MDM CONFIGS ============
 
 export const getMdmConfig = query({

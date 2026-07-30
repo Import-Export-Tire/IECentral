@@ -241,6 +241,30 @@ Resources:
             Method: post
             RestApiId: !Ref ScannerMdmApi
 
+  # Creates AWS IoT Jobs (durable commands that survive an offline scanner) rather than
+  # publishing to cmd/scanners/#. Requires the ScannerJobsPolicy inline policy on
+  # LambdaExecutionRole (iot:CreateJob/DescribeJob/... + iam:PassRole on
+  # scanner-iot-presign-role) — already added out-of-band, not modeled in this template to
+  # avoid clobbering it on redeploy.
+  JobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: scanner-job
+      Handler: job.handler
+      CodeUri: lambdas/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          S3_ASSETS_BUCKET: !Ref ScannerAssetsBucket
+          SCANNER_JOBS_PRESIGN_ROLE_ARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/scanner-iot-presign-role'
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /scanner-mdm/job
+            Method: post
+            RestApiId: !Ref ScannerMdmApi
+
   StatusFunction:
     Type: AWS::Serverless::Function
     Properties:

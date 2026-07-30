@@ -18,8 +18,28 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import SectionHeader from "@/components/ui/SectionHeader";
 
-type CommandType = "lock" | "unlock" | "wipe" | "install_apk" | "push_config" | "restart" | "update_pin";
+type CommandType = "lock" | "unlock" | "wipe" | "install_apk" | "push_config" | "restart" | "update_pin" | "apply_policies";
 const EQUIPMENT_VALUE = 100;
+
+// Commands that must survive an offline scanner go through AWS IoT Jobs (queued until the
+// device reconnects) instead of the fire-and-forget cmd/scanners/# path. `wipe` is
+// deliberately excluded — a queued factory-reset firing days later when someone finally
+// powers the device back on would be dangerous, so it stays on the direct path. `get_screen`
+// (not yet built) will belong on the direct path too: it's only meaningful right now, on a
+// device that's online, so a queued one would be pointless.
+const JOB_COMMANDS: ReadonlySet<CommandType> = new Set([
+  "lock", "unlock", "restart", "install_apk", "push_config", "update_pin", "apply_policies",
+]);
+
+const jobStatusColors: Record<string, string> = {
+  QUEUED: "text-slate-400 bg-slate-500/10",
+  IN_PROGRESS: "text-blue-400 bg-blue-500/10",
+  SUCCEEDED: "text-emerald-400 bg-emerald-500/10",
+  FAILED: "text-red-400 bg-red-500/10",
+  TIMED_OUT: "text-amber-400 bg-amber-500/10",
+  REJECTED: "text-red-400 bg-red-500/10",
+  CANCELED: "text-slate-400 bg-slate-500/10",
+};
 
 function ScannerDetailContent() {
   const { theme } = useTheme();
@@ -78,9 +98,11 @@ function ScannerDetailContent() {
   const provisionCode = useQuery(api.scannerMdm.getProvisionCode, { scannerId });
   const setupLogs = useQuery(api.scannerMdm.listSetupLogsByScanner, scannerId ? { scannerId, limit: 50 } : "skip");
   const lastVerification = useQuery(api.scannerMdm.getLatestVerification, { scannerId });
+  const recentJobs = useQuery(api.scannerMdm.listJobsForScanner, { scannerId });
 
   // Mutations
   const logCommand = useMutation(api.scannerMdm.logScannerCommand);
+  const recordJob = useMutation(api.scannerMdm.recordJob);
   const assignWithAgreement = useMutation(api.equipment.assignEquipmentWithAgreement);
   const returnWithCheck = useMutation(api.equipment.returnEquipmentWithCheck);
   const unassignScanner = useMutation(api.equipment.unassignScanner);
@@ -125,11 +147,33 @@ function ScannerDetailContent() {
     if (pendingCommand === "wipe" && wipeConfirmText !== scanner.number) return;
     setSending(true);
     try {
+      // Existing audit trail, unchanged for every command regardless of transport.
       await logCommand({ scannerId, command: pendingCommand, payload: commandPayload || undefined, userId: user._id, userName: user.name ?? user.email });
-      await fetch("/api/scanner-mdm/command", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ thingName: scanner.iotThingName, command: pendingCommand, payload: commandPayload ? JSON.parse(commandPayload) : {}, scannerId, userId: user._id, confirmed: true }),
-      });
+
+      const payload = commandPayload ? JSON.parse(commandPayload) : {};
+
+      if (JOB_COMMANDS.has(pendingCommand)) {
+        // Durable path: creates an AWS IoT Job that sits QUEUED on a device that's
+        // currently offline, instead of being silently discarded — this is the whole
+        // reason this path exists ("even if it's on next powerup").
+        const res = await fetch("/api/scanner-mdm/job", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ thingName: scanner.iotThingName, command: pendingCommand, payload }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        if (data.jobId) {
+          await recordJob({ scannerId, jobId: data.jobId, command: pendingCommand, payload, createdBy: user._id });
+        }
+      } else {
+        // wipe (and, once built, get_screen) stay on the direct, fire-and-forget path —
+        // both are only meaningful on a device that's online right now.
+        await fetch("/api/scanner-mdm/command", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ thingName: scanner.iotThingName, command: pendingCommand, payload, scannerId, userId: user._id, confirmed: true }),
+        });
+      }
+
       setShowCommandModal(false);
       setPendingCommand(null);
     } catch (err) { console.error("Command failed:", err); }
@@ -327,6 +371,7 @@ function ScannerDetailContent() {
     { cmd: "install_apk", label: "Push Update", icon: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4", color: "cyan" },
     { cmd: "push_config", label: "Push Config", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z", color: "purple" },
     { cmd: "restart", label: "Restart", icon: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15", color: "slate" },
+    { cmd: "apply_policies", label: "Apply Policies", icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", color: "indigo" },
     { cmd: "wipe", label: "Factory Reset", icon: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16", color: "red", requiresAdmin: true },
   ];
 
@@ -715,6 +760,33 @@ function ScannerDetailContent() {
                   </Card>
                 )}
 
+                {/* Recent Jobs — durable commands (AWS IoT Jobs). A QUEUED row on an offline
+                    scanner must read as "waiting", not success: that false-success behavior
+                    on the old fire-and-forget path is the reason this durable path exists. */}
+                {canEdit && isProvisioned && recentJobs && recentJobs.length > 0 && (
+                  <Card>
+                    <SectionHeader label="Recent Jobs" />
+                    <div className="space-y-2">
+                      {recentJobs.map((job) => (
+                        <div key={job._id} className={`flex items-center justify-between p-2.5 rounded-lg ${isDark ? "bg-slate-800/50" : "bg-gray-50"}`}>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${jobStatusColors[job.status] ?? "text-slate-400 bg-slate-500/10"}`}>
+                              {job.status === "QUEUED" ? "WAITING (queued)" : job.status.replace(/_/g, " ")}
+                            </span>
+                            <span className="text-xs font-medium theme-text-primary truncate">{job.command.replace(/_/g, " ")}</span>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="text-[10px] theme-text-tertiary">{formatDate(job.createdAt)}</div>
+                            {job.statusDetail && (
+                              <div className="text-[10px] text-red-400 max-w-[14rem] truncate" title={job.statusDetail}>{job.statusDetail}</div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+
                 {/* Setup History */}
                 {setupLogs && setupLogs.length > 0 && (
                   <Card>
@@ -838,6 +910,12 @@ function ScannerDetailContent() {
                       {pendingCommand === "push_config" && "Push latest RT Locator configuration."}
                       {pendingCommand === "restart" && "Restart the scanner device."}
                       {pendingCommand === "update_pin" && "Generate a new system PIN on the scanner and apply it."}
+                      {pendingCommand === "apply_policies" && "Re-apply device restrictions and lockdown policy."}
+                    </p>
+                  )}
+                  {pendingCommand !== "wipe" && JOB_COMMANDS.has(pendingCommand) && (
+                    <p className="text-xs mb-4 -mt-2 theme-text-tertiary">
+                      Sent as a durable job — it will run even if the scanner is off right now.
                     </p>
                   )}
                   <div className="flex justify-end gap-3">
