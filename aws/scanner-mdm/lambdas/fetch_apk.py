@@ -6,6 +6,7 @@ Supports TireTrack (from Expo or S3), RT Locator (S3), and Agent (S3).
 
 import json
 import os
+import re
 import urllib.request
 import boto3
 
@@ -69,6 +70,31 @@ def get_sha256_for_key(key):
         return None
 
 
+def resolve_version(key, config_version):
+    """Version of the APK we are actually serving, most trustworthy source first:
+      1. the S3 object's x-amz-meta-version
+      2. the version embedded in the key, e.g. apks/scanner-agent-1.2.1.apk -> 1.2.1
+      3. the hand-maintained config field (last resort — often stale, hence "vunknown")
+    """
+    if not key:
+        return config_version or "unknown"
+    try:
+        head = s3.head_object(Bucket=S3_BUCKET, Key=key)
+        meta_version = head.get("Metadata", {}).get("version")
+        # Require real content: a whitespace-only value is truthy in Python and would be
+        # returned verbatim as the version, which is a confidently-wrong answer. Falling
+        # through to the key-parsed version is always better than reporting a blank one.
+        if meta_version and meta_version.strip():
+            return meta_version.strip()
+    except Exception as e:
+        print(f"resolve_version: head_object failed for {key}: {e}")
+
+    m = re.search(r"-(\d+(?:\.\d+)+)\.apk$", key)
+    if m:
+        return m.group(1)
+    return config_version or "unknown"
+
+
 def handler(event, context):
     try:
         params = event.get("queryStringParameters") or {}
@@ -105,7 +131,17 @@ def handler(event, context):
                 try:
                     expo_url = get_expo_build_url()
                     if expo_url:
-                        version = config.get("currentTireTrackVersion", "latest")
+                        # There is no S3 key here, so resolve_version's key-parsed fallback
+                        # doesn't apply — but the same honesty rule does: a sentinel like
+                        # "latest" is a confidently-wrong answer once it reaches the wizard's
+                        # hard-fail version comparison, so require real content (same
+                        # whitespace-only guard as resolve_version) or report "unknown".
+                        raw_version = config.get("currentTireTrackVersion")
+                        version = (
+                            raw_version.strip()
+                            if raw_version and raw_version.strip()
+                            else "unknown"
+                        )
                         return response(200, {
                             "downloadUrl": expo_url,
                             "version": version,
@@ -131,7 +167,7 @@ def handler(event, context):
                 Params={"Bucket": S3_BUCKET, "Key": s3_key},
                 ExpiresIn=3600,
             )
-            version = config.get("currentTireTrackVersion", "unknown") if config else "unknown"
+            version = resolve_version(s3_key, (config or {}).get("currentTireTrackVersion"))
             return response(200, {
                 "downloadUrl": download_url,
                 "version": version,
@@ -157,7 +193,7 @@ def handler(event, context):
                 Params={"Bucket": S3_BUCKET, "Key": s3_key},
                 ExpiresIn=3600,
             )
-            version = config.get("currentRtLocatorVersion", "unknown") if config else "unknown"
+            version = resolve_version(s3_key, (config or {}).get("currentRtLocatorVersion"))
             return response(200, {
                 "downloadUrl": download_url,
                 "version": version,
@@ -183,7 +219,7 @@ def handler(event, context):
                 Params={"Bucket": S3_BUCKET, "Key": s3_key},
                 ExpiresIn=3600,
             )
-            version = config.get("currentAgentVersion", "unknown") if config else "unknown"
+            version = resolve_version(s3_key, (config or {}).get("currentAgentVersion"))
             return response(200, {
                 "downloadUrl": download_url,
                 "version": version,

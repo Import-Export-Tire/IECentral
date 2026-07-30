@@ -123,14 +123,24 @@ def handler(event, context):
         except iot.exceptions.ResourceAlreadyExistsException:
             pass
 
-        # Add to thing group
-        try:
-            iot.add_thing_to_thing_group(
-                thingGroupName=THING_GROUP,
-                thingName=thing_name,
-            )
-        except Exception:
-            pass  # Group may not exist yet in dev
+        # Add to the global group and to a per-location group. The per-location group is what
+        # lets a CONTINUOUS IoT job target one store and automatically include scanners added
+        # later — so a newly provisioned scanner picks up current desired state with no USB.
+        for group in (THING_GROUP, f"scanners-{location_code}"):
+            try:
+                iot.add_thing_to_thing_group(
+                    thingGroupName=group,
+                    thingName=thing_name,
+                )
+            except iot.exceptions.ResourceNotFoundException:
+                # Create the per-location group on first use, then retry once.
+                try:
+                    iot.create_thing_group(thingGroupName=group)
+                    iot.add_thing_to_thing_group(thingGroupName=group, thingName=thing_name)
+                except Exception as e:
+                    print(f"thing group {group}: {e}")
+            except Exception as e:
+                print(f"thing group {group}: {e}")
 
         # NOTE: old certs are NOT retired here anymore. Retiring before the device claims
         # the new cert can strand a device (it ends up holding a deleted cert) if the claim

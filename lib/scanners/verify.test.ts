@@ -1,0 +1,437 @@
+import { describe, it, expect } from "vitest";
+import {
+  parseDeviceOwner,
+  parseActiveRestrictions,
+  parsePasswordSufficient,
+  parseSignerDigest,
+  compareVersion,
+  buildChecks,
+  allHardChecksPassed,
+  normalizePinnedVersion,
+  type Check,
+} from "./verify";
+
+// Captured from a Zebra TC51 (Android 8.1) running agent 1.2.1.
+const DUMP_OWNER = `
+Current Device Policy Manager state:
+  Device Owner:
+    admin=ComponentInfo{com.ietires.scanneragent/com.ietires.scanneragent.DeviceAdminReceiver}
+    name=
+    package=com.ietires.scanneragent
+  Enabled Device Admins (User 0, provisioningState: 2):
+    admin=ComponentInfo{com.ietires.scanneragent/com.ietires.scanneragent.DeviceAdminReceiver}
+    User restrictions:
+      no_factory_reset
+      no_add_account
+`;
+
+const DUMP_NO_OWNER = `
+Current Device Policy Manager state:
+  Enabled Device Admins (User 0):
+    admin=ComponentInfo{com.other.app/com.other.app.Receiver}
+`;
+
+// Realistic provisioning failure: ownership never transferred to us — another admin
+// is the actual Device Owner, and our package only shows up as an *enrolled admin* in
+// the section that follows. Because "Enabled Device Admins (User 0, provisioningState:
+// 2):" contains parentheses, the old terminator regex `(?=\n\s*\w[\w ]*:|\n*$)` cannot
+// match it, so the "Device Owner:" section over-extends into this block and a bare
+// `.includes(pkg)` finds our package where it must not.
+const DUMP_OWNER_IS_OTHER = `
+Current Device Policy Manager state:
+  Device Owner:
+    package=com.other.mdm
+  Enabled Device Admins (User 0, provisioningState: 2):
+    admin=ComponentInfo{com.ietires.scanneragent/com.ietires.scanneragent.DeviceAdminReceiver}
+`;
+
+// The owner's package name is a superstring of ours — a loose `.includes` would match
+// this even though `com.ietires.scanneragentx` is not `com.ietires.scanneragent`.
+const DUMP_OWNER_SUPERSTRING = `
+Current Device Policy Manager state:
+  Device Owner:
+    admin=ComponentInfo{com.ietires.scanneragentx/com.ietires.scanneragentx.DeviceAdminReceiver}
+    package=com.ietires.scanneragentx
+  Enabled Device Admins (User 0, provisioningState: 2):
+    admin=ComponentInfo{com.ietires.scanneragentx/com.ietires.scanneragentx.DeviceAdminReceiver}
+`;
+
+describe("parseDeviceOwner", () => {
+  it("detects our package as device owner", () => {
+    expect(parseDeviceOwner(DUMP_OWNER, "com.ietires.scanneragent")).toBe(true);
+  });
+  it("returns false when there is no device owner", () => {
+    expect(parseDeviceOwner(DUMP_NO_OWNER, "com.ietires.scanneragent")).toBe(false);
+  });
+  it("does not match a different package that merely appears in the dump", () => {
+    expect(parseDeviceOwner(DUMP_NO_OWNER, "com.other.app")).toBe(false);
+  });
+  it("returns false when another package is the real owner and ours is merely an enrolled admin listed after it (parenthesized header)", () => {
+    expect(parseDeviceOwner(DUMP_OWNER_IS_OTHER, "com.ietires.scanneragent")).toBe(false);
+  });
+  it("returns false when the owner's package name is a superstring of ours", () => {
+    expect(parseDeviceOwner(DUMP_OWNER_SUPERSTRING, "com.ietires.scanneragent")).toBe(false);
+  });
+});
+
+describe("parseActiveRestrictions", () => {
+  it("extracts the restriction names", () => {
+    expect(parseActiveRestrictions(DUMP_OWNER)).toEqual(["no_factory_reset", "no_add_account"]);
+  });
+  it("returns an empty array when none are set", () => {
+    expect(parseActiveRestrictions(DUMP_NO_OWNER)).toEqual([]);
+  });
+});
+
+describe("parsePasswordSufficient", () => {
+  it("returns true when the dump reports the password as sufficient", () => {
+    expect(parsePasswordSufficient("isActivePasswordSufficient=true")).toBe(true);
+  });
+  it("returns false when the dump reports the password as insufficient", () => {
+    expect(parsePasswordSufficient("isActivePasswordSufficient=false")).toBe(false);
+  });
+  it("returns null when the field is absent from the dump", () => {
+    expect(parsePasswordSufficient("some other unrelated dump text")).toBe(null);
+  });
+});
+
+describe("parseSignerDigest", () => {
+  // Captured verbatim from `dumpsys package com.symbol.datawedge` on a real Zebra TC51
+  // (Android 8.1.0, serial 20078522505506, fresh/unprovisioned). Neither of the previous
+  // patterns (`signatures=\[...`, `cert N:`) matches this shape at all.
+  it("parses the real captured single-signer line", () => {
+    const out = "    signatures=PackageSignatures{26f207a [3c1e3b57]}";
+    expect(parseSignerDigest(out)).toBe("3c1e3b57");
+  });
+
+  it("parses multiple signers in deterministic (appearance) order", () => {
+    const out = "    signatures=PackageSignatures{abc1234 [3c1e3b57, 9f8e7d6c]}";
+    expect(parseSignerDigest(out)).toBe("3c1e3b57,9f8e7d6c");
+  });
+
+  it("still parses the legacy 'cert N: <hex>' shape as a fallback", () => {
+    const out = "    cert 0: 9f8e7d6c1a2b3c4d";
+    expect(parseSignerDigest(out)).toBe("9f8e7d6c1a2b3c4d");
+  });
+
+  it("returns null when there is no signature line at all (dumpsys of an absent package)", () => {
+    const out = `
+Unable to find package: com.does.not.exist
+`;
+    expect(parseSignerDigest(out)).toBeNull();
+  });
+
+  it("returns null on junk/empty input without throwing", () => {
+    expect(parseSignerDigest("")).toBeNull();
+    expect(parseSignerDigest("garbage nonsense text\nwith no signature at all")).toBeNull();
+  });
+});
+
+describe("compareVersion", () => {
+  it("passes on an exact match", () => {
+    expect(compareVersion("2.0.1", "2.0.1")).toBe("pass");
+  });
+  it("fails on a mismatch", () => {
+    expect(compareVersion("2.0.2", "2.0.1")).toBe("fail");
+  });
+  it("fails when the package is absent", () => {
+    expect(compareVersion("2.0.1", null)).toBe("fail");
+  });
+  it("warns when nothing was pinned to compare against", () => {
+    expect(compareVersion(null, "2.0.1")).toBe("warn");
+  });
+});
+
+describe("buildChecks", () => {
+  const base = {
+    expected: {
+      versions: { tireTrack: "2.0.1", rtLocator: "1.0", scannerAgent: "1.2.1" },
+      rtConfigXml: "<RT><DEVICEID>0001</DEVICEID></RT>",
+      screenOffTimeoutMs: 1800000,
+      accelerometerRotation: 0,
+      signerDigests: {} as Record<string, string | null>,
+      sha256Present: { tireTrack: true, rtLocator: true, scannerAgent: true },
+      usesRtLocator: true,
+    },
+    observed: {
+      versions: { tireTrack: "2.0.1", rtLocator: "1.0", scannerAgent: "1.2.1" },
+      rtConfigXml: "<RT><DEVICEID>0001</DEVICEID></RT>",
+      screenOffTimeoutMs: "1800000",
+      accelerometerRotation: "0",
+      devicePolicyDump: DUMP_OWNER,
+      signerDigests: {} as Record<string, string | null>,
+      dataWedgeScanTestConfirmed: false,
+    },
+  };
+
+  it("passes every hard check on a correctly configured device", () => {
+    const checks = buildChecks(base);
+    const failures = checks.filter((c) => c.hard && c.status !== "pass");
+    expect(failures).toEqual([]);
+    expect(allHardChecksPassed(checks)).toBe(true);
+  });
+
+  it("fails hard when the RT config on the device differs from intent", () => {
+    const checks = buildChecks({
+      ...base,
+      observed: { ...base.observed, rtConfigXml: "<RT><DEVICEID>W08-004</DEVICEID></RT>" },
+    });
+    const rt = checks.find((c) => c.key === "rtConfigMatches")!;
+    expect(rt.status).toBe("fail");
+    expect(rt.hard).toBe(true);
+    expect(allHardChecksPassed(checks)).toBe(false);
+  });
+
+  it("fails hard when the RT config is missing entirely", () => {
+    const checks = buildChecks({
+      ...base,
+      observed: { ...base.observed, rtConfigXml: null },
+    });
+    expect(checks.find((c) => c.key === "rtConfigMatches")!.status).toBe("fail");
+  });
+
+  it("fails hard when device owner is not our package", () => {
+    const checks = buildChecks({
+      ...base,
+      observed: { ...base.observed, devicePolicyDump: DUMP_NO_OWNER },
+    });
+    expect(checks.find((c) => c.key === "deviceOwner")!.status).toBe("fail");
+    expect(allHardChecksPassed(checks)).toBe(false);
+  });
+
+  it("marks the DataWedge scan test unverified, and does not let it block", () => {
+    const checks = buildChecks(base);
+    const dw = checks.find((c) => c.key === "dataWedgeScanTest")!;
+    expect(dw.status).toBe("unverified");
+    expect(dw.hard).toBe(false);
+    expect(allHardChecksPassed(checks)).toBe(true);
+  });
+
+  it("passes the scan test once a technician confirms it", () => {
+    const checks = buildChecks({
+      ...base,
+      observed: { ...base.observed, dataWedgeScanTestConfirmed: true },
+    });
+    expect(checks.find((c) => c.key === "dataWedgeScanTest")!.status).toBe("pass");
+  });
+
+  it("warns without blocking when a build had no checksum to verify", () => {
+    const checks = buildChecks({
+      ...base,
+      expected: { ...base.expected, sha256Present: { tireTrack: false, rtLocator: true, scannerAgent: true } },
+    });
+    const c = checks.find((k) => k.key === "sha256Verified")!;
+    expect(c.status).toBe("warn");
+    expect(c.hard).toBe(false);
+    expect(allHardChecksPassed(checks)).toBe(true);
+  });
+
+  it("fails a settings check when the device disagrees with policy", () => {
+    const checks = buildChecks({
+      ...base,
+      observed: { ...base.observed, screenOffTimeoutMs: "60000" },
+    });
+    expect(checks.find((c) => c.key === "screenTimeout")!.status).toBe("fail");
+  });
+
+  it("passes rtConfigMatches when the device file is pretty-printed but content-identical to the compact expected XML", () => {
+    const checks = buildChecks({
+      ...base,
+      expected: { ...base.expected, rtConfigXml: "<RT><DEVICEID>0001</DEVICEID></RT>" },
+      observed: {
+        ...base.observed,
+        rtConfigXml: "<RT>\n  <DEVICEID>0001</DEVICEID>\n</RT>\n",
+      },
+    });
+    expect(checks.find((c) => c.key === "rtConfigMatches")!.status).toBe("pass");
+  });
+
+  it("labels an existing-but-empty RT config file distinctly from a missing one", () => {
+    const checks = buildChecks({
+      ...base,
+      observed: { ...base.observed, rtConfigXml: "" },
+    });
+    const rt = checks.find((c) => c.key === "rtConfigMatches")!;
+    expect(rt.observed).toBe("(file empty)");
+    expect(rt.status).toBe("fail");
+  });
+
+  it("still labels a genuinely missing RT config file as missing", () => {
+    const checks = buildChecks({
+      ...base,
+      observed: { ...base.observed, rtConfigXml: null },
+    });
+    const rt = checks.find((c) => c.key === "rtConfigMatches")!;
+    expect(rt.observed).toBe("(file missing)");
+    expect(rt.status).toBe("fail");
+  });
+
+  it("yields allHardChecksPassed === true when a device is correctly configured in every respect except that no app versions were pinned", () => {
+    // The exact production scenario: a location's optional "Current Version" fields are blank,
+    // so expected.versions are all null and compareVersion returns "warn" for all three
+    // hard version checks. Everything else about the device matches intent.
+    const checks = buildChecks({
+      ...base,
+      expected: {
+        ...base.expected,
+        versions: { tireTrack: null, rtLocator: null, scannerAgent: null },
+      },
+    });
+    const versionChecks = checks.filter((c) => c.key.startsWith("version_"));
+    expect(versionChecks).toHaveLength(3);
+    for (const c of versionChecks) {
+      expect(c.status).toBe("warn");
+      expect(c.hard).toBe(true);
+    }
+    expect(allHardChecksPassed(checks)).toBe(true);
+  });
+});
+
+// W09/Chestnut does not use RT Locator at all. usesRtLocator: false is the explicit,
+// first-class opt-out — not inferred from a blank rtLocatorUrl — and must not be treated
+// as a failure anywhere in the check list.
+describe("buildChecks — usesRtLocator opt-out", () => {
+  const base = {
+    expected: {
+      versions: { tireTrack: "2.0.1", rtLocator: "1.0", scannerAgent: "1.2.1" },
+      rtConfigXml: "<RT><DEVICEID>0001</DEVICEID></RT>",
+      screenOffTimeoutMs: 1800000,
+      accelerometerRotation: 0,
+      signerDigests: {} as Record<string, string | null>,
+      sha256Present: { tireTrack: true, rtLocator: true, scannerAgent: true },
+      usesRtLocator: true,
+    },
+    observed: {
+      versions: { tireTrack: "2.0.1", rtLocator: "1.0", scannerAgent: "1.2.1" },
+      rtConfigXml: "<RT><DEVICEID>0001</DEVICEID></RT>",
+      screenOffTimeoutMs: "1800000",
+      accelerometerRotation: "0",
+      devicePolicyDump: DUMP_OWNER,
+      signerDigests: {} as Record<string, string | null>,
+      dataWedgeScanTestConfirmed: false,
+    },
+  };
+
+  it("usesRtLocator: false — rtConfigMatches is neither pass nor fail, and is not hard", () => {
+    const checks = buildChecks({
+      ...base,
+      expected: { ...base.expected, usesRtLocator: false },
+    });
+    const rt = checks.find((c) => c.key === "rtConfigMatches")!;
+    expect(rt.status).not.toBe("fail");
+    expect(rt.status).not.toBe("pass");
+    expect(rt.hard).toBe(false);
+  });
+
+  it("usesRtLocator: false with RT Locator genuinely absent (W09 case) — allHardChecksPassed is true", () => {
+    const checks = buildChecks({
+      ...base,
+      expected: {
+        ...base.expected,
+        usesRtLocator: false,
+        versions: { ...base.expected.versions, rtLocator: null },
+      },
+      observed: {
+        ...base.observed,
+        rtConfigXml: null,
+        versions: { ...base.observed.versions, rtLocator: null },
+      },
+    });
+    expect(allHardChecksPassed(checks)).toBe(true);
+  });
+
+  it("usesRtLocator: true with a real RT config problem — rtConfigMatches still fails and still blocks (unchanged existing behavior)", () => {
+    const checks = buildChecks({
+      ...base,
+      expected: { ...base.expected, usesRtLocator: true },
+      observed: { ...base.observed, rtConfigXml: "<RT><DEVICEID>WRONG</DEVICEID></RT>" },
+    });
+    const rt = checks.find((c) => c.key === "rtConfigMatches")!;
+    expect(rt.status).toBe("fail");
+    expect(rt.hard).toBe(true);
+    expect(allHardChecksPassed(checks)).toBe(false);
+  });
+
+  it("usesRtLocator: true with everything correct — still passes (opt-out did not loosen the normal path)", () => {
+    const checks = buildChecks({
+      ...base,
+      expected: { ...base.expected, usesRtLocator: true },
+    });
+    const failures = checks.filter((c) => c.hard && c.status !== "pass");
+    expect(failures).toEqual([]);
+    expect(allHardChecksPassed(checks)).toBe(true);
+  });
+});
+
+describe("allHardChecksPassed", () => {
+  it("returns true when a hard check has status warn", () => {
+    const checks: Check[] = [
+      { key: "a", label: "A", status: "warn", hard: true },
+    ];
+    expect(allHardChecksPassed(checks)).toBe(true);
+  });
+
+  it("returns true when a hard check has status unverified", () => {
+    const checks: Check[] = [
+      { key: "a", label: "A", status: "unverified", hard: true },
+    ];
+    expect(allHardChecksPassed(checks)).toBe(true);
+  });
+
+  it("returns false when a hard check has status fail", () => {
+    const checks: Check[] = [
+      { key: "a", label: "A", status: "fail", hard: true },
+    ];
+    expect(allHardChecksPassed(checks)).toBe(false);
+  });
+
+  it("returns true when a non-hard check has status fail", () => {
+    const checks: Check[] = [
+      { key: "a", label: "A", status: "fail", hard: false },
+    ];
+    expect(allHardChecksPassed(checks)).toBe(true);
+  });
+});
+
+// A wrong expected version is worse than an absent one: compareVersion("latest", "2.0.1")
+// would report "fail" on a hard check, permanently blocking a correct device. Every
+// sentinel/placeholder value a source might hand back must normalize to null ("not
+// pinned" → compareVersion returns "warn") instead of being trusted as a real expectation.
+describe("normalizePinnedVersion", () => {
+  it("passes through a real dotted version", () => {
+    expect(normalizePinnedVersion("2.0.1")).toBe("2.0.1");
+  });
+
+  it("accepts a two-part version", () => {
+    expect(normalizePinnedVersion("1.0")).toBe("1.0");
+  });
+
+  it("accepts a four-part version", () => {
+    expect(normalizePinnedVersion("1.2.3.4")).toBe("1.2.3.4");
+  });
+
+  it("rejects the 'unknown' sentinel", () => {
+    expect(normalizePinnedVersion("unknown")).toBeNull();
+  });
+
+  it("rejects the 'latest' sentinel", () => {
+    expect(normalizePinnedVersion("latest")).toBeNull();
+  });
+
+  it("rejects an empty string", () => {
+    expect(normalizePinnedVersion("")).toBeNull();
+  });
+
+  it("rejects non-numeric garbage", () => {
+    expect(normalizePinnedVersion("beta")).toBeNull();
+  });
+
+  it("rejects null and undefined", () => {
+    expect(normalizePinnedVersion(null)).toBeNull();
+    expect(normalizePinnedVersion(undefined)).toBeNull();
+  });
+
+  it("trims whitespace before validating", () => {
+    expect(normalizePinnedVersion("  2.0.1  ")).toBe("2.0.1");
+  });
+});

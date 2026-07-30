@@ -77,6 +77,13 @@ def handler(event, context):
         )
 
         if config:
+            # undefined/null = uses RT Locator (today's default, preserved for every existing
+            # location) — only an explicit `false` in Convex opts a location out. This Lambda
+            # lists its response fields explicitly, so a new scannerMdmConfigs field does not
+            # flow through on its own; it must be added here by name.
+            uses_rt_locator = config.get("usesRtLocator")
+            if uses_rt_locator is None:
+                uses_rt_locator = True
             return response(200, {
                 "locationCode": location_code,
                 "rtLocatorUrl": config.get("rtLocatorUrl", ""),
@@ -88,9 +95,11 @@ def handler(event, context):
                 "wifiPassword": config.get("wifiPassword"),
                 "tireTrackApkSource": config.get("tireTrackApkSource", "s3"),
                 "rtConfigXml": config.get("rtConfigXml"),
+                "rtDeviceId": config.get("rtDeviceId"),
                 "currentTireTrackVersion": config.get("currentTireTrackVersion"),
                 "currentRtLocatorVersion": config.get("currentRtLocatorVersion"),
                 "currentAgentVersion": config.get("currentAgentVersion"),
+                "usesRtLocator": uses_rt_locator,
             })
         else:
             # Return defaults for unconfigured locations
@@ -121,9 +130,13 @@ def get_location_defaults(location_code):
         "wifiPassword": None,
         "tireTrackApkSource": "s3",
         "rtConfigXml": None,
+        "rtDeviceId": None,
         "currentTireTrackVersion": None,
         "currentRtLocatorVersion": None,
         "currentAgentVersion": None,
+        # undefined means "uses RT Locator" everywhere else in this system — matched here so
+        # an unconfigured location defaults the same way a configured-but-unset one does.
+        "usesRtLocator": True,
     }
 
 

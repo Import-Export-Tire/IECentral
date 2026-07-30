@@ -11,6 +11,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import SectionHeader from "@/components/ui/SectionHeader";
+import { buildRtConfig } from "@/lib/scanners/rtConfig";
 
 const DEFAULT_BLOATWARE = [
   { pkg: "com.google.android.apps.docs", label: "Google Docs" },
@@ -35,14 +36,19 @@ const DEFAULT_BLOATWARE = [
   { pkg: "com.google.android.googlequicksearchbox", label: "Google Search" },
 ];
 
-const LOCATION_DEFAULTS: Record<string, { code: string; rtUrl: string }> = {
+const LOCATION_DEFAULTS: Record<string, { code: string; rtUrl: string; usesRtLocator?: boolean }> = {
   Latrobe: { code: "W08", rtUrl: "http://importexporttire-latrobe.rtlocator.mobi/Login.aspx/" },
   Everson: { code: "R10", rtUrl: "https://importexporttire-everson-rtlm.rtlocator.com/" },
-  Chestnut: { code: "W09", rtUrl: "" },
+  // Chestnut/W09 genuinely does not run RT Locator. This is a starting point for a brand
+  // new config only — the checkbox below is still explicit and editable, never inferred
+  // from the blank rtUrl at save/load time.
+  Chestnut: { code: "W09", rtUrl: "", usesRtLocator: false },
 };
 
 interface ConfigForm {
+  usesRtLocator: boolean;
   rtLocatorUrl: string;
+  rtDeviceId: string;
   defaultDeviceIdPrefix: string;
   screenTimeoutMs: number;
   screenRotation: string;
@@ -75,7 +81,9 @@ function ScannerSettingsContent() {
 
   const [selectedLocationId, setSelectedLocationId] = useState<Id<"locations"> | null>(null);
   const [form, setForm] = useState<ConfigForm>({
+    usesRtLocator: true,
     rtLocatorUrl: "",
+    rtDeviceId: "",
     defaultDeviceIdPrefix: "",
     screenTimeoutMs: 1800000,
     screenRotation: "portrait",
@@ -122,7 +130,10 @@ function ScannerSettingsContent() {
 
     if (config) {
       setForm({
+        // undefined = uses RT Locator (today's default, preserved for every existing row).
+        usesRtLocator: config.usesRtLocator ?? true,
         rtLocatorUrl: config.rtLocatorUrl,
+        rtDeviceId: config.rtDeviceId ?? "",
         defaultDeviceIdPrefix: config.defaultDeviceIdPrefix,
         screenTimeoutMs: config.screenTimeoutMs,
         screenRotation: config.screenRotation,
@@ -142,7 +153,9 @@ function ScannerSettingsContent() {
     } else {
       // Set defaults for new config
       setForm({
+        usesRtLocator: defaults?.usesRtLocator ?? true,
         rtLocatorUrl: defaults?.rtUrl ?? "",
+        rtDeviceId: "",
         defaultDeviceIdPrefix: defaults ? `${defaults.code}-` : "",
         screenTimeoutMs: 1800000,
         screenRotation: "portrait",
@@ -210,7 +223,9 @@ function ScannerSettingsContent() {
       await upsertConfig({
         locationId: selectedLocationId,
         locationCode: defaults?.code ?? location?.name?.substring(0, 3).toUpperCase() ?? "???",
+        usesRtLocator: form.usesRtLocator,
         rtLocatorUrl: form.rtLocatorUrl,
+        rtDeviceId: form.rtDeviceId || undefined,
         defaultDeviceIdPrefix: form.defaultDeviceIdPrefix,
         screenTimeoutMs: form.screenTimeoutMs,
         screenRotation: form.screenRotation,
@@ -307,8 +322,26 @@ function ScannerSettingsContent() {
             {/* RT Locator Configuration */}
             <Card padding="md">
               <SectionHeader label="RT LOCATOR CONFIGURATION" />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+              <label className="flex items-start gap-3 cursor-pointer mb-4">
+                <input
+                  type="checkbox"
+                  checked={form.usesRtLocator}
+                  onChange={(e) => setForm({ ...form, usesRtLocator: e.target.checked })}
+                  className="mt-0.5 rounded"
+                />
                 <div>
+                  <span className="text-sm font-semibold theme-text-primary block">
+                    This location uses RT Locator
+                  </span>
+                  <span className="text-xs theme-text-secondary">
+                    Uncheck for locations that don&apos;t run RT Locator — the wizard will skip its install and config.
+                  </span>
+                </div>
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className={form.usesRtLocator ? undefined : "opacity-40 pointer-events-none"}>
                   <label className="block ui-section-label mb-1.5">RT Locator URL</label>
                   <input
                     type="text"
@@ -316,7 +349,21 @@ function ScannerSettingsContent() {
                     onChange={(e) => setForm({ ...form, rtLocatorUrl: e.target.value })}
                     className="theme-input w-full px-3 py-2 text-sm"
                     placeholder="https://..."
+                    disabled={!form.usesRtLocator}
                   />
+                  <div className="mt-3">
+                    <label className="block ui-section-label mb-1.5">RT Device ID</label>
+                    <input
+                      value={form.rtDeviceId}
+                      onChange={(e) => setForm({ ...form, rtDeviceId: e.target.value })}
+                      className="theme-input w-full px-3 py-2 text-sm font-mono"
+                      placeholder="0001"
+                      disabled={!form.usesRtLocator}
+                    />
+                    <p className="text-xs mt-1.5 theme-text-tertiary">
+                      Same for every scanner at this location. Not a scanner number.
+                    </p>
+                  </div>
                 </div>
                 <div>
                   <label className="block ui-section-label mb-1.5">Device ID Prefix</label>
@@ -329,16 +376,61 @@ function ScannerSettingsContent() {
                   />
                 </div>
               </div>
-              <div className="mt-4">
-                <label className="block ui-section-label mb-1.5">RT Config XML Template</label>
-                <textarea
-                  value={form.rtConfigXml}
-                  onChange={(e) => setForm({ ...form, rtConfigXml: e.target.value })}
-                  className="theme-input w-full px-3 py-2 text-sm font-mono text-xs"
-                  rows={6}
-                  placeholder={"<RT>\n  <ORIENTATION>PORTRAIT</ORIENTATION>\n  ..."}
-                />
-              </div>
+
+              {form.usesRtLocator ? (
+                <div className="mt-4">
+                  <label className="block ui-section-label mb-1.5">RT Config XML Template</label>
+                  <textarea
+                    value={form.rtConfigXml}
+                    onChange={(e) => setForm({ ...form, rtConfigXml: e.target.value })}
+                    className="theme-input w-full px-3 py-2 text-sm font-mono text-xs"
+                    rows={6}
+                    placeholder={"<RT>\n  <ORIENTATION>PORTRAIT</ORIENTATION>\n  ..."}
+                  />
+                  {(() => {
+                    // locationCode is not a form field — it is derived at save time from
+                    // LOCATION_DEFAULTS (see handleSave above). Derive it identically here so
+                    // the preview validates exactly what will be saved.
+                    const previewLocation = locations?.find((l) => l._id === selectedLocationId);
+                    const previewCode =
+                      (previewLocation ? LOCATION_DEFAULTS[previewLocation.name] : null)?.code ??
+                      previewLocation?.name?.substring(0, 3).toUpperCase() ??
+                      "???";
+                    const preview = buildRtConfig({
+                      locationCode: previewCode,
+                      rtLocatorUrl: form.rtLocatorUrl,
+                      rtDeviceId: form.rtDeviceId,
+                      template: form.rtConfigXml || undefined,
+                    });
+                    return (
+                      <div className="mt-2 space-y-2">
+                        {preview.problems.length > 0 ? (
+                          <div className="p-2 rounded-lg ui-callout-red text-xs">
+                            <p className="font-semibold mb-1">This config will be rejected:</p>
+                            <ul className="space-y-0.5">
+                              {preview.problems.map((p) => (
+                                <li key={p}>• {p}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : (
+                          <div className="p-2 rounded-lg ui-callout-green text-xs">
+                            Valid — DEVICEID <span className="font-mono">{preview.values.deviceId}</span>,{" "}
+                            URL <span className="font-mono">{preview.values.rtLocatorUrl}</span>
+                          </div>
+                        )}
+                        <pre className={`p-2 rounded-lg text-[11px] font-mono overflow-x-auto theme-border-secondary border ${isDark ? "bg-slate-900/60 theme-text-secondary" : "bg-gray-100 text-gray-700"}`}>
+                          {preview.xml}
+                        </pre>
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <div className="mt-4 p-2 rounded-lg ui-callout-amber text-xs theme-text-secondary">
+                  RT Locator is disabled for this location — the setup wizard will skip installing RT Locator and writing rtlconfig.xml.
+                </div>
+              )}
             </Card>
 
             {/* WiFi Configuration */}

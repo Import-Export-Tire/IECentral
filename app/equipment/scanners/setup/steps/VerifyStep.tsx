@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useAuth } from "../../../../auth-context";
 import { useSetupSession } from "../useSetupSession";
+import { allHardChecksPassed, type Check } from "@/lib/scanners/verify";
 import Button from "@/components/ui/Button";
 
 type Session = ReturnType<typeof useSetupSession>;
@@ -11,6 +13,9 @@ type Session = ReturnType<typeof useSetupSession>;
 const TIMEOUT_MS = 120_000;
 
 export function VerifyStep({ session }: { session: Session }) {
+  const { user } = useAuth();
+  const recordVerification = useMutation(api.scannerMdm.recordVerification);
+
   // Query the scanner detail to poll for isOnline status
   const scanner = useQuery(
     api.scannerMdm.getScannerDetail,
@@ -39,9 +44,76 @@ export function VerifyStep({ session }: { session: Session }) {
     }
   }, [scanner?.isOnline, session.actions]);
 
+  // Ticking the box is a human confirming, over their own eyes, that a physical scan works —
+  // it must leave an audit trail, not just flip in-memory state. Re-record the same check
+  // list with only the dataWedgeScanTest entry flipped to "pass"; every other check's status
+  // is carried through untouched. Persistence is best-effort: a failed write must not block
+  // the wizard or revert the checkbox, since the confirmation already happened physically.
+  const handleConfirmScanTest = () => {
+    session.actions.confirmScanTest();
+    const scannerId = session.state.scannerId;
+    const checks = session.state.verification;
+    if (!scannerId || !checks) return;
+    const updatedChecks: Check[] = checks.map((c) =>
+      c.key === "dataWedgeScanTest" ? { ...c, status: "pass", observed: "confirmed" } : c,
+    );
+    recordVerification({
+      scannerId,
+      source: "wizard",
+      passed: allHardChecksPassed(updatedChecks),
+      checks: updatedChecks,
+      actingUserId: user?._id,
+    }).catch(() => {});
+  };
+
   return (
     <div className="space-y-4">
       <h3 className="text-[15px] font-semibold theme-text-primary">Last step — finish on the scanner</h3>
+
+      {session.state.verification && (
+        <div className="space-y-2">
+          <h4 className="text-[13px] font-semibold theme-text-primary">Verification</h4>
+          <ul className="space-y-1">
+            {session.state.verification.map((c) => (
+              <li key={c.key} className="flex items-start gap-2 text-xs">
+                <span
+                  className={
+                    c.status === "pass"
+                      ? "text-emerald-500"
+                      : c.status === "fail"
+                        ? "text-red-500"
+                        : "text-amber-500"
+                  }
+                >
+                  {c.status === "pass" ? "✓" : c.status === "fail" ? "✗" : "!"}
+                </span>
+                <span className="theme-text-secondary">
+                  {c.label}
+                  {c.status !== "pass" && (
+                    <span className="theme-text-tertiary">
+                      {" "}
+                      — expected {c.expected}, got {c.observed}
+                    </span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {!session.state.scanTestConfirmed && (
+            <label className="flex items-start gap-2 text-xs theme-text-secondary p-2 rounded-lg ui-callout-amber">
+              <input
+                type="checkbox"
+                onChange={handleConfirmScanTest}
+                className="mt-0.5"
+              />
+              <span>
+                Scan a barcode into a text field on the scanner and confirm the cursor
+                advances (DataWedge Tab). This can&apos;t be checked automatically.
+              </span>
+            </label>
+          )}
+        </div>
+      )}
 
       <div className="space-y-3 text-sm">
         <p className="theme-text-secondary">

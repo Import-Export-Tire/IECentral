@@ -14,16 +14,15 @@ export function IdentityStep({ session }: { session: Session }) {
     session.state.locationCode ? { locationCode: session.state.locationCode } : "skip",
   );
   const [scannerNumber, setScannerNumber] = useState(session.state.scannerNumber ?? "");
-  const [rtDeviceId, setRtDeviceId] = useState(session.state.rtDeviceId);
 
   useEffect(() => {
     if (next && !scannerNumber) setScannerNumber(next);
   }, [next, scannerNumber]);
 
-  const ready = scannerNumber.length > 0 && rtDeviceId.length > 0;
+  const ready = scannerNumber.length > 0;
 
   const handleContinue = () => {
-    session.actions.setIdentity(scannerNumber, rtDeviceId);
+    session.actions.setIdentity(scannerNumber);
     session.actions.goToStep("generate");
   };
 
@@ -43,20 +42,6 @@ export function IdentityStep({ session }: { session: Session }) {
         />
         <p className="text-xs theme-text-tertiary mt-1">
           Auto-suggested: <span className="font-mono">{next ?? "…"}</span>
-        </p>
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium uppercase tracking-wider theme-text-tertiary mb-1">
-          RT Device ID
-        </label>
-        <input
-          value={rtDeviceId}
-          onChange={(e) => setRtDeviceId(e.target.value)}
-          className="theme-input w-full px-3 py-2 text-sm font-mono"
-        />
-        <p className="text-xs theme-text-tertiary mt-1">
-          Defaults to 0001. Override only if multiple scanners share an RT account.
         </p>
       </div>
 

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query, mutation, internalMutation, action } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { requireAdmin } from "./authGuards";
+import { buildRtConfig } from "../lib/scanners/rtConfig";
 
 // ============ FLEET OVERVIEW ============
 
@@ -532,6 +533,8 @@ export const upsertMdmConfig = mutation({
     currentRtLocatorVersion: v.optional(v.string()),
     currentAgentVersion: v.optional(v.string()),
     rtConfigXml: v.optional(v.string()),
+    rtDeviceId: v.optional(v.string()),
+    usesRtLocator: v.optional(v.boolean()),
     notes: v.optional(v.string()),
     userId: v.optional(v.id("users")),
   },
@@ -750,21 +753,35 @@ export const claimProvision = internalMutation({
       });
     }
 
-    // Fetch RT config for the scanner's location
+    // Fetch RT config for the scanner's location. Built by the shared builder so the bytes
+    // are identical to what the wizard pushed over ADB (both writers hit the same file).
+    // A config with problems is NOT returned — writing a knowingly-broken rtlconfig.xml is
+    // worse than writing none, because RT then fails in a way nobody attributes to setup.
     let rtConfigXml: string | undefined;
     if (scanner) {
       const mdmConfig = await ctx.db
         .query("scannerMdmConfigs")
         .withIndex("by_location", (q) => q.eq("locationId", scanner.locationId))
         .first();
-      if (mdmConfig) {
-        rtConfigXml = mdmConfig.rtConfigXml || `<RT>
-    <ORIENTATION>PORTRAIT</ORIENTATION>
-    <DEVICEID>${scanner.number}</DEVICEID>
-    <SCALEFACTOR>3.5</SCALEFACTOR>
-    <RTLMOBILEURL>${mdmConfig.rtLocatorUrl}</RTLMOBILEURL>
-</RT>`;
+      // undefined = uses RT Locator (today's default behavior, preserved for every
+      // existing row). Only an explicit `false` opts a location out.
+      if (mdmConfig && mdmConfig.usesRtLocator !== false) {
+        const built = buildRtConfig({
+          locationCode: mdmConfig.locationCode,
+          rtLocatorUrl: mdmConfig.rtLocatorUrl,
+          rtDeviceId: mdmConfig.rtDeviceId ?? "",
+          template: mdmConfig.rtConfigXml,
+        });
+        if (built.problems.length > 0) {
+          console.error(
+            `claimProvision: refusing to send RT config for ${mdmConfig.locationCode}: ${built.problems.join("; ")}`,
+          );
+        } else {
+          rtConfigXml = built.xml;
+        }
       }
+      // mdmConfig.usesRtLocator === false: deliberate opt-out, not an error — rtConfigXml
+      // stays undefined and nothing is logged.
     }
 
     return {
@@ -873,11 +890,19 @@ export const markScannerSetupComplete = mutation({
   },
 });
 
-// Returns presigned S3 URLs (+ SHAs) for the three APKs the setup wizard needs.
-// Internally calls the AWS Lambda 3 times in parallel.
+// Returns presigned S3 URLs (+ SHAs) for the APKs the setup wizard needs.
+// Internally calls the AWS Lambda in parallel (3 times, or 2 when RT Locator is excluded).
 // Must be an action (not query) because of fetch().
 export const getApkDownloadUrls = action({
-  args: { locationCode: v.string() },
+  args: {
+    locationCode: v.string(),
+    // false for locations whose scannerMdmConfigs.usesRtLocator is false (e.g. W09/Chestnut).
+    // The Lambda 404s "RT Locator APK not found" when no RT Locator APK can be resolved for
+    // a location, and that one rejection would otherwise fail the whole Promise.all before
+    // the wizard's usesRtLocator skip logic is ever reached. Omitted/undefined = true, so
+    // every existing caller keeps fetching all three, unchanged.
+    includeRtLocator: v.optional(v.boolean()),
+  },
   handler: async (_ctx, args) => {
     const baseUrl = "https://7brylwlei6.execute-api.us-east-1.amazonaws.com/prod/scanner-mdm/apk";
     const fetchOne = async (app: string) => {
@@ -892,9 +917,12 @@ export const getApkDownloadUrls = action({
         s3Key: (json.s3Key ?? null) as string | null,
       };
     };
+    const includeRtLocator = args.includeRtLocator ?? true;
+    // rtLocator is `null` (not omitted) when excluded, so every caller has to handle its
+    // absence explicitly rather than accidentally reading through a missing property.
     const [tireTrack, rtLocator, scannerAgent] = await Promise.all([
       fetchOne("tiretrack"),
-      fetchOne("rtlocator"),
+      includeRtLocator ? fetchOne("rtlocator") : Promise.resolve(null),
       fetchOne("agent"),
     ]);
     return { tireTrack, rtLocator, scannerAgent };
@@ -973,5 +1001,48 @@ export const updateScannerFromSetup = mutation({
     }
     await ctx.db.patch(args.scannerId, patch);
     return { scannerId: args.scannerId, number: scanner.number };
+  },
+});
+
+// ============ VERIFICATION ============
+
+const verificationCheck = v.object({
+  key: v.string(),
+  label: v.string(),
+  expected: v.optional(v.string()),
+  observed: v.optional(v.string()),
+  status: v.string(),
+  hard: v.boolean(),
+});
+
+export const recordVerification = mutation({
+  args: {
+    scannerId: v.id("scanners"),
+    source: v.string(),
+    passed: v.boolean(),
+    checks: v.array(verificationCheck),
+    actingUserId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("scannerVerifications", {
+      scannerId: args.scannerId,
+      at: Date.now(),
+      by: args.actingUserId,
+      source: args.source,
+      passed: args.passed,
+      checks: args.checks,
+    });
+  },
+});
+
+export const getLatestVerification = query({
+  args: { scannerId: v.id("scanners") },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("scannerVerifications")
+      .withIndex("by_scanner", (q) => q.eq("scannerId", args.scannerId))
+      .order("desc")
+      .take(1);
+    return rows[0] ?? null;
   },
 });

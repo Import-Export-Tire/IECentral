@@ -565,6 +565,15 @@ class MqttService : Service() {
 
     private fun pushConfig(payload: JSONObject?) {
         val xmlContent = payload?.optString("configXml") ?: return
+        // optString returns "" (not null) when the key is absent, so the `?: return` above
+        // never fires for a bodyless command — and the "Push Config" button on the scanner
+        // detail page sends {} unless an admin hand-types JSON. Without this guard, one click
+        // truncates the converged rtlconfig.xml to zero bytes. Blank guard only; routing this
+        // command through the shared rtConfig builder is separate follow-up work.
+        if (xmlContent.isBlank()) {
+            Log.w(TAG, "pushConfig: configXml missing or blank — refusing to overwrite rtlconfig.xml")
+            return
+        }
         // Use direct /sdcard/My Documents/ path — works on Zebra TC51 Android 8.1
         // Environment.getExternalStorageDirectory() is deprecated and unreliable
         val configDir = File("/sdcard/My Documents")

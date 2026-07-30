@@ -988,6 +988,25 @@ export default defineSchema({
     updatedBy: v.optional(v.id("users")),
   }),
 
+  // Result of a scanner verification pass. One row per audit; the newest is authoritative.
+  scannerVerifications: defineTable({
+    scannerId: v.id("scanners"),
+    at: v.number(),
+    by: v.optional(v.id("users")),
+    source: v.string(), // "wizard" | "manual" | "remote"
+    passed: v.boolean(),
+    checks: v.array(
+      v.object({
+        key: v.string(),
+        label: v.string(),
+        expected: v.optional(v.string()),
+        observed: v.optional(v.string()),
+        status: v.string(), // "pass" | "fail" | "warn" | "unverified"
+        hard: v.boolean(),
+      }),
+    ),
+  }).index("by_scanner", ["scannerId"]),
+
   // Pickers (order picking devices/equipment)
   pickers: defineTable({
     number: v.string(), // Picker identifier (e.g., "1", "P-01", "PK-A")
@@ -1081,6 +1100,13 @@ export default defineSchema({
     locationId: v.id("locations"),
     locationCode: v.string(), // "W08", "R10", "W09"
     rtLocatorUrl: v.string(),
+    // RT DEVICEID for this location. CONSTANT per location — every scanner at the store
+    // reports the same value. Never a scanner number; see lib/scanners/rtConfig.ts.
+    rtDeviceId: v.optional(v.string()),
+    // False = this location does not use RT Locator at all (e.g. W09/Chestnut). When false,
+    // the wizard skips both the RT Locator install and the rtlconfig.xml write, and the
+    // verification pass records the RT checks as skipped rather than failed.
+    usesRtLocator: v.optional(v.boolean()),
     defaultDeviceIdPrefix: v.string(), // e.g., "W08-"
     screenTimeoutMs: v.number(), // Default 1800000 (30 min)
     screenRotation: v.string(), // "auto" | "portrait" | "landscape"
