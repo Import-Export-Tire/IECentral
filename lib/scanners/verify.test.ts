@@ -3,6 +3,7 @@ import {
   parseDeviceOwner,
   parseActiveRestrictions,
   parsePasswordSufficient,
+  parseSignerDigest,
   compareVersion,
   buildChecks,
   allHardChecksPassed,
@@ -91,6 +92,38 @@ describe("parsePasswordSufficient", () => {
   });
   it("returns null when the field is absent from the dump", () => {
     expect(parsePasswordSufficient("some other unrelated dump text")).toBe(null);
+  });
+});
+
+describe("parseSignerDigest", () => {
+  // Captured verbatim from `dumpsys package com.symbol.datawedge` on a real Zebra TC51
+  // (Android 8.1.0, serial 20078522505506, fresh/unprovisioned). Neither of the previous
+  // patterns (`signatures=\[...`, `cert N:`) matches this shape at all.
+  it("parses the real captured single-signer line", () => {
+    const out = "    signatures=PackageSignatures{26f207a [3c1e3b57]}";
+    expect(parseSignerDigest(out)).toBe("3c1e3b57");
+  });
+
+  it("parses multiple signers in deterministic (appearance) order", () => {
+    const out = "    signatures=PackageSignatures{abc1234 [3c1e3b57, 9f8e7d6c]}";
+    expect(parseSignerDigest(out)).toBe("3c1e3b57,9f8e7d6c");
+  });
+
+  it("still parses the legacy 'cert N: <hex>' shape as a fallback", () => {
+    const out = "    cert 0: 9f8e7d6c1a2b3c4d";
+    expect(parseSignerDigest(out)).toBe("9f8e7d6c1a2b3c4d");
+  });
+
+  it("returns null when there is no signature line at all (dumpsys of an absent package)", () => {
+    const out = `
+Unable to find package: com.does.not.exist
+`;
+    expect(parseSignerDigest(out)).toBeNull();
+  });
+
+  it("returns null on junk/empty input without throwing", () => {
+    expect(parseSignerDigest("")).toBeNull();
+    expect(parseSignerDigest("garbage nonsense text\nwith no signature at all")).toBeNull();
   });
 });
 

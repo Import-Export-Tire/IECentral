@@ -7,7 +7,7 @@ import { LinuxFileType } from "@yume-chan/adb";
 import { AdbDaemonWebUsbDeviceManager } from "@yume-chan/adb-daemon-webusb";
 import AdbWebCredentialStore from "@yume-chan/adb-credential-web";
 import { ReadableStream } from "@yume-chan/stream-extra";
-import { parseDeviceOwner } from "@/lib/scanners/verify";
+import { parseDeviceOwner, parseSignerDigest } from "@/lib/scanners/verify";
 
 export const IET_PACKAGES = {
   tireTrack: "com.importexporttire.tiretrack",
@@ -281,15 +281,12 @@ export class WebAdbClient {
   /**
    * The signing certificate digest, used to catch a vendor-signed or otherwise foreign
    * pre-existing copy of an app — the failure that silently broke RT Locator on W08-004.
-   * Android 8.1's dumpsys exposes this as `signatures=[...]` / a `cert` digest depending on
-   * build, so both shapes are matched.
+   * Parsing lives in the pure, tested `parseSignerDigest` (lib/scanners/verify.ts) so there
+   * is exactly one definition of the device-output shapes.
    */
   async getPackageSignerDigest(pkg: string): Promise<string | null> {
     const out = await this.shell(`dumpsys package ${pkg}`);
-    const m =
-      out.match(/signatures=\[([0-9a-fA-F]+)/) ??
-      out.match(/cert\s+\d+:\s*([0-9a-fA-F]{8,})/);
-    return m ? m[1].toLowerCase() : null;
+    return parseSignerDigest(out);
   }
 
   /**
@@ -315,11 +312,6 @@ export class WebAdbClient {
 
   async dumpDevicePolicy(): Promise<string> {
     return this.shell("dumpsys device_policy");
-  }
-
-  async isUninstallBlocked(pkg: string): Promise<boolean> {
-    const out = await this.shell(`pm get-uninstall-blocked ${pkg} 2>&1`);
-    return /true/i.test(out);
   }
 
   getConnection(): AdbConnection | null {

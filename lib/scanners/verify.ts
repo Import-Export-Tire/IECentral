@@ -96,6 +96,36 @@ export function parseActiveRestrictions(dump: string): string[] {
     .filter((l) => /^no_[a-z_]+$/.test(l));
 }
 
+/**
+ * The signing certificate digest(s) from `dumpsys package <pkg>` output, used to catch a
+ * vendor-signed or otherwise foreign pre-existing copy of an app.
+ *
+ * Real shape from a Zebra TC51 (Android 8.1.0):
+ *   signatures=PackageSignatures{26f207a [3c1e3b57]}
+ * The bracketed value(s) are the per-signature hash(es) — the outer `{26f207a ...}` token is
+ * the PackageSignatures object's own identity hash, not a signer digest, and must not be
+ * returned. Multiple signers appear as a comma-separated list inside the brackets, e.g.
+ * `PackageSignatures{abc1234 [3c1e3b57, 9f8e7d6c]}`; those are returned joined (comma,
+ * ordered as they appear) so the result is stable across runs.
+ *
+ * Some Android builds instead (or additionally) emit a `cert N: <hex>` shape — that fallback
+ * is preserved for fleet heterogeneity, but the bracketed `signatures=` shape (this fleet's
+ * actual output) is tried first.
+ */
+export function parseSignerDigest(dumpsysPackageOutput: string): string | null {
+  const bracketed = dumpsysPackageOutput.match(/signatures=[^[\]]*\[([0-9a-fA-F, ]+)\]/);
+  if (bracketed) {
+    const hashes = bracketed[1]
+      .split(",")
+      .map((h) => h.trim().toLowerCase())
+      .filter((h) => h.length > 0);
+    if (hashes.length > 0) return hashes.join(",");
+  }
+
+  const certMatch = dumpsysPackageOutput.match(/cert\s+\d+:\s*([0-9a-fA-F]{8,})/);
+  return certMatch ? certMatch[1].toLowerCase() : null;
+}
+
 /** Whether the current lock password satisfies policy; null when the dump says nothing. */
 export function parsePasswordSufficient(dump: string): boolean | null {
   const m = dump.match(/isActivePasswordSufficient=(true|false)/);
