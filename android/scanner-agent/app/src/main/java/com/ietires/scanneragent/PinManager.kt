@@ -16,6 +16,18 @@ class PinManager(private val ctx: Context) {
     private val admin = ComponentName(ctx, DeviceAdminReceiver::class.java)
     private val prefs = ctx.getSharedPreferences("pin_mgr", Context.MODE_PRIVATE)
 
+    companion object {
+        // Suppression window: setPin() below fires DeviceAdminReceiver.onPasswordChanged
+        // just like any other password change would, so a revert would otherwise retrigger
+        // itself forever. Anything landing inside this window after our own setPin() call is
+        // treated as self-triggered and ignored.
+        private const val SELF_CHANGE_SUPPRESS_MS = 5_000L
+        // Rate limit: at most this many reverts per rolling minute, so a pathological loop
+        // (or a very determined employee) can't be an invisible battery drain.
+        private const val REVERT_WINDOW_MS = 60_000L
+        private const val MAX_REVERTS_PER_WINDOW = 5
+    }
+
     fun isManaged(): Boolean = dpm.isDeviceOwnerApp(ctx.packageName)
 
     private fun loadToken(): ByteArray? =
@@ -57,6 +69,11 @@ class PinManager(private val ctx: Context) {
     @SuppressLint("NewApi")
     fun setPin(pin: String): String? {
         if (!isManaged()) return null
+        // Stamp "we're about to change it ourselves" BEFORE making the call — the
+        // resetPassword()/resetPasswordWithToken() below fires onPasswordChanged just like
+        // any other password change, and onExternalPasswordChange() checks this timestamp to
+        // avoid reverting its own revert.
+        prefs.edit().putLong("last_self_change_at", System.currentTimeMillis()).apply()
         // 1. Escrow-token path — File-Based-Encryption devices only (API 26+).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
@@ -86,4 +103,63 @@ class PinManager(private val ctx: Context) {
     }
 
     fun currentPin(): String? = prefs.getString("pin", null)
+
+    // ============ INSTANT PIN REVERT (item 1) ============
+
+    /** Called from DeviceAdminReceiver.onPasswordChanged whenever ANY password/PIN change
+     *  happens on the device — including an employee changing it on-device, which is exactly
+     *  what this exists to catch. Reverts to the last system-set PIN, subject to the
+     *  self-change suppression window and the per-minute rate limit above. Returns true if a
+     *  revert was actually performed. */
+    fun onExternalPasswordChange(): Boolean {
+        if (!isManaged()) return false
+        val now = System.currentTimeMillis()
+
+        val lastSelfChangeAt = prefs.getLong("last_self_change_at", 0L)
+        if (now - lastSelfChangeAt < SELF_CHANGE_SUPPRESS_MS) {
+            Log.d(MqttService.TAG, "onExternalPasswordChange: self-triggered change, ignoring")
+            return false
+        }
+
+        val stored = currentPin()
+        if (stored == null) {
+            Log.d(MqttService.TAG, "onExternalPasswordChange: no system PIN stored yet, nothing to revert to")
+            return false
+        }
+
+        var windowStart = prefs.getLong("revert_window_start", 0L)
+        var windowCount = prefs.getInt("revert_window_count", 0)
+        if (now - windowStart >= REVERT_WINDOW_MS) {
+            windowStart = now
+            windowCount = 0
+        }
+        if (windowCount >= MAX_REVERTS_PER_WINDOW) {
+            prefs.edit().putBoolean("pin_revert_throttled", true).apply()
+            MqttService.alog(Log.WARN, "PIN revert throttled: $MAX_REVERTS_PER_WINDOW reverts already this minute, giving up until the window resets")
+            return false
+        }
+        windowCount++
+        prefs.edit()
+            .putLong("revert_window_start", windowStart)
+            .putInt("revert_window_count", windowCount)
+            .putBoolean("pin_revert_throttled", false)
+            .apply()
+
+        val applied = setPin(stored)
+        if (applied != null) {
+            val total = prefs.getInt("pin_revert_count", 0) + 1
+            prefs.edit()
+                .putInt("pin_revert_count", total)
+                .putLong("pin_last_reverted_at", now)
+                .apply()
+            MqttService.alog(Log.WARN, "PIN reverted: unauthorized on-device change detected and undone (revert #$total)")
+            return true
+        }
+        Log.e(MqttService.TAG, "onExternalPasswordChange: revert attempt failed (setPin returned null)")
+        return false
+    }
+
+    fun pinRevertCount(): Int = prefs.getInt("pin_revert_count", 0)
+    fun pinLastRevertedAt(): Long = prefs.getLong("pin_last_reverted_at", 0L)
+    fun pinRevertThrottled(): Boolean = prefs.getBoolean("pin_revert_throttled", false)
 }

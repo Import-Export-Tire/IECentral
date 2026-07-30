@@ -12,6 +12,7 @@ import android.os.*
 import android.util.Log
 import org.eclipse.paho.client.mqttv3.*
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
+import org.json.JSONArray
 import org.json.JSONObject
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openssl.PEMKeyPair
@@ -43,6 +44,50 @@ class MqttService : Service() {
         const val NOTIFICATION_ID = 1
         const val CHANNEL_ID = "scanner_agent_channel"
         const val TELEMETRY_INTERVAL_MS = 5 * 60 * 1000L // 5 minutes
+
+        // get_screen (item 5): fast-publish cadence for live remote troubleshooting, and how
+        // long it runs before auto-reverting to the normal cadence.
+        const val FAST_PUBLISH_INTERVAL_MS = 3 * 1000L
+        const val FAST_PUBLISH_DURATION_MS = 2 * 60 * 1000L
+
+        // Sideload/app-change queue cap (item 3) — bounded so it can never grow without limit.
+        const val MAX_APP_CHANGE_EVENTS = 20
+
+        // Started (see DeviceAdminReceiver.onPasswordChanged) purely to nudge an immediate
+        // telemetry publish after an out-of-band PIN revert; onStartCommand below handles it.
+        const val ACTION_PIN_REVERT_CHECK = "com.ietires.scanneragent.action.PIN_REVERT_CHECK"
+
+        private const val LOG_TAIL_MAX_LINES = 200
+        private const val LOG_TAIL_MAX_LINE_CHARS = 200
+        private val logTail = ArrayDeque<String>()
+        private val logTailLock = Any()
+
+        /** Logs through android.util.Log AND appends to a small bounded in-process ring
+         *  buffer. This app holds no READ_LOGS permission, so it can't pull system logcat to
+         *  build the "recent log lines" attached to an on-demand screen snapshot (items 4/5)
+         *  — this is the agent's own capture path instead. Deliberately only wired into the
+         *  new code paths added for this work (PIN revert, policy application, sideload
+         *  detection, the two new commands) — not a blanket replacement for every existing
+         *  Log.* call in this module, and NOT wired into ScreenReaderService (out of scope:
+         *  that file isn't touched, and it only calls android.util.Log directly, so its own
+         *  lines aren't reachable here without editing it). */
+        fun alog(priority: Int, msg: String) {
+            when (priority) {
+                Log.ERROR -> Log.e(TAG, msg)
+                Log.WARN -> Log.w(TAG, msg)
+                Log.DEBUG -> Log.d(TAG, msg)
+                else -> Log.i(TAG, msg)
+            }
+            synchronized(logTailLock) {
+                val stamped = "${System.currentTimeMillis() / 1000} $msg"
+                val line = if (stamped.length > LOG_TAIL_MAX_LINE_CHARS) stamped.substring(0, LOG_TAIL_MAX_LINE_CHARS) else stamped
+                logTail.addLast(line)
+                while (logTail.size > LOG_TAIL_MAX_LINES) logTail.removeFirst()
+            }
+        }
+
+        /** Bounded snapshot of the ring buffer, safe from any thread. */
+        fun logTailSnapshot(): List<String> = synchronized(logTailLock) { logTail.toList() }
     }
 
     private var mqttClient: MqttAsyncClient? = null
@@ -52,6 +97,24 @@ class MqttService : Service() {
     @Volatile private var lastLocation: Location? = null
     private var locationManager: LocationManager? = null
     private val pinManager by lazy { PinManager(this) }
+
+    // ---- item 2: policy/uninstall-protection result from the last applyPolicies() run ----
+    @Volatile private var lastPolicyResult: JSONObject = JSONObject()
+
+    // ---- item 3: bounded queue of sideload/uninstall events since the last telemetry publish ----
+    private val appChangeQueue = ArrayDeque<JSONObject>()
+    private val appChangeLock = Any()
+    private var packageChangeReceiver: BroadcastReceiver? = null
+
+    // ---- item 5: get_screen fast-publish mode ----
+    @Volatile private var fastPublishActive = false
+    private var fastPublishStopRunnable: Runnable? = null
+    private val fastPublishRunnable = object : Runnable {
+        override fun run() {
+            publishTelemetry()
+            handler.postDelayed(this, FAST_PUBLISH_INTERVAL_MS)
+        }
+    }
 
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
@@ -68,11 +131,24 @@ class MqttService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification("Connecting..."))
         lockDownPinSettings()
         maybeInitializePin()
+        applyPolicies() // item 2: runs on every service start, no-ops (logged) if not device owner
+        registerPackageChangeReceiver() // item 3
         startLocationUpdates()
         loadConfigAndConnect()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_PIN_REVERT_CHECK) {
+            // The revert itself already happened synchronously in DeviceAdminReceiver against
+            // PinManager (so it works even if this service's process wasn't already running);
+            // this is just a best-effort nudge to publish sooner than the next scheduled tick.
+            try {
+                alog(Log.INFO, "onStartCommand: PIN-revert notify received, publishing telemetry now")
+                publishTelemetry()
+            } catch (e: Exception) {
+                Log.w(TAG, "onStartCommand: revert-triggered publish failed: ${e.message}")
+            }
+        }
         return START_STICKY // Restart if killed
     }
 
@@ -81,6 +157,9 @@ class MqttService : Service() {
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         locationManager?.removeUpdates(locationListener)
+        packageChangeReceiver?.let {
+            try { unregisterReceiver(it) } catch (e: Exception) { Log.w(TAG, "unregisterReceiver(packageChangeReceiver) failed: ${e.message}") }
+        }
         mqttClient?.disconnect()
         super.onDestroy()
     }
@@ -215,7 +294,15 @@ class MqttService : Service() {
     // ============ TELEMETRY ============
 
     private fun startTelemetryLoop() {
+        // This wipes EVERY queued callback, including the get_screen fast-publish tick and its
+        // auto-stop. Reconnects call this, so without clearing the flag too, fastPublishActive
+        // stays true after a reconnect: fast publishing stops, but publishTelemetry() keeps
+        // attaching the `screen` field to every 5-minute publish forever. Screen contents are
+        // meant to be sent only while someone is actively troubleshooting, so a stuck flag both
+        // bloats the payload and leaks what a picker has on screen indefinitely.
         handler.removeCallbacksAndMessages(null)
+        fastPublishActive = false
+        fastPublishStopRunnable = null
         publishTelemetry()
         handler.postDelayed(object : Runnable {
             override fun run() {
@@ -248,6 +335,26 @@ class MqttService : Service() {
                 put("storageFree", (stat.availableBlocksLong * blockSize) / (1024 * 1024))
             } catch (e: Exception) {
                 Log.w(TAG, "Could not read storage stats: ${e.message}")
+            }
+
+            // --- item 1: PIN revert visibility ---
+            put("pinRevertCount", pinManager.pinRevertCount())
+            put("pinLastRevertedAt", pinManager.pinLastRevertedAt())
+            put("pinRevertThrottled", pinManager.pinRevertThrottled())
+
+            // --- item 2: result of the last applyPolicies() run ---
+            put("restrictionsApplied", lastPolicyResult)
+
+            // --- item 3: queued sideload/uninstall events since the last publish; draining
+            // here (rather than on ack) is what keeps the bounded queue from re-reporting the
+            // same events on every subsequent telemetry tick.
+            val changes = drainAppChangeQueue()
+            if (changes.length() > 0) put("appChanges", changes)
+
+            // --- item 4/5: on-demand screen snapshot + log tail. Only attached while in
+            // get_screen's fast-publish window — the normal 5-minute cadence stays small.
+            if (fastPublishActive) {
+                put("screen", buildScreenPayload())
             }
         }
 
@@ -350,6 +457,8 @@ class MqttService : Service() {
             "uninstall_app" -> uninstallApp(payload.optJSONObject("payload"))
             "push_config" -> pushConfig(payload.optJSONObject("payload"))
             "update_pin" -> updatePin()
+            "apply_policies" -> { applyPolicies(); publishTelemetry() }
+            "get_screen" -> enterFastPublishMode()
         }
 
         // Acknowledge command
@@ -621,6 +730,188 @@ class MqttService : Service() {
         } catch (e: Exception) {
             Log.w(TAG, "maybeInitializePin failed: ${e.message}")
         }
+    }
+
+    // ============ DEVICE OWNER RESTRICTIONS / UNINSTALL PROTECTION (item 2) ============
+
+    /** Runs on every service start (onCreate) and via the apply_policies command. No-ops
+     *  (logged, not thrown) when not Device Owner. Deliberately does NOT set
+     *  DISALLOW_INSTALL_UNKNOWN_SOURCES (both business apps are sideloaded — this would break
+     *  installs) or DISALLOW_DEBUGGING_FEATURES (would permanently lock the USB setup wizard
+     *  out of the device). Every dpm call is individually try/caught so one failure can't
+     *  skip the rest or crash the service. */
+    private fun applyPolicies() {
+        val result = JSONObject()
+        result.put("ranAt", System.currentTimeMillis() / 1000)
+        try {
+            if (!isDeviceOwner()) {
+                Log.i(TAG, "applyPolicies: not device owner — no-op")
+                result.put("deviceOwner", false)
+                lastPolicyResult = result
+                return
+            }
+            result.put("deviceOwner", true)
+
+            val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            val admin = ComponentName(this, DeviceAdminReceiver::class.java)
+
+            val restrictions = JSONObject()
+            for (restriction in listOf(
+                UserManager.DISALLOW_FACTORY_RESET,
+                // UserManager has no DISALLOW_ADD_ACCOUNT constant — DISALLOW_MODIFY_ACCOUNTS
+                // is the real restriction governing adding/removing accounts on-device.
+                UserManager.DISALLOW_MODIFY_ACCOUNTS,
+                UserManager.DISALLOW_SAFE_BOOT
+            )) {
+                val ok = try {
+                    dpm.addUserRestriction(admin, restriction)
+                    alog(Log.INFO, "applyPolicies: restriction applied: $restriction")
+                    true
+                } catch (e: Exception) {
+                    Log.w(TAG, "applyPolicies: restriction failed ($restriction): ${e.message}")
+                    false
+                }
+                restrictions.put(restriction, ok)
+            }
+            result.put("restrictions", restrictions)
+
+            val uninstallBlocked = JSONObject()
+            for (pkg in listOf(
+                "com.ietires.scanneragent",
+                "com.importexporttire.tiretrack",
+                "com.rt_systems.rtlhandsfree"
+            )) {
+                val ok = try {
+                    dpm.setUninstallBlocked(admin, pkg, true)
+                    alog(Log.INFO, "applyPolicies: uninstall blocked for $pkg")
+                    true
+                } catch (e: Exception) {
+                    Log.w(TAG, "applyPolicies: uninstall-block failed for $pkg: ${e.message}")
+                    false
+                }
+                uninstallBlocked.put(pkg, ok)
+            }
+            result.put("uninstallBlocked", uninstallBlocked)
+        } catch (e: Exception) {
+            // Belt-and-suspenders: applyPolicies runs in onCreate, so an uncaught exception
+            // here would crash-loop the agent just like the PIN-policy hiccup this module has
+            // already been bitten by once.
+            Log.w(TAG, "applyPolicies failed: ${e.message}", e)
+            result.put("error", e.message ?: "unknown")
+        }
+        lastPolicyResult = result
+    }
+
+    // ============ SIDELOAD / APP-CHANGE LOGGING (item 3) ============
+
+    private fun queueAppChange(evt: JSONObject) {
+        synchronized(appChangeLock) {
+            appChangeQueue.addLast(evt)
+            while (appChangeQueue.size > MAX_APP_CHANGE_EVENTS) appChangeQueue.removeFirst()
+        }
+    }
+
+    /** Drains the queue into a JSONArray for telemetry; clearing it here is what keeps the
+     *  same events from being re-reported on the next publish. */
+    private fun drainAppChangeQueue(): JSONArray {
+        synchronized(appChangeLock) {
+            val arr = JSONArray()
+            for (evt in appChangeQueue) arr.put(evt)
+            appChangeQueue.clear()
+            return arr
+        }
+    }
+
+    /** ACTION_PACKAGE_ADDED/REMOVED (with a "package" data scheme) are implicit broadcasts
+     *  Android 8.0+ deliberately excludes from the set a <receiver> manifest entry is still
+     *  allowed to declare for — a manifest registration for these two actions would silently
+     *  never fire on this API 27 fleet. The only thing that actually works is a
+     *  context.registerReceiver() call from a running component, so it's registered here in
+     *  the foreground service (which is what stays alive under START_STICKY) and unregistered
+     *  in onDestroy. */
+    private fun registerPackageChangeReceiver() {
+        if (packageChangeReceiver != null) return
+        try {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_PACKAGE_ADDED)
+                addAction(Intent.ACTION_PACKAGE_REMOVED)
+                addDataScheme("package")
+            }
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(ctx: Context, intent: Intent) {
+                    try {
+                        val pkg = intent.data?.schemeSpecificPart ?: return
+                        val added = intent.action == Intent.ACTION_PACKAGE_ADDED
+                        val replacing = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)
+                        var versionName: String? = null
+                        var installer: String? = null
+                        if (added) {
+                            try { versionName = packageManager.getPackageInfo(pkg, 0).versionName } catch (e: Exception) { /* gone already */ }
+                            try { installer = packageManager.getInstallerPackageName(pkg) } catch (e: Exception) { /* not queryable */ }
+                        }
+                        val evt = JSONObject().apply {
+                            put("event", if (added) "added" else "removed")
+                            put("package", pkg)
+                            put("versionName", versionName ?: JSONObject.NULL)
+                            put("installerPackage", installer ?: JSONObject.NULL)
+                            put("replacing", replacing)
+                            put("timestamp", System.currentTimeMillis() / 1000)
+                        }
+                        queueAppChange(evt)
+                        alog(Log.INFO, "App change detected: $evt")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "packageChangeReceiver.onReceive failed: ${e.message}", e)
+                    }
+                }
+            }
+            registerReceiver(receiver, filter)
+            packageChangeReceiver = receiver
+            Log.i(TAG, "Package add/remove receiver registered (runtime-registered — see comment above)")
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not register package change receiver: ${e.message}", e)
+        }
+    }
+
+    // ============ ON-DEMAND SCREEN SNAPSHOT (items 4/5) ============
+
+    private fun buildScreenPayload(): JSONObject {
+        val obj = JSONObject()
+        val snap = ScreenReaderService.latest()
+        if (snap != null) {
+            obj.put("package", snap.packageName)
+            obj.put("activity", snap.className)
+            obj.put("title", snap.windowTitle)
+            obj.put("text", JSONArray(snap.text))
+            obj.put("truncated", snap.truncated)
+            obj.put("snapshotAt", snap.at / 1000)
+        } else {
+            obj.put("available", false)
+        }
+        obj.put("log", JSONArray(logTailSnapshot()))
+        return obj
+    }
+
+    /** get_screen command: publish immediately with the screen field attached, then keep
+     *  publishing on a fast ~3s cadence for ~2 minutes before auto-reverting to the normal
+     *  5-minute cadence. Always clears any previously-scheduled fast-publish callbacks first,
+     *  so repeated get_screen commands can't stack Handler callbacks — at most one fast-tick
+     *  Runnable and one stop-Runnable are ever pending. */
+    private fun enterFastPublishMode() {
+        handler.removeCallbacks(fastPublishRunnable)
+        fastPublishStopRunnable?.let { handler.removeCallbacks(it) }
+
+        fastPublishActive = true
+        Log.i(TAG, "get_screen: entering fast-publish mode (~${FAST_PUBLISH_INTERVAL_MS}ms for ~${FAST_PUBLISH_DURATION_MS / 1000}s)")
+        fastPublishRunnable.run() // publishes now (with screen) and schedules the next tick
+
+        val stop = Runnable {
+            fastPublishActive = false
+            handler.removeCallbacks(fastPublishRunnable)
+            fastPublishStopRunnable = null
+            Log.i(TAG, "get_screen: fast-publish window ended, back to normal cadence")
+        }
+        fastPublishStopRunnable = stop
+        handler.postDelayed(stop, FAST_PUBLISH_DURATION_MS)
     }
 
     // ============ NOTIFICATIONS ============
