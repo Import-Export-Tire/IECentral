@@ -8,6 +8,46 @@ import Button from "@/components/ui/Button";
 
 type Session = ReturnType<typeof useSetupSession>;
 
+/**
+ * Turns the ADB library's raw errors into something a technician standing at a scanner can act
+ * on. These messages come straight out of @yume-chan (typos and all) and say nothing about what
+ * to do — "The device is already in used by another program" cost a real provisioning session.
+ */
+function explainConnectFailure(raw?: string): string {
+  const msg = raw ?? "";
+
+  if (/already in use/i.test(msg)) {
+    return (
+      "Something else on this computer has hold of the scanner. Fix it in this order: " +
+      "(1) close any other IE Central tab with setup open, (2) reload this page, " +
+      "(3) unplug and replug the cable. If anyone has used adb on this machine, run " +
+      "“adb kill-server” in Terminal — an ADB server takes the device and Chrome " +
+      "cannot share it."
+    );
+  }
+  if (/No device selected|cancell?ed/i.test(msg)) {
+    return "No scanner chosen. Press Detect scanner again and pick the TC51 from Chrome's list.";
+  }
+  if (/WebUSB not supported|not supported/i.test(msg)) {
+    return "This browser can't talk to USB devices. Open IE Central in Chrome or Edge.";
+  }
+  if (/unauthoriz|not authoriz/i.test(msg)) {
+    return (
+      "The scanner hasn't authorised this computer. On the scanner, tap Allow on the " +
+      "“Allow USB debugging?” prompt (tick “Always allow”), then try again. " +
+      "If no prompt appeared, check USB debugging is on in Developer Options and the USB mode " +
+      "is set to File Transfer."
+    );
+  }
+  if (/access denied|SecurityError/i.test(msg)) {
+    return (
+      "Chrome was denied access to the scanner. Unplug and replug the cable, then press " +
+      "Detect scanner and pick the TC51 again."
+    );
+  }
+  return msg || "Couldn't connect to the scanner.";
+}
+
 export function DeviceDetectStep({ session }: { session: Session }) {
   const convex = useConvex();
   const [connecting, setConnecting] = useState(false);
@@ -45,7 +85,7 @@ export function DeviceDetectStep({ session }: { session: Session }) {
         session.actions.goToStep("location");
       }
     } catch (e: any) {
-      setErr(e?.message ?? "Failed to connect");
+      setErr(explainConnectFailure(e?.message));
     } finally {
       setConnecting(false);
     }
