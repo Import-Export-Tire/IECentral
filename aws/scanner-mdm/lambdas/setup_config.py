@@ -57,7 +57,28 @@ def query_convex(deploy_key, path, args):
         method="POST",
     )
     with urllib.request.urlopen(req) as resp:
-        return json.loads(resp.read())
+        payload = json.loads(resp.read())
+    return unwrap_convex(payload, path)
+
+
+def unwrap_convex(payload, path):
+    """Return the actual result from Convex's HTTP envelope.
+
+    Convex's /api/query and /api/mutation wrap results as
+    {"status": "success", "value": ...} or {"status": "error", "errorMessage": ...}.
+    Returning the envelope itself is silently catastrophic: the caller then does
+    config.get("rtLocatorUrl") on the envelope, every lookup misses, and every field
+    falls back to its .get() default. That made the per-location *ApkS3Key pins and
+    current*Version fields dead for as long as this code has existed (it is also the
+    real root of scanners displaying "vunknown"), while looking like a working config.
+    """
+    if isinstance(payload, dict) and "status" in payload:
+        if payload.get("status") == "success":
+            return payload.get("value")
+        raise RuntimeError(
+            f"Convex call {path} failed: {payload.get('errorMessage') or payload}"
+        )
+    return payload
 
 
 def handler(event, context):

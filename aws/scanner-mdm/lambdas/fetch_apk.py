@@ -36,7 +36,26 @@ def query_convex(deploy_key, path, args):
         method="POST",
     )
     with urllib.request.urlopen(req) as resp:
-        return json.loads(resp.read())
+        payload = json.loads(resp.read())
+    return unwrap_convex(payload, path)
+
+
+def unwrap_convex(payload, path):
+    """Return the actual result from Convex's HTTP envelope.
+
+    Convex wraps results as {"status": "success", "value": ...}. Returning the envelope
+    made every config.get(...) below miss, so the per-location tireTrackApkS3Key /
+    rtLocatorApkS3Key / agentApkS3Key pins never took effect (selection always fell
+    through to get_latest_s3_apk) and current*Version was always None — the real root of
+    "vunknown". Silent, because a miss looks identical to "not configured".
+    """
+    if isinstance(payload, dict) and "status" in payload:
+        if payload.get("status") == "success":
+            return payload.get("value")
+        raise RuntimeError(
+            f"Convex call {path} failed: {payload.get('errorMessage') or payload}"
+        )
+    return payload
 
 
 def get_latest_s3_apk(prefix):

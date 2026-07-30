@@ -36,7 +36,16 @@ def call_convex_mutation(deploy_key, path, args):
         },
     )
     with urllib.request.urlopen(req) as resp:
-        return json.loads(resp.read())
+        payload = json.loads(resp.read())
+    # Convex wraps results as {"status":"success","value":...}. urlopen only raises on
+    # HTTP errors, so a Convex-level failure returns 200 with status "error" — without
+    # this check a failed provisionScanner write is silently discarded and the scanner
+    # record never gets its IoT thing name / cert ARN, with nothing logged.
+    if isinstance(payload, dict) and payload.get("status") == "error":
+        raise RuntimeError(
+            f"Convex mutation {path} failed: {payload.get('errorMessage') or payload}"
+        )
+    return payload.get("value") if isinstance(payload, dict) and "status" in payload else payload
 
 
 def retire_thing_certs(thing_name, keep_arn=None):
