@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Protected from "../../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
@@ -35,7 +35,16 @@ function ScannerDashboardContent() {
   const [selectedScannerId, setSelectedScannerId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
-  const webusbSupported = typeof navigator !== "undefined" && "usb" in navigator;
+  // Resolved after mount, never during render. This page is server-rendered even though it's
+  // a client component, so evaluating `navigator` inline put `disabled` into the initial HTML
+  // and left Setup New Scanner greyed out until some later re-render happened to correct it.
+  // `null` = not determined yet, so the button isn't wrongly presented as unsupported while
+  // we still don't know.
+  const [webusbSupported, setWebusbSupported] = useState<boolean | null>(null);
+  useEffect(() => {
+    setWebusbSupported(typeof navigator !== "undefined" && "usb" in navigator);
+  }, []);
+  const webusbUnsupported = webusbSupported === false;
   const [addForm, setAddForm] = useState({ serialNumber: "", model: "Zebra TC51", notes: "", pin: "" });
   const [addLocationId, setAddLocationId] = useState<Id<"locations"> | "">("");
   const [addStep, setAddStep] = useState<"form" | "saving" | "done">("form");
@@ -173,9 +182,13 @@ function ScannerDashboardContent() {
                   </Button>
                   <Button
                     variant="primary"
-                    onClick={() => webusbSupported && setWizardOpen(true)}
-                    disabled={!webusbSupported}
-                    title={webusbSupported ? "Set up a new scanner via USB (Chrome/Edge)" : "Open in Chrome or Edge to enable scanner setup"}
+                    onClick={() => !webusbUnsupported && setWizardOpen(true)}
+                    disabled={webusbUnsupported}
+                    title={
+                      webusbUnsupported
+                        ? "This browser can't talk to USB devices. Open IE Central in Chrome or Edge to set up a scanner."
+                        : "Set up a new scanner over USB"
+                    }
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" /></svg>
                     <span className="hidden sm:inline">Setup New Scanner</span>
@@ -193,6 +206,14 @@ function ScannerDashboardContent() {
                 </div>
               )}
             </div>
+            {webusbUnsupported && (
+              <div className="mt-3 p-3 rounded-xl ui-callout-amber text-sm">
+                <span className="font-semibold">Scanner setup needs Chrome or Edge.</span>{" "}
+                This browser has no WebUSB support, so IE Central can&apos;t talk to a scanner
+                over the cable. Open this page in Chrome or Edge to set one up — everything else
+                on this page works normally here.
+              </div>
+            )}
           </header>
 
           <div className="px-4 sm:px-6 lg:px-8 py-5 space-y-5">
