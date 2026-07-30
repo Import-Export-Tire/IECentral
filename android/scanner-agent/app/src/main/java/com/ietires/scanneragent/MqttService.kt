@@ -864,7 +864,11 @@ class MqttService : Service() {
                 // kill remote troubleshooting on that scanner — and re-enabling it needs a
                 // shell, i.e. physically collecting the device. This restriction is what makes
                 // the screen reader survive an employee poking around in Settings.
-                UserManager.DISALLOW_APPS_CONTROL
+                UserManager.DISALLOW_APPS_CONTROL,
+                // Keeps the IE Tires tire wallpaper in place. The agent writes it once rather
+                // than re-asserting on every start, so this restriction is what actually makes
+                // it stick instead of a pointless tug of war with whoever changed it.
+                UserManager.DISALLOW_SET_WALLPAPER
             )) {
                 val ok = try {
                     dpm.addUserRestriction(admin, restriction)

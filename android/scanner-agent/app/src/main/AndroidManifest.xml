@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Normal permission, granted at install: lets the agent brand the device wallpaper -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
 
     <application
         android:name=".ScannerAgentApp"
