@@ -571,7 +571,10 @@ export const upsertMdmConfig = mutation({
 export const createScannerFromSetup = mutation({
   args: {
     number: v.string(),
-    pin: v.string(),
+    // Optional: the scanner sets its own lock PIN as Device Owner and reports it via
+    // telemetry. The wizard no longer invents one, so this stays unset until the device
+    // says what it actually is.
+    pin: v.optional(v.string()),
     serialNumber: v.string(),
     model: v.string(),
     locationId: v.id("locations"),

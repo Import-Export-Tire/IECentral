@@ -6,7 +6,7 @@ import Button from "@/components/ui/Button";
 type Session = ReturnType<typeof useSetupSession>;
 
 export function DoneStep({ session, onClose }: { session: Session; onClose: () => void }) {
-  const { scannerNumber, pin, connection, mode, manage } = session.state;
+  const { scannerNumber, connection, mode, manage } = session.state;
   const isUpdate = mode === "update";
 
   return (
@@ -37,7 +37,9 @@ export function DoneStep({ session, onClose }: { session: Session; onClose: () =
         ) : (
           <div className="flex items-center justify-between">
             <span className="theme-text-tertiary text-xs">PIN</span>
-            <span className="font-mono font-semibold theme-text-primary">{pin}</span>
+            <span className="text-xs theme-text-secondary text-right">
+              Set by the scanner — shown on its page once it connects
+            </span>
           </div>
         )}
         <div className="flex items-center justify-between">
@@ -53,9 +55,13 @@ export function DoneStep({ session, onClose }: { session: Session; onClose: () =
         </p>
       ) : (
         <>
-          {/* PIN warning */}
+          {/* Where the real PIN comes from. The wizard used to print an invented PIN here and
+              tell the technician to record it and set the lock screen to it by hand — but that
+              number never reached the device, and doing so would be reverted by the agent. */}
           <div className="p-2.5 rounded-lg ui-callout-amber text-xs font-medium">
-            Record the PIN — it cannot be recovered.
+            Don&apos;t set a lock PIN by hand. The scanner picks its own and applies it once it
+            comes online — read it from this scanner&apos;s page in IE Central, where it can also
+            be reset.
           </div>
 
           {/* Remaining manual steps */}
@@ -65,7 +71,6 @@ export function DoneStep({ session, onClose }: { session: Session; onClose: () =
               <li>Wi-Fi → Settings → Network &amp; Internet</li>
               <li>Home screen → pin RTLMobile + TireTrack + Settings</li>
               <li>Keyboard → Gboard → Number Row ON, Autocorrect OFF</li>
-              <li>Lock screen PIN: set to {pin}</li>
               <li>Ring scanner → Bluetooth Pairing Utility (if RS507)</li>
               <li>Launch RTLMobile and log in</li>
             </ol>

@@ -52,13 +52,17 @@ export function GenerateStep({ session }: { session: Session }) {
           );
         }
 
-        // Generate a 4-digit PIN client-side
-        const pin = String(Math.floor(1000 + Math.random() * 9000));
+        // No PIN is generated here. The scanner sets its own lock PIN: the agent, as Device
+        // Owner, generates one and applies it with resetPassword, then reports it in telemetry.
+        // This step used to invent a 4-digit PIN, save it, and show it to the technician — but
+        // nothing ever sent it to the device, so it was a phantom. Worse, the Done screen told
+        // the technician to set the lock screen to it by hand, which the agent's boot-time
+        // re-assert would then revert, locking them out with a PIN they believed was correct.
+        // The device is the source of truth for its own PIN.
 
         // Step 1: Create the scanner record in Convex
         const { scannerId } = await createScanner({
           number: state.scannerNumber,
-          pin,
           serialNumber: state.connection.serial,
           model: state.connection.model || "Zebra TC51",
           locationId: mdmConfig.locationId,
@@ -100,7 +104,7 @@ export function GenerateStep({ session }: { session: Session }) {
         });
 
         if (cancelled) return;
-        actions.setGenerated(scannerId, code, pin);
+        actions.setGenerated(scannerId, code, "");
         actions.goToStep("install");
       } catch (e: unknown) {
         if (cancelled) return;
