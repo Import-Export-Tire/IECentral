@@ -162,6 +162,16 @@ class SetupActivity : Activity() {
             return
         }
 
+        // Check connectivity BEFORE attempting the claim call. Without this, a scanner with no
+        // Wi-Fi yet fails the claim with a raw UnknownHostException, and the technician sees
+        // "Unable to resolve host ..." — meaningless to them. Left enabled/untouched on this
+        // early return so they can just connect to Wi-Fi and press Submit again.
+        if (!hasUsableNetwork()) {
+            statusText.setTextColor(Color.parseColor("#ef4444"))
+            statusText.text = "No network — connect to Wi-Fi, then try again."
+            return
+        }
+
         submitBtn.isEnabled = false
         codeInput.isEnabled = false
         updateStatus("Provisioning...")
@@ -192,8 +202,12 @@ class SetupActivity : Activity() {
                 // Disable bloatware
                 disableBloatware()
 
-                // Check unknown sources permission before installing apps
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+                // Check unknown sources permission before installing apps. Not needed at all
+                // when Device Owner — installApk() above goes through PackageInstaller
+                // silently in that case, which never consults this setting.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    && !packageManager.canRequestPackageInstalls()
+                    && !SilentInstaller.isDeviceOwner(this)) {
                     pendingApkInstalls = true
                     runOnUiThread {
                         statusText.text = "Enable 'Install unknown apps' for Scanner Agent, then press Back"
@@ -204,6 +218,31 @@ class SetupActivity : Activity() {
                 }
 
                 continueWithAppInstalls()
+            } catch (e: java.net.UnknownHostException) {
+                // DNS couldn't resolve the claim host — no usable network (or captive
+                // portal/DNS blip that amounts to the same thing from a technician's seat).
+                // Same plain message as the pre-flight hasUsableNetwork() check above, rather
+                // than the raw "Unable to resolve host ..." this exception's own message reads.
+                Log.w(TAG, "Setup failed: no network (${e.message})")
+                runOnUiThread {
+                    statusText.setTextColor(Color.parseColor("#ef4444"))
+                    statusText.text = "No network — connect to Wi-Fi, then try again."
+                    submitBtn.isEnabled = true
+                    codeInput.isEnabled = true
+                }
+            } catch (e: java.io.IOException) {
+                // Covers SocketTimeoutException, ConnectException, etc. — every one of these
+                // means "couldn't reach the server", which reads to a technician exactly like
+                // "no network" even when Wi-Fi itself is technically associated. Same plain
+                // message rather than leaking the exception class/message. Caught after the
+                // more specific UnknownHostException above (it's a subclass of IOException).
+                Log.w(TAG, "Setup failed: network/IO error (${e.javaClass.simpleName}: ${e.message})")
+                runOnUiThread {
+                    statusText.setTextColor(Color.parseColor("#ef4444"))
+                    statusText.text = "No network — connect to Wi-Fi, then try again."
+                    submitBtn.isEnabled = true
+                    codeInput.isEnabled = true
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Setup failed: ${e.message}", e)
                 runOnUiThread {
@@ -213,6 +252,23 @@ class SetupActivity : Activity() {
                     codeInput.isEnabled = true
                 }
             }
+        }
+    }
+
+    /** Pre-flight connectivity check before attempting the claim-code POST. activeNetworkInfo
+     *  is deprecated (API 29+) but is exactly what's available and reliable at this app's
+     *  targetSdk 25 / minSdk 25 — the NetworkCapabilities/registerNetworkCallback replacement
+     *  needs API 23+ callback bookkeeping that's overkill for a single yes/no check here. */
+    @Suppress("DEPRECATION")
+    private fun hasUsableNetwork(): Boolean {
+        return try {
+            val cm = getSystemService(CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+            cm.activeNetworkInfo?.isConnected == true
+        } catch (e: Exception) {
+            // Fail open — a bug in this check itself shouldn't block a claim attempt that
+            // might otherwise succeed.
+            Log.w(TAG, "hasUsableNetwork check failed: ${e.message}")
+            true
         }
     }
 
@@ -308,6 +364,21 @@ class SetupActivity : Activity() {
     }
 
     private fun installApk(apkFile: File) {
+        // Device Owner: install silently via PackageInstaller, no interactive installer and no
+        // Play Protect "blocked as unsafe — install anyway" prompt (both IET apps are
+        // debug-signed, so ACTION_VIEW would trigger that prompt on every one of ~20 scanners
+        // being provisioned). The wizard promotes to Device Owner before this screen ever runs,
+        // so this path is available for every normal provisioning run. Falls back to the
+        // interactive intent path only when not Device Owner, or if the silent session itself
+        // fails for some reason.
+        if (SilentInstaller.isDeviceOwner(this)) {
+            if (SilentInstaller.installSilently(this, apkFile)) {
+                Log.i(TAG, "Silent install committed for ${apkFile.name}")
+                return
+            }
+            Log.w(TAG, "Silent install failed for ${apkFile.name} — falling back to interactive install")
+        }
+
         val intent = Intent(Intent.ACTION_VIEW)
         val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             FileProvider.getUriForFile(this, "${packageName}.fileprovider", apkFile)

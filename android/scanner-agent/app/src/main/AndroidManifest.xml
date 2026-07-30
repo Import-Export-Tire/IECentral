@@ -91,6 +91,28 @@
             </intent-filter>
         </activity>
 
+        <!-- Home Activity: replaces stock Launcher3 as the device home screen (see
+             HomeActivity.kt / MqttService.applyHomeScreenPreference). singleTask +
+             stateNotNeeded + excludeFromRecents match how the platform expects a HOME activity
+             to behave — a single persistent instance, no saved-state dependency, and not a
+             normal task a user can swipe away in Recents. Made the actual default HOME via
+             DevicePolicyManager.addPersistentPreferredActivity (Device Owner only), not by
+             anything declared here — this intent-filter alone only makes it a HOME candidate,
+             not the default (that's the whole reason a chooser would otherwise appear). -->
+        <activity
+            android:name=".HomeActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true"
+            android:excludeFromRecents="true"
+            android:theme="@style/HomeTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <!-- Setup Activity (claim code entry for provisioning) -->
         <activity
             android:name=".SetupActivity"

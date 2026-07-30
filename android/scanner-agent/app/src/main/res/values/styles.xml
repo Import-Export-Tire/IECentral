@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- HomeActivity's theme: windowShowWallpaper=true + a transparent window background is
+         what lets the tire wallpaper (WallpaperSetter) show through behind the tile row
+         instead of HomeActivity drawing/painting anything of its own over it. -->
+    <style name="HomeTheme" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowShowWallpaper">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
 </resources>

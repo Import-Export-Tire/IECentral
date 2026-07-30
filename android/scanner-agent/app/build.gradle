@@ -14,8 +14,8 @@ android {
         // targeting O+, and these TC51s use Full-Disk Encryption (escrow tokens disabled),
         // so resetPassword() is the ONLY way to set the lock PIN. Target ≤25 re-enables it.
         targetSdk 25
-        versionCode 9
-        versionName "1.5.0"
+        versionCode 10
+        versionName "1.6.0"
 
         buildConfigField "String", "CLAIM_URL", '"https://outstanding-dalmatian-787.convex.site/claim-provision"'
         buildConfigField "String", "APK_API_URL", '"https://7brylwlei6.execute-api.us-east-1.amazonaws.com/prod/scanner-mdm/apk"'

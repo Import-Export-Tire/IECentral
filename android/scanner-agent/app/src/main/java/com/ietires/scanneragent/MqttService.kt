@@ -134,6 +134,11 @@ class MqttService : Service() {
         lockDownPinSettings()
         maybeInitializePin()
         applyPolicies() // item 2: runs on every service start, no-ops (logged) if not device owner
+        // Headline item: makes HomeActivity the default HOME activity (gated on the
+        // home_screen/enabled flag). Runs after applyPolicies (same device-owner precondition)
+        // but is its own try/caught step — see the function doc for why this must never be
+        // able to stop loadConfigAndConnect() below from running.
+        applyHomeScreenPreference()
         registerPackageChangeReceiver() // item 3
         startLocationUpdates()
         loadConfigAndConnect()
@@ -378,6 +383,12 @@ class MqttService : Service() {
             // --- item 2: result of the last applyPolicies() run ---
             put("restrictionsApplied", lastPolicyResult)
 
+            // --- home screen: whether HomeActivity is (meant to be) the default HOME activity.
+            // Reflects the home_screen/enabled flag, not whether addPersistentPreferredActivity
+            // actually succeeded — pair with restrictionsApplied.deviceOwner to tell "disabled"
+            // apart from "device owner precondition not met so it never took effect".
+            put("homeScreenEnabled", isHomeScreenEnabled())
+
             // --- item 3: queued sideload/uninstall events since the last publish; draining
             // here (rather than on ack) is what keeps the bounded queue from re-reporting the
             // same events on every subsequent telemetry tick.
@@ -489,9 +500,10 @@ class MqttService : Service() {
             "install_apk" -> installApk(payload.optJSONObject("payload"))
             "uninstall_app" -> uninstallApp(payload.optJSONObject("payload"))
             "push_config" -> pushConfig(payload.optJSONObject("payload"))
-            "update_pin" -> updatePin()
+            "update_pin" -> updatePin(payload.optJSONObject("payload"))
             "apply_policies" -> { applyPolicies(); publishTelemetry() }
             "get_screen" -> enterFastPublishMode()
+            "set_home" -> setHome(payload.optJSONObject("payload"))
         }
 
         // Acknowledge command
@@ -537,12 +549,19 @@ class MqttService : Service() {
                     if (xml.isNullOrBlank()) JobOutcome.Permanent("push_config: configXml missing or blank")
                     else { pushConfig(payload); JobOutcome.Success }
                 }
-                "update_pin" -> if (updatePin()) JobOutcome.Success else JobOutcome.Retryable("setPin failed")
+                "update_pin" -> when (updatePin(payload)) {
+                    UpdatePinResult.Applied -> JobOutcome.Success
+                    UpdatePinResult.SetPinFailed -> JobOutcome.Retryable("setPin failed")
+                    // Invalid payload.pin can never succeed on a retry with the same payload —
+                    // see the JobOutcome doc above on Retryable vs Permanent.
+                    UpdatePinResult.InvalidPin -> JobOutcome.Permanent("update_pin: payload.pin must be 4-8 digits, digits only")
+                }
                 "apply_policies" -> {
                     applyPolicies(); publishTelemetry()
                     if (isDeviceOwner()) JobOutcome.Success else JobOutcome.Retryable("not device owner — policies not applied")
                 }
                 "get_screen" -> { enterFastPublishMode(); JobOutcome.Success }
+                "set_home" -> if (setHome(payload)) JobOutcome.Success else JobOutcome.Retryable("not device owner — home screen preference not applied")
                 else -> JobOutcome.Permanent("Unrecognized command: $command")
             }
         } catch (e: Exception) {
@@ -551,16 +570,45 @@ class MqttService : Service() {
         }
     }
 
-    /** Returns true if the PIN was actually applied (pinManager.setPin succeeded) — used by
-     *  executeJobCommand to report FAILED (retryable) instead of a false SUCCEEDED. The
-     *  cmd/scanners/# path above ignores the return value; behaviour there is unchanged. */
-    private fun updatePin(): Boolean {
-        val pin = pinManager.generatePin()
+    /** Outcome of updatePin(), richer than a plain Boolean so executeJobCommand can tell "the
+     *  requested PIN itself was invalid" (Permanent — retrying the identical payload can never
+     *  succeed) apart from "setPin failed" (Retryable — e.g. a transient DevicePolicyManager
+     *  hiccup, may well succeed on the next attempt). */
+    private enum class UpdatePinResult { Applied, InvalidPin, SetPinFailed }
+
+    /** update_pin: sets the lock PIN, optionally to an operator-specified value.
+     *
+     *  payload.pin, if present, must be digits-only and 4-8 characters. Anything else
+     *  (letters, wrong length, blank) is REJECTED outright — it deliberately does NOT fall
+     *  back to a random PIN on invalid input, because that would leave the operator believing
+     *  they set pin=X while the device silently ended up with a different, random value. (That
+     *  exact class of silent-fallback bug has already bitten this project once — see
+     *  PinManager's self-change-suppression handling for the previous incident this guards
+     *  against the same way: never let a caller believe one thing happened when another did.)
+     *
+     *  With no payload.pin supplied, behaviour is unchanged from before: generate a random PIN.
+     *
+     *  The cmd/scanners/# path above ignores the return value (as it always has); executeJobCommand
+     *  maps it to Success / Retryable / Permanent for AWS IoT Jobs status reporting. */
+    private fun updatePin(payload: JSONObject? = null): UpdatePinResult {
+        val requestedPin = payload?.optString("pin", "")?.takeIf { it.isNotEmpty() }
+        val pin: String
+        if (requestedPin != null) {
+            if (!isValidPin(requestedPin)) {
+                Log.e(TAG, "update_pin: rejected invalid payload.pin (must be 4-8 digits, digits only) — leaving current PIN unchanged, NOT falling back to a random PIN")
+                return UpdatePinResult.InvalidPin
+            }
+            pin = requestedPin
+        } else {
+            pin = pinManager.generatePin()
+        }
         val applied = pinManager.setPin(pin)
-        Log.i(TAG, "update_pin: managed=${applied != null}")
+        Log.i(TAG, "update_pin: managed=${applied != null} explicit=${requestedPin != null}")
         publishTelemetry() // report new pin/status over the bridged telemetry path
-        return applied != null
+        return if (applied != null) UpdatePinResult.Applied else UpdatePinResult.SetPinFailed
     }
+
+    private fun isValidPin(pin: String): Boolean = pin.length in 4..8 && pin.all { it.isDigit() }
 
     /** Returns true if lockNow() was actually invoked (device admin active) — used by
      *  executeJobCommand to distinguish success from failure. The cmd/scanners/# path above
@@ -723,45 +771,11 @@ class MqttService : Service() {
         }.start()
     }
 
-    private fun silentInstall(apkFile: File): Boolean {
-        return try {
-            val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
-            val admin = ComponentName(this, DeviceAdminReceiver::class.java)
-            if (!dpm.isDeviceOwnerApp(packageName)) {
-                Log.i(TAG, "Not device owner — cannot silent install")
-                return false
-            }
-
-            val installer = packageManager.packageInstaller
-            val params = android.content.pm.PackageInstaller.SessionParams(
-                android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL
-            )
-            params.setSize(apkFile.length())
-
-            val sessionId = installer.createSession(params)
-            val session = installer.openSession(sessionId)
-
-            session.openWrite("apk", 0, apkFile.length()).use { output ->
-                apkFile.inputStream().use { input ->
-                    input.copyTo(output)
-                }
-                session.fsync(output)
-            }
-
-            // Create a PendingIntent for the install result
-            val callbackIntent = Intent("com.ietires.scanneragent.INSTALL_COMPLETE")
-            val pendingIntent = android.app.PendingIntent.getBroadcast(
-                this, sessionId, callbackIntent,
-                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-            )
-            session.commit(pendingIntent.intentSender)
-            Log.i(TAG, "Silent install session committed")
-            true
-        } catch (e: Exception) {
-            Log.w(TAG, "Silent install failed: ${e.message}")
-            false
-        }
-    }
+    /** Thin wrapper over the shared SilentInstaller helper (also used by SetupActivity's initial
+     *  provisioning installs) — kept here rather than inlined so every existing call site/log
+     *  line in this class is unaffected; see SilentInstaller.kt for why this isn't unified with
+     *  JobsClient's own install-session handling too. */
+    private fun silentInstall(apkFile: File): Boolean = SilentInstaller.installSilently(this, apkFile)
 
     private fun isDeviceOwner(): Boolean {
         val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
@@ -907,6 +921,74 @@ class MqttService : Service() {
             result.put("error", e.message ?: "unknown")
         }
         lastPolicyResult = result
+    }
+
+    // ============ HOME SCREEN (replaces stock Launcher3 — see HomeActivity.kt) ============
+
+    private fun homeScreenPrefs() = getSharedPreferences("home_screen", Context.MODE_PRIVATE)
+
+    private fun isHomeScreenEnabled(): Boolean = homeScreenPrefs().getBoolean("enabled", true)
+
+    /** Applies (or removes) HomeActivity as the device's persistent-preferred HOME activity,
+     *  per the home_screen/enabled flag (default true — new scanners get the reduced 3-tile
+     *  home screen from first boot). No-op (logged) if not Device Owner, same precondition as
+     *  every other DPM call in applyPolicies() — addPersistentPreferredActivity and
+     *  clearPackagePersistentPreferredActivities both require Device Owner.
+     *
+     *  Called from onCreate (alongside applyPolicies, so it's re-asserted on every service
+     *  start) and directly from setHome() below for an immediate effect when the flag is
+     *  flipped via the set_home command. Wrapped entirely in try/catch: this runs in onCreate,
+     *  so an uncaught exception here would crash-loop the service exactly like the PIN-policy
+     *  and applyPolicies hiccups this module has already been bitten by. */
+    private fun applyHomeScreenPreference() {
+        try {
+            if (!isDeviceOwner()) {
+                Log.i(TAG, "applyHomeScreenPreference: not device owner — no-op")
+                return
+            }
+            val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            val admin = ComponentName(this, DeviceAdminReceiver::class.java)
+            val filter = IntentFilter(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+                addCategory(Intent.CATEGORY_DEFAULT)
+            }
+            if (isHomeScreenEnabled()) {
+                dpm.addPersistentPreferredActivity(admin, filter, ComponentName(this, HomeActivity::class.java))
+                alog(Log.INFO, "applyHomeScreenPreference: HomeActivity set as persistent-preferred HOME")
+            } else {
+                // No per-filter clear API exists — clearPackagePersistentPreferredActivities
+                // removes every persistent-preferred registration THIS app has made, for any
+                // filter. Safe here since HomeActivity's HOME filter is the only one this app
+                // ever registers. This is what actually lets stock Launcher3 win the HOME
+                // resolution again (rather than just leaving a stale, no-longer-desired
+                // preference in place).
+                dpm.clearPackagePersistentPreferredActivities(admin, packageName)
+                alog(Log.INFO, "applyHomeScreenPreference: cleared persistent-preferred HOME — stock Launcher3 restored")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "applyHomeScreenPreference failed: ${e.message}", e)
+        }
+    }
+
+    /** set_home command: payload.enabled (boolean, default true if payload/field missing)
+     *  toggles whether HomeActivity is the device's persistent-preferred HOME activity.
+     *
+     *  This is the escape hatch for a broken/unwanted home screen: MqttService (this class)
+     *  runs independently of whatever HomeActivity is doing, so even a HomeActivity that fails
+     *  to draw at all is still remotely recoverable by sending set_home with enabled=false —
+     *  which restores stock Launcher3 immediately, no reboot required.
+     *
+     *  Returns true if the preference was actually applied (i.e. this is Device Owner) — used
+     *  by executeJobCommand to report FAILED (retryable) instead of a false SUCCEEDED when it
+     *  isn't. The cmd/scanners/# path above ignores the return value; behaviour there is
+     *  unaffected. */
+    private fun setHome(payload: JSONObject?): Boolean {
+        val enabled = payload?.optBoolean("enabled", true) ?: true
+        homeScreenPrefs().edit().putBoolean("enabled", enabled).apply()
+        Log.i(TAG, "set_home: enabled=$enabled")
+        applyHomeScreenPreference()
+        publishTelemetry() // report the new homeScreenEnabled flag immediately
+        return isDeviceOwner()
     }
 
     // ============ SIDELOAD / APP-CHANGE LOGGING (item 3) ============
