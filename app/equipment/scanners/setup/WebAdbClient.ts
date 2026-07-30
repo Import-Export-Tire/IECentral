@@ -15,16 +15,31 @@ export const IET_PACKAGES = {
   scannerAgent: "com.ietires.scanneragent",
 };
 
-// System packages that must NEVER be disabled (device stays usable). Prefixes + exact ids.
-// Disabling launcher/SystemUI/IME/Settings/DataWedge can brick usability — keep these.
-export const ESSENTIAL_SYSTEM_PREFIXES = [
-  "com.android.", "android", "com.qualcomm.", "com.zebra.", "com.symbol.",
-  "com.google.android.packageinstaller", "com.android.systemui",
-  "com.android.settings", "com.android.inputmethod", "com.google.android.inputmethod",
-];
-export const ESSENTIAL_SYSTEM_EXACT = [
-  "com.symbol.datawedge", "com.android.launcher3", "com.android.settings",
-  "com.android.systemui", "com.android.shell", "com.android.providers.settings",
+// Packages that must survive lockdown because the scanner stops being usable without them.
+// Deliberately a short, exact list rather than prefixes: the old prefix approach allowlisted
+// "com.android." and "com.symbol."/"com.zebra." wholesale, which silently protected Chrome,
+// the Play Store, Contacts, Phone and a pile of Zebra demo tools — every app that was still
+// cluttering the home screen after a "locked down" setup.
+export const LOCKDOWN_KEEP_EXACT = [
+  // The apps the job actually needs
+  "com.importexporttire.tiretrack",
+  "com.rt_systems.rtlhandsfree",
+  "com.ietires.scanneragent",
+  // Scanning itself — disabling this breaks the barcode engine
+  "com.symbol.datawedge",
+  // Basic usability: launcher, settings, installer
+  "com.android.launcher3",
+  "com.android.settings",
+  "com.google.android.packageinstaller",
+  "com.android.packageinstaller",
+  // Backs the system file picker that other apps open
+  "com.android.documentsui",
+  // Bluetooth pairing, needed for the RS507 ring scanner (a documented setup step)
+  "com.symbol.btapp",
+  "com.zebra.bluetooth",
+  // Battery swap/health tools are genuinely used on the warehouse floor
+  "com.symbol.batterymanager",
+  "com.zebra.hotswap",
 ];
 
 let credentialStore: AdbWebCredentialStore | null = null;
@@ -247,6 +262,25 @@ export class WebAdbClient {
 
   async grantPermission(pkg: string, permission: string): Promise<void> {
     await this.shell(`pm grant ${pkg} ${permission}`);
+  }
+
+  /**
+   * Packages that own a launcher icon — i.e. exactly what a warehouse worker can see and tap
+   * from the home screen. Lockdown targets these rather than every installed package, because
+   * the complaint is home-screen clutter and because disabling non-launchable system services
+   * is how you brick a device. Verified against a TC51 (Android 8.1): `cmd package
+   * query-activities` exists there and returns `pkg/Activity` pairs.
+   */
+  async listLaunchablePackages(): Promise<string[]> {
+    const out = await this.shell(
+      "cmd package query-activities --brief -a android.intent.action.MAIN " +
+        "-c android.intent.category.LAUNCHER 2>/dev/null",
+    );
+    const pkgs = new Set<string>();
+    for (const m of out.matchAll(/^\s*([a-zA-Z0-9_.]+)\/[^\s]*/gm)) {
+      if (m[1].includes(".")) pkgs.add(m[1]);
+    }
+    return [...pkgs];
   }
 
   async listPackages(): Promise<string[]> {

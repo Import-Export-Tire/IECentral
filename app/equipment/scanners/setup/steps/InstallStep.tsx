@@ -6,7 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { useAuth } from "../../../../auth-context";
 import { useSetupSession } from "../useSetupSession";
 import { fetchApk } from "../apkManifest";
-import { IET_PACKAGES, ESSENTIAL_SYSTEM_PREFIXES, ESSENTIAL_SYSTEM_EXACT } from "../WebAdbClient";
+import { IET_PACKAGES, LOCKDOWN_KEEP_EXACT } from "../WebAdbClient";
 import { buildRtConfig } from "@/lib/scanners/rtConfig";
 import { buildChecks, allHardChecksPassed, normalizePinnedVersion } from "@/lib/scanners/verify";
 
@@ -364,20 +364,38 @@ export function InstallStep({ session }: { session: Session }) {
 
         // 10b. Lockdown: disable every non-allowlisted user package (policy-gated)
         if (lockPolicy.lockdownEnabled) {
-          await runStep("lockdown", "Locking down to allowlist", async () => {
-            const installed = await client.listPackages();
+          await runStep("lockdown", "Clearing unused apps", async () => {
+            // Target LAUNCHABLE packages only — the things a worker can see and tap. The old
+            // version filtered every installed package through prefix allowlists that included
+            // "com.android.", "com.symbol." and "com.zebra.", which protected Chrome, the Play
+            // Store, Contacts, Phone and a dozen Zebra demo tools — so a "locked down" scanner
+            // still had a cluttered home screen. Restricting to launchable packages also means
+            // we can't disable a non-launchable system service and break the device.
+            const launchable = await client.listLaunchablePackages();
             const keep = new Set<string>([
+              ...LOCKDOWN_KEEP_EXACT,
               ...Object.values(IET_PACKAGES),
-              ...ESSENTIAL_SYSTEM_EXACT,
               ...lockPolicy.allowedPackages,
             ]);
-            const isEssential = (pkg: string) =>
-              keep.has(pkg) || ESSENTIAL_SYSTEM_PREFIXES.some((p) => pkg === p || pkg.startsWith(p));
-            const toDisable = installed.filter((pkg) => !isEssential(pkg));
-            // Dry-run record: log exactly what will be disabled BEFORE acting
-            // (pm disable-user is reversible via `pm enable`).
-            log("lockdown", "started", undefined, `disabling ${toDisable.length}: ${toDisable.join(",")}`.slice(0, 4000));
-            await client.disablePackages(toDisable);
+            const toDisable = launchable.filter((pkg) => !keep.has(pkg));
+
+            // Record the exact list BEFORE acting. pm disable-user is reversible with
+            // `pm enable`, so a mistake here is recoverable — but only if we know what was hit.
+            log(
+              "lockdown",
+              "started",
+              undefined,
+              `launchable=${launchable.length} keeping=${launchable.length - toDisable.length} disabling ${toDisable.length}: ${toDisable.join(",")}`.slice(0, 4000),
+            );
+            const disabled = await client.disablePackages(toDisable);
+
+            // Verify the device agrees, rather than trusting the commands. Anything still
+            // launchable that we meant to remove is reported so it can be added to the list.
+            const after = await client.listLaunchablePackages();
+            const stillThere = after.filter((pkg) => !keep.has(pkg));
+            if (stillThere.length > 0) {
+              log("lockdown", "success", undefined, `disabled=${disabled}; still launchable: ${stillThere.join(",")}`.slice(0, 2000));
+            }
           });
         }
 
