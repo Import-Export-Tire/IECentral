@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">IE Scanner Agent</string>
+    <string name="screen_reader_service_description">Lets IE Central support see the current screen and on-screen text when helping with a scanner remotely.</string>
 </resources>
