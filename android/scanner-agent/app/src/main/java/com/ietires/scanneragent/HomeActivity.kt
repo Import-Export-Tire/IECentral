@@ -54,7 +54,7 @@ class HomeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         try {
-            setContentView(buildTileRow())
+            setContentView(buildHomeLayout())
         } catch (e: Throwable) {
             // See class doc: an uncaught exception here is a home-screen FC loop. Fall back to
             // a plain text view — still a usable (if minimal) screen — rather than propagate.
@@ -75,12 +75,72 @@ class HomeActivity : Activity() {
         }
     }
 
+    /** The three big tiles, plus a small Scanner Agent control in the bottom-right.
+     *
+     *  That control is not decoration: this activity replaces the stock launcher, so there is
+     *  no app drawer. Without it, once a technician leaves the agent's setup screen there is no
+     *  way back to enter a provisioning code — they have to go the long way through
+     *  Settings > Apps. Deliberately small and out of the way, because a warehouse worker
+     *  should never need it; it exists for whoever is setting the scanner up. */
+    private fun buildHomeLayout(): View {
+        val frame = android.widget.FrameLayout(this).apply {
+            layoutParams = android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        frame.addView(buildTileRow())
+        try {
+            frame.addView(buildAgentCorner())
+        } catch (e: Exception) {
+            // A missing corner button is a nuisance; a crashed home screen is a bricked device.
+            Log.w(TAG, "buildHomeLayout: agent corner button failed, omitting: ${e.message}")
+        }
+        return frame
+    }
+
+    /** Small, semi-transparent Scanner Agent launcher pinned bottom-right. Opens MainActivity,
+     *  which already routes to the setup screen when the device isn't provisioned yet. */
+    private fun buildAgentCorner(): View {
+        val label = TextView(this).apply {
+            text = "Scanner Agent"
+            setTextColor(Color.WHITE)
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12f)
+            gravity = Gravity.CENTER
+            setPadding(dp(14), dp(8), dp(14), dp(8))
+            alpha = 0.75f
+            setBackgroundColor(Color.parseColor("#66000000"))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                try {
+                    startActivity(
+                        android.content.Intent(this@HomeActivity, MainActivity::class.java)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "agent corner: could not open MainActivity: ${e.message}")
+                }
+            }
+        }
+        label.layoutParams = android.widget.FrameLayout.LayoutParams(
+            android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+            android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.END
+            rightMargin = dp(16)
+            bottomMargin = dp(16)
+        }
+        return label
+    }
+
     private fun buildTileRow(): View {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT
+            layoutParams = android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
             )
         }
         for (tile in TILES) {
