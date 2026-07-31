@@ -934,6 +934,17 @@ class MqttService : Service() {
 
     private fun isHomeScreenEnabled(): Boolean = homeScreenPrefs().getBoolean("enabled", true)
 
+    /** The reduced home screen must NOT take over until the scanner is actually provisioned.
+     *
+     *  On a fresh device TireTrack and RT Locator aren't installed yet, so the launcher omits
+     *  their tiles (better than dead icons) and the technician is left staring at a home screen
+     *  with a lone Settings icon — and no app drawer to reach the agent's setup screen and type
+     *  the provisioning code. That happened on a live provisioning run. Until the device has an
+     *  IoT config, stock Launcher3 stays in charge so the normal drawer is available; the
+     *  reduced screen takes over on the next service start after provisioning, when the two
+     *  business apps exist and there is something worth showing. */
+    private fun isProvisioned(): Boolean = File(filesDir, "iot_config.json").exists()
+
     /** Applies (or removes) HomeActivity as the device's persistent-preferred HOME activity,
      *  per the home_screen/enabled flag (default true — new scanners get the reduced 3-tile
      *  home screen from first boot). No-op (logged) if not Device Owner, same precondition as
@@ -971,7 +982,7 @@ class MqttService : Service() {
                 addCategory(Intent.CATEGORY_HOME)
                 addCategory(Intent.CATEGORY_DEFAULT)
             }
-            if (isHomeScreenEnabled()) {
+            if (isHomeScreenEnabled() && isProvisioned()) {
                 // Clear any HOME preference previously pointed at the stock launcher (the
                 // disable path below registers one). Verified on a TC51 that simply adding a
                 // second persistent-preferred activity for the same filter does NOT override
@@ -1006,7 +1017,8 @@ class MqttService : Service() {
                 } else {
                     Log.w(TAG, "applyHomeScreenPreference: no stock launcher found to hand HOME back to")
                 }
-                alog(Log.INFO, "applyHomeScreenPreference: cleared persistent-preferred HOME — stock Launcher3 restored")
+                alog(Log.INFO, "applyHomeScreenPreference: stock Launcher3 in charge (" +
+                    (if (!isProvisioned()) "not provisioned yet" else "home screen disabled") + ")")
             }
         } catch (e: Exception) {
             Log.w(TAG, "applyHomeScreenPreference failed: ${e.message}", e)
