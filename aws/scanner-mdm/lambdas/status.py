@@ -80,6 +80,30 @@ def handler(event, context):
         telemetry["pinManaged"] = event.get("pinManaged", False)
         if "pin" in event:
             telemetry["pin"] = event["pin"]
+        if "screen" in event and isinstance(event["screen"], dict):
+            # Only attached by the agent while in get_screen's ~2min fast-publish window
+            # (see MqttService.buildScreenPayload/enterFastPublishMode). Renamed here to
+            # match Convex's `lastScreen` shape; `snapshotAt` is epoch seconds on the device
+            # side (System.currentTimeMillis() / 1000) but every other Convex timestamp is
+            # epoch ms, so it's converted once here rather than at every call site downstream.
+            screen = event["screen"]
+            screen_out = {}
+            if "package" in screen:
+                screen_out["packageName"] = screen["package"]
+            if "activity" in screen:
+                screen_out["activity"] = screen["activity"]
+            if "title" in screen:
+                screen_out["title"] = screen["title"]
+            if "text" in screen:
+                screen_out["text"] = screen["text"]
+            if "truncated" in screen:
+                screen_out["truncated"] = screen["truncated"]
+            if "snapshotAt" in screen:
+                screen_out["at"] = screen["snapshotAt"] * 1000
+            if "log" in screen:
+                screen_out["logTail"] = screen["log"]
+            if screen_out:
+                telemetry["screen"] = screen_out
 
         # POST to Convex HTTP endpoint
         creds = get_credentials()

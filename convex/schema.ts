@@ -935,6 +935,18 @@ export default defineSchema({
     })),
     agentVersion: v.optional(v.string()),
     androidVersion: v.optional(v.string()),
+    // On-demand screen snapshot (get_screen command) — only the latest is ever kept, no
+    // history table. A stale one shown as current is worse than none, so callers must check
+    // `at` themselves; this is a live look at a named employee's device, not passive telemetry.
+    lastScreen: v.optional(v.object({
+      at: v.optional(v.number()), // epoch ms
+      packageName: v.optional(v.string()),
+      activity: v.optional(v.string()),
+      title: v.optional(v.string()),
+      text: v.optional(v.array(v.string())),
+      truncated: v.optional(v.boolean()),
+      logTail: v.optional(v.array(v.string())),
+    })),
     // Storage telemetry
     storageTotal: v.optional(v.number()), // Total internal storage in MB
     storageFree: v.optional(v.number()), // Free internal storage in MB

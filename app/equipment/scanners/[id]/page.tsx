@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Protected from "../../../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
@@ -18,14 +18,17 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import SectionHeader from "@/components/ui/SectionHeader";
 
-type CommandType = "lock" | "unlock" | "wipe" | "install_apk" | "push_config" | "restart" | "update_pin" | "apply_policies";
+type CommandType = "lock" | "unlock" | "wipe" | "install_apk" | "push_config" | "restart" | "update_pin" | "apply_policies" | "get_screen";
 const EQUIPMENT_VALUE = 100;
+// A screen snapshot older than this reads as stale rather than current — the device may well
+// be showing something else by now (see the Screen View panel below).
+const SCREEN_STALE_MS = 2 * 60 * 1000;
 
 // Commands that must survive an offline scanner go through AWS IoT Jobs (queued until the
 // device reconnects) instead of the fire-and-forget cmd/scanners/# path. `wipe` is
 // deliberately excluded — a queued factory-reset firing days later when someone finally
 // powers the device back on would be dangerous, so it stays on the direct path. `get_screen`
-// (not yet built) will belong on the direct path too: it's only meaningful right now, on a
+// stays on the direct path too, for the same reason: it's only meaningful right now, on a
 // device that's online, so a queued one would be pointless.
 const JOB_COMMANDS: ReadonlySet<CommandType> = new Set([
   "lock", "unlock", "restart", "install_apk", "push_config", "update_pin", "apply_policies",
@@ -85,6 +88,14 @@ function ScannerDetailContent() {
   const [showProvisionModal, setShowProvisionModal] = useState(false);
   const [provisionStep, setProvisionStep] = useState<"confirm" | "generating" | "code" | "error">("confirm");
   const [provisionError, setProvisionError] = useState("");
+
+  // Ticks every few seconds purely so the Screen View panel's "Xm ago" / stale badge keeps
+  // advancing even when no new telemetry arrives (e.g. after the fast-publish window ends).
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 5000);
+    return () => clearInterval(t);
+  }, []);
 
   // Queries
   const scanner = useQuery(api.scannerMdm.getScannerDetail, { id: scannerId });
@@ -358,7 +369,7 @@ function ScannerDetailContent() {
   const health = getScannerHealth(scanner);
   const isProvisioned = scanner.mdmStatus === "provisioned";
 
-  const commandButtons: { cmd: CommandType; label: string; icon: string; color: string; requiresAdmin?: boolean; requiresDeviceOwner?: boolean }[] = [
+  const commandButtons: { cmd: CommandType; label: string; icon: string; color: string; requiresAdmin?: boolean; requiresDeviceOwner?: boolean; requiresOnline?: boolean }[] = [
     { cmd: "lock", label: "Lock", icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z", color: "amber" },
     { cmd: "unlock", label: "Unlock", icon: "M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z", color: "emerald" },
     { cmd: "update_pin", label: "Reset PIN", icon: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z", color: "blue", requiresDeviceOwner: true },
@@ -366,6 +377,7 @@ function ScannerDetailContent() {
     { cmd: "push_config", label: "Push Config", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z", color: "purple" },
     { cmd: "restart", label: "Restart", icon: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15", color: "slate" },
     { cmd: "apply_policies", label: "Apply Policies", icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", color: "indigo" },
+    { cmd: "get_screen", label: "View Screen", icon: "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z", color: "teal", requiresOnline: true },
     { cmd: "wipe", label: "Factory Reset", icon: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16", color: "red", requiresAdmin: true },
   ];
 
@@ -373,6 +385,12 @@ function ScannerDetailContent() {
     sent: "text-blue-400 bg-blue-500/10", acknowledged: "text-cyan-400 bg-cyan-500/10",
     completed: "text-emerald-400 bg-emerald-500/10", failed: "text-red-400 bg-red-500/10", timeout: "text-amber-400 bg-amber-500/10",
   };
+
+  // Screen View panel state — `nowTick` (updated every 5s, see effect above) keeps the age
+  // display advancing even if no fresh telemetry arrives after the fast-publish window ends.
+  const lastScreen = scanner.lastScreen;
+  const screenAgeMs = lastScreen?.at ? nowTick - lastScreen.at : null;
+  const screenIsStale = screenAgeMs !== null && screenAgeMs > SCREEN_STALE_MS;
 
   return (
     <Protected>
@@ -737,12 +755,14 @@ function ScannerDetailContent() {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {commandButtons.filter((b) => !b.requiresAdmin || isSuperAdmin).map((btn) => {
                         const blockedByOwner = btn.requiresDeviceOwner && !scanner.deviceOwner;
+                        const blockedByOffline = btn.requiresOnline && !scanner.isOnline;
+                        const blocked = blockedByOwner || blockedByOffline;
                         return (
                           <button
                             key={btn.cmd}
                             onClick={() => initiateCommand(btn.cmd)}
-                            disabled={blockedByOwner}
-                            title={blockedByOwner ? "Requires Device Owner" : undefined}
+                            disabled={blocked}
+                            title={blockedByOffline ? "Scanner is offline — nothing to view right now" : blockedByOwner ? "Requires Device Owner" : undefined}
                             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors border disabled:opacity-40 disabled:cursor-not-allowed ${isDark ? `bg-${btn.color}-500/5 text-${btn.color}-400 hover:bg-${btn.color}-500/15 border-${btn.color}-500/15` : `bg-${btn.color}-50/50 text-${btn.color}-600 hover:bg-${btn.color}-50 border-${btn.color}-200/50`}`}
                           >
                             <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={btn.icon} /></svg>
@@ -751,6 +771,75 @@ function ScannerDetailContent() {
                         );
                       })}
                     </div>
+                  </Card>
+                )}
+
+                {/* Screen View — an on-demand look at what's actually on this scanner's
+                    screen, requested via the "View Screen" button above. This is a live view
+                    of a named employee's device, not neutral telemetry, and a stale snapshot
+                    shown as if it were current is worse than showing nothing — so the age is
+                    front and center and a stale result is visually called out. */}
+                {canEdit && isProvisioned && (
+                  <Card>
+                    <SectionHeader label="Screen View" />
+                    <p className="text-xs mb-3 theme-text-tertiary">
+                      A view of what&apos;s on this device&apos;s screen, captured on request — not a continuous feed.
+                      Requesting one switches the scanner to a faster ~3s check-in for about 2 minutes, then it returns to its normal 5-minute cadence.
+                    </p>
+                    {!lastScreen ? (
+                      <p className="text-sm theme-text-tertiary">No screen snapshot requested yet. Use &quot;View Screen&quot; above.</p>
+                    ) : lastScreen.at === undefined ? (
+                      <div className="space-y-3">
+                        <p className="text-sm theme-text-tertiary">
+                          The agent hasn&apos;t captured a screen snapshot yet (it may still be waiting on the Accessibility permission). Recent agent log below.
+                        </p>
+                        {!!lastScreen.logTail?.length && (
+                          <div className={`font-mono text-[11px] rounded-lg border p-2.5 max-h-32 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words theme-border-secondary ${isDark ? "bg-slate-900" : "bg-gray-50"}`}>
+                            {lastScreen.logTail.join("\n")}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <div className={`flex flex-wrap items-center gap-2 mb-3 px-2.5 py-1.5 rounded-lg text-xs font-medium ${screenIsStale ? "bg-amber-500/10 text-amber-500" : "bg-emerald-500/10 text-emerald-500"}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${screenIsStale ? "bg-amber-500" : "bg-emerald-500"}`} />
+                          <span>{screenIsStale ? "Stale — captured" : "Captured"} {timeAgo(lastScreen.at)}</span>
+                          {screenIsStale && (
+                            <span className="theme-text-tertiary font-normal">The device may be showing something different now.</span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3 text-xs">
+                          <div>
+                            <div className="theme-text-tertiary mb-0.5">App</div>
+                            <div className="font-mono theme-text-secondary truncate">{lastScreen.packageName || "Unknown"}</div>
+                          </div>
+                          <div>
+                            <div className="theme-text-tertiary mb-0.5">Screen</div>
+                            <div className="font-mono theme-text-secondary truncate">{lastScreen.activity || "Unknown"}</div>
+                          </div>
+                        </div>
+                        {lastScreen.title && (
+                          <div className="text-xs mb-3">
+                            <span className="theme-text-tertiary">Window title: </span>
+                            <span className="theme-text-secondary">{lastScreen.title}</span>
+                          </div>
+                        )}
+                        <div className="mb-3">
+                          <div className="ui-section-label mb-1">
+                            On-screen text {lastScreen.truncated && <span className="text-amber-500 font-normal">(truncated — capped at 100 strings / 4096 chars, passwords skipped)</span>}
+                          </div>
+                          <div className={`font-mono text-[11px] rounded-lg border p-2.5 max-h-48 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words theme-border-secondary ${isDark ? "bg-slate-900" : "bg-gray-50"}`}>
+                            {lastScreen.text?.length ? lastScreen.text.join("\n") : "(no on-screen text captured)"}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="ui-section-label mb-1">Agent log tail</div>
+                          <div className={`font-mono text-[11px] rounded-lg border p-2.5 max-h-32 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words theme-border-secondary ${isDark ? "bg-slate-900" : "bg-gray-50"}`}>
+                            {lastScreen.logTail?.length ? lastScreen.logTail.join("\n") : "(no log lines)"}
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </Card>
                 )}
 
@@ -905,6 +994,7 @@ function ScannerDetailContent() {
                       {pendingCommand === "restart" && "Restart the scanner device."}
                       {pendingCommand === "update_pin" && "The scanner will generate a new 6-digit PIN and apply it. Nobody chooses the number, so it can\u2019t be a guessable one. It appears here once the scanner confirms it \u2014 if the scanner is off, this applies next time it powers up."}
                       {pendingCommand === "apply_policies" && "Re-apply device restrictions and lockdown policy."}
+                      {pendingCommand === "get_screen" && "Request a live look at this scanner’s screen — the app in use, on-screen text, and recent agent log lines. This is a view of what the assigned employee currently has on their device, not just a diagnostic number. The scanner will publish faster (about every 3 seconds) for roughly 2 minutes, then return to its normal 5-minute check-in."}
                     </p>
                   )}
                   {pendingCommand !== "wipe" && JOB_COMMANDS.has(pendingCommand) && (

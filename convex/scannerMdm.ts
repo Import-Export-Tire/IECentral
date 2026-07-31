@@ -207,6 +207,17 @@ export const updateScannerTelemetry = internalMutation({
     deviceOwner: v.optional(v.boolean()),
     pinManaged: v.optional(v.boolean()),
     pin: v.optional(v.string()),
+    // Only present while the agent is in get_screen's fast-publish window (see status.py).
+    // Stored as `lastScreen` — latest snapshot only, no history table.
+    screen: v.optional(v.object({
+      at: v.optional(v.number()),
+      packageName: v.optional(v.string()),
+      activity: v.optional(v.string()),
+      title: v.optional(v.string()),
+      text: v.optional(v.array(v.string())),
+      truncated: v.optional(v.boolean()),
+      logTail: v.optional(v.array(v.string())),
+    })),
   },
   handler: async (ctx, args) => {
     const scanner = await ctx.db
@@ -236,6 +247,7 @@ export const updateScannerTelemetry = internalMutation({
     if (args.deviceOwner !== undefined) updates.deviceOwner = args.deviceOwner;
     if (args.pinManaged !== undefined) updates.pinManaged = args.pinManaged;
     if (args.pin !== undefined) updates.pin = args.pin;
+    if (args.screen !== undefined) updates.lastScreen = args.screen;
 
     // === Alert generation ===
     const existingAlerts: Array<{

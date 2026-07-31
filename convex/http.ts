@@ -37,6 +37,7 @@ http.route({
         deviceOwner: body.deviceOwner,
         pinManaged: body.pinManaged,
         pin: body.pin,
+        screen: body.screen,
       });
 
       return new Response(JSON.stringify({ success: true }), {
