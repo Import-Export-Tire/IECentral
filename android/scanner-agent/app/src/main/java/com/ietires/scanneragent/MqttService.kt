@@ -554,7 +554,7 @@ class MqttService : Service() {
                     UpdatePinResult.SetPinFailed -> JobOutcome.Retryable("setPin failed")
                     // Invalid payload.pin can never succeed on a retry with the same payload —
                     // see the JobOutcome doc above on Retryable vs Permanent.
-                    UpdatePinResult.InvalidPin -> JobOutcome.Permanent("update_pin: payload.pin must be 4-8 digits, digits only")
+                    UpdatePinResult.InvalidPin -> JobOutcome.Permanent("update_pin: payload.pin must be exactly 6 digits, and not sequential (123456) or repeated (111111)")
                 }
                 "apply_policies" -> {
                     applyPolicies(); publishTelemetry()
@@ -595,7 +595,7 @@ class MqttService : Service() {
         val pin: String
         if (requestedPin != null) {
             if (!isValidPin(requestedPin)) {
-                Log.e(TAG, "update_pin: rejected invalid payload.pin (must be 4-8 digits, digits only) — leaving current PIN unchanged, NOT falling back to a random PIN")
+                Log.e(TAG, "update_pin: rejected invalid payload.pin (must be 6 digits and not sequential or repeated) — leaving current PIN unchanged, NOT falling back to a random PIN")
                 return UpdatePinResult.InvalidPin
             }
             pin = requestedPin
@@ -608,7 +608,12 @@ class MqttService : Service() {
         return if (applied != null) UpdatePinResult.Applied else UpdatePinResult.SetPinFailed
     }
 
-    private fun isValidPin(pin: String): Boolean = pin.length in 4..8 && pin.all { it.isDigit() }
+    // Exactly 6 digits, fleet-wide. Six is the standing rule because it's hard to guess, and
+    // the PIN is what ties one scanner to one person for accountability — so the device
+    // enforces it too, not just the web form. A shorter PIN can't sneak in via a direct API
+    // call that bypasses the UI.
+    private fun isValidPin(pin: String): Boolean =
+        pin.length == 6 && pin.all { it.isDigit() } && !pinManager.isWeakPin(pin)
 
     /** Returns true if lockNow() was actually invoked (device admin active) — used by
      *  executeJobCommand to distinguish success from failure. The cmd/scanners/# path above

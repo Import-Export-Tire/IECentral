@@ -58,9 +58,27 @@ class PinManager(private val ctx: Context) {
     }
 
     fun generatePin(len: Int = 6): String {
-        val r = SecureRandom(); val sb = StringBuilder()
-        repeat(len) { sb.append(r.nextInt(10)) }
-        return sb.toString()
+        val r = SecureRandom()
+        // Re-roll anything guessable. A random generator will happily produce 123456 or
+        // 111111, and those are the first PINs anyone tries on a shared warehouse device.
+        // Bounded so this can never spin forever.
+        repeat(50) {
+            val candidate = buildString { repeat(len) { append(r.nextInt(10)) } }
+            if (!isWeakPin(candidate)) return candidate
+        }
+        // Astronomically unlikely; fall back to something non-sequential by construction.
+        return buildString { repeat(len) { append(r.nextInt(8) + 1) } }
+    }
+
+    /** Guessable PINs: all one digit (111111), or a run counting up or down (123456 / 654321).
+     *  Wrapping runs count too — 890123 is no harder to guess than 123456. */
+    fun isWeakPin(pin: String): Boolean {
+        if (pin.length < 2) return true
+        if (pin.all { it == pin[0] }) return true
+        val digits = pin.map { it - '0' }
+        val ascending = digits.zipWithNext().all { (a, b) -> (a + 1) % 10 == b }
+        val descending = digits.zipWithNext().all { (a, b) -> (a + 9) % 10 == b }
+        return ascending || descending
     }
 
     /** Set the lock PIN. Returns the new PIN on success, null otherwise.

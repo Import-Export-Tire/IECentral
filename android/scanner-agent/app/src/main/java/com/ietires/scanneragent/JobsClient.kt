@@ -270,7 +270,15 @@ class JobsClient(
         when (outcome) {
             is JobOutcome.Success -> reportTerminal(exec.jobId, "SUCCEEDED", null)
             is JobOutcome.Retryable -> reportTerminal(exec.jobId, "FAILED", outcome.detail)
-            is JobOutcome.Permanent -> reportTerminal(exec.jobId, "REJECTED", outcome.detail)
+            // REJECTED would be the honest status for something that can never succeed (AWS
+            // never retries it), but AWS only accepts REJECTED from QUEUED — once we've
+            // reported IN_PROGRESS it answers "Only queued jobs can be rejected", the update is
+            // dropped, and the execution sits IN_PROGRESS in the UI until it eventually times
+            // out. Verified on a TC51 with a malformed update_pin payload. FAILED is accepted
+            // from IN_PROGRESS and reaches a terminal state immediately, which matters more
+            // than the label: an operator needs to see that it failed and why. The detail
+            // carries the real reason, and the completed-job guard stops a retry re-running it.
+            is JobOutcome.Permanent -> reportTerminal(exec.jobId, "FAILED", outcome.detail)
         }
     }
 

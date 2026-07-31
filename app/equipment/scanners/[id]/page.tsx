@@ -80,12 +80,6 @@ function ScannerDetailContent() {
   const [repairRequired, setRepairRequired] = useState(false);
   const [readyForReassignment, setReadyForReassignment] = useState(true);
 
-  // PIN change state
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [newPin, setNewPin] = useState("");
-  const [confirmPin, setConfirmPin] = useState("");
-  const [pinError, setPinError] = useState("");
-  const [savingPin, setSavingPin] = useState(false);
 
   // Provision state
   const [showProvisionModal, setShowProvisionModal] = useState(false);
@@ -519,7 +513,7 @@ function ScannerDetailContent() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => { setShowPinModal(true); setNewPin(""); setConfirmPin(""); setPinError(""); }}
+                            onClick={() => initiateCommand("update_pin")}
                           >
                             Change
                           </Button>
@@ -909,7 +903,7 @@ function ScannerDetailContent() {
                       {pendingCommand === "install_apk" && "Push latest APK updates to the scanner."}
                       {pendingCommand === "push_config" && "Push latest RT Locator configuration."}
                       {pendingCommand === "restart" && "Restart the scanner device."}
-                      {pendingCommand === "update_pin" && "Generate a new system PIN on the scanner and apply it."}
+                      {pendingCommand === "update_pin" && "The scanner will generate a new 6-digit PIN and apply it. Nobody chooses the number, so it can\u2019t be a guessable one. It appears here once the scanner confirms it \u2014 if the scanner is off, this applies next time it powers up."}
                       {pendingCommand === "apply_policies" && "Re-apply device restrictions and lockdown policy."}
                     </p>
                   )}
@@ -1155,109 +1149,6 @@ function ScannerDetailContent() {
                     <Button variant="ghost" onClick={() => setShowReturnModal(false)}>Cancel</Button>
                     <Button variant="secondary" onClick={handleReturn} disabled={sending}>
                       {sending ? "Processing..." : "Complete Return"}
-                    </Button>
-                  </div>
-                </Card>
-              </div>
-            </div>
-          )}
-
-          {/* PIN Change Modal */}
-          {showPinModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowPinModal(false)}>
-              <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm mx-4">
-                <Card>
-                  <h3 className="text-lg font-semibold mb-1 theme-text-primary">Set the scanner&apos;s PIN</h3>
-                  <p className="text-xs mb-4 theme-text-tertiary">
-                    {scanner?.number ?? "Scanner"} — 6 digits recommended. This is sent to the
-                    scanner and becomes its real lock PIN. If it&apos;s switched off, it applies
-                    the next time it powers up. The PIN shown on this page updates once the
-                    scanner confirms it.
-                  </p>
-
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-medium mb-1 theme-text-tertiary">New PIN</label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={newPin}
-                        onChange={(e) => { setNewPin(e.target.value.replace(/\D/g, "")); setPinError(""); }}
-                        maxLength={8}
-                        className="theme-input w-full px-3 py-2 text-sm font-mono tracking-widest text-center text-lg"
-                        placeholder="000000"
-                        autoFocus
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium mb-1 theme-text-tertiary">Confirm PIN</label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={confirmPin}
-                        onChange={(e) => { setConfirmPin(e.target.value.replace(/\D/g, "")); setPinError(""); }}
-                        maxLength={8}
-                        className="theme-input w-full px-3 py-2 text-sm font-mono tracking-widest text-center text-lg"
-                        placeholder="000000"
-                      />
-                    </div>
-
-                    {pinError && (
-                      <p className="text-xs text-red-400">{pinError}</p>
-                    )}
-                  </div>
-
-                  <div className="flex justify-end gap-3 mt-5">
-                    <Button variant="ghost" onClick={() => setShowPinModal(false)}>Cancel</Button>
-                    <Button
-                      variant="primary"
-                      disabled={savingPin}
-                      onClick={async () => {
-                        // Send the PIN to the SCANNER. This used to call updateScanner, which
-                        // wrote the scanners.pin database field and nothing else — the device
-                        // never learned the new PIN, and the next telemetry publish overwrote
-                        // the record with the PIN the device actually had. Anyone trusting this
-                        // dialog was locked out with a number that had never existed on the
-                        // hardware.
-                        if (!/^\d{4,8}$/.test(newPin)) { setPinError("PIN must be 4–8 digits"); return; }
-                        if (newPin !== confirmPin) { setPinError("PINs do not match"); return; }
-                        if (!scanner?.iotThingName) { setPinError("This scanner isn't provisioned yet, so it can't be sent a PIN."); return; }
-                        setSavingPin(true);
-                        try {
-                          if (!user) throw new Error("Not signed in");
-                          await logCommand({
-                            scannerId, command: "update_pin", userId: user._id,
-                            userName: user.name ?? user.email,
-                          });
-                          // Durable path: if the scanner is switched off the PIN change waits
-                          // and applies when it next powers up, rather than being discarded.
-                          const res = await fetch("/api/scanner-mdm/job", {
-                            method: "POST", headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              thingName: scanner.iotThingName,
-                              command: "update_pin",
-                              payload: { pin: newPin },
-                            }),
-                          });
-                          if (!res.ok) throw new Error(await res.text());
-                          const data = await res.json();
-                          if (data.jobId) {
-                            await recordJob({
-                              scannerId, jobId: data.jobId, command: "update_pin",
-                              payload: { pin: newPin }, createdBy: user._id,
-                            });
-                          }
-                          setShowPinModal(false);
-                        } catch (err) {
-                          setPinError(err instanceof Error ? err.message : "Couldn't send the PIN to the scanner");
-                        } finally {
-                          setSavingPin(false);
-                        }
-                      }}
-                    >
-                      {savingPin ? "Saving..." : "Update PIN"}
                     </Button>
                   </div>
                 </Card>
