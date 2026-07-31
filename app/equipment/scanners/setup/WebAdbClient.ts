@@ -142,6 +142,30 @@ export class WebAdbClient {
     return this.shellCommand(this.connection.adb, cmd);
   }
 
+  /** Run a shell command but stop waiting after [ms]. The device-side process can't
+   *  actually be killed from here, so this does NOT cancel the command — it converts an
+   *  indefinite hang into a thrown error the wizard can surface and retry. Observed in
+   *  the field: `pm install` of the agent occasionally never returns (suspected
+   *  package-verifier interaction), leaving the Install step spinning forever with no
+   *  error and no way forward except closing the wizard and starting over. */
+  private async shellWithTimeout(cmd: string, ms: number, label: string): Promise<string> {
+    if (!this.connection) throw new Error("Not connected");
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        this.shellCommand(this.connection.adb, cmd),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)),
+            ms,
+          );
+        }),
+      ]);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  }
+
   async pushTextFile(content: string, devicePath: string): Promise<void> {
     if (!this.connection) throw new Error("Not connected");
     const sync = await this.connection.adb.sync();
@@ -199,8 +223,34 @@ export class WebAdbClient {
     // Redirect stderr→stdout: pm/cmd writes "Failure [INSTALL_FAILED_...]" to stderr on
     // Android 8.1, but shellProtocol only returns stdout. Without this the error message
     // is blank AND InstallStep's INSTALL_FAILED_UPDATE_INCOMPATIBLE auto-retry can't match.
-    const result = await this.shell(`pm install -r ${remotePath} 2>&1`);
-    await this.shell(`rm -f ${remotePath}`);
+    //
+    // Bounded + retried once: a real install of these APKs measures ~20s on a TC51, so a
+    // command still running at 90s is hung rather than slow. Retrying is safe — `pm
+    // install -r` reinstalls over whatever a stalled first attempt may have left, and the
+    // pushed APK is still at remotePath.
+    const INSTALL_TIMEOUT_MS = 90_000;
+    let result: string;
+    try {
+      result = await this.shellWithTimeout(
+        `pm install -r ${remotePath} 2>&1`,
+        INSTALL_TIMEOUT_MS,
+        "pm install",
+      );
+    } catch (first) {
+      const firstMsg = first instanceof Error ? first.message : String(first);
+      try {
+        result = await this.shellWithTimeout(
+          `pm install -r ${remotePath} 2>&1`,
+          INSTALL_TIMEOUT_MS,
+          "pm install (retry)",
+        );
+      } catch (second) {
+        const secondMsg = second instanceof Error ? second.message : String(second);
+        await this.shell(`rm -f ${remotePath}`).catch(() => {});
+        throw new Error(`Install failed: ${firstMsg}; retry also failed: ${secondMsg}`);
+      }
+    }
+    await this.shell(`rm -f ${remotePath}`).catch(() => {});
     if (!/Success/.test(result)) {
       throw new Error(`Install failed: ${result.trim() || "pm install produced no output"}`);
     }

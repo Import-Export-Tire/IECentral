@@ -187,8 +187,16 @@ export function InstallStep({ session }: { session: Session }) {
             }
           | undefined;
         await runStep("downloadApks", "Downloading APKs", async () => {
+          // Mark the row done once it reaches 100% — otherwise these per-file rows keep
+          // an "in-progress" spinner forever (nothing else ever reports on them), which
+          // reads as a stalled download even though the parent step has succeeded.
           const onProgressFor = (label: string) => (pct: number) =>
-            actions.reportProgress(`download-${label}`, "in-progress", `Downloading ${label}`, pct);
+            actions.reportProgress(
+              `download-${label}`,
+              pct >= 100 ? "success" : "in-progress",
+              `Downloading ${label}`,
+              pct,
+            );
 
           const [rtlBuf, ttBuf, agentBuf] = await Promise.all([
             urls!.rtLocator ? fetchApk(urls!.rtLocator, onProgressFor("rtl")) : Promise.resolve(null),
