@@ -88,18 +88,21 @@ Resources:
               - !Sub 'arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topic/dt/scanners/*/telemetry'
               - !Sub 'arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topic/cmd/scanners/*/ack'
               - !Sub 'arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topic/$aws/things/*/shadow/update'
+              - !Sub 'arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topic/$aws/things/*/jobs/*'
           - Effect: Allow
             Action:
               - iot:Subscribe
             Resource:
               - !Sub 'arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topicfilter/cmd/scanners/*'
               - !Sub 'arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topicfilter/$aws/things/*/shadow/*'
+              - !Sub 'arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topicfilter/$aws/things/*/jobs/*'
           - Effect: Allow
             Action:
               - iot:Receive
             Resource:
               - !Sub 'arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topic/cmd/scanners/*'
               - !Sub 'arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topic/$aws/things/*/shadow/*'
+              - !Sub 'arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topic/$aws/things/*/jobs/*'
 
   # ═══════════════════════════════════════════════════════════════════════════
   # IAM ROLE — Lambda execution role
@@ -180,6 +183,54 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: iot.amazonaws.com
       SourceArn: !GetAtt ScannerTelemetryRule.Arn
+
+  # AWS IoT Jobs emits execution status changes on this reserved event stream (JOB and
+  # JOB_EXECUTION events must be enabled account-wide with UpdateEventConfigurations —
+  # not expressible in CloudFormation, so it is done once out-of-band). Without this rule
+  # scannerJobs rows stay QUEUED forever: the sender records a job on creation and nothing
+  # ever updates it, so AWS knows the truth and the UI does not.
+  ScannerJobEventsRule:
+    Type: AWS::IoT::TopicRule
+    Properties:
+      RuleName: scanner_job_events_to_lambda
+      TopicRulePayload:
+        Sql: "SELECT * FROM '$aws/events/jobExecution/+/+'"
+        Actions:
+          - Lambda:
+              FunctionArn: !GetAtt JobEventsFunction.Arn
+        RuleDisabled: false
+
+  JobEventsFunctionInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref JobEventsFunction
+      Action: lambda:InvokeFunction
+      Principal: iot.amazonaws.com
+      SourceArn: !GetAtt ScannerJobEventsRule.Arn
+
+  # Role AWS IoT assumes to sign S3 URLs for ${aws:iot:s3-presigned-url:...} placeholders in
+  # job documents. The substitution happens when the DEVICE fetches the document, which is
+  # what lets a scanner that was switched off for a week still download a working APK.
+  IotPresignRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: scanner-iot-presign-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: iot.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: PresignScannerAssets
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub 'arn:aws:s3:::${AssetsBucketName}/*'
 
   # ═══════════════════════════════════════════════════════════════════════════
   # API GATEWAY
@@ -270,6 +321,18 @@ Resources:
     Properties:
       FunctionName: scanner-status
       Handler: status.handler
+      CodeUri: lambdas/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          CONVEX_URL: !Ref ConvexUrl
+          SECRETS_ARN: !Ref ConvexCredentials
+
+  JobEventsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: scanner-job-events
+      Handler: job_events.handler
       CodeUri: lambdas/
       Role: !GetAtt LambdaExecutionRole.Arn
       Environment:
