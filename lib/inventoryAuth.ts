@@ -18,6 +18,13 @@ export function checkInventoryToken(req: Request): 401 | 503 | null {
   // timingSafeEqual throws on length mismatch, so compare lengths first.
   const a = Buffer.from(provided);
   const b = Buffer.from(expected);
-  if (a.length !== b.length) return 401;
-  return timingSafeEqual(a, b) ? null : 401;
+  const ok = a.length === b.length && timingSafeEqual(a, b);
+  if (!ok) {
+    // Length only — never the value, and no hash that could confirm a guess.
+    console.warn(
+      `[inventoryAuth] token mismatch (providedLen=${a.length} expectedLen=${b.length})`
+    );
+    return 401;
+  }
+  return null;
 }
