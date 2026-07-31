@@ -1167,9 +1167,12 @@ function ScannerDetailContent() {
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowPinModal(false)}>
               <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm mx-4">
                 <Card>
-                  <h3 className="text-lg font-semibold mb-1 theme-text-primary">Change PIN</h3>
+                  <h3 className="text-lg font-semibold mb-1 theme-text-primary">Set the scanner&apos;s PIN</h3>
                   <p className="text-xs mb-4 theme-text-tertiary">
-                    {scanner?.iotThingName || scanner?.serialNumber || "Scanner"} — minimum 4 numeric digits
+                    {scanner?.number ?? "Scanner"} — 6 digits recommended. This is sent to the
+                    scanner and becomes its real lock PIN. If it&apos;s switched off, it applies
+                    the next time it powers up. The PIN shown on this page updates once the
+                    scanner confirms it.
                   </p>
 
                   <div className="space-y-3">
@@ -1183,7 +1186,7 @@ function ScannerDetailContent() {
                         onChange={(e) => { setNewPin(e.target.value.replace(/\D/g, "")); setPinError(""); }}
                         maxLength={8}
                         className="theme-input w-full px-3 py-2 text-sm font-mono tracking-widest text-center text-lg"
-                        placeholder="0000"
+                        placeholder="000000"
                         autoFocus
                       />
                     </div>
@@ -1197,7 +1200,7 @@ function ScannerDetailContent() {
                         onChange={(e) => { setConfirmPin(e.target.value.replace(/\D/g, "")); setPinError(""); }}
                         maxLength={8}
                         className="theme-input w-full px-3 py-2 text-sm font-mono tracking-widest text-center text-lg"
-                        placeholder="0000"
+                        placeholder="000000"
                       />
                     </div>
 
@@ -1212,15 +1215,43 @@ function ScannerDetailContent() {
                       variant="primary"
                       disabled={savingPin}
                       onClick={async () => {
-                        if (newPin.length < 4) { setPinError("PIN must be at least 4 digits"); return; }
+                        // Send the PIN to the SCANNER. This used to call updateScanner, which
+                        // wrote the scanners.pin database field and nothing else — the device
+                        // never learned the new PIN, and the next telemetry publish overwrote
+                        // the record with the PIN the device actually had. Anyone trusting this
+                        // dialog was locked out with a number that had never existed on the
+                        // hardware.
+                        if (!/^\d{4,8}$/.test(newPin)) { setPinError("PIN must be 4–8 digits"); return; }
                         if (newPin !== confirmPin) { setPinError("PINs do not match"); return; }
+                        if (!scanner?.iotThingName) { setPinError("This scanner isn't provisioned yet, so it can't be sent a PIN."); return; }
                         setSavingPin(true);
                         try {
                           if (!user) throw new Error("Not signed in");
-                          await updateScanner({ id: scannerId, pin: newPin, userId: user._id, requestingUserId: user._id });
+                          await logCommand({
+                            scannerId, command: "update_pin", userId: user._id,
+                            userName: user.name ?? user.email,
+                          });
+                          // Durable path: if the scanner is switched off the PIN change waits
+                          // and applies when it next powers up, rather than being discarded.
+                          const res = await fetch("/api/scanner-mdm/job", {
+                            method: "POST", headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              thingName: scanner.iotThingName,
+                              command: "update_pin",
+                              payload: { pin: newPin },
+                            }),
+                          });
+                          if (!res.ok) throw new Error(await res.text());
+                          const data = await res.json();
+                          if (data.jobId) {
+                            await recordJob({
+                              scannerId, jobId: data.jobId, command: "update_pin",
+                              payload: { pin: newPin }, createdBy: user._id,
+                            });
+                          }
                           setShowPinModal(false);
                         } catch (err) {
-                          setPinError(err instanceof Error ? err.message : "Failed to update PIN");
+                          setPinError(err instanceof Error ? err.message : "Couldn't send the PIN to the scanner");
                         } finally {
                           setSavingPin(false);
                         }
