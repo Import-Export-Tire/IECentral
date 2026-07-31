@@ -21,6 +21,12 @@ VALID_COMMANDS = [
     "push_config",
     "restart",
     "update_pin",
+    # Kept in step with job.py's list — a command the agent handles but a path rejects is
+    # a silent dead end for whoever tries it.
+    "uninstall_app",
+    "apply_policies",
+    "get_screen",
+    "set_home",
 ]
 
 

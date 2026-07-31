@@ -940,6 +940,20 @@ class MqttService : Service() {
      *  flipped via the set_home command. Wrapped entirely in try/catch: this runs in onCreate,
      *  so an uncaught exception here would crash-loop the service exactly like the PIN-policy
      *  and applyPolicies hiccups this module has already been bitten by. */
+    /** The stock launcher's HOME activity — any HOME handler that isn't us. */
+    private fun stockLauncherActivity(): android.content.pm.ActivityInfo? =
+        try {
+            packageManager
+                .queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)
+                .firstOrNull { it.activityInfo?.packageName != packageName }
+                ?.activityInfo
+        } catch (e: Exception) {
+            Log.w(TAG, "stockLauncherActivity lookup failed: ${e.message}")
+            null
+        }
+
+    private fun stockLauncherPackage(): String? = stockLauncherActivity()?.packageName
+
     private fun applyHomeScreenPreference() {
         try {
             if (!isDeviceOwner()) {
@@ -953,6 +967,18 @@ class MqttService : Service() {
                 addCategory(Intent.CATEGORY_DEFAULT)
             }
             if (isHomeScreenEnabled()) {
+                // Clear any HOME preference previously pointed at the stock launcher (the
+                // disable path below registers one). Verified on a TC51 that simply adding a
+                // second persistent-preferred activity for the same filter does NOT override
+                // the existing one — re-enabling silently left Launcher3 as home. The clear is
+                // per-package, so it must name the stock launcher's package, not ours.
+                stockLauncherPackage()?.let { pkg ->
+                    try {
+                        dpm.clearPackagePersistentPreferredActivities(admin, pkg)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "applyHomeScreenPreference: could not clear $pkg HOME preference: ${e.message}")
+                    }
+                }
                 dpm.addPersistentPreferredActivity(admin, filter, ComponentName(this, HomeActivity::class.java))
                 alog(Log.INFO, "applyHomeScreenPreference: HomeActivity set as persistent-preferred HOME")
             } else {
@@ -963,6 +989,18 @@ class MqttService : Service() {
                 // resolution again (rather than just leaving a stale, no-longer-desired
                 // preference in place).
                 dpm.clearPackagePersistentPreferredActivities(admin, packageName)
+                // Clearing alone leaves NO default, so pressing Home shows Android's
+                // "which launcher?" chooser — verified on a TC51. An employee must never be
+                // asked to pick a launcher, so hand HOME explicitly to the stock launcher.
+                val stock = stockLauncherActivity()
+                if (stock != null) {
+                    dpm.addPersistentPreferredActivity(
+                        admin, filter, ComponentName(stock.packageName, stock.name)
+                    )
+                    alog(Log.INFO, "applyHomeScreenPreference: HOME handed back to ${stock.packageName}")
+                } else {
+                    Log.w(TAG, "applyHomeScreenPreference: no stock launcher found to hand HOME back to")
+                }
                 alog(Log.INFO, "applyHomeScreenPreference: cleared persistent-preferred HOME — stock Launcher3 restored")
             }
         } catch (e: Exception) {

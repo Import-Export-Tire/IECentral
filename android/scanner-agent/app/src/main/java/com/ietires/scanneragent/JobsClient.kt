@@ -182,6 +182,17 @@ class JobsClient(
             Log.d(MqttService.TAG, "Jobs: no pending execution")
             return
         }
+        // Refuse anything already finished. The activeJobId check below only catches a
+        // duplicate that arrives WHILE the job runs, but reportTerminal() sets activeJobId back
+        // to null — so a $next/get echo landing just after completion sailed through and ran the
+        // command a SECOND time. Verified on a real TC51: apply_policies executed twice. Harmless
+        // for an idempotent command, but update_pin would have generated a fresh random PIN on
+        // the second pass, leaving the operator holding a PIN the device no longer has — and
+        // restart or install_apk would have fired twice.
+        if (reportedTerminal.contains(exec.jobId)) {
+            Log.d(MqttService.TAG, "Jobs: execution ${exec.jobId} already completed, ignoring duplicate")
+            return
+        }
         synchronized(jobLock) {
             if (activeJobId == exec.jobId) {
                 // Re-announcement of the job we're already running (a retried notify-next, or
@@ -473,13 +484,38 @@ class JobsClient(
         requestNextJob()
     }
 
+    /** Job ids already reported terminal — a second update for one of these is always
+     *  rejected by AWS as InvalidStateTransition, so don't send it. Bounded so a long-lived
+     *  agent can't accumulate ids forever. */
+    private val reportedTerminal = java.util.Collections.synchronizedSet(LinkedHashSet<String>())
+
     private fun publishUpdate(jobId: String, status: String, detail: String?) {
-        val expectedVersion = synchronized(jobLock) { if (activeJobId == jobId) activeVersionNumber else 0 }
+        val terminal = status == "SUCCEEDED" || status == "FAILED" || status == "REJECTED"
+        synchronized(reportedTerminal) {
+            if (reportedTerminal.contains(jobId)) {
+                Log.d(MqttService.TAG, "Jobs($jobId): already reported terminal — skipping $status")
+                return
+            }
+            if (terminal) {
+                reportedTerminal.add(jobId)
+                while (reportedTerminal.size > 50) {
+                    val it = reportedTerminal.iterator(); it.next(); it.remove()
+                }
+            }
+        }
         try {
             val body = JSONObject().apply {
                 put("status", status)
                 if (detail != null) put("statusDetails", JSONObject().put("detail", detail.take(1024)))
-                if (expectedVersion > 0) put("expectedVersion", expectedVersion)
+                // expectedVersion is deliberately NOT sent. It only buys optimistic-concurrency
+                // protection against two writers racing on one execution, and there is exactly
+                // one writer: this device. Sending it meant guessing the version locally, and a
+                // wrong guess produced "VersionMismatch", whose recovery re-ran the job and
+                // produced another mismatch — a loop observed on a real TC51, ending in
+                // "InvalidStateTransition: already finished with status SUCCEEDED". Omitting it
+                // makes AWS accept the update regardless of version, which removes the whole
+                // failure class. Worth noting the risk it protected against would have been a
+                // genuine FAILED being rejected, leaving a job stuck until it TIMED_OUT.
                 put("clientToken", newClientToken())
             }
             mqttClient.publish(
@@ -496,8 +532,7 @@ class JobsClient(
             // VersionMismatch handling clears local state and re-requests $next/get, which
             // resurfaces this same still-non-terminal job so it gets re-run and re-reported
             // correctly — self-healing rather than getting stuck.
-            synchronized(jobLock) { if (activeJobId == jobId) activeVersionNumber += 1 }
-            Log.i(MqttService.TAG, "Jobs($jobId): reported $status (expectedVersion=$expectedVersion)")
+            Log.i(MqttService.TAG, "Jobs($jobId): reported $status")
         } catch (e: Exception) {
             Log.e(MqttService.TAG, "Jobs($jobId): update publish failed for $status: ${e.message}", e)
         }

@@ -46,6 +46,10 @@ VALID_COMMANDS = [
     "update_pin",
     "apply_policies",
     "get_screen",
+    # The remote kill switch for the replacement home screen. Without this in the whitelist
+    # a broken launcher could not be turned off remotely, which is the entire reason
+    # replacing the launcher is acceptable rather than reckless.
+    "set_home",
 ]
 
 MAX_JOB_ID_LEN = 64
