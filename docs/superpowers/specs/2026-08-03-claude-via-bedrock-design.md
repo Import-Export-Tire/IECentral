@@ -118,5 +118,16 @@ Reverting is an env var change, not a deploy.
 ## Deferred
 
 - **OpenAI text** (GPT-5.5 / 5.4) — on Bedrock, so it reuses this credential and this layer.
-- **OpenAI image and video** — *not* on Bedrock. Its OpenAI catalog is text-only. Image generation there is Amazon Nova Canvas, Titan Image Generator, and Stability AI; the only video generator is Amazon Nova Reel. Nova Canvas and Nova Reel both carry a **model EOL date of 2026-09-30** and are marked legacy, so neither is a foundation to build on. Whichever direction social media generation goes, it needs its own decision.
+- **Image and video generation** — will not be an AWS story. Bedrock's OpenAI catalog is text-only, and its own generative-media lineup is not viable:
+
+  | Model | Pure text-to-image | Status |
+  |---|---|---|
+  | Nova Canvas | Yes | EOL 2026-09-30, legacy |
+  | Titan Image Generator G1 v2 | Yes | EOL 2026-06-30 — already past, legacy |
+  | Stability AI (13 models) | **No** — editing/conditional only | Active |
+  | Nova Reel (video, no audio) | Yes | EOL 2026-09-30, legacy |
+
+  Every Stability model on Bedrock requires an existing image or reference input (upscale, inpaint, outpaint, erase, recolor, style transfer, sketch- or depth-guided generation). There is no Stable Image Ultra/Core or SD3.5, so no text-to-image entry point.
+
+  Direction when social media generation is built: Claude on Bedrock for copy; **OpenAI GPT Image via the direct API** for imagery, chosen for in-image text legibility; video deferred (Nova Reel is a dead end, OpenAI's video API is in deprecation churn, Google Veo is the other contender). Compose rather than generate whole posts — AI produces the background layer, and our own `sharp`-based renderer composites real product photography and real typography over it. AI-rendered tires and small text are both liabilities for this brand.
 - **Whisper → Amazon Transcribe**, if that spend should also move to AWS.
