@@ -1,5 +1,15 @@
+"use node";
+
 /**
  * Provider-agnostic Claude client for Convex actions.
+ *
+ * "use node" is required, not optional: @anthropic-ai/bedrock-sdk pulls in the AWS
+ * SigV4 credential chain (@aws-sdk/credential-provider-*, @smithy/*), which imports
+ * node:fs / node:os / node:http. Without the directive Convex bundles this module for
+ * the V8 isolate runtime and the deploy fails with "using Node APIs from a file
+ * without the 'use node' directive" — which breaks the whole Vercel build, since the
+ * production build command is `npx convex deploy --cmd 'next build'`.
+ * Every importer of this module must also be a "use node" file.
  *
  * Claude is reached through Amazon Bedrock so LLM spend lands on the existing
  * AWS invoice and no Anthropic API key has to be provisioned. The direct

@@ -254,7 +254,7 @@ function ExitInterviewsReportContent() {
   const isDark = theme === "dark";
   const { user } = useAuth();
 
-  const generateExecutiveBrief = useAction(api.exitInterviews.generateExecutiveBrief);
+  const generateExecutiveBrief = useAction(api.exitInterviewActions.generateExecutiveBrief);
 
   const interviewsRaw = useQuery(api.exitInterviews.list, {}) as InterviewRow[] | undefined;
   const personnel = useQuery(api.personnel.listAll, {});

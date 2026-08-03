@@ -49,7 +49,7 @@ function EngagementDashboardContent() {
   // Mutations & Actions
   const createDefaultSurvey = useMutation(api.surveys.createDefaultPulseSurvey);
   const sendSurvey = useMutation(api.surveys.sendSurvey);
-  const generateAISummary = useAction(api.exitInterviews.generateAISummary);
+  const generateAISummary = useAction(api.exitInterviewActions.generateAISummary);
 
   const handleGenerateAIInsights = async () => {
     setAiInsights({ loading: true });
