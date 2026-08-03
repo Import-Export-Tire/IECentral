@@ -2,11 +2,41 @@ import { NextRequest, NextResponse } from "next/server";
 import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import { sendPipelineAlert } from "@/lib/pipelineAlert";
 
 const BUCKET = "ietires-dunlop-jmk-uploads";
 const API_GATEWAY_URL = process.env.DUNLOP_API_GATEWAY_URL || "https://jzdhz2de88.execute-api.us-east-1.amazonaws.com/prod";
 const CRON_SECRET = process.env.CRON_SECRET;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.iecentral.com";
+
+/**
+ * Alert if the cron's submission did not actually reach Dunlop.
+ *
+ * The cron records its outcome either way; the July 2026 failure was written to
+ * history and rendered as a red badge, then went unread for two days because
+ * nothing notified anyone. This only adds the notification.
+ */
+async function alertIfNotDelivered(
+  result: Record<string, unknown> | null,
+  ctx: { month: string; sourceKey: string; runBy: string },
+) {
+  const status = result?.sftpStatus;
+  const failed = !result || result.error || (status && status !== "success");
+  if (!failed) return;
+  await sendPipelineAlert({
+    subject: `Dunlop monthly auto-run did NOT deliver ${ctx.month}`,
+    lines: [
+      `Dunlop did not receive the ${ctx.month} sellout report.`,
+      `sftpStatus: ${status ?? "(none returned)"}`,
+      `error: ${result?.error ?? "(none)"}`,
+      `sourceFile: ${ctx.sourceKey}`,
+      `rows: ${result?.rows ?? "(unknown)"}`,
+      `runBy: ${ctx.runBy}`,
+      "",
+      "Resubmit with POST /api/dunlop/run pointed at the correct monthly file.",
+    ],
+  });
+}
 
 const s3 = new S3Client({
   region: process.env.S3_REGION || "us-east-1",
@@ -195,6 +225,10 @@ export async function GET(request: NextRequest) {
       } catch (err) {
         dunlopResult = { error: err instanceof Error ? err.message : "Lambda call failed" };
       }
+      await alertIfNotDelivered(dunlopResult, {
+        month: monthLabel, sourceKey: monthlyFileKey,
+        runBy: "Monthly Auto-Run (explicit monthly file)",
+      });
       return NextResponse.json({
         status: "success",
         month: monthLabel,
@@ -310,6 +344,9 @@ export async function GET(request: NextRequest) {
     } catch (err) {
       dunlopResult = { error: err instanceof Error ? err.message : "Lambda call failed" };
     }
+    await alertIfNotDelivered(dunlopResult, {
+      month: monthLabel, sourceKey: combinedKey, runBy: "Monthly Auto-Run",
+    });
 
     return NextResponse.json({
       status: "success",
