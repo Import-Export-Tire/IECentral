@@ -75,6 +75,14 @@ export type SnapshotItem = {
   model: string;
   size: string;
   mpn: string;
+  /**
+   * JMK's own barcode for this item, straight from the OEIVAL and keyed by the
+   * same itemId. This is the authoritative scan key — 99% populated at W09
+   * (94% upcCode + 5% ean) — and it removes any need to bridge through
+   * tireUPCs on the manufacturer part number.
+   */
+  upc: string;
+  ean: string;
 };
 
 export type SnapshotResult = {
@@ -85,6 +93,8 @@ export type SnapshotResult = {
   count: number;
   excludedNonTires: number;
   excludedUnits: number;
+  /** How many returned items carry a barcode — the scannable fraction. */
+  withBarcode: number;
   items: SnapshotItem[];
 };
 
@@ -187,13 +197,17 @@ export async function readLocationSnapshot(location: string): Promise<SnapshotRe
         model: String(it.model ?? ""),
         size: String(it.description ?? ""),
         mpn: String(it.mfgItemId ?? ""),
+        upc: String(it.upcCode ?? "").trim(),
+        ean: String(it.ean ?? "").trim(),
       });
     }
   }
 
   const items = [...byItem.values()];
+  const withBarcode = items.filter((i) => i.upc || i.ean).length;
   return {
     location: loc,
+    withBarcode,
     fileDate: meta.fileDate ?? null,
     fileName: meta.fileName ?? null,
     generatedAt: meta.generatedAt ?? null,
