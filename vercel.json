@@ -2,20 +2,20 @@
   "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then npx convex deploy --cmd 'next build'; else npx next build; fi",
   "crons": [
     {
-      "path": "/api/sales/refresh",
-      "schedule": "0 10 * * *"
-    },
-    {
       "path": "/api/reports/auto-process",
       "schedule": "0 9 * * 1-5"
     },
     {
+      "path": "/api/sales/refresh",
+      "schedule": "0 10 * * *"
+    },
+    {
       "path": "/api/dunlop/monthly-run",
-      "schedule": "0 14 1 * *"
+      "schedule": "0 14 1,4,8 * *"
     },
     {
       "path": "/api/dealer-rebates/verify",
-      "schedule": "0 15 2 * *"
+      "schedule": "0 15 10 * *"
     }
   ],
   "functions": {

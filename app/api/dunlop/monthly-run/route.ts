@@ -246,6 +246,48 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // WAIT for the full-month upload rather than submitting an approximation.
+    //
+    // No explicit monthly file exists at this point. Combining the dailies and
+    // submitting would race the real trigger: /reports/upload posts to
+    // /api/dunlop/run as soon as an OEA07V file covering a full month is uploaded
+    // (gated on isMonthlyData), and Michael uploads days after this cron fires —
+    // July's landed Aug 3. Submitting here means Dunlop receives the combined
+    // dailies now and the authoritative monthly file days later: two accepted
+    // submissions, double-counted sellout.
+    //
+    // So the cron waits and nags. Each run either skips (already submitted),
+    // submits (a monthly file is now present, meaning the upload trigger itself
+    // failed), or alerts that the month is still outstanding. Nothing incomplete
+    // goes to Dunlop on a schedule.
+    //
+    // Escape hatch: ?allowDailies=1 submits the combined dailies anyway, for a
+    // deliberate human decision that an approximate month beats a late one.
+    if (request.nextUrl.searchParams.get("allowDailies") !== "1") {
+      await sendPipelineAlert({
+        subject: `Dunlop ${monthLabel} still not submitted — monthly file not uploaded`,
+        lines: [
+          `The ${monthLabel} monthly OEA07V file has not been uploaded, so Dunlop has`,
+          `not received that month's sellout report yet.`,
+          "",
+          `Daily files available for ${monthLabel}: ${oea07vFiles.length}`,
+          "",
+          "Normal fix: upload the full-month OEA07V file at /reports/upload — that",
+          "submits to Dunlop automatically once the file covers the whole month.",
+          "",
+          "To ship the combined dailies instead (approximate, deliberate choice):",
+          `  GET /api/dunlop/monthly-run?allowDailies=1`,
+        ],
+      });
+      return NextResponse.json({
+        status: "waiting",
+        month: monthLabel,
+        reason: "No full-month OEA07V file uploaded yet; refusing to submit combined dailies and race the upload trigger",
+        dailiesAvailable: oea07vFiles.length,
+        override: "/api/dunlop/monthly-run?allowDailies=1",
+      });
+    }
+
     // 2. Download and parse all files (oldest\u2192newest), deduping by invoice line.
     let header: string | null = null;
     // Key = itemId|accountId|invoiceId|activityDate (NO qty): if a later daily file
