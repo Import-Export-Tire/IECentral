@@ -1,5 +1,5 @@
 // Run: npx tsx lib/dunlopSchedule.test.ts
-import { scheduledAttemptDays } from "./dunlopSchedule";
+import { scheduledAttemptDays, DUNLOP_DEADLINE_DAY, daysUntilDeadline } from "./dunlopSchedule";
 import assert from "node:assert";
 
 // month is 0-indexed, matching Date.
@@ -13,7 +13,8 @@ assert.equal(new Date(2026, NOV, 8).getDay(), 0, "Nov 8 2026 is a Sunday");
 assert.equal(new Date(2026, SEP, 1).getDay(), 2, "Sep 1 2026 is a Tuesday");
 
 // Saturday 1st and Saturday 8th both move to the following Monday.
-assert.deepEqual(scheduledAttemptDays(2026, AUG), [3, 4, 10]);
+assert.deepEqual(scheduledAttemptDays(2026, AUG), [3, 4, 7],
+  "Sat 8th would shift to Mon 10th = the deadline, so it walks back to Fri 7th");
 
 // Sunday 1st and Sunday 8th both move to the following Monday.
 assert.deepEqual(scheduledAttemptDays(2026, NOV), [2, 4, 9]);
@@ -49,6 +50,8 @@ for (const y of [2025, 2026, 2027]) {
       assert.ok(dow !== 0 && dow !== 6, `${y}-${m + 1}: day ${d} is a weekday`);
       // Must stay inside the cron window (fires the 1st-12th) or it never runs.
       assert.ok(d <= 12, `${y}-${m + 1}: day ${d} inside the 1-12 cron window`);
+      assert.ok(d < DUNLOP_DEADLINE_DAY,
+        `${y}-${m + 1}: day ${d} must be before the ${DUNLOP_DEADLINE_DAY}th deadline`);
     }
   }
 }
@@ -56,5 +59,10 @@ for (const y of [2025, 2026, 2027]) {
 // FEB is included above by the loop; assert one explicitly for the short-month case.
 assert.ok(scheduledAttemptDays(2026, FEB).every((d) => d <= 28));
 assert.ok(scheduledAttemptDays(2026, MAY).length > 0);
+
+assert.equal(DUNLOP_DEADLINE_DAY, 10);
+assert.equal(daysUntilDeadline(7), 3);
+assert.equal(daysUntilDeadline(10), 0);
+assert.equal(daysUntilDeadline(12), -2, "negative once the deadline has passed");
 
 console.log("OK: dunlopSchedule.test.ts passed");

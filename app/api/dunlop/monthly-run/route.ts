@@ -3,7 +3,7 @@ import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand } fr
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { sendPipelineAlert } from "@/lib/pipelineAlert";
-import { scheduledAttemptDays } from "@/lib/dunlopSchedule";
+import { scheduledAttemptDays, daysUntilDeadline, DUNLOP_DEADLINE_DAY } from "@/lib/dunlopSchedule";
 
 const BUCKET = "ietires-dunlop-jmk-uploads";
 const API_GATEWAY_URL = process.env.DUNLOP_API_GATEWAY_URL || "https://jzdhz2de88.execute-api.us-east-1.amazonaws.com/prod";
@@ -284,6 +284,11 @@ export async function GET(request: NextRequest) {
         lines: [
           `The ${monthLabel} monthly OEA07V file has not been uploaded, so Dunlop has`,
           `not received that month's sellout report yet.`,
+          "",
+          `Dunlop's deadline is the ${DUNLOP_DEADLINE_DAY}th — ${daysUntilDeadline(now.getDate())} day(s) left.`,
+          ...(now.getDate() === Math.max(...attemptDays)
+            ? ["", "This is the LAST scheduled reminder before the deadline."]
+            : []),
           "",
           `Daily files available for ${monthLabel}: ${oea07vFiles.length}`,
           "",
