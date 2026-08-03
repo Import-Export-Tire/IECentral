@@ -4,7 +4,7 @@ import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
-import { getClaude } from "./lib/aiClient";
+import { getClaude, claudeText } from "./lib/aiClient";
 
 // Whisper rejects files over 25 MB; guard so long recordings fail clearly
 // (and don't OOM the action) rather than 413ing deep in the pipeline.
@@ -209,13 +209,13 @@ IMPORTANT RULES:
             { timeout: 90000 },
           );
 
-          const content = response.content?.[0];
-          if (!content || content.type !== "text") {
+          const text = claudeText(response);
+          if (!text) {
             throw new Error("Unexpected response type from Claude");
           }
 
           // Parse JSON response
-          const jsonMatch = content.text.match(/\{[\s\S]*\}/);
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
           if (!jsonMatch) {
             throw new Error("Could not parse notes from Claude response");
           }

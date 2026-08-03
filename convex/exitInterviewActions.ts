@@ -23,7 +23,7 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { getClaude } from "./lib/aiClient";
+import { getClaude, claudeText } from "./lib/aiClient";
 
 // ============ EXECUTIVE BRIEF ============
 //
@@ -280,13 +280,13 @@ Please be specific and reference actual feedback where relevant. Focus on action
         ],
       });
 
-      const content = response.content[0];
-      if (content.type !== "text") {
+      const text = claudeText(response);
+      if (!text) {
         return { success: false, error: "Unexpected AI response format" };
       }
 
       // Parse the AI response to extract sections
-      const fullText = content.text;
+      const fullText = text;
 
       // Extract key themes (look for bullet points after "Key Themes")
       const themesMatch = fullText.match(/Key Themes[:\s]*\n([\s\S]*?)(?=\n\n|\n\d\.|\n\*\*)/i);

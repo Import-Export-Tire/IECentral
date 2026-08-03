@@ -3,7 +3,7 @@
 import { action, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
-import { getClaude } from "./lib/aiClient";
+import { getClaude, claudeText } from "./lib/aiClient";
 import { Id } from "./_generated/dataModel";
 
 // Generate interview questions based on candidate profile and job
@@ -137,13 +137,13 @@ Return ONLY a JSON array of question strings, no other text:
         ],
       });
 
-      const content = response.content[0];
-      if (content.type !== 'text') {
+      const text = claudeText(response);
+      if (!text) {
         throw new Error('Unexpected response type');
       }
 
       // Parse the JSON response
-      const jsonMatch = content.text.match(/\[[\s\S]*\]/);
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
         throw new Error('Could not parse questions from response');
       }
@@ -321,13 +321,13 @@ Provide your evaluation in the following JSON format:
         ],
       });
 
-      const content = response.content[0];
-      if (content.type !== 'text') {
+      const text = claudeText(response);
+      if (!text) {
         throw new Error('Unexpected response type');
       }
 
       // Parse the JSON response
-      const jsonMatch = content.text.match(/\{[\s\S]*\}/);
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         throw new Error('Could not parse evaluation from response');
       }

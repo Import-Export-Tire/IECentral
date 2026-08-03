@@ -3,7 +3,7 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
-import { getClaude } from "./lib/aiClient";
+import { getClaude, claudeText } from "./lib/aiClient";
 
 export const analyzeResume = action({
   args: {
@@ -270,7 +270,8 @@ Return ONLY valid JSON, no markdown code blocks, no other text.`;
           ],
         });
 
-        const responseText = message.content[0].type === 'text' ? message.content[0].text : "{}";
+        // Not content[0] — Sonnet 5's thinking block comes first. See claudeText.
+        const responseText = claudeText(message) ?? "{}";
       console.log("Claude Response received, length:", responseText.length);
 
       // Parse the AI response

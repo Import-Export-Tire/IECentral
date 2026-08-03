@@ -171,6 +171,25 @@ function guardCreate<F extends (...args: never[]) => unknown>(fn: F, provider: P
   }) as unknown as F;
 }
 
+/**
+ * Pull the assistant's text out of a Claude response.
+ *
+ * Use this instead of `response.content[0]`. Claude Sonnet 5 runs adaptive thinking
+ * that CANNOT be disabled, so `content[0]` is a thinking block and the text sits
+ * later in the array. Reading index 0 therefore silently yields no text: on the
+ * first live Bedrock call, aiMatching fell back to the literal string "{}"
+ * ("Claude Response received, length: 2") and produced a keyword-grade result with
+ * an overallScore of 50 — the same degraded output as a dead credential, but with a
+ * perfectly healthy API call behind it.
+ *
+ * Returns null when there is no text block, so callers keep their own error paths.
+ */
+export function claudeText(message: { content: ReadonlyArray<{ type: string }> }): string | null {
+  const block = message.content.find((b) => b.type === "text");
+  return block ? ((block as { text?: string }).text ?? null) : null;
+}
+
+
 export type ClaudeClient = {
   provider: Provider;
   /** Resolve a logical role to the model ID for the active provider. */
