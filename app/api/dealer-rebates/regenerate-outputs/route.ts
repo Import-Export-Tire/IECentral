@@ -8,6 +8,7 @@ import type { RebateDealer, OutputRow } from "@/lib/dealerRebates/aggregate";
 const BUCKET = "ietires-dunlop-jmk-uploads";
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "https://outstanding-dalmatian-787.convex.cloud";
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
+const CRON_SECRET = process.env.CRON_SECRET;
 
 const FALKEN_HEADERS = ["Falken_Distributor_Account_Number", "FANATIC_Dealer_Account_Number", "Distributor_Center_Address", "Distributor_Center_City", "Distributor_Center_State", "Distributor_Center_Postal_Code", "Invoice_Number", "SKU", "Date", "Quantity", "Price_Per_Tire"];
 const MILESTAR_HEADERS = ["ParentDistributorNumber", "DistributorCenterNumber", "DealerNumber", "InvoiceNumber", "InvoiceDate", "ProductCode", "Quantity", "SellPricePerTire"];
@@ -45,6 +46,22 @@ function ymd(dateRaw: string): string | null {
  * With cleanupLegacy, deletes the old run-date-named files (NNNNNNNN.csv, 8 digits).
  */
 export async function POST(request: NextRequest) {
+  // This endpoint rewrites — and with cleanupLegacy, DELETES — the Falken and
+  // Milestar submission files in S3. It had no authentication at all: any
+  // unauthenticated caller on the internet could rewrite or destroy a month of
+  // dealer-rebate submissions. There is no in-app caller (grep confirms it is
+  // invoked server-side / operationally only), so a bearer secret is sufficient
+  // and does not break any UI.
+  if (!CRON_SECRET) {
+    return NextResponse.json(
+      { error: "CRON_SECRET is not configured; refusing to run unauthenticated" },
+      { status: 503 },
+    );
+  }
+  if (request.headers.get("authorization") !== `Bearer ${CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { month, cleanupLegacy } = await request.json();
     if (!month || !/^\d{6}$/.test(month)) return NextResponse.json({ error: "month YYYYMM required" }, { status: 400 });

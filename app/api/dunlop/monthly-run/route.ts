@@ -72,6 +72,52 @@ export async function GET(request: NextRequest) {
     const priorMonthName = monthNames[priorMonth.getMonth()];
     const priorMonthAbbr = priorMonthName.slice(0, 3);
 
+    // Idempotency guard: never submit a month Dunlop has already accepted.
+    //
+    // Two paths can submit the same month. /reports/upload posts to /api/dunlop/run
+    // the moment Michael uploads the monthly file (that is how June 2026 went out),
+    // and this cron fires on the 1st at 14:00 UTC. The cron runs BEFORE the monthly
+    // file exists — July's was uploaded on Aug 3 — so it falls through to combining
+    // the prior month's dailies. That combine now succeeds, which means without this
+    // check the cron would submit the dailies and the later upload would submit the
+    // monthly file: two accepted submissions for one month, double-counting sellout.
+    //
+    // Treated as advisory: if history is unreachable we proceed rather than skip a
+    // month, since a missed submission is worse than a duplicate we can see and
+    // delete. A skip is reported as status "skipped" so it is visible, not silent.
+    try {
+      const histRes = await fetch(`${API_GATEWAY_URL}/dunlop/history`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (histRes.ok) {
+        const hist = await histRes.json();
+        const runs: Array<Record<string, unknown>> = Array.isArray(hist)
+          ? hist
+          : (hist.runs ?? hist.history ?? []);
+        const already = runs.find(
+          (r) => String(r.month) === monthStr &&
+                 String(r.sftpStatus) === "success" &&
+                 String(r.env) === "prod",
+        );
+        if (already) {
+          return NextResponse.json({
+            status: "skipped",
+            reason: `${monthLabel} already submitted successfully`,
+            month: monthStr,
+            existingRun: {
+              fileName: already.fileName, rows: already.rows,
+              runBy: already.runBy, timestamp: already.timestamp,
+            },
+          });
+        }
+      } else {
+        console.warn(`dunlop/monthly-run: history check returned ${histRes.status}; proceeding`);
+      }
+    } catch (e) {
+      console.warn("dunlop/monthly-run: history check failed; proceeding", e);
+    }
+
     // 0. Look in both folders for an explicit monthly file (FILENAME mentions the
     //    prior month name/abbr/key). If found, use it directly and skip the
     //    daily-combine step.
