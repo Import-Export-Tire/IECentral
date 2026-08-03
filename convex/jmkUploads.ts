@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 
 // ─── REPORT TYPES ───────────────────────────────────────────────────────────
 
@@ -98,6 +98,44 @@ export const updateProcessing = mutation({
       processingStatus: args.processingStatus,
       processingResults: args.processingResults,
     });
+  },
+});
+
+/**
+ * Correct a stored upload date range.
+ *
+ * Maintenance only. Until 2026-08-03, /reports/upload computed an OEA07V's range by
+ * regex-scanning each row for the first date-shaped token anywhere in the line, so it
+ * could latch onto some other dated column. IET-oea07v_July 2026.csv was stored as
+ * "Jun 12, 2026 - Jul 31, 2026" though every Activity Date in it is July. The reader
+ * now parses COL.ACTIVITY_DATE positionally, but already-written records do not
+ * recompute — they are persisted history.
+ *
+ * internalMutation deliberately: this rewrites audit metadata, so it is reachable
+ * from `npx convex run` with a deploy key and not from any client.
+ *
+ * Format must match what the uploader writes:
+ *   toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+ * i.e. "Jul 1, 2026".
+ */
+export const correctDateRange = internalMutation({
+  args: {
+    uploadId: v.id("jmkUploadHistory"),
+    dateRangeStart: v.string(),
+    dateRangeEnd: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const before = await ctx.db.get(args.uploadId);
+    if (!before) throw new Error(`No jmkUploadHistory record ${args.uploadId}`);
+    await ctx.db.patch(args.uploadId, {
+      dateRangeStart: args.dateRangeStart,
+      dateRangeEnd: args.dateRangeEnd,
+    });
+    return {
+      fileName: before.fileName,
+      from: { start: before.dateRangeStart, end: before.dateRangeEnd },
+      to: { start: args.dateRangeStart, end: args.dateRangeEnd },
+    };
   },
 });
 
