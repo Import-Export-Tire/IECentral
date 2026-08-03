@@ -11,6 +11,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import Link from "next/link";
 import { computeInventoryReportDate, INVENTORY_SCHEDULE_NOTE } from "@/lib/inventoryReportDate";
+import { parseCSVRow, COL } from "@/lib/dealerRebates/aggregate";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import SectionHeader from "@/components/ui/SectionHeader";
@@ -127,25 +128,28 @@ export default function ReportUploadPage() {
       let oeaHasNoDate = false;
       if (reportType === "OEA07V" && data.valid) {
         const dates: Date[] = [];
-        // Scan each line for MM/DD/YY date patterns (handles quoted CSV fields)
-        const datePattern = /\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/g;
+        // Read the Activity Date COLUMN positionally. This used to regex-scan each
+        // row for the first MM/DD/YY-shaped token anywhere in the line ("one date
+        // per row is enough"), which picked up whichever other dated column
+        // happened to appear first. On IET-oea07v_July 2026.csv that reported the
+        // range as "Jun 12, 2026 — Jul 31, 2026" even though every Activity Date in
+        // the file is in July. Display-only bug — dealer-rebates always read this
+        // column properly — but it made a correct upload look wrong.
         for (let i = 1; i < Math.min(lines.length, 50000); i++) {
           const line = lines[i];
           if (!line) continue;
-          let m;
-          while ((m = datePattern.exec(line)) !== null) {
-            const mo = parseInt(m[1]);
-            const day = parseInt(m[2]);
-            let y = parseInt(m[3]);
-            if (mo < 1 || mo > 12 || day < 1 || day > 31) continue;
-            if (y < 100) y += 2000;
-            const d = new Date(y, mo - 1, day);
-            if (!isNaN(d.getTime()) && d.getFullYear() >= 2020 && d.getFullYear() <= 2030) {
-              dates.push(d);
-              break; // one date per row is enough
-            }
+          const raw = (parseCSVRow(line)[COL.ACTIVITY_DATE] ?? "").trim();
+          const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+          if (!m) continue;
+          const mo = parseInt(m[1]);
+          const day = parseInt(m[2]);
+          let y = parseInt(m[3]);
+          if (mo < 1 || mo > 12 || day < 1 || day > 31) continue;
+          if (y < 100) y += 2000;
+          const d = new Date(y, mo - 1, day);
+          if (!isNaN(d.getTime()) && d.getFullYear() >= 2020 && d.getFullYear() <= 2030) {
+            dates.push(d);
           }
-          datePattern.lastIndex = 0;
         }
         if (dates.length > 0) {
           dates.sort((a, b) => a.getTime() - b.getTime());

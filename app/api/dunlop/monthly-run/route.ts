@@ -72,9 +72,22 @@ export async function GET(request: NextRequest) {
     const priorMonthName = monthNames[priorMonth.getMonth()];
     const priorMonthAbbr = priorMonthName.slice(0, 3);
 
-    // 0. Look in both folders for an explicit monthly file (filename mentions the
+    // 0. Look in both folders for an explicit monthly file (FILENAME mentions the
     //    prior month name/abbr/key). If found, use it directly and skip the
     //    daily-combine step.
+    //
+    // The month tokens must be matched against the FILENAME, not the full S3 key.
+    // Every object here lives under `jmk-uploads/<monthStr>/`, so testing the key
+    // made `includes(monthStr)` always true — every daily file qualified as "an
+    // explicit monthly file", and the newest-first sort then picked whichever
+    // daily was uploaded last. On 2026-08-01 that was IET-oea07v_073026.csv, so
+    // July's Dunlop sellout ran off a single day (25 rows) instead of the month,
+    // and the SFTP submission failed. June only worked by luck: the real monthly
+    // file happened to be the newest object at the time.
+    //
+    // With filename matching, a run on the 1st (before the monthly file is
+    // uploaded) finds nothing here and correctly falls through to combining the
+    // prior month's dailies below.
     let monthlyFileKey: string | null = null;
     for (const prefix of [`jmk-uploads/${monthStr}/`, `jmk-uploads/${currentMonthStr}/`]) {
       const list = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, MaxKeys: 1000 }));
@@ -83,10 +96,11 @@ export async function GET(request: NextRequest) {
           if (!o.Key) return false;
           const k = o.Key.toLowerCase();
           if (!k.includes("iet-oea07v") || !k.endsWith(".csv")) return false;
-          if (k.includes("monthly-combined")) return true;
-          return k.includes(priorMonthName.toLowerCase()) ||
-                 k.includes(priorMonthAbbr.toLowerCase()) ||
-                 k.includes(monthStr);
+          const base = k.slice(k.lastIndexOf("/") + 1);
+          if (base.includes("monthly-combined")) return true;
+          return base.includes(priorMonthName.toLowerCase()) ||
+                 base.includes(priorMonthAbbr.toLowerCase()) ||
+                 base.includes(monthStr);
         })
         .sort((a, b) => (b.LastModified?.getTime() ?? 0) - (a.LastModified?.getTime() ?? 0))[0];
       if (hit?.Key) { monthlyFileKey = hit.Key; break; }

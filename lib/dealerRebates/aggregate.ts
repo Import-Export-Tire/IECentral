@@ -50,7 +50,7 @@ export interface AggregateResult {
   dateRangeEnd?: string;         // latest ACTIVITY_DATE (MM/DD/YY)
 }
 
-function parseCSVRow(line: string): string[] {
+export function parseCSVRow(line: string): string[] {
   const fields: string[] = [];
   let cur = "", inQ = false;
   for (let i = 0; i < line.length; i++) {
