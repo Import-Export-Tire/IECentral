@@ -3,6 +3,7 @@ import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand } fr
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { sendPipelineAlert } from "@/lib/pipelineAlert";
+import { scheduledAttemptDays } from "@/lib/dunlopSchedule";
 
 const BUCKET = "ietires-dunlop-jmk-uploads";
 const API_GATEWAY_URL = process.env.DUNLOP_API_GATEWAY_URL || "https://jzdhz2de88.execute-api.us-east-1.amazonaws.com/prod";
@@ -93,6 +94,20 @@ export async function GET(request: NextRequest) {
     // Calculate prior month, plus the current month folder where a monthly
     // upload may have landed if /reports/upload bucketed by today's date.
     const now = new Date();
+
+    // The cron fires the 1st-12th; only act on this month's attempt days (1st, 4th,
+    // 8th, each pushed off a weekend to the following Monday). Checked before any S3
+    // or Convex work so a non-attempt day costs nothing. ?force=1 bypasses it for a
+    // deliberate manual run.
+    const attemptDays = scheduledAttemptDays(now.getFullYear(), now.getMonth());
+    if (request.nextUrl.searchParams.get("force") !== "1" && !attemptDays.includes(now.getDate())) {
+      return NextResponse.json({
+        status: "not-an-attempt-day",
+        today: now.getDate(),
+        attemptDays,
+        reason: "Attempts are the 1st, 4th and 8th, each moved off a weekend to the following Monday",
+      });
+    }
     const priorMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const monthStr = `${priorMonth.getFullYear()}${String(priorMonth.getMonth() + 1).padStart(2, "0")}`;
     const currentMonthStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;

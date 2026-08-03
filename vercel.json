@@ -11,7 +11,7 @@
     },
     {
       "path": "/api/dunlop/monthly-run",
-      "schedule": "0 14 1,4,8 * *"
+      "schedule": "0 14 1-12 * *"
     },
     {
       "path": "/api/dealer-rebates/verify",
