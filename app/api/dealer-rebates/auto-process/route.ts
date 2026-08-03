@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
-import { aggregate, type RebateDealer, type OutputRow } from "@/lib/dealerRebates/aggregate";
+import { aggregate, activityYMD, type RebateDealer, type OutputRow } from "@/lib/dealerRebates/aggregate";
 
 const BUCKET = "ietires-dunlop-jmk-uploads";
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "https://outstanding-dalmatian-787.convex.cloud";
@@ -55,24 +55,50 @@ export async function POST(request: NextRequest) {
     const result = aggregate(body, dealers);
 
     const fileName = s3Key.split("/").pop() || s3Key;
-    // Name the output by the file's ACTIVITY date (YYYY-MM-DD), not the run date, so a
-    // day has one stable, regenerable submission file. Fall back to run date if unknown.
-    const dm = (result.dateRangeStart || "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-    let dateStr: string;
-    if (dm) {
-      let y = parseInt(dm[3], 10); if (y < 100) y += 2000;
-      dateStr = `${y}-${String(+dm[1]).padStart(2, "0")}-${String(+dm[2]).padStart(2, "0")}`;
-    } else {
-      const now = new Date();
-      dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    }
+
+    // Outputs are written one file per ACTIVITY DAY, keyed by each row's own date —
+    // matching /api/dealer-rebates/regenerate-outputs, which is the source of truth
+    // for this naming scheme.
+    //
+    // This previously named ONE file after `dateRangeStart` (the earliest date in the
+    // upload) and wrote every row into it. That was fine for a single-day file, but a
+    // month-spanning upload wrote the whole month into `<Name>_<first-day>.csv` and
+    // silently overwrote that day's real submission. It happened twice: the June
+    // monthly clobbered Falken_Fanatic_2026-06-01.csv, and the July monthly clobbered
+    // Falken_Fanatic_2026-07-01.csv. Grouping by day makes daily and month-spanning
+    // uploads converge on the same per-day keys instead of colliding.
+    const writeDaily = async (
+      program: "falken" | "milestar",
+      rows: OutputRow[],
+      headers: string[],
+      dateField: string,
+      label: string,
+    ): Promise<string[]> => {
+      const byDay = new Map<string, OutputRow[]>();
+      for (const r of rows) {
+        const day = activityYMD(String(r[dateField] ?? ""));
+        if (!day) continue;
+        const bucket = byDay.get(day);
+        if (bucket) bucket.push(r);
+        else byDay.set(day, [r]);
+      }
+      const keys: string[] = [];
+      for (const [day, dayRows] of byDay) {
+        const key = `dealer-rebates/${program}/${label}_${day}.csv`;
+        await s3.send(new PutObjectCommand({
+          Bucket: BUCKET, Key: key, Body: toCSV(headers, dayRows), ContentType: "text/csv",
+        }));
+        keys.push(key);
+      }
+      return keys;
+    };
+
     const results: { type: string; rows: number; qty: number; dealers: number; s3Key?: string }[] = [];
 
     // 3. Falken: write CSV to S3 + record stats
     if (result.falken.outRows.length > 0) {
       const csv = toCSV(FALKEN_HEADERS, result.falken.outRows);
-      const key = `dealer-rebates/falken/Falken_Fanatic_${dateStr}.csv`;
-      await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: csv, ContentType: "text/csv" }));
+      const keys = await writeDaily("falken", result.falken.outRows, FALKEN_HEADERS, "Date", "Falken_Fanatic");
       await convex.mutation(api.dealerRebates.saveUploadAuto, {
         fileName, program: "falken",
         totalInputRows: result.totalInputRows, filteredRows: result.filteredRows,
@@ -81,7 +107,7 @@ export async function POST(request: NextRequest) {
         dealerBreakdown: result.falken.breakdown,
         dateRangeStart: result.dateRangeStart, dateRangeEnd: result.dateRangeEnd, s3Key,
       });
-      results.push({ type: "Falken", rows: result.falken.matchedRows, qty: result.falken.matchedQty, dealers: result.falken.dealersMatched, s3Key: key });
+      results.push({ type: "Falken", rows: result.falken.matchedRows, qty: result.falken.matchedQty, dealers: result.falken.dealersMatched, s3Key: keys.join(", ") });
     } else {
       results.push({ type: "Falken", rows: 0, qty: 0, dealers: 0 });
     }
@@ -89,8 +115,7 @@ export async function POST(request: NextRequest) {
     // 4. Milestar: write CSV to S3 + record stats
     if (result.milestar.outRows.length > 0) {
       const csv = toCSV(MILESTAR_HEADERS, result.milestar.outRows);
-      const key = `dealer-rebates/milestar/Milestar_Momentum_${dateStr}.csv`;
-      await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: csv, ContentType: "text/csv" }));
+      const keys = await writeDaily("milestar", result.milestar.outRows, MILESTAR_HEADERS, "InvoiceDate", "Milestar_Momentum");
       await convex.mutation(api.dealerRebates.saveUploadAuto, {
         fileName, program: "milestar",
         totalInputRows: result.totalInputRows, filteredRows: result.filteredRows,
@@ -99,7 +124,7 @@ export async function POST(request: NextRequest) {
         dealerBreakdown: result.milestar.breakdown,
         dateRangeStart: result.dateRangeStart, dateRangeEnd: result.dateRangeEnd, s3Key,
       });
-      results.push({ type: "Milestar", rows: result.milestar.matchedRows, qty: result.milestar.matchedQty, dealers: result.milestar.dealersMatched, s3Key: key });
+      results.push({ type: "Milestar", rows: result.milestar.matchedRows, qty: result.milestar.matchedQty, dealers: result.milestar.dealersMatched, s3Key: keys.join(", ") });
     } else {
       results.push({ type: "Milestar", rows: 0, qty: 0, dealers: 0 });
     }

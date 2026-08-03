@@ -79,6 +79,20 @@ export function normalizeAcct(raw: string): string {
 }
 
 // "MM/DD/YY" (or M/D/YY) -> "YYYY-MM". Returns "" if unparseable.
+// "M/D/YY" or "MM/DD/YYYY" -> "YYYY-MM-DD", or null when unparseable.
+// Use this (never a string sort) whenever ACTIVITY_DATE values are compared or
+// ordered: the raw MM/DD/YY form sorts wrong lexicographically. "6/12/26" sorts
+// after "07/01/26" because "6" > "0", and any range crossing a year boundary
+// inverts ("01/05/26" < "12/15/25"). A wrong ordering used to propagate into the
+// S3 output filename, silently overwriting a previously submitted file.
+export function activityYMD(dateRaw: string): string | null {
+  const m = String(dateRaw ?? "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (!m) return null;
+  let yr = parseInt(m[3], 10);
+  if (yr < 100) yr += 2000;
+  return `${yr}-${String(+m[1]).padStart(2, "0")}-${String(+m[2]).padStart(2, "0")}`;
+}
+
 export function activityMonth(dateRaw: string): string {
   const m = dateRaw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
   if (!m) return "";
@@ -198,13 +212,21 @@ export function aggregate(csvText: string, dealers: RebateDealer[]): AggregateRe
     };
   };
 
-  const allDates = filtered.map(c => (c[COL.ACTIVITY_DATE] ?? "").trim()).filter(Boolean).sort();
+  // Order by parsed calendar date, not by the raw MM/DD/YY string — see activityYMD.
+  const dated = filtered
+    .map(c => {
+      const raw = (c[COL.ACTIVITY_DATE] ?? "").trim();
+      return { raw, ymd: activityYMD(raw) };
+    })
+    .filter((d): d is { raw: string; ymd: string } => d.ymd !== null)
+    .sort((a, b) => a.ymd.localeCompare(b.ymd));
+
   return {
     falken: toProgram(falkenOut, falkenAgg),
     milestar: toProgram(milestarOut, milestarAgg),
     totalInputRows: allRows.length,
     filteredRows: filtered.length,
-    dateRangeStart: allDates[0],
-    dateRangeEnd: allDates[allDates.length - 1],
+    dateRangeStart: dated[0]?.raw,
+    dateRangeEnd: dated[dated.length - 1]?.raw,
   };
 }
