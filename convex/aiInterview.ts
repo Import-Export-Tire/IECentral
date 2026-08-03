@@ -3,7 +3,7 @@
 import { action, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
-import Anthropic from "@anthropic-ai/sdk";
+import { getClaude } from "./lib/aiClient";
 import { Id } from "./_generated/dataModel";
 
 // Generate interview questions based on candidate profile and job
@@ -44,18 +44,14 @@ export const generateInterviewQuestions = action({
       }
     }
 
-    // Check if Anthropic API key is configured
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error("ANTHROPIC_API_KEY not configured - using fallback questions");
+    // Claude routes through Bedrock; null means no provider is configured.
+    const claude = getClaude();
+    if (!claude) {
       return {
         questions: getFallbackQuestions(round, job?.positionType || "hourly"),
         error: "AI unavailable - using standard questions",
       };
     }
-
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
 
     const candidateName = `${application.firstName} ${application.lastName}`;
     const jobTitle = application.appliedJobTitle || "General Position";
@@ -129,9 +125,10 @@ Return ONLY a JSON array of question strings, no other text:
 ["Question 1?", "Question 2?", ...]`;
 
     try {
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2048,
+      const response = await claude.messages.create({
+        model: claude.model("fast"),
+        // Shares the budget with Sonnet 5's always-on thinking.
+        max_tokens: 8192,
         messages: [
           {
             role: "user",
@@ -224,14 +221,11 @@ export const evaluateInterview = action({
       };
     }
 
-    // Check if Anthropic API key is configured
-    if (!process.env.ANTHROPIC_API_KEY) {
+    // Claude routes through Bedrock; null means no provider is configured.
+    const claude = getClaude();
+    if (!claude) {
       return getFallbackEvaluation(interviewRound.questions);
     }
-
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
 
     // Get job details
     let job = null;
@@ -315,9 +309,10 @@ Provide your evaluation in the following JSON format:
 }`;
 
     try {
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2048,
+      const response = await claude.messages.create({
+        model: claude.model("fast"),
+        // Shares the budget with Sonnet 5's always-on thinking.
+        max_tokens: 8192,
         messages: [
           {
             role: "user",

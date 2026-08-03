@@ -4,6 +4,7 @@ import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { getClaude } from "./lib/aiClient";
 
 // Whisper rejects files over 25 MB; guard so long recordings fail clearly
 // (and don't OOM the action) rather than 413ing deep in the pipeline.
@@ -145,18 +146,18 @@ export const transcribeAndGenerateNotes = action({
       });
 
       // 5. Generate AI notes with Claude
-      if (!process.env.ANTHROPIC_API_KEY) {
-        console.error("ANTHROPIC_API_KEY not configured - skipping note generation");
+      const claude = getClaude();
+      if (!claude) {
+        console.error("No AI provider configured - skipping note generation");
         await ctx.runMutation(internal.meetingNotes.internalUpdateNotes, {
           notesId,
-          summary: "AI note generation unavailable - ANTHROPIC_API_KEY not configured.",
+          summary: "AI note generation unavailable - no AI provider configured.",
           actionItems: [],
           decisions: [],
           followUps: [],
           keyTopics: [],
         });
       } else {
-        const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
         const prompt = `You are an AI meeting assistant. Analyze the following meeting transcript and generate comprehensive meeting notes.
 
@@ -193,27 +194,21 @@ IMPORTANT RULES:
 8. Return ONLY valid JSON, no other text`;
 
         try {
-          // Call Anthropic API directly (SDK has bundling issues in Convex)
-          const claudeResponse = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": ANTHROPIC_API_KEY!,
-              "anthropic-version": "2023-06-01",
-            },
-            body: JSON.stringify({
-              model: "claude-sonnet-4-6",
-              max_tokens: 4096,
+          // Previously a hand-rolled fetch against api.anthropic.com, with a note
+          // that the SDK had bundling issues in Convex. Four other actions import
+          // the SDK without trouble, so that appears to be stale — but if Convex
+          // bundling regresses, this is the call site to suspect first.
+          // The 90s ceiling from the old fetchWithTimeout is preserved.
+          const response = await claude.messages.create(
+            {
+              model: claude.model("fast"),
+              // Shares the budget with Sonnet 5's always-on thinking.
+              max_tokens: 8192,
               messages: [{ role: "user", content: prompt }],
-            }),
-          }, 90000);
+            },
+            { timeout: 90000 },
+          );
 
-          if (!claudeResponse.ok) {
-            const errText = await claudeResponse.text();
-            throw new Error(`Claude API error: ${claudeResponse.status} - ${errText}`);
-          }
-
-          const response = await claudeResponse.json();
           const content = response.content?.[0];
           if (!content || content.type !== "text") {
             throw new Error("Unexpected response type from Claude");

@@ -3,7 +3,7 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
-import Anthropic from "@anthropic-ai/sdk";
+import { getClaude } from "./lib/aiClient";
 
 // Generate tasks from a project description using AI
 export const generateTasks = action({
@@ -23,9 +23,9 @@ export const generateTasks = action({
   }> => {
     const { projectId, projectName, projectDescription } = args;
 
-    // Check if Anthropic API key is configured
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error("ANTHROPIC_API_KEY not configured - using fallback");
+    // Claude routes through Bedrock; null means no provider is configured.
+    const claude = getClaude();
+    if (!claude) {
       return {
         success: true,
         tasks: generateFallbackTasks(projectDescription),
@@ -33,9 +33,6 @@ export const generateTasks = action({
     }
 
     try {
-      const anthropic = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY,
-      });
 
       const prompt = `You are a project manager helping to break down a software development project into actionable tasks.
 
@@ -70,9 +67,10 @@ Guidelines:
 
 Return ONLY the JSON object, no other text.`;
 
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2000,
+      const response = await claude.messages.create({
+        model: claude.model("fast"),
+        // Shares the budget with Sonnet 5's always-on thinking.
+        max_tokens: 8192,
         messages: [
           {
             role: "user",

@@ -3,7 +3,7 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
-import Anthropic from "@anthropic-ai/sdk";
+import { getClaude } from "./lib/aiClient";
 
 export const analyzeResume = action({
   args: {
@@ -62,18 +62,14 @@ export const analyzeResume = action({
     console.log(`Found ${jobs.length} active jobs`);
     console.log(`Resume text length: ${resumeText.length} characters`);
 
-    // Check if Anthropic API key is configured
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      console.error("ANTHROPIC_API_KEY not configured - using fallback analysis");
+    // Claude routes through Bedrock; null means no provider is configured.
+    const claude = getClaude();
+    if (!claude) {
+      console.error("No AI provider configured - using fallback analysis");
       return fallbackAnalysis(resumeText, jobs);
     }
 
-    console.log(`API key found, length: ${apiKey.length}, starts with: ${apiKey.substring(0, 10)}...`);
-
-    const anthropic = new Anthropic({
-      apiKey: apiKey,
-    });
+    console.log(`Using AI provider: ${claude.provider}`);
 
     // Create a simple job list for the AI with indices
     const jobList = jobs.map((job, index) => ({
@@ -259,10 +255,13 @@ Return ONLY valid JSON, no markdown code blocks, no other text.`;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const message = await anthropic.messages.create({
-          model: "claude-sonnet-4-6",
-          max_tokens: 3000,
-          temperature: 0,
+        const message = await claude.messages.create({
+          model: claude.model("fast"),
+          // Shares the budget with Sonnet 5's always-on thinking, so this is
+          // larger than the response alone needs.
+          max_tokens: 8192,
+          // No `temperature` — Sonnet 5 rejects non-default sampling params with
+          // a 400. Determinism comes from the prompt instead.
           messages: [
             {
               role: "user",

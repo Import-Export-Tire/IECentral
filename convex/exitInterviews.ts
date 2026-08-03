@@ -3,7 +3,7 @@ import { action, internalMutation, internalQuery, mutation, query } from "./_gen
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { requireRole } from "./authGuards";
-import Anthropic from "@anthropic-ai/sdk";
+import { getClaude } from "./lib/aiClient";
 
 // ============ QUERIES ============
 
@@ -712,9 +712,9 @@ export const generateExecutiveBrief = action({
       requestingUserId: args.requestingUserId,
     });
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return { ok: false, reason: "ANTHROPIC_API_KEY is not configured" };
+    const claude = getClaude();
+    if (!claude) {
+      return { ok: false, reason: "No AI provider is configured" };
     }
 
     const all = await ctx.runQuery(internal.exitInterviews.getCompletedInterviews, {});
@@ -740,10 +740,13 @@ export const generateExecutiveBrief = action({
     }));
 
     try {
-      const anthropic = new Anthropic({ apiKey });
-      const response = await anthropic.beta.messages.create({
-        model: "claude-opus-4-8",
-        max_tokens: 4000,
+      const response = await claude.beta.messages.create({
+        model: claude.model("reasoning"),
+        max_tokens: 8192,
+        // Bedrock requires thinking to be off when tool_choice is forced.
+        // Opus 4.8 permits disabling it; the direct API does not require this,
+        // which is why the flag was previously absent.
+        thinking: { type: "disabled" },
         tools: [
           {
             name: "emit_brief",
@@ -816,8 +819,8 @@ export const generateAISummary = action({
     sentimentOverview?: string;
     error?: string;
   }> => {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
+    const claude = getClaude();
+    if (!claude) {
       return { success: false, error: "AI service not configured" };
     }
 
@@ -868,12 +871,11 @@ export const generateAISummary = action({
       responses: i.responses,
     }));
 
-    const anthropic = new Anthropic({ apiKey });
-
     try {
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2000,
+      const response = await claude.messages.create({
+        model: claude.model("fast"),
+        // Shares the budget with Sonnet 5's always-on thinking.
+        max_tokens: 8192,
         messages: [
           {
             role: "user",
