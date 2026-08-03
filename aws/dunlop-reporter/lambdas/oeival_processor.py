@@ -71,7 +71,7 @@ LOOKUP_ITEMS_KEY = "jmk-uploads/oeival/_cache/lookup.items.ndjson.gz"
 # Fields the tire-label lookup needs (mirrors BrandEntry in
 # lib/oeivalBrandIndex.ts). Keep the lookup index slim — quantities and
 # location-specific columns belong to the reporting snapshot, not here.
-LOOKUP_FIELDS = ("itemId", "manufacturerName", "description", "model", "mfgItemId")
+LOOKUP_FIELDS = ("itemId", "manufacturerName", "description", "model", "mfgItemId", "upcCode", "ean")
 
 
 def update_lookup_index(items: "list[dict[str, Any]]") -> dict:
@@ -154,6 +154,11 @@ HEADER_MAP: dict[str, list[str]] = {
     "itemId": ["item id"],
     "mfgItemId": ["manufacturer's item id", "mfg's item id", "mfg item id"],
     "description": ["description", "item description"],
+    # JMK ships the barcode in the OEIVAL itself, keyed by Item id — the same key
+    # the inventory count resolves against. Previously dropped, which forced the
+    # count to bridge through tireUPCs on the manufacturer part number instead.
+    "upcCode": ["upc code", "upc"],
+    "ean": ["ean"],
     "sidewall": ["sidewall or bolt circle", "sidewall"],
     "reorderPoint": ["reorder point"],
     "qtyOnHand": ["qty on hand"],
@@ -276,6 +281,8 @@ def row_to_item(row: list[str], col: dict[str, int]) -> Optional[dict[str, Any]]
         "model": g("model"),
         "itemId": g("itemId"),
         "mfgItemId": g("mfgItemId"),
+        "upcCode": g("upcCode"),
+        "ean": g("ean"),
         "description": g("description"),
         "reorderPoint": gn("reorderPoint"),
         "qtyOnHand": gn("qtyOnHand"),
