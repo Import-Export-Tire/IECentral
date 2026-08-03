@@ -16,13 +16,42 @@ import gzip
 import io
 import json
 import os
-from typing import Any
+import time
+from typing import Any, Optional
 
 import boto3
+from botocore.exceptions import ClientError
+
+from oeival_keys import FULL, INGEST, SKIP, STAMP, archive_key, classify, stamp_from_event_time
+from oeival_merge import MergeAborted, merge_items_ndjson
 
 s3 = boto3.client("s3")
 
 BUCKET = os.environ.get("S3_JMK_UPLOADS_BUCKET", "ietires-dunlop-jmk-uploads")
+
+# Stamped arrivals carry this tag so the S3 lifecycle rule can expire them
+# without touching the month-folder snapshots or the _cache objects. A
+# path-prefix rule cannot express that distinction.
+ARCHIVE_TAG = "lifecycle=location-archive"
+
+# How many same-minute collisions to try before giving up.
+MAX_DEDUPE = 20
+
+# Cache-write race handling and heal-call throttling.
+MAX_PUT_ATTEMPTS = 5
+HEAL_MIN_INTERVAL_SECONDS = 3600
+
+
+def _is_error(exc: Exception, *codes: str) -> bool:
+    """True when exc is a botocore ClientError carrying one of these codes.
+
+    boto3's S3 client does NOT expose s3.exceptions.PreconditionFailed, and
+    head_object raises ClientError with code '404' rather than NoSuchKey — so
+    catching the modelled exception classes would miss both cases.
+    """
+    if not isinstance(exc, ClientError):
+        return False
+    return exc.response.get("Error", {}).get("Code") in codes
 
 # ── Two caches, two purposes ────────────────────────────────────────────
 # REPORTING snapshot (latest.*): the latest OEIVAL only, overwritten on every
@@ -200,7 +229,7 @@ def build_col_map(header_row: list[str]) -> dict[str, int]:
     return col
 
 
-def row_to_item(row: list[str], col: dict[str, int]) -> dict[str, Any] | None:
+def row_to_item(row: list[str], col: dict[str, int]) -> Optional[dict[str, Any]]:
     def g(field: str) -> str:
         idx = col.get(field)
         if idx is None or idx >= len(row):
@@ -231,7 +260,14 @@ def row_to_item(row: list[str], col: dict[str, int]) -> dict[str, Any] | None:
         dclass = DCLASS_SUFFIX.get(last_char, "")
 
     return {
-        "location": g("location"),
+        # Uppercased here, and nowhere else in the row. Everything downstream
+        # that groups or filters by location uppercases first — oeival_merge's
+        # replace set, _Filters, perLocation keys — so a store that exports
+        # "r20" one day and "R20" the next must not produce two identities.
+        # The Vercel inventory route compares it.location to the dropdown value
+        # (which comes from meta.filters.locations) with ===, so a raw row value
+        # against an uppercased filter value silently returns zero rows.
+        "location": g("location").upper(),
         "productType": g("productType"),
         "stockType": gn("stockType"),
         "dclass": dclass,
@@ -265,8 +301,12 @@ def build_filters(items: list[dict[str, Any]]) -> dict[str, list[str]]:
     product_types: set[str] = set()
     dclasses: set[str] = set()
     for it in items:
-        if it["location"]:
-            locations.add(it["location"])
+        # Uppercase for the same reason row_to_item does: this list feeds the
+        # inventory report's location dropdown and must match the row values
+        # exactly. Only location is normalized.
+        loc = str(it.get("location", "") or "").strip().upper()
+        if loc:
+            locations.add(loc)
         if it["manufacturerName"]:
             brands.add(it["manufacturerName"])
         if it["productType"]:
@@ -299,87 +339,268 @@ def parse_csv_stream(body) -> list[dict[str, Any]]:
     return items
 
 
-def handler(event, _context):
-    record = event["Records"][0]
-    bucket = record["s3"]["bucket"]["name"]
-    # SAM/S3 URL-encodes the key — unquote it.
-    from urllib.parse import unquote_plus
-    key = unquote_plus(record["s3"]["object"]["key"])
+def _read_json_key(s3_client, bucket: str, key: str) -> "tuple[dict, Optional[str]]":
+    """Read a small JSON object, returning (doc, etag).
 
-    # Don't recurse on our own cache writes
-    if "_cache" in key:
-        return {"skipped": "cache key"}
+    Returns ({}, None) only when the object is genuinely absent (first run).
+    Anything else — a throttle, a permissions blip, malformed JSON — is
+    logged and re-raised rather than swallowed: treating those the same as
+    "not created yet" would silently discard every other location's
+    freshness history the next time this runs.
+    """
+    try:
+        res = s3_client.get_object(Bucket=bucket, Key=key)
+        return json.loads(res["Body"].read()), res["ETag"]
+    except Exception as e:
+        if _is_error(e, "404", "NoSuchKey", "NotFound"):
+            return {}, None
+        print(f"_read_json_key: failed to read {key} ({e}); refusing to treat as empty")
+        raise
 
-    # Only process OEIVAL uploads
-    if "oeival" not in key.lower():
-        return {"skipped": f"non-oeival key: {key}"}
 
+def _write_meta_with_retry(
+    s3_client,
+    bucket: str,
+    stats: dict,
+    source_key: str,
+    source_modified: str,
+    merged_gz: bytes,
+) -> None:
+    """Read-modify-write META_KEY under the same conditional-write discipline
+    as the items object.
+
+    Two locations landing on the same tick can each read META_KEY before the
+    other's write lands; without a guard, the last writer reverts the other's
+    perLocation entry. So each attempt re-reads META_KEY (and its ETag) fresh
+    and rebuilds perLocation from THAT state before writing — a stale rebuild
+    computed once outside the loop would defeat the retry entirely.
+    """
+    last_error = None
+    for attempt in range(1, MAX_PUT_ATTEMPTS + 1):
+        prior_meta, meta_etag = _read_json_key(s3_client, bucket, META_KEY)
+
+        per_location = dict(prior_meta.get("perLocation") or {})
+        for loc_key, count in stats["perLocationCounts"].items():
+            if loc_key in stats["replacedLocations"]:
+                per_location[loc_key] = {
+                    "lastArrivalAt": source_modified,
+                    "rowCount": count,
+                    "sourceKey": source_key,
+                }
+            elif loc_key not in per_location:
+                # Present in the cache but never seen arrive — record what we know.
+                per_location[loc_key] = {
+                    "lastArrivalAt": None,
+                    "rowCount": count,
+                    "sourceKey": None,
+                }
+            else:
+                per_location[loc_key] = {**per_location[loc_key], "rowCount": count}
+
+        new_meta = {
+            "fileKey": source_key,
+            "fileName": source_key.rsplit("/", 1)[-1],
+            "fileDate": source_modified,
+            "totalRows": stats["totalRows"],
+            "filters": stats["filters"],
+            "itemsKey": ITEMS_KEY,
+            "itemsBytes": len(merged_gz),
+            "generatedAt": _now_iso(),
+            "perLocation": per_location,
+            "lastHealAt": prior_meta.get("lastHealAt"),
+        }
+
+        put_kwargs = {
+            "Bucket": bucket,
+            "Key": META_KEY,
+            "Body": json.dumps(new_meta, separators=(",", ":")).encode("utf-8"),
+            "ContentType": "application/json",
+        }
+        if meta_etag is not None:
+            put_kwargs["IfMatch"] = meta_etag
+        else:
+            put_kwargs["IfNoneMatch"] = "*"
+
+        try:
+            s3_client.put_object(**put_kwargs)
+            return
+        except Exception as e:
+            if not _is_error(e, "PreconditionFailed", "ConditionalRequestConflict"):
+                raise
+            last_error = e
+            print(f"meta write lost a race (attempt {attempt}); re-reading and retrying")
+            time.sleep(0.2 * attempt)  # bounded backoff
+            continue
+
+    raise RuntimeError(f"meta write failed after {MAX_PUT_ATTEMPTS} attempts: {last_error}")
+
+
+def write_merged_cache(
+    s3_client,
+    bucket: str,
+    items: "list[dict[str, Any]]",
+    loc: str,  # accepted for symmetry with stamp_arrival's signature; unused here
+    source_key: str,
+    source_modified: str,
+) -> dict:
+    """Merge these rows into latest.items by location and refresh latest.meta.
+
+    Raises MergeAborted (leaving both objects untouched) when the incoming file
+    cannot be trusted. Both the items write and the meta write are
+    conditional — If-Match against a just-read ETag, or If-None-Match: * when
+    the object doesn't exist yet — so a lost race retries the whole merge
+    against the winner's data rather than clobbering it, and two locations
+    racing to create the cache on the first tick can't both succeed.
+    """
+    last_error = None
+    for attempt in range(1, MAX_PUT_ATTEMPTS + 1):
+        existing_gz = None
+        etag = None
+        try:
+            res = s3_client.get_object(Bucket=bucket, Key=ITEMS_KEY)
+            existing_gz = res["Body"].read()
+            etag = res["ETag"]
+        except Exception as e:
+            if not _is_error(e, "404", "NoSuchKey", "NotFound"):
+                raise
+            pass  # first run — no cache yet
+
+        # Raises MergeAborted before anything is written.
+        merged_gz, stats = merge_items_ndjson(existing_gz, items)
+
+        put_kwargs = {
+            "Bucket": bucket,
+            "Key": ITEMS_KEY,
+            "Body": merged_gz,
+            "ContentType": "application/x-ndjson",
+            "ContentEncoding": "gzip",
+        }
+        if etag is not None:
+            put_kwargs["IfMatch"] = etag
+        else:
+            put_kwargs["IfNoneMatch"] = "*"
+
+        try:
+            s3_client.put_object(**put_kwargs)
+        except Exception as e:
+            if not _is_error(e, "PreconditionFailed", "ConditionalRequestConflict"):
+                raise
+            last_error = e
+            print(f"cache write lost a race (attempt {attempt}); re-reading and retrying")
+            time.sleep(0.2 * attempt)  # bounded backoff
+            continue
+
+        _write_meta_with_retry(s3_client, bucket, stats, source_key, source_modified, merged_gz)
+        return {**stats, "itemsBytes": len(merged_gz), "attempts": attempt}
+
+    raise RuntimeError(f"cache write failed after {MAX_PUT_ATTEMPTS} attempts: {last_error}")
+
+
+def stamp_arrival(s3_client, bucket: str, key: str, loc: str, event_time: str) -> dict:
+    """Copy a bare <LOC>.csv arrival to its stamped archive key, then delete it.
+
+    No parsing here. The copy raises a fresh S3 event that classifies as
+    INGEST, and that invocation does the merge.
+
+    Idempotency cannot key on the destination's own ETag: S3 does not
+    preserve a multipart source's composite ETag through CopyObject, so a
+    byte-identical copy can report a different ETag. We stamp the source's
+    ETag into the destination's metadata and compare against that instead.
+    """
+    stamp = stamp_from_event_time(event_time)
+
+    # The source is already gone when a duplicate notification arrives after
+    # a fully successful run — that is a no-op, not an error.
+    try:
+        src = s3_client.head_object(Bucket=bucket, Key=key)
+    except Exception as e:
+        if not _is_error(e, "404", "NoSuchKey", "NotFound"):
+            raise
+        return {"stamped": None, "deduped": 0, "alreadyStamped": True}
+
+    src_etag = src["ETag"]
+    src_len = src["ContentLength"]
+    marker = src_etag.strip('"')
+
+    dedupe = 0
+    while dedupe <= MAX_DEDUPE:
+        target = archive_key(loc, stamp, dedupe)
+        try:
+            head = s3_client.head_object(Bucket=bucket, Key=target)
+        except Exception as e:
+            if not _is_error(e, "404", "NoSuchKey", "NotFound"):
+                raise
+            s3_client.copy_object(
+                Bucket=bucket,
+                Key=target,
+                CopySource={"Bucket": bucket, "Key": key},
+                CopySourceIfMatch=src_etag,
+                Metadata={"source-etag": marker},
+                MetadataDirective="REPLACE",
+                # MetadataDirective=REPLACE drops the source's ContentType, so
+                # without this the archived CSV lands as binary/octet-stream and
+                # anything that re-reads it by content type sees a blob.
+                ContentType="text/csv",
+                Tagging=ARCHIVE_TAG,
+                TaggingDirective="REPLACE",
+            )
+            # Verify before deleting the only other copy of this file.
+            check = s3_client.head_object(Bucket=bucket, Key=target)
+            if check.get("ContentLength") != src_len:
+                raise RuntimeError(
+                    f"stamp: copy verification failed for {target} "
+                    f"({check.get('ContentLength')} != {src_len})"
+                )
+            s3_client.delete_object(Bucket=bucket, Key=key)
+            return {"stamped": target, "deduped": dedupe}
+
+        if (head.get("Metadata") or {}).get("source-etag") == marker:
+            # Already copied on an earlier delivery; finish the job.
+            s3_client.delete_object(Bucket=bucket, Key=key)
+            return {"stamped": target, "deduped": dedupe}
+
+        dedupe += 1  # same minute, genuinely different content
+
+    raise RuntimeError(f"stamp: exhausted {MAX_DEDUPE} dedupe slots for {loc} at {stamp}")
+
+
+# XLSX would need openpyxl in a layer; every OEIVAL we actually see is CSV.
+# FULL_RE nonetheless matches these extensions and the upload-url route still
+# hands out an xlsx content type, so an xlsx FULL is a real historical shape.
+UNPARSEABLE_EXTENSIONS = (".xlsx", ".xls")
+
+
+def _load_rows(bucket: str, key: str) -> "tuple[list[dict[str, Any]], str]":
+    """Fetch and parse an inventory file. Returns (rows, last_modified_iso)."""
     obj = s3.get_object(Bucket=bucket, Key=key)
     last_modified = obj["LastModified"].isoformat()
-    body = obj["Body"]
-
     key_lower = key.lower()
     if key_lower.endswith(".csv"):
-        items = parse_csv_stream(body)
-    elif key_lower.endswith(".xlsx") or key_lower.endswith(".xls"):
-        # XLSX support would require openpyxl in a Lambda layer. The
-        # OEIVAL files we actually see in S3 are all CSV, so leave this
-        # as an explicit unsupported case for now rather than half-doing
-        # it. Skip cache write; Vercel falls back to its own parse.
-        return {"skipped": f"xlsx not yet supported: {key}"}
-    else:
-        return {"skipped": f"unsupported extension: {key}"}
+        return parse_csv_stream(obj["Body"]), last_modified
+    raise ValueError(f"unsupported extension: {key}")
 
-    filters = build_filters(items)
 
-    # ── items.ndjson.gz — one item per line, gzipped — keeps the
-    # client-side read streaming and memory-bounded regardless of size.
-    items_buf = io.BytesIO()
-    with gzip.GzipFile(fileobj=items_buf, mode="wb", compresslevel=6) as gz:
-        for it in items:
-            gz.write(json.dumps(it, separators=(",", ":")).encode("utf-8"))
-            gz.write(b"\n")
-    items_bytes = items_buf.getvalue()
-    s3.put_object(
-        Bucket=bucket,
-        Key=ITEMS_KEY,
-        Body=items_bytes,
-        ContentType="application/x-ndjson",
-        ContentEncoding="gzip",
-    )
+def _maybe_heal(bucket: str) -> None:
+    """Ask IECentral to backfill brand-less adjustments, at most hourly.
 
-    # ── meta.json — small companion file. Vercel reads this on every
-    # request to know the freshness date + filter dropdowns; only fetches
-    # items when actually rendering rows.
-    meta = {
-        "fileKey": key,
-        "fileName": key.rsplit("/", 1)[-1],
-        "fileDate": last_modified,
-        "totalRows": len(items),
-        "filters": filters,
-        "itemsKey": ITEMS_KEY,
-        "itemsBytes": len(items_bytes),
-        "generatedAt": _now_iso(),
-    }
-    meta_bytes = json.dumps(meta, separators=(",", ":")).encode("utf-8")
-    s3.put_object(
-        Bucket=bucket,
-        Key=META_KEY,
-        Body=meta_bytes,
-        ContentType="application/json",
-    )
+    Unthrottled this fired once per upload, which was fine for one daily file
+    and is not fine at four arrivals per location per hour. The timestamp
+    write is itself conditional: a lost race there just means heal runs again
+    sooner (harmless), and we must not clobber a concurrent invocation's
+    perLocation/totalRows/etc. writes to the same META_KEY.
+    """
+    from datetime import datetime, timezone
 
-    # ── Collective tire-label lookup index — merge (never shrink) so a partial
-    # upload refreshes the report snapshot above without dropping label coverage.
-    try:
-        lookup_stats = update_lookup_index(items)
-        print(f"lookup index: {lookup_stats}")
-    except Exception as e:
-        lookup_stats = {"lookupError": str(e)}
-        print(f"lookup index update failed (non-fatal): {e}")
+    meta, _etag = _read_json_key(s3, bucket, META_KEY)
+    last = meta.get("lastHealAt")
+    if last:
+        try:
+            age = (datetime.now(timezone.utc) - datetime.fromisoformat(last)).total_seconds()
+            if age < HEAL_MIN_INTERVAL_SECONDS:
+                return
+        except Exception:
+            pass
 
-    # Auto-heal: ask IECentral to backfill any brand-less inventory adjustments now
-    # that a fresh OEIVAL cache is available. Best-effort — never block processing.
     try:
         import urllib.request
         heal_url = os.environ.get("IECENTRAL_URL", "https://www.iecentral.com") + "/api/reports/heal-adjustment-brands"
@@ -389,14 +610,147 @@ def handler(event, _context):
             print(f"heal-adjustment-brands: {resp.status} {resp.read()[:200]}")
     except Exception as e:
         print(f"heal-adjustment-brands call failed (non-fatal): {e}")
+        return
 
-    return {
-        "fileKey": key,
+    # Record the timestamp so we don't fire again within the hour. Read fresh
+    # and rewrite only lastHealAt — never a stale copy of the rest of meta —
+    # under the same conditional-write discipline as the merge writes.
+    try:
+        fresh, fresh_etag = _read_json_key(s3, bucket, META_KEY)
+        fresh["lastHealAt"] = _now_iso()
+        put_kwargs = {
+            "Bucket": bucket,
+            "Key": META_KEY,
+            "Body": json.dumps(fresh, separators=(",", ":")).encode("utf-8"),
+            "ContentType": "application/json",
+        }
+        if fresh_etag is not None:
+            put_kwargs["IfMatch"] = fresh_etag
+        else:
+            put_kwargs["IfNoneMatch"] = "*"
+        s3.put_object(**put_kwargs)
+    except Exception as e:
+        if _is_error(e, "PreconditionFailed", "ConditionalRequestConflict"):
+            print(f"heal timestamp write lost a race (non-fatal); heal may run again sooner: {e}")
+        else:
+            print(f"heal timestamp write failed (non-fatal): {e}")
+
+
+def _handle_full(bucket: str, key: str) -> dict:
+    """Month-folder snapshot: replace the reporting cache wholesale, as before.
+
+    The items object is replaced unconditionally (this is a wholesale
+    snapshot, not a per-location merge). The meta write goes through
+    _write_meta_with_retry so it gets the same conditional-write/retry
+    discipline as INGEST — we synthesize the stats shape it expects
+    (totalRows/filters/replacedLocations/perLocationCounts) from this
+    snapshot's own rows rather than writing META_KEY directly.
+
+    NOTE: _write_meta_with_retry only rewrites perLocation entries for
+    locations present in `stats["perLocationCounts"]` — it carries forward
+    anything else already in prior meta untouched. If this full snapshot no
+    longer contains a location that a previous per-location arrival had
+    recorded, that stale perLocation entry survives the full-snapshot write.
+    That is a known gap, not silently worked around here.
+
+    An .xlsx/.xls snapshot is reported as skipped rather than raising: FULL_RE
+    matches those extensions, the old handler returned a skip for them, and
+    raising here would fail the invocation, burn two Lambda retries and inflate
+    the PROCESS_FAIL metric for a file we simply cannot parse yet.
+    """
+    if key.lower().endswith(UNPARSEABLE_EXTENSIONS):
+        # Deliberately NOT worded PROCESS_FAIL — that string is a metric filter.
+        print(f"FULL_SKIP key={key} reason=xlsx not yet supported")
+        return {"skipped": f"xlsx not yet supported: {key}"}
+
+    items, last_modified = _load_rows(bucket, key)
+    filters = build_filters(items)
+
+    items_buf = io.BytesIO()
+    with gzip.GzipFile(fileobj=items_buf, mode="wb", compresslevel=6) as gz:
+        for it in items:
+            gz.write(json.dumps(it, separators=(",", ":")).encode("utf-8"))
+            gz.write(b"\n")
+    items_bytes = items_buf.getvalue()
+    s3.put_object(Bucket=bucket, Key=ITEMS_KEY, Body=items_bytes,
+                  ContentType="application/x-ndjson", ContentEncoding="gzip")
+
+    per_location_counts: "dict[str, int]" = {}
+    for it in items:
+        loc = str(it.get("location", "") or "").strip().upper()
+        if loc:
+            per_location_counts[loc] = per_location_counts.get(loc, 0) + 1
+
+    stats = {
         "totalRows": len(items),
-        "itemsBytes": len(items_bytes),
-        "metaBytes": len(meta_bytes),
-        **lookup_stats,
+        "filters": filters,
+        "replacedLocations": list(per_location_counts.keys()),
+        "perLocationCounts": per_location_counts,
     }
+    _write_meta_with_retry(s3, bucket, stats, key, last_modified, items_bytes)
+
+    try:
+        print(f"lookup index: {update_lookup_index(items)}")
+    except Exception as e:
+        print(f"lookup index update failed (non-fatal): {e}")
+
+    # Non-fatal, same as the lookup index above. _maybe_heal's first act is a
+    # GetObject on META_KEY, and _read_json_key re-raises anything that is not a
+    # 404 — so an unguarded throttle here would turn a fully successful merge
+    # into a failed invocation plus two retries that redo the whole merge.
+    try:
+        _maybe_heal(bucket)
+    except Exception as e:
+        print(f"heal check failed (non-fatal): {e}")
+
+    return {"totalRows": len(items), "itemsBytes": len(items_bytes)}
+
+
+def handler(event, _context):
+    from urllib.parse import unquote_plus
+
+    results = []
+    for record in event.get("Records", []):
+        bucket = record["s3"]["bucket"]["name"]
+        # SAM/S3 URL-encodes the key — unquote it.
+        key = unquote_plus(record["s3"]["object"]["key"])
+        event_time = record.get("eventTime", _now_iso())
+        mode, loc = classify(key)
+        entry = {"key": key, "mode": mode}
+
+        try:
+            if mode == SKIP:
+                pass
+            elif mode == STAMP:
+                entry.update(stamp_arrival(s3, bucket, key, loc, event_time))
+            elif mode == INGEST:
+                items, last_modified = _load_rows(bucket, key)
+                stats = write_merged_cache(s3, bucket, items, loc, key, last_modified)
+                entry.update({k: stats[k] for k in ("totalRows", "attempts", "replacedLocations")})
+                try:
+                    print(f"lookup index: {update_lookup_index(items)}")
+                except Exception as e:
+                    print(f"lookup index update failed (non-fatal): {e}")
+                # Non-fatal: the merge already succeeded and was written. See
+                # the matching guard in _handle_full.
+                try:
+                    _maybe_heal(bucket)
+                except Exception as e:
+                    print(f"heal check failed (non-fatal): {e}")
+            elif mode == FULL:
+                entry.update(_handle_full(bucket, key))
+        except MergeAborted as e:
+            # MERGE_ABORT is matched by a CloudWatch metric filter — do not reword.
+            print(f"MERGE_ABORT key={key} reason={e}")
+            entry["aborted"] = str(e)
+        except Exception as e:
+            print(f"STAMP_FAIL key={key} mode={mode} error={e}"
+                  if mode == STAMP else f"PROCESS_FAIL key={key} mode={mode} error={e}")
+            raise
+
+        results.append(entry)
+
+    return {"results": results}
 
 
 def _now_iso() -> str:
