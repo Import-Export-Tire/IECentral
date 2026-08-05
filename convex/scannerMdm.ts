@@ -578,6 +578,38 @@ export const updateJobStatus = mutation({
   },
 });
 
+/** Durable jobs still outstanding for a scanner, looked up by IoT thing name.
+ *
+ *  Exists so /api/scanner-mdm/job can refuse a second command while one is still waiting,
+ *  rather than trusting the page not to send it. Two commands queued against an offline
+ *  scanner both run back-to-back the moment it checks in — for update_pin that produced two
+ *  different random PINs three seconds apart on W08-902, and the operator kept the first. */
+export const getPendingJobsByThingName = query({
+  args: { thingName: v.string() },
+  handler: async (ctx, args) => {
+    const scanner = await ctx.db
+      .query("scanners")
+      .withIndex("by_iot_thing", (q) => q.eq("iotThingName", args.thingName))
+      .first();
+    if (!scanner) return [];
+
+    const jobs = await ctx.db
+      .query("scannerJobs")
+      .withIndex("by_scanner", (q) => q.eq("scannerId", scanner._id))
+      .order("desc")
+      .take(25);
+
+    return jobs
+      .filter((j) => j.status === "QUEUED" || j.status === "IN_PROGRESS")
+      .map((j) => ({
+        jobId: j.jobId,
+        command: j.command,
+        status: j.status,
+        createdAt: j.createdAt,
+      }));
+  },
+});
+
 export const listJobsForScanner = query({
   args: {
     scannerId: v.id("scanners"),

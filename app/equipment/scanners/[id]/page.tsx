@@ -68,6 +68,11 @@ function ScannerDetailContent() {
   // because each update_pin mints a fresh random PIN, the second job overwrote the first,
   // which looked exactly like the PIN reverting on its own.
   const [commandQueuedMsg, setCommandQueuedMsg] = useState("");
+  // jobId of the command just sent, so the popup can follow its real status.
+  const [sentJobId, setSentJobId] = useState("");
+  // Explicit escape hatch for a job wedged QUEUED against a scanner that never returns —
+  // without it, one dead device would make Remote Control permanently unusable for that unit.
+  const [overridePending, setOverridePending] = useState(false);
   const [sending, setSending] = useState(false);
 
   // Assignment state
@@ -156,27 +161,31 @@ function ScannerDetailContent() {
     setWipeConfirmText("");
     setCommandError("");
     setCommandQueuedMsg("");
+    setSentJobId("");
+    setOverridePending(false);
     setShowCommandModal(true);
   };
 
-  /** A durable job of the same command already waiting on this scanner. Sending a second one
-   *  doesn't replace the first — both run when the device checks in, back to back. For
-   *  update_pin that means two different random PINs seconds apart, and the one you wrote
-   *  down is the wrong one. */
-  const pendingDuplicateJob = pendingCommand
-    ? recentJobs?.find(
-        (j) => j.command === pendingCommand && (j.status === "QUEUED" || j.status === "IN_PROGRESS")
-      )
-    : undefined;
+  /** ANY durable job still outstanding on this scanner — not just the same command. A second
+   *  command doesn't replace the first: both run back to back the moment the device checks in.
+   *  One at a time, and while it's offline that means exactly one waiting. */
+  const pendingJob = recentJobs?.find(
+    (j) => j.status === "QUEUED" || j.status === "IN_PROGRESS"
+  );
+
+  /** Live status of the command just sent, so the popup tracks it through to completion
+   *  instead of reporting "sent" and leaving the operator to guess. */
+  const sentJob = sentJobId ? recentJobs?.find((j) => j.jobId === sentJobId) : undefined;
 
   const executeCommand = async () => {
     if (!pendingCommand || !scanner || !user) return;
     if (pendingCommand === "wipe" && wipeConfirmText !== scanner.number) return;
     // Hard stop, not just a warning: the duplicate is the bug, and the operator who double-taps
-    // is precisely the person who can't see that the first job is still waiting.
-    if (pendingDuplicateJob) {
+    // is precisely the person who can't see that the first job is still waiting. The route
+    // enforces this too — this is the fast, explanatory half.
+    if (pendingJob && JOB_COMMANDS.has(pendingCommand) && !overridePending) {
       setCommandError(
-        `A ${pendingCommand.replace(/_/g, " ")} job is already waiting for this scanner (sent ${formatDate(pendingDuplicateJob.createdAt)}). Sending another would run a second time, not replace the first.`
+        `A ${pendingJob.command.replace(/_/g, " ")} command is still ${pendingJob.status === "QUEUED" ? "waiting for this scanner to check in" : "running"} (sent ${formatDate(pendingJob.createdAt)}). Wait for it to finish — a second command runs in addition to it, not instead of it.`
       );
       return;
     }
@@ -194,17 +203,25 @@ function ScannerDetailContent() {
         // reason this path exists ("even if it's on next powerup").
         const res = await fetch("/api/scanner-mdm/job", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ thingName: scanner.iotThingName, command: pendingCommand, payload }),
+          body: JSON.stringify({ thingName: scanner.iotThingName, command: pendingCommand, payload, override: overridePending || undefined }),
         });
-        if (!res.ok) throw new Error(await res.text());
+        if (!res.ok) {
+          // The route answers 409 with a human-readable reason for the pending-job block;
+          // surface that rather than a raw JSON blob.
+          const raw = await res.text();
+          let msg = raw;
+          try { msg = JSON.parse(raw).error ?? raw; } catch { /* not JSON — use as-is */ }
+          throw new Error(msg);
+        }
         const data = await res.json();
         if (data.jobId) {
           await recordJob({ scannerId, jobId: data.jobId, command: pendingCommand, payload, createdBy: user._id });
+          setSentJobId(data.jobId);
         }
         setCommandQueuedMsg(
           scanner.isOnline
-            ? "Sent. The scanner should run it within a few seconds — watch Recent Jobs below."
-            : `Queued. ${scanner.number} is offline (last seen ${formatDate(scanner.lastSeen)}), so this runs the next time it checks in. Don't send it again — a second job runs in addition to this one, not instead of it.`
+            ? "Sent. The scanner should run it within a few seconds."
+            : `Queued. ${scanner.number} is offline (last seen ${formatDate(scanner.lastSeen)}), so this runs the next time it checks in.`
         );
       } else {
         // wipe (and, once built, get_screen) stay on the direct, fire-and-forget path —
@@ -819,17 +836,32 @@ function ScannerDetailContent() {
                 {canEdit && isProvisioned && (
                   <Card>
                     <SectionHeader label="Remote Control" />
+                    {/* One command at a time. Shown up front so the state is obvious before
+                        anything is clicked — the alternative is finding out inside the modal,
+                        which is how a second command gets sent in the first place. */}
+                    {!!pendingJob && (
+                      <p className="text-xs mb-3 px-3 py-2 rounded-lg ui-callout-amber">
+                        {pendingJob.command.replace(/_/g, " ")} is {pendingJob.status === "QUEUED" ? `waiting for ${scanner.number} to check in` : "running now"} (sent {formatDate(pendingJob.createdAt)}).
+                        Nothing else can be sent until it finishes.
+                      </p>
+                    )}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {commandButtons.filter((b) => !b.requiresAdmin || isSuperAdmin).map((btn) => {
                         const blockedByOwner = btn.requiresDeviceOwner && !scanner.deviceOwner;
                         const blockedByOffline = btn.requiresOnline && !scanner.isOnline;
+                        // wipe and get_screen don't go through Jobs, so they can't stack up —
+                        // and wipe in particular must stay reachable as the last resort.
+                        // Deliberately NOT added to `blocked`: the modal is where the block is
+                        // explained and where the "send anyway" escape hatch lives, so a disabled
+                        // button would strand anyone with a job wedged against a dead scanner.
+                        const blockedByPending = !!pendingJob && JOB_COMMANDS.has(btn.cmd);
                         const blocked = blockedByOwner || blockedByOffline;
                         return (
                           <button
                             key={btn.cmd}
                             onClick={() => initiateCommand(btn.cmd)}
                             disabled={blocked}
-                            title={blockedByOffline ? "Scanner is offline — nothing to view right now" : blockedByOwner ? "Requires Device Owner" : undefined}
+                            title={blockedByOffline ? "Scanner is offline — nothing to view right now" : blockedByOwner ? "Requires Device Owner" : blockedByPending ? `Waiting on the ${pendingJob?.command.replace(/_/g, " ")} command sent ${formatDate(pendingJob?.createdAt)}` : undefined}
                             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors border disabled:opacity-40 disabled:cursor-not-allowed ${isDark ? `bg-${btn.color}-500/5 text-${btn.color}-400 hover:bg-${btn.color}-500/15 border-${btn.color}-500/15` : `bg-${btn.color}-50/50 text-${btn.color}-600 hover:bg-${btn.color}-50 border-${btn.color}-200/50`}`}
                           >
                             <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={btn.icon} /></svg>
@@ -1140,14 +1172,36 @@ function ScannerDetailContent() {
                       {pendingCommand === "update_pin" && " Each PIN change picks a new random number, so two of them means the first PIN you see is not the one that ends up on the scanner."}
                     </p>
                   )}
-                  {!commandQueuedMsg && !!pendingDuplicateJob && (
-                    <p className="text-xs mb-4 px-3 py-2 rounded-lg ui-callout-red">
-                      Already waiting: a {pendingDuplicateJob.command.replace(/_/g, " ")} job from {formatDate(pendingDuplicateJob.createdAt)} hasn&apos;t run yet.
-                      Sending another adds a second one — it does not replace the first.
-                    </p>
+                  {!commandQueuedMsg && !!pendingJob && JOB_COMMANDS.has(pendingCommand) && (
+                    <div className="text-xs mb-4 px-3 py-2 rounded-lg ui-callout-red">
+                      <p>
+                        Already {pendingJob.status === "QUEUED" ? "waiting" : "running"}: a {pendingJob.command.replace(/_/g, " ")} command
+                        from {formatDate(pendingJob.createdAt)} hasn&apos;t finished. Sending another adds a second one — it does not replace the first.
+                      </p>
+                      <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                        <input type="checkbox" checked={overridePending} onChange={(e) => setOverridePending(e.target.checked)} />
+                        <span>Send anyway — I understand both will run</span>
+                      </label>
+                    </div>
                   )}
                   {!!commandQueuedMsg && (
-                    <p className="text-sm mb-4 px-3 py-2 rounded-lg ui-callout-green">{commandQueuedMsg}</p>
+                    <div className="text-sm mb-4 px-3 py-2 rounded-lg ui-callout-green">
+                      <p>{commandQueuedMsg}</p>
+                      {/* Live status, not a one-shot "sent". recentJobs is a live query, so this
+                          tracks QUEUED -> IN_PROGRESS -> SUCCEEDED/FAILED while the modal is open. */}
+                      {!!sentJobId && (
+                        <p className="text-xs mt-1.5 theme-text-secondary">
+                          Status: <span className="font-medium">
+                            {!sentJob ? "recording…"
+                              : sentJob.status === "QUEUED" ? "waiting for the scanner"
+                              : sentJob.status === "IN_PROGRESS" ? "running on the scanner"
+                              : sentJob.status === "SUCCEEDED" ? "completed"
+                              : sentJob.status.replace(/_/g, " ").toLowerCase()}
+                          </span>
+                          {!!sentJob?.statusDetail && <span className="text-red-400"> — {sentJob.statusDetail}</span>}
+                        </p>
+                      )}
+                    </div>
                   )}
                   {!!commandError && (
                     <p className="text-xs mb-4 px-3 py-2 rounded-lg ui-callout-amber break-words">
@@ -1158,14 +1212,14 @@ function ScannerDetailContent() {
                     {commandQueuedMsg ? (
                       // Only one way out once it's been accepted — offering "Confirm" again here
                       // is how you end up with two jobs.
-                      <Button variant="primary" onClick={() => { setShowCommandModal(false); setPendingCommand(null); setCommandQueuedMsg(""); }}>Done</Button>
+                      <Button variant="primary" onClick={() => { setShowCommandModal(false); setPendingCommand(null); setCommandQueuedMsg(""); setSentJobId(""); }}>Done</Button>
                     ) : (
                       <>
                         <Button variant="ghost" onClick={() => { setShowCommandModal(false); setPendingCommand(null); }}>Cancel</Button>
                         <Button
                           variant={pendingCommand === "wipe" ? "danger" : "primary"}
                           onClick={executeCommand}
-                          disabled={sending || !!pendingDuplicateJob || (pendingCommand === "wipe" && wipeConfirmText !== scanner.number)}
+                          disabled={sending || (!!pendingJob && JOB_COMMANDS.has(pendingCommand) && !overridePending) || (pendingCommand === "wipe" && wipeConfirmText !== scanner.number)}
                         >
                           {sending ? "Sending..." : "Confirm"}
                         </Button>
