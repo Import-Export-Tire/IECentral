@@ -947,6 +947,13 @@ export default defineSchema({
       truncated: v.optional(v.boolean()),
       logTail: v.optional(v.array(v.string())),
     })),
+    // PIN-revert visibility. Android 8.1 has no API to forbid an on-device PIN change, so the
+    // agent detects one and re-asserts the system PIN. A rising count is the signal that
+    // someone on the floor keeps changing it — previously computed on the device and then
+    // thrown away at the telemetry bridge, so nobody could see it.
+    pinRevertCount: v.optional(v.number()),
+    pinLastRevertedAt: v.optional(v.number()), // epoch ms, 0/absent = never
+    pinRevertThrottled: v.optional(v.boolean()), // hit the 5-reverts-per-minute limit
     // DataWedge — the Zebra service that drives the barcode imager. Reported on every
     // telemetry tick by agent >= 1.7.3, so "won't scan" can be triaged without collecting the
     // device: `installed`/`packageEnabled` say whether the engine can run at all, and

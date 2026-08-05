@@ -207,6 +207,12 @@ export const updateScannerTelemetry = internalMutation({
     deviceOwner: v.optional(v.boolean()),
     pinManaged: v.optional(v.boolean()),
     pin: v.optional(v.string()),
+    // PIN-revert visibility: the agent undoes on-device PIN changes by re-asserting the system
+    // PIN, and these say whether that has been happening. `pinLastRevertedAt` is epoch ms, 0 =
+    // never.
+    pinRevertCount: v.optional(v.number()),
+    pinLastRevertedAt: v.optional(v.number()),
+    pinRevertThrottled: v.optional(v.boolean()),
     // DataWedge (the barcode engine) state, reported every tick by agent >= 1.7.3. `installed`
     // + `packageEnabled` answer "can this scanner scan at all"; `lastConfig` is what DataWedge
     // itself reported about the last datawedge_config command.
@@ -268,6 +274,9 @@ export const updateScannerTelemetry = internalMutation({
     if (args.pin !== undefined) updates.pin = args.pin;
     if (args.screen !== undefined) updates.lastScreen = args.screen;
     if (args.dataWedge !== undefined) updates.dataWedge = args.dataWedge;
+    if (args.pinRevertCount !== undefined) updates.pinRevertCount = args.pinRevertCount;
+    if (args.pinLastRevertedAt !== undefined) updates.pinLastRevertedAt = args.pinLastRevertedAt;
+    if (args.pinRevertThrottled !== undefined) updates.pinRevertThrottled = args.pinRevertThrottled;
 
     // === Alert generation ===
     const existingAlerts: Array<{

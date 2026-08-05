@@ -39,6 +39,9 @@ http.route({
         pin: body.pin,
         screen: body.screen,
         dataWedge: body.dataWedge,
+        pinRevertCount: body.pinRevertCount,
+        pinLastRevertedAt: body.pinLastRevertedAt,
+        pinRevertThrottled: body.pinRevertThrottled,
         // status.py has always sent these two and the mutation has always accepted them, but
         // this handler never passed them through, so storage telemetry was silently dropped.
         storageTotal: body.storageTotal,

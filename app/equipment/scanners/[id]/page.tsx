@@ -62,6 +62,12 @@ function ScannerDetailContent() {
   const [commandPayload, setCommandPayload] = useState("");
   const [wipeConfirmText, setWipeConfirmText] = useState("");
   const [commandError, setCommandError] = useState("");
+  // Set once a command is accepted, so the modal reports what actually happened instead of
+  // just vanishing. A silently-closing modal on an OFFLINE scanner is what caused two
+  // update_pin jobs to be queued minutes apart on W08-902: nothing said "queued, wait" — and
+  // because each update_pin mints a fresh random PIN, the second job overwrote the first,
+  // which looked exactly like the PIN reverting on its own.
+  const [commandQueuedMsg, setCommandQueuedMsg] = useState("");
   const [sending, setSending] = useState(false);
 
   // Assignment state
@@ -149,12 +155,31 @@ function ScannerDetailContent() {
     setCommandPayload("");
     setWipeConfirmText("");
     setCommandError("");
+    setCommandQueuedMsg("");
     setShowCommandModal(true);
   };
+
+  /** A durable job of the same command already waiting on this scanner. Sending a second one
+   *  doesn't replace the first — both run when the device checks in, back to back. For
+   *  update_pin that means two different random PINs seconds apart, and the one you wrote
+   *  down is the wrong one. */
+  const pendingDuplicateJob = pendingCommand
+    ? recentJobs?.find(
+        (j) => j.command === pendingCommand && (j.status === "QUEUED" || j.status === "IN_PROGRESS")
+      )
+    : undefined;
 
   const executeCommand = async () => {
     if (!pendingCommand || !scanner || !user) return;
     if (pendingCommand === "wipe" && wipeConfirmText !== scanner.number) return;
+    // Hard stop, not just a warning: the duplicate is the bug, and the operator who double-taps
+    // is precisely the person who can't see that the first job is still waiting.
+    if (pendingDuplicateJob) {
+      setCommandError(
+        `A ${pendingCommand.replace(/_/g, " ")} job is already waiting for this scanner (sent ${formatDate(pendingDuplicateJob.createdAt)}). Sending another would run a second time, not replace the first.`
+      );
+      return;
+    }
     setSending(true);
     setCommandError("");
     try {
@@ -176,6 +201,11 @@ function ScannerDetailContent() {
         if (data.jobId) {
           await recordJob({ scannerId, jobId: data.jobId, command: pendingCommand, payload, createdBy: user._id });
         }
+        setCommandQueuedMsg(
+          scanner.isOnline
+            ? "Sent. The scanner should run it within a few seconds — watch Recent Jobs below."
+            : `Queued. ${scanner.number} is offline (last seen ${formatDate(scanner.lastSeen)}), so this runs the next time it checks in. Don't send it again — a second job runs in addition to this one, not instead of it.`
+        );
       } else {
         // wipe (and, once built, get_screen) stay on the direct, fire-and-forget path —
         // both are only meaningful on a device that's online right now.
@@ -186,10 +216,10 @@ function ScannerDetailContent() {
         // This path never checked the response either — a rejected wipe/get_screen was
         // indistinguishable from an accepted one.
         if (!res.ok) throw new Error(await res.text());
+        setCommandQueuedMsg("Sent to the scanner.");
       }
-
-      setShowCommandModal(false);
-      setPendingCommand(null);
+      // Deliberately does NOT close the modal — it now reports what happened. Closing on
+      // success is what made a queued job on an offline scanner look like nothing happened.
     } catch (err) {
       // Previously this only hit console.error and then fell through to closing the modal, so a
       // rejected command looked exactly like a successful one — the operator walked away
@@ -539,11 +569,31 @@ function ScannerDetailContent() {
                         <span className="text-xs font-medium theme-text-secondary">{scanner.status}</span>
                       )}
                     </div>
-                    {/* PIN with change button */}
+                    {/* PIN with change button. The PIN is the device's LAST REPORTED value, not
+                        a guarantee — the scanner only tells us when it checks in, and on
+                        Android 8.1 there is no API to stop someone changing it on the device.
+                        Shown bare it reads as fact, which is how an offline scanner's stale PIN
+                        gets handed to an employee who then can't unlock it. */}
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] theme-text-tertiary">System PIN</span>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono font-medium theme-text-secondary">{scanner.pin || "Not set"}</span>
+                        {!!scanner.pin && (
+                          <span
+                            className={`text-[10px] ${scanner.isOnline ? "theme-text-tertiary" : "text-amber-500"}`}
+                            title={scanner.isOnline ? "Confirmed at the scanner's last check-in" : "The scanner hasn't checked in since this — it may have been changed on the device"}
+                          >
+                            {scanner.isOnline ? "confirmed now" : `as of ${formatDate(scanner.lastSeen)}`}
+                          </span>
+                        )}
+                        {!!scanner.pinRevertCount && (
+                          <span
+                            className="text-[10px] text-amber-500"
+                            title={`The scanner has undone an on-device PIN change ${scanner.pinRevertCount} time(s)${scanner.pinLastRevertedAt ? `, last on ${formatDate(scanner.pinLastRevertedAt)}` : ""}. Someone is changing it on the device.`}
+                          >
+                            ({scanner.pinRevertCount} revert{scanner.pinRevertCount === 1 ? "" : "s"})
+                          </span>
+                        )}
                         {canEdit && (
                           <Button
                             variant="ghost"
@@ -1076,10 +1126,28 @@ function ScannerDetailContent() {
                       {pendingCommand === "get_screen" && "Request a live look at this scanner’s screen — the app in use, on-screen text, and recent agent log lines. This is a view of what the assigned employee currently has on their device, not just a diagnostic number. The scanner will publish faster (about every 3 seconds) for roughly 2 minutes, then return to its normal 5-minute check-in."}
                     </p>
                   )}
-                  {pendingCommand !== "wipe" && JOB_COMMANDS.has(pendingCommand) && (
+                  {pendingCommand !== "wipe" && JOB_COMMANDS.has(pendingCommand) && !commandQueuedMsg && (
                     <p className="text-xs mb-4 -mt-2 theme-text-tertiary">
                       Sent as a durable job — it will run even if the scanner is off right now.
                     </p>
+                  )}
+                  {/* Offline is the case that goes wrong: nothing visibly happens, so the button
+                      gets pressed again, and every extra job runs in addition to the first. */}
+                  {!commandQueuedMsg && !scanner.isOnline && JOB_COMMANDS.has(pendingCommand) && (
+                    <p className="text-xs mb-4 px-3 py-2 rounded-lg ui-callout-amber">
+                      {scanner.number} is offline (last seen {formatDate(scanner.lastSeen)}). This will wait
+                      until it checks in — that can be hours. Send it once.
+                      {pendingCommand === "update_pin" && " Each PIN change picks a new random number, so two of them means the first PIN you see is not the one that ends up on the scanner."}
+                    </p>
+                  )}
+                  {!commandQueuedMsg && !!pendingDuplicateJob && (
+                    <p className="text-xs mb-4 px-3 py-2 rounded-lg ui-callout-red">
+                      Already waiting: a {pendingDuplicateJob.command.replace(/_/g, " ")} job from {formatDate(pendingDuplicateJob.createdAt)} hasn&apos;t run yet.
+                      Sending another adds a second one — it does not replace the first.
+                    </p>
+                  )}
+                  {!!commandQueuedMsg && (
+                    <p className="text-sm mb-4 px-3 py-2 rounded-lg ui-callout-green">{commandQueuedMsg}</p>
                   )}
                   {!!commandError && (
                     <p className="text-xs mb-4 px-3 py-2 rounded-lg ui-callout-amber break-words">
@@ -1087,14 +1155,22 @@ function ScannerDetailContent() {
                     </p>
                   )}
                   <div className="flex justify-end gap-3">
-                    <Button variant="ghost" onClick={() => { setShowCommandModal(false); setPendingCommand(null); }}>Cancel</Button>
-                    <Button
-                      variant={pendingCommand === "wipe" ? "danger" : "primary"}
-                      onClick={executeCommand}
-                      disabled={sending || (pendingCommand === "wipe" && wipeConfirmText !== scanner.number)}
-                    >
-                      {sending ? "Sending..." : "Confirm"}
-                    </Button>
+                    {commandQueuedMsg ? (
+                      // Only one way out once it's been accepted — offering "Confirm" again here
+                      // is how you end up with two jobs.
+                      <Button variant="primary" onClick={() => { setShowCommandModal(false); setPendingCommand(null); setCommandQueuedMsg(""); }}>Done</Button>
+                    ) : (
+                      <>
+                        <Button variant="ghost" onClick={() => { setShowCommandModal(false); setPendingCommand(null); }}>Cancel</Button>
+                        <Button
+                          variant={pendingCommand === "wipe" ? "danger" : "primary"}
+                          onClick={executeCommand}
+                          disabled={sending || !!pendingDuplicateJob || (pendingCommand === "wipe" && wipeConfirmText !== scanner.number)}
+                        >
+                          {sending ? "Sending..." : "Confirm"}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </Card>
               </div>

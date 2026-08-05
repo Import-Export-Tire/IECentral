@@ -80,6 +80,18 @@ def handler(event, context):
         telemetry["pinManaged"] = event.get("pinManaged", False)
         if "pin" in event:
             telemetry["pin"] = event["pin"]
+        # PIN-revert visibility. The agent has always published these (MqttService item 1), but
+        # nothing forwarded them, so "someone changed the PIN on the device and the agent put it
+        # back" was invisible in IE Central — indistinguishable from a PIN that never changed.
+        if "pinRevertCount" in event:
+            telemetry["pinRevertCount"] = event["pinRevertCount"]
+        if "pinLastRevertedAt" in event:
+            # Device sends epoch ms here (System.currentTimeMillis()), unlike the epoch-seconds
+            # fields above — 0 means "never reverted".
+            telemetry["pinLastRevertedAt"] = event["pinLastRevertedAt"]
+        if "pinRevertThrottled" in event:
+            telemetry["pinRevertThrottled"] = event["pinRevertThrottled"]
+
         if "dataWedge" in event and isinstance(event["dataWedge"], dict):
             # DataWedge (barcode engine) state, reported on every tick by agent >= 1.7.3.
             # Only the fields Convex validates are forwarded — the agent's `lastConfig.results`
