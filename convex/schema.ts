@@ -947,6 +947,18 @@ export default defineSchema({
       truncated: v.optional(v.boolean()),
       logTail: v.optional(v.array(v.string())),
     })),
+    // The FDE boot/decrypt PIN, which is NOT the same credential as the lock-screen PIN above.
+    // Proven on W08-902 (2026-08-05): nothing we can run changes the boot one — not the agent's
+    // resetPassword, not `locksettings set-pin`, not even `locksettings clear`. Re-keying it
+    // needs vdc/root. So the two can drift apart permanently, and the only real defence is
+    // never losing the value: captured automatically from the first PIN a scanner reports, and
+    // never overwritten by a later PIN change.
+    bootPin: v.optional(v.string()),
+    bootPinCapturedAt: v.optional(v.number()),
+    // True when the boot PIN could NOT be inferred safely — the scanner's PIN had already been
+    // changed before capture, so today's value tells us nothing about what boot expects. An
+    // honest "unknown" beats a confident wrong number that strands the device on next reboot.
+    bootPinUnknown: v.optional(v.boolean()),
     // PIN-revert visibility. Android 8.1 has no API to forbid an on-device PIN change, so the
     // agent detects one and re-asserts the system PIN. A rising count is the signal that
     // someone on the floor keeps changing it — previously computed on the device and then

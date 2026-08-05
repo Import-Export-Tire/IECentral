@@ -603,6 +603,19 @@ function ScannerDetailContent() {
                             {scanner.isOnline ? "confirmed now" : `as of ${formatDate(scanner.lastSeen)}`}
                           </span>
                         )}
+                        {/* The startup PIN only earns space when it has drifted from the lock
+                            PIN — while they match, showing two identical numbers just invites
+                            someone to type the wrong one. */}
+                        {!!scanner.bootPin && scanner.bootPin !== scanner.pin && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded ui-callout-amber font-mono" title="This scanner asks for a DIFFERENT PIN at startup, before Android loads. It cannot be changed remotely.">
+                            startup: {scanner.bootPin}
+                          </span>
+                        )}
+                        {!!scanner.bootPinUnknown && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded ui-callout-red" title="This scanner's PIN was changed before we started recording the startup PIN, so the value it wants at boot is unknown. It may not be recoverable without a factory reset.">
+                            startup PIN unknown
+                          </span>
+                        )}
                         {!!scanner.pinRevertCount && (
                           <span
                             className="text-[10px] text-amber-500"
@@ -1152,6 +1165,7 @@ function ScannerDetailContent() {
                       {pendingCommand === "install_apk" && "Push latest APK updates to the scanner."}
                       {pendingCommand === "push_config" && "Push latest RT Locator configuration."}
                       {pendingCommand === "restart" && "Restart the scanner device."}
+                      {pendingCommand === "update_pin" && !!scanner.bootPin && scanner.bootPin === scanner.pin && "Heads up: this scanner asks for a PIN twice — once at startup, then again at the Android lock screen. They match right now. On agent 1.7.3 and older, changing the PIN only moves the lock-screen one, and the startup PIN stays " + scanner.bootPin + " forever. It's recorded here so it can't be lost. "}
                       {pendingCommand === "update_pin" && "The scanner will generate a new 6-digit PIN and apply it. Nobody chooses the number, so it can\u2019t be a guessable one. It appears here once the scanner confirms it \u2014 if the scanner is off, this applies next time it powers up."}
                       {pendingCommand === "apply_policies" && "Re-apply device restrictions and lockdown policy."}
                       {pendingCommand === "datawedge_config" && "For a scanner that won’t read barcodes. Turns DataWedge (the barcode engine) back on, re-enables the scanner for Profile0, and re-applies the standard output format — suffix “!”, send data, then a Tab. It does not change which barcode types the scanner reads, so a working scanner won’t start behaving differently. DataWedge reports back whether it accepted the change, and you’ll see that below under Barcode Engine."}

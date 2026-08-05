@@ -272,6 +272,32 @@ export const updateScannerTelemetry = internalMutation({
     if (args.deviceOwner !== undefined) updates.deviceOwner = args.deviceOwner;
     if (args.pinManaged !== undefined) updates.pinManaged = args.pinManaged;
     if (args.pin !== undefined) updates.pin = args.pin;
+
+    // Capture the FDE boot/decrypt PIN while it is still knowable.
+    //
+    // Every scanner has one: the agent's first-ever PIN set (maybeInitializePin on the first
+    // Device-Owner boot) is a no-credential -> credential transition, and that is what writes
+    // the password into the crypto footer. Nothing afterwards moves it — not resetPassword,
+    // not `locksettings set-pin`, not `locksettings clear` — so from the SECOND PIN change
+    // onward the boot PIN is a value nobody has recorded anywhere. That is how W08-902 ended
+    // up one reboot away from being unrecoverable.
+    //
+    // A scanner that has never had a PIN change still has boot PIN == lock PIN, so today's
+    // reported value IS the boot PIN and is safe to record. One that has already been changed
+    // gets flagged unknown rather than given a confidently wrong number.
+    if (args.pin !== undefined && scanner.bootPin === undefined && !scanner.bootPinUnknown) {
+      const priorPinJobs = await ctx.db
+        .query("scannerJobs")
+        .withIndex("by_scanner", (q) => q.eq("scannerId", scanner._id))
+        .collect();
+      const everChanged = priorPinJobs.some((j) => j.command === "update_pin");
+      if (everChanged) {
+        updates.bootPinUnknown = true;
+      } else {
+        updates.bootPin = args.pin;
+        updates.bootPinCapturedAt = now;
+      }
+    }
     if (args.screen !== undefined) updates.lastScreen = args.screen;
     if (args.dataWedge !== undefined) updates.dataWedge = args.dataWedge;
     if (args.pinRevertCount !== undefined) updates.pinRevertCount = args.pinRevertCount;
