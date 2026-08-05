@@ -947,6 +947,27 @@ export default defineSchema({
       truncated: v.optional(v.boolean()),
       logTail: v.optional(v.array(v.string())),
     })),
+    // DataWedge — the Zebra service that drives the barcode imager. Reported on every
+    // telemetry tick by agent >= 1.7.3, so "won't scan" can be triaged without collecting the
+    // device: `installed`/`packageEnabled` say whether the engine can run at all, and
+    // `lastConfig` is DataWedge's own verdict on the last datawedge_config command (the setup
+    // wizard's USB step could never read one back — see lib/scanners/verify.ts).
+    dataWedge: v.optional(v.object({
+      installed: v.optional(v.boolean()),
+      packageEnabled: v.optional(v.boolean()),
+      packageVersion: v.optional(v.string()),
+      lastConfig: v.optional(v.object({
+        at: v.optional(v.number()), // epoch ms
+        setConfigResult: v.optional(v.string()), // "SUCCESS" | "FAILURE" | "no result"
+        activeProfile: v.optional(v.string()),
+        dataWedgeVersion: v.optional(v.string()),
+        profile: v.optional(v.string()),
+        suffix: v.optional(v.string()),
+        sendTab: v.optional(v.boolean()),
+        sendEnter: v.optional(v.boolean()),
+        error: v.optional(v.string()),
+      })),
+    })),
     // Storage telemetry
     storageTotal: v.optional(v.number()), // Total internal storage in MB
     storageFree: v.optional(v.number()), // Free internal storage in MB

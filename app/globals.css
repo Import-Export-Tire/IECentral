@@ -5,6 +5,8 @@
    Tailwind v4's content scanner can't resolve that interpolation, so the "teal" variant is
    force-generated here or it silently renders with no background/border/hover tint. */
 @source inline("bg-teal-500/5 hover:bg-teal-500/15 border-teal-500/15 text-teal-400 bg-teal-50/50 hover:bg-teal-50 border-teal-200/50 text-teal-600");
+/* Same for the "Fix Scanning" (datawedge_config) button's orange variant. */
+@source inline("bg-orange-500/5 hover:bg-orange-500/15 border-orange-500/15 text-orange-400 bg-orange-50/50 hover:bg-orange-50 border-orange-200/50 text-orange-600");
 
 /* Drive Tailwind's `dark:` variant off the app's own theme class (set on <html>
    by theme-context: adds "dark" or "light"), NOT the OS `prefers-color-scheme`.

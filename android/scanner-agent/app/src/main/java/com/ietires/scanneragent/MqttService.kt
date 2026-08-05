@@ -99,6 +99,8 @@ class MqttService : Service() {
     @Volatile private var lastLocation: Location? = null
     private var locationManager: LocationManager? = null
     private val pinManager by lazy { PinManager(this) }
+    // Barcode/DataWedge control — see DataWedgeConfigurator for why this can't be done over ADB.
+    private val dataWedge by lazy { DataWedgeConfigurator(this) }
 
     // ---- item 2: policy/uninstall-protection result from the last applyPolicies() run ----
     @Volatile private var lastPolicyResult: JSONObject = JSONObject()
@@ -383,6 +385,11 @@ class MqttService : Service() {
             // --- item 2: result of the last applyPolicies() run ---
             put("restrictionsApplied", lastPolicyResult)
 
+            // --- DataWedge: installed/enabled state plus the result of the last datawedge_config
+            // run. Reported unconditionally because "is the barcode engine even enabled" is the
+            // first question asked about a scanner that won't scan, and nothing reported it before.
+            put("dataWedge", dataWedge.state())
+
             // --- home screen: whether HomeActivity is (meant to be) the default HOME activity.
             // Reflects the home_screen/enabled flag, not whether addPersistentPreferredActivity
             // actually succeeded — pair with restrictionsApplied.deviceOwner to tell "disabled"
@@ -504,6 +511,9 @@ class MqttService : Service() {
             "apply_policies" -> { applyPolicies(); publishTelemetry() }
             "get_screen" -> enterFastPublishMode()
             "set_home" -> setHome(payload.optJSONObject("payload"))
+            // Publishes immediately afterwards so the operator who pressed the button sees what
+            // DataWedge actually reported rather than waiting out the 5-minute cadence.
+            "datawedge_config" -> { dataWedge.apply(payload.optJSONObject("payload")); publishTelemetry() }
         }
 
         // Acknowledge command
@@ -562,6 +572,18 @@ class MqttService : Service() {
                 }
                 "get_screen" -> { enterFastPublishMode(); JobOutcome.Success }
                 "set_home" -> if (setHome(payload)) JobOutcome.Success else JobOutcome.Retryable("not device owner — home screen preference not applied")
+                "datawedge_config" -> {
+                    val outcome = dataWedge.apply(payload)
+                    publishTelemetry()
+                    when {
+                        // No DataWedge at all can't be fixed by running the same job again.
+                        !outcome.dataWedgePresent -> JobOutcome.Permanent(outcome.failureReason ?: "DataWedge not installed")
+                        outcome.setConfigSucceeded -> JobOutcome.Success
+                        // Everything else — no result, or a FAILURE from a DataWedge that was
+                        // busy/still starting — is worth another attempt.
+                        else -> JobOutcome.Retryable(outcome.failureReason ?: "DataWedge did not confirm SET_CONFIG")
+                    }
+                }
                 else -> JobOutcome.Permanent("Unrecognized command: $command")
             }
         } catch (e: Exception) {

@@ -207,6 +207,25 @@ export const updateScannerTelemetry = internalMutation({
     deviceOwner: v.optional(v.boolean()),
     pinManaged: v.optional(v.boolean()),
     pin: v.optional(v.string()),
+    // DataWedge (the barcode engine) state, reported every tick by agent >= 1.7.3. `installed`
+    // + `packageEnabled` answer "can this scanner scan at all"; `lastConfig` is what DataWedge
+    // itself reported about the last datawedge_config command.
+    dataWedge: v.optional(v.object({
+      installed: v.optional(v.boolean()),
+      packageEnabled: v.optional(v.boolean()),
+      packageVersion: v.optional(v.string()),
+      lastConfig: v.optional(v.object({
+        at: v.optional(v.number()),
+        setConfigResult: v.optional(v.string()),
+        activeProfile: v.optional(v.string()),
+        dataWedgeVersion: v.optional(v.string()),
+        profile: v.optional(v.string()),
+        suffix: v.optional(v.string()),
+        sendTab: v.optional(v.boolean()),
+        sendEnter: v.optional(v.boolean()),
+        error: v.optional(v.string()),
+      })),
+    })),
     // Only present while the agent is in get_screen's fast-publish window (see status.py).
     // Stored as `lastScreen` — latest snapshot only, no history table.
     screen: v.optional(v.object({
@@ -248,6 +267,7 @@ export const updateScannerTelemetry = internalMutation({
     if (args.pinManaged !== undefined) updates.pinManaged = args.pinManaged;
     if (args.pin !== undefined) updates.pin = args.pin;
     if (args.screen !== undefined) updates.lastScreen = args.screen;
+    if (args.dataWedge !== undefined) updates.dataWedge = args.dataWedge;
 
     // === Alert generation ===
     const existingAlerts: Array<{

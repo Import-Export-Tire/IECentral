@@ -80,6 +80,43 @@ def handler(event, context):
         telemetry["pinManaged"] = event.get("pinManaged", False)
         if "pin" in event:
             telemetry["pin"] = event["pin"]
+        if "dataWedge" in event and isinstance(event["dataWedge"], dict):
+            # DataWedge (barcode engine) state, reported on every tick by agent >= 1.7.3.
+            # Only the fields Convex validates are forwarded — the agent's `lastConfig.results`
+            # carries raw DataWedge result extras whose shape varies by DataWedge version, and
+            # an unexpected key there must not fail the whole telemetry post.
+            dw = event["dataWedge"]
+            dw_out = {}
+            if "installed" in dw:
+                dw_out["installed"] = dw["installed"]
+            if "packageEnabled" in dw:
+                dw_out["packageEnabled"] = dw["packageEnabled"]
+            if "packageVersion" in dw:
+                dw_out["packageVersion"] = dw["packageVersion"]
+            last = dw.get("lastConfig")
+            if isinstance(last, dict):
+                cfg = {}
+                for key in (
+                    "setConfigResult",
+                    "activeProfile",
+                    "dataWedgeVersion",
+                    "profile",
+                    "suffix",
+                    "error",
+                ):
+                    if last.get(key) is not None:
+                        cfg[key] = str(last[key])
+                for key in ("sendTab", "sendEnter"):
+                    if isinstance(last.get(key), bool):
+                        cfg[key] = last[key]
+                if "attemptedAt" in last:
+                    # Device side is epoch seconds; every Convex timestamp is epoch ms.
+                    cfg["at"] = last["attemptedAt"] * 1000
+                if cfg:
+                    dw_out["lastConfig"] = cfg
+            if dw_out:
+                telemetry["dataWedge"] = dw_out
+
         if "screen" in event and isinstance(event["screen"], dict):
             # Only attached by the agent while in get_screen's ~2min fast-publish window
             # (see MqttService.buildScreenPayload/enterFastPublishMode). Renamed here to

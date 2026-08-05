@@ -80,7 +80,7 @@ class JobsClient(
      *  "active job" tracking — a disconnect may have interrupted whatever we were doing
      *  mid-flight, and MemoryPersistence means we have no durable record of it anyway. Every
      *  command handler this can cause to re-run (lock, push_config, apply_policies,
-     *  update_pin, get_screen, install_apk's own idempotent `pm install`) is safe to run twice,
+     *  update_pin, get_screen, datawedge_config, install_apk's own idempotent `pm install`) is safe to run twice,
      *  so re-processing the same resurfaced execution is the correct, simple choice. */
     fun onConnected() {
         try {

@@ -6,7 +6,8 @@ sits QUEUED on the AWS side until the device reconnects and asks "what's next fo
 command.py, which is fire-and-forget and discards a command to an offline device forever.
 
 Supports the same command vocabulary the agent's JobsClient understands: lock, unlock,
-restart, install_apk, uninstall_app, push_config, update_pin, apply_policies, get_screen.
+restart, install_apk, uninstall_app, push_config, update_pin, apply_policies, get_screen,
+datawedge_config.
 `wipe` is deliberately NOT accepted here — it is never offered over Jobs, only over the
 direct cmd/scanners/# path, so a durable queued factory-reset can never fire days later
 when someone finally powers a device back on.
@@ -50,6 +51,10 @@ VALID_COMMANDS = [
     # a broken launcher could not be turned off remotely, which is the entire reason
     # replacing the launcher is acceptable rather than reckless.
     "set_home",
+    # Barcode repair. Belongs on the Jobs path more than most: a scanner that can't scan is
+    # usually already sitting on a charger somewhere offline, so the fix has to be able to wait
+    # for it rather than being discarded the moment it's sent.
+    "datawedge_config",
 ]
 
 MAX_JOB_ID_LEN = 64

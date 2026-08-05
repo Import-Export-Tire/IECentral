@@ -38,6 +38,11 @@ http.route({
         pinManaged: body.pinManaged,
         pin: body.pin,
         screen: body.screen,
+        dataWedge: body.dataWedge,
+        // status.py has always sent these two and the mutation has always accepted them, but
+        // this handler never passed them through, so storage telemetry was silently dropped.
+        storageTotal: body.storageTotal,
+        storageFree: body.storageFree,
       });
 
       return new Response(JSON.stringify({ success: true }), {

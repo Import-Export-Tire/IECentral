@@ -18,7 +18,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import SectionHeader from "@/components/ui/SectionHeader";
 
-type CommandType = "lock" | "unlock" | "wipe" | "install_apk" | "push_config" | "restart" | "update_pin" | "apply_policies" | "get_screen";
+type CommandType = "lock" | "unlock" | "wipe" | "install_apk" | "push_config" | "restart" | "update_pin" | "apply_policies" | "get_screen" | "datawedge_config";
 const EQUIPMENT_VALUE = 100;
 // A screen snapshot older than this reads as stale rather than current — the device may well
 // be showing something else by now (see the Screen View panel below).
@@ -30,8 +30,11 @@ const SCREEN_STALE_MS = 2 * 60 * 1000;
 // powers the device back on would be dangerous, so it stays on the direct path. `get_screen`
 // stays on the direct path too, for the same reason: it's only meaningful right now, on a
 // device that's online, so a queued one would be pointless.
+// `datawedge_config` belongs here more than most: a scanner that can't scan is usually already
+// parked on a charger, so the repair has to wait for it rather than being thrown away.
 const JOB_COMMANDS: ReadonlySet<CommandType> = new Set([
   "lock", "unlock", "restart", "install_apk", "push_config", "update_pin", "apply_policies",
+  "datawedge_config",
 ]);
 
 const jobStatusColors: Record<string, string> = {
@@ -58,6 +61,7 @@ function ScannerDetailContent() {
   const [pendingCommand, setPendingCommand] = useState<CommandType | null>(null);
   const [commandPayload, setCommandPayload] = useState("");
   const [wipeConfirmText, setWipeConfirmText] = useState("");
+  const [commandError, setCommandError] = useState("");
   const [sending, setSending] = useState(false);
 
   // Assignment state
@@ -144,6 +148,7 @@ function ScannerDetailContent() {
     setPendingCommand(cmd);
     setCommandPayload("");
     setWipeConfirmText("");
+    setCommandError("");
     setShowCommandModal(true);
   };
 
@@ -151,6 +156,7 @@ function ScannerDetailContent() {
     if (!pendingCommand || !scanner || !user) return;
     if (pendingCommand === "wipe" && wipeConfirmText !== scanner.number) return;
     setSending(true);
+    setCommandError("");
     try {
       // Existing audit trail, unchanged for every command regardless of transport.
       await logCommand({ scannerId, command: pendingCommand, payload: commandPayload || undefined, userId: user._id, userName: user.name ?? user.email });
@@ -173,15 +179,25 @@ function ScannerDetailContent() {
       } else {
         // wipe (and, once built, get_screen) stay on the direct, fire-and-forget path —
         // both are only meaningful on a device that's online right now.
-        await fetch("/api/scanner-mdm/command", {
+        const res = await fetch("/api/scanner-mdm/command", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ thingName: scanner.iotThingName, command: pendingCommand, payload, scannerId, userId: user._id, confirmed: true }),
         });
+        // This path never checked the response either — a rejected wipe/get_screen was
+        // indistinguishable from an accepted one.
+        if (!res.ok) throw new Error(await res.text());
       }
 
       setShowCommandModal(false);
       setPendingCommand(null);
-    } catch (err) { console.error("Command failed:", err); }
+    } catch (err) {
+      // Previously this only hit console.error and then fell through to closing the modal, so a
+      // rejected command looked exactly like a successful one — the operator walked away
+      // believing a scanner had been fixed/locked/updated when nothing had been sent. Keep the
+      // modal open and say what failed.
+      console.error("Command failed:", err);
+      setCommandError(err instanceof Error ? err.message : String(err));
+    }
     finally { setSending(false); }
   };
 
@@ -377,6 +393,7 @@ function ScannerDetailContent() {
     { cmd: "push_config", label: "Push Config", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z", color: "purple" },
     { cmd: "restart", label: "Restart", icon: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15", color: "slate" },
     { cmd: "apply_policies", label: "Apply Policies", icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", color: "indigo" },
+    { cmd: "datawedge_config", label: "Fix Scanning", icon: "M4 7V5a1 1 0 011-1h2M4 17v2a1 1 0 001 1h2m10-16h2a1 1 0 011 1v2m-3 12h2a1 1 0 001-1v-2M7 8v8m3-8v8m3-8v8m3-8v8", color: "orange" },
     { cmd: "get_screen", label: "View Screen", icon: "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z", color: "teal", requiresOnline: true },
     { cmd: "wipe", label: "Factory Reset", icon: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16", color: "red", requiresAdmin: true },
   ];
@@ -774,6 +791,67 @@ function ScannerDetailContent() {
                   </Card>
                 )}
 
+                {/* Barcode Engine — DataWedge state. This is the panel that answers "why won't
+                    this scanner scan" without collecting the device. Only agent >= 1.7.3
+                    reports it, so an older/offline agent shows an explicit "not reported yet"
+                    rather than a reassuring blank. */}
+                {canEdit && isProvisioned && (
+                  <Card>
+                    <SectionHeader label="Barcode Engine" />
+                    {!scanner.dataWedge ? (
+                      <p className="text-sm theme-text-tertiary">
+                        Not reported yet. Scanners running agent 1.7.3 or newer report DataWedge state on every
+                        check-in — this scanner is on {scanner.agentVersion ? `agent ${scanner.agentVersion}` : "an older agent"}
+                        {scanner.isOnline ? "" : " and is currently offline"}.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="theme-text-tertiary">DataWedge installed</span>
+                          <span className={scanner.dataWedge.installed ? "text-emerald-500 font-medium" : "text-red-400 font-medium"}>
+                            {scanner.dataWedge.installed ? `Yes${scanner.dataWedge.packageVersion ? ` (v${scanner.dataWedge.packageVersion})` : ""}` : "No"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="theme-text-tertiary">Enabled</span>
+                          <span className={scanner.dataWedge.packageEnabled ? "text-emerald-500 font-medium" : "text-red-400 font-medium"}>
+                            {scanner.dataWedge.packageEnabled ? "Yes" : "No — cannot scan"}
+                          </span>
+                        </div>
+                        {scanner.dataWedge.lastConfig && (
+                          <>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="theme-text-tertiary">Last “Fix Scanning”</span>
+                              <span className="theme-text-secondary">{formatDate(scanner.dataWedge.lastConfig.at)}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="theme-text-tertiary">DataWedge accepted it</span>
+                              <span className={scanner.dataWedge.lastConfig.setConfigResult === "SUCCESS" ? "text-emerald-500 font-medium" : "text-amber-500 font-medium"}>
+                                {scanner.dataWedge.lastConfig.setConfigResult === "SUCCESS" ? "Yes" : scanner.dataWedge.lastConfig.setConfigResult ?? "unknown"}
+                              </span>
+                            </div>
+                            {!!scanner.dataWedge.lastConfig.activeProfile && (
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="theme-text-tertiary">Active profile</span>
+                                <span className="theme-text-secondary">{scanner.dataWedge.lastConfig.activeProfile}</span>
+                              </div>
+                            )}
+                            {!!scanner.dataWedge.lastConfig.error && (
+                              <p className="text-xs px-3 py-2 rounded-lg ui-callout-amber">{scanner.dataWedge.lastConfig.error}</p>
+                            )}
+                          </>
+                        )}
+                        {scanner.dataWedge.installed && scanner.dataWedge.packageEnabled && (
+                          <p className="text-xs theme-text-tertiary pt-1">
+                            The engine is running. If it still won&apos;t read a barcode after &quot;Fix Scanning&quot;, the
+                            imager itself or the scan trigger is the likely fault — that needs the device in hand.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </Card>
+                )}
+
                 {/* Screen View — an on-demand look at what's actually on this scanner's
                     screen, requested via the "View Screen" button above. This is a live view
                     of a named employee's device, not neutral telemetry, and a stale snapshot
@@ -994,12 +1072,18 @@ function ScannerDetailContent() {
                       {pendingCommand === "restart" && "Restart the scanner device."}
                       {pendingCommand === "update_pin" && "The scanner will generate a new 6-digit PIN and apply it. Nobody chooses the number, so it can\u2019t be a guessable one. It appears here once the scanner confirms it \u2014 if the scanner is off, this applies next time it powers up."}
                       {pendingCommand === "apply_policies" && "Re-apply device restrictions and lockdown policy."}
+                      {pendingCommand === "datawedge_config" && "For a scanner that won’t read barcodes. Turns DataWedge (the barcode engine) back on, re-enables the scanner for Profile0, and re-applies the standard output format — suffix “!”, send data, then a Tab. It does not change which barcode types the scanner reads, so a working scanner won’t start behaving differently. DataWedge reports back whether it accepted the change, and you’ll see that below under Barcode Engine."}
                       {pendingCommand === "get_screen" && "Request a live look at this scanner’s screen — the app in use, on-screen text, and recent agent log lines. This is a view of what the assigned employee currently has on their device, not just a diagnostic number. The scanner will publish faster (about every 3 seconds) for roughly 2 minutes, then return to its normal 5-minute check-in."}
                     </p>
                   )}
                   {pendingCommand !== "wipe" && JOB_COMMANDS.has(pendingCommand) && (
                     <p className="text-xs mb-4 -mt-2 theme-text-tertiary">
                       Sent as a durable job — it will run even if the scanner is off right now.
+                    </p>
+                  )}
+                  {!!commandError && (
+                    <p className="text-xs mb-4 px-3 py-2 rounded-lg ui-callout-amber break-words">
+                      Not sent — {commandError}
                     </p>
                   )}
                   <div className="flex justify-end gap-3">

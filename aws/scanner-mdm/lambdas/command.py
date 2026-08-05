@@ -1,7 +1,7 @@
 """
 Scanner Command Lambda
 Sends MQTT commands to scanners via IoT Core.
-Supports: lock, unlock, wipe, install_apk, push_config, restart, update_pin
+Supports: lock, unlock, wipe, install_apk, push_config, restart, update_pin, datawedge_config
 """
 
 import json
@@ -27,6 +27,9 @@ VALID_COMMANDS = [
     "apply_policies",
     "get_screen",
     "set_home",
+    # Re-asserts a scanning-capable DataWedge config (barcode plugin on, keystroke output,
+    # documented suffix/Tab) and reports DataWedge's own result back over telemetry.
+    "datawedge_config",
 ]
 
 
