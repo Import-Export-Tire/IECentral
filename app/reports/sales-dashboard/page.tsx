@@ -353,7 +353,17 @@ function SalesDashboardContent() {
     for (const r of data.series) {
       if (r.bucket < from || r.bucket > to) continue;
       const row: Record<string, string | number> = { day: r.bucket };
-      for (const loc of locations) row[loc] = Number(r[`${prefix}${loc}`] || 0);
+      let any = false;
+      for (const loc of locations) {
+        const v = Number(r[`${prefix}${loc}`] || 0);
+        row[loc] = v;
+        if (v !== 0) any = true;
+      }
+      // Skip days with no activity in THIS series. A bucket exists if anything
+      // happened that day, so a Sunday with only a warehouse transfer would
+      // otherwise plot a hard 0 on the sales line (and vice versa) instead of
+      // reading as a gap.
+      if (!any) continue;
       out.push(row);
     }
     return out;
