@@ -252,7 +252,9 @@ function SalesByDayContent() {
     if (!data || data.series.length === 0) {
       return (
         <div className="flex items-center justify-center h-80 text-sm theme-text-tertiary">
-          {loading ? "Loading…" : "No sales in this range. Try widening the date range or selecting different locations."}
+          {loading
+            ? "Loading…"
+            : `No ${seriesKind === "sales" ? "sales" : "transfers out"} in this range. Try widening the date range or selecting different locations.`}
         </div>
       );
     }
