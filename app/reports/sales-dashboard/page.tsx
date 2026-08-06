@@ -8,7 +8,7 @@ import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import {
-  ResponsiveContainer, BarChart, Bar, LineChart, Line,
+  ResponsiveContainer, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
 
@@ -22,11 +22,14 @@ interface SeriesRow {
 interface ApiResp {
   series: SeriesRow[];
   locations: string[];
-  perLocation: { location: string; tires: number; dollars: number }[];
-  totals: { tires: number; dollars: number };
+  perLocation: { location: string; tires: number; dollars: number; transfersOut?: number; transfersOutDollars?: number }[];
+  totals: { tires: number; dollars: number; transfersOut?: number; transfersOutDollars?: number };
   startDate: string;
   endDate: string;
 }
+
+// Every "last 8 weeks" chart on this page shares one window so the X axes align.
+const WEEKS = 8;
 
 const PALETTE = ["#007AFF", "#34C759", "#FF9500", "#AF52DE", "#FF3B30", "#5AC8FA", "#FFCC00", "#FF2D55", "#5856D6", "#A2845E"];
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -61,6 +64,76 @@ function deltaPct(curr: number, prev: number): number | null {
   if (prev === 0) return curr === 0 ? 0 : null;
   return ((curr - prev) / Math.abs(prev)) * 100;
 }
+function dayLabel(iso8601: string): string {
+  const [, m, d] = iso8601.split("-");
+  return `${parseInt(m)}/${parseInt(d)}`;
+}
+// Drop dead lines: a location with nothing in the window is a flat row of
+// zeros that just crowds the legend. Applied per chart, because the sales set
+// and the transfers-out set differ — a warehouse ships a lot and barely sells.
+function nonZero(rows: Record<string, string | number>[], locs: string[]): string[] {
+  return locs.filter(l => rows.some(r => Number(r[l] || 0) !== 0));
+}
+
+/**
+ * One line per location over a shared X axis. Every chart on this page uses
+ * this so colors, tooltips, and axis formatting stay identical between the
+ * daily, weekly, monthly, and transfers-out views.
+ */
+function LocationLineChart({
+  rows, xKey, locations, colorByLoc, isDark, fmt, height = 300, xTickFormatter,
+}: {
+  rows: Record<string, string | number>[];
+  xKey: string;
+  locations: string[];
+  colorByLoc: Record<string, string>;
+  isDark: boolean;
+  fmt: (v: number) => string;
+  height?: number;
+  xTickFormatter?: (v: unknown) => string;
+}) {
+  if (rows.length === 0 || locations.length === 0) {
+    return <p className="text-sm theme-text-tertiary py-12 text-center">No data in this window.</p>;
+  }
+  const tickColor = isDark ? "#94A3B8" : "#6B7280";
+  const gridColor = isDark ? "#334155" : "#E5E7EB";
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <LineChart data={rows} margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
+        <CartesianGrid stroke={gridColor} strokeDasharray="3 3" />
+        <XAxis
+          dataKey={xKey}
+          tick={{ fill: tickColor, fontSize: 11 }}
+          tickFormatter={xTickFormatter}
+          interval="preserveStartEnd"
+          minTickGap={24}
+        />
+        <YAxis tick={{ fill: tickColor, fontSize: 11 }} tickFormatter={(v: unknown) => fmt(Number(v))} />
+        <Tooltip
+          formatter={(value: unknown, name: unknown): [string, string] => [fmt(Number(value) || 0), String(name)]}
+          labelFormatter={(v: unknown) => (xTickFormatter ? xTickFormatter(v) : String(v ?? ""))}
+          contentStyle={{ background: isDark ? "#0F172A" : "#FFFFFF", border: `1px solid ${gridColor}`, borderRadius: 12 }}
+        />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        {locations.map(loc => (
+          <Line
+            key={loc}
+            type="monotone"
+            dataKey={loc}
+            name={loc}
+            stroke={colorByLoc[loc] || "#007AFF"}
+            strokeWidth={2}
+            // Dots only when the points are sparse enough to read — 56 daily
+            // points per location turns into noise otherwise.
+            dot={rows.length <= 14 ? { r: 2.5 } : false}
+            activeDot={{ r: 4 }}
+            connectNulls
+          />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
 
 function SalesDashboardContent() {
   const { theme } = useTheme();
@@ -69,16 +142,29 @@ function SalesDashboardContent() {
   const today = useMemo(() => new Date(), []);
   const ytdStart = useMemo(() => `${today.getFullYear()}-01-01`, [today]);
 
+  // The 8-week charts need eight full ISO weeks of history. In January and
+  // February that reaches back past Jan 1, so widen the FETCH window rather
+  // than silently truncating the charts. YTD figures still slice from Jan 1.
+  // Ten weeks of slack, not eight: the OEA07V feed lags a day or two, so the
+  // anchor week can sit behind the current one.
+  const fetchStart = useMemo(() => {
+    const back = startOfWeek(today);
+    back.setDate(back.getDate() - 10 * 7);
+    const backIso = iso(back);
+    return backIso < ytdStart ? backIso : ytdStart;
+  }, [today, ytdStart]);
+
   const [data, setData] = useState<ApiResp | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [metric, setMetric] = useState<"tires" | "dollars">("tires");
+  const [hiddenLocs, setHiddenLocs] = useState<Set<string>>(new Set());
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError("");
     try {
       const params = new URLSearchParams({
-        startDate: ytdStart,
+        startDate: fetchStart,
         endDate: iso(today),
         granularity: "day",
       });
@@ -90,7 +176,7 @@ function SalesDashboardContent() {
     } finally {
       setLoading(false);
     }
-  }, [ytdStart, today]);
+  }, [fetchStart, today]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -183,6 +269,9 @@ function SalesDashboardContent() {
     const map = new Map<string, { total: number; perLoc: Record<string, number> }>();
     const keyMetric = metric === "tires" ? "tires_" : "dollars_";
     for (const row of data.series) {
+      // fetchStart can reach into last year to feed the 8-week charts; the
+      // YTD-by-month chart must stay inside the current year.
+      if (row.bucket < ytdStart) continue;
       const m = row.bucket.slice(0, 7); // YYYY-MM
       if (!map.has(m)) map.set(m, { total: 0, perLoc: {} });
       const cell = map.get(m)!;
@@ -196,7 +285,7 @@ function SalesDashboardContent() {
       const [, mo] = m.split("-");
       return { month: m, label: MONTH_NAMES[parseInt(mo) - 1], ...v };
     });
-  }, [data, locations, metric]);
+  }, [data, locations, metric, ytdStart]);
 
   const fmt = metric === "tires" ? fmtNum : fmtCurrency;
 
@@ -208,6 +297,97 @@ function SalesDashboardContent() {
       return row;
     });
   }, [byMonth, locations]);
+
+  // ── The shared 8-week window ──────────────────────────────────────────────
+  // Eight ISO (Monday-based) weeks ending with the week that contains the
+  // latest business day. Anchoring on asOf rather than today keeps the last
+  // point from looking like a collapse when the feed is a day or two behind.
+  const weekWindow = useMemo(() => {
+    const out: { label: string; start: string; end: string }[] = [];
+    for (let i = WEEKS - 1; i >= 0; i--) {
+      const ref = new Date(asOf);
+      ref.setDate(ref.getDate() - i * 7);
+      const s = startOfWeek(ref);
+      out.push({ label: dayLabel(iso(s)), start: iso(s), end: iso(endOfWeek(ref)) });
+    }
+    return out;
+  }, [asOf]);
+
+  // date → week index, so bucketing the daily series is a single pass.
+  const weekIndexByDate = useMemo(() => {
+    const m = new Map<string, number>();
+    weekWindow.forEach((w, i) => {
+      const d = new Date(`${w.start}T00:00:00`);
+      for (let k = 0; k < 7; k++) { m.set(iso(d), i); d.setDate(d.getDate() + 1); }
+    });
+    return m;
+  }, [weekWindow]);
+
+  // Per-location weekly totals for a field prefix (sales or transfers out).
+  const weeklyByLocation = useCallback((prefix: string) => {
+    const rows = weekWindow.map(w => {
+      const row: Record<string, string | number> = { week: w.label };
+      for (const loc of locations) row[loc] = 0;
+      return row;
+    });
+    if (!data) return rows;
+    for (const r of data.series) {
+      const wi = weekIndexByDate.get(r.bucket);
+      if (wi === undefined) continue;
+      for (const loc of locations) {
+        rows[wi][loc] = (rows[wi][loc] as number) + Number(r[`${prefix}${loc}`] || 0);
+      }
+    }
+    for (const row of rows) {
+      for (const loc of locations) row[loc] = Math.round((row[loc] as number) * 100) / 100;
+    }
+    return rows;
+  }, [data, locations, weekWindow, weekIndexByDate]);
+
+  // Per-location daily rows across the same 8-week window.
+  const dailyByLocation = useCallback((prefix: string) => {
+    const out: Record<string, string | number>[] = [];
+    if (!data || weekWindow.length === 0) return out;
+    const from = weekWindow[0].start;
+    const to = weekWindow[weekWindow.length - 1].end;
+    for (const r of data.series) {
+      if (r.bucket < from || r.bucket > to) continue;
+      const row: Record<string, string | number> = { day: r.bucket };
+      for (const loc of locations) row[loc] = Number(r[`${prefix}${loc}`] || 0);
+      out.push(row);
+    }
+    return out;
+  }, [data, locations, weekWindow]);
+
+  const salesPrefix = metric === "tires" ? "tires_" : "dollars_";
+  const transferPrefix = metric === "tires" ? "transfersOut_" : "transfersOutDollars_";
+
+  const salesByWeek = useMemo(() => weeklyByLocation(salesPrefix), [weeklyByLocation, salesPrefix]);
+  const salesByDay = useMemo(() => dailyByLocation(salesPrefix), [dailyByLocation, salesPrefix]);
+  const transfersByWeek = useMemo(() => weeklyByLocation(transferPrefix), [weeklyByLocation, transferPrefix]);
+  const transfersByDay = useMemo(() => dailyByLocation(transferPrefix), [dailyByLocation, transferPrefix]);
+
+  // Legend/chip toggle shared by every chart on the page.
+  const visibleLocations = useMemo(
+    () => locations.filter(l => !hiddenLocs.has(l)),
+    [locations, hiddenLocs]
+  );
+  const toggleLoc = (loc: string) =>
+    setHiddenLocs(prev => {
+      const next = new Set(prev);
+      if (next.has(loc)) next.delete(loc); else next.add(loc);
+      return next;
+    });
+
+  const salesWeekLocs = useMemo(() => nonZero(salesByWeek, visibleLocations), [salesByWeek, visibleLocations]);
+  const salesDayLocs = useMemo(() => nonZero(salesByDay, visibleLocations), [salesByDay, visibleLocations]);
+  const transferWeekLocs = useMemo(() => nonZero(transfersByWeek, visibleLocations), [transfersByWeek, visibleLocations]);
+  const transferDayLocs = useMemo(() => nonZero(transfersByDay, visibleLocations), [transfersByDay, visibleLocations]);
+  const monthLocs = useMemo(() => nonZero(monthlySeries, visibleLocations), [monthlySeries, visibleLocations]);
+
+  const windowLabel = weekWindow.length
+    ? `${weekWindow[0].label} – ${dayLabel(iso(asOf))}`
+    : "";
 
   // Per-location current-month with WoW/MoM deltas
   const perLocationStats = useMemo(() => {
@@ -391,66 +571,140 @@ function SalesDashboardContent() {
             )}
           </div>
 
-          {/* YTD by month chart */}
+          {/* Shared line-chart legend filter */}
+          {locations.length > 0 && (
+            <Card padding="sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="ui-section-label">Locations shown in the charts below</span>
+                {hiddenLocs.size > 0 && (
+                  <button onClick={() => setHiddenLocs(new Set())} className="text-[11px] text-[#007AFF] hover:underline">
+                    Show all
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {locations.map(loc => {
+                  const on = !hiddenLocs.has(loc);
+                  return (
+                    <button
+                      key={loc}
+                      onClick={() => toggleLoc(loc)}
+                      className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                        on ? "border-transparent text-white" : "theme-text-tertiary theme-border-secondary"
+                      }`}
+                      style={on ? { backgroundColor: colorByLoc[loc] } : {}}
+                    >
+                      {loc}
+                    </button>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          {/* Sales by day — 8-week window */}
           <Card padding="sm">
-            <h2 className="text-[15px] font-semibold theme-text-primary mb-3">
-              YTD by month (stacked by location)
+            <h2 className="text-[15px] font-semibold theme-text-primary">
+              Sales by day, last {WEEKS} weeks <span className="theme-text-tertiary font-normal text-xs ml-1">({metric})</span>
             </h2>
-            {monthlySeries.length === 0 ? (
-              <p className="text-sm theme-text-tertiary py-6 text-center">No data.</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={monthlySeries} margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
-                  <CartesianGrid stroke={isDark ? "#334155" : "#E5E7EB"} strokeDasharray="3 3" />
-                  <XAxis dataKey="month" tick={{ fill: isDark ? "#94A3B8" : "#6B7280", fontSize: 11 }} />
-                  <YAxis tick={{ fill: isDark ? "#94A3B8" : "#6B7280", fontSize: 11 }} tickFormatter={(v: unknown) => fmt(Number(v))} />
-                  <Tooltip
-                    formatter={(value: unknown, name: unknown): [string, string] => [fmt(Number(value) || 0), String(name)]}
-                    contentStyle={{ background: isDark ? "#0F172A" : "#FFFFFF", border: `1px solid ${isDark ? "#334155" : "#E5E7EB"}`, borderRadius: 12 }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  {locations.map(loc => (
-                    <Bar key={loc} dataKey={loc} stackId="a" fill={colorByLoc[loc] || "#007AFF"} />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            <p className="text-xs mt-0.5 mb-3 theme-text-tertiary">
+              One line per location, {windowLabel}. Gaps are days with no selling activity.
+            </p>
+            <LocationLineChart
+              rows={salesByDay}
+              xKey="day"
+              locations={salesDayLocs}
+              colorByLoc={colorByLoc}
+              isDark={isDark}
+              fmt={fmt}
+              height={320}
+              xTickFormatter={(v) => dayLabel(String(v ?? ""))}
+            />
           </Card>
 
-          {/* WoW & MoM combined trend */}
+          {/* Sales by week — 8-week window */}
           <Card padding="sm">
-            <h2 className="text-[15px] font-semibold theme-text-primary mb-3">
-              Weekly trend, last 12 weeks
+            <h2 className="text-[15px] font-semibold theme-text-primary">
+              Sales by week, last {WEEKS} weeks <span className="theme-text-tertiary font-normal text-xs ml-1">({metric})</span>
             </h2>
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart
-                data={(() => {
-                  // Build a 12-week series of totals per week (Mon-Sun)
-                  const out: { week: string; total: number }[] = [];
-                  if (!data) return out;
-                  for (let i = 11; i >= 0; i--) {
-                    const refDate = new Date(today); refDate.setDate(refDate.getDate() - i * 7);
-                    const r = sumRange(startOfWeek(refDate), endOfWeek(refDate));
-                    out.push({ week: iso(startOfWeek(refDate)).slice(5), total: r.total });
-                  }
-                  return out;
-                })()}
-                margin={{ top: 8, right: 16, left: 8, bottom: 4 }}
-              >
-                <CartesianGrid stroke={isDark ? "#334155" : "#E5E7EB"} strokeDasharray="3 3" />
-                <XAxis dataKey="week" tick={{ fill: isDark ? "#94A3B8" : "#6B7280", fontSize: 11 }} />
-                <YAxis tick={{ fill: isDark ? "#94A3B8" : "#6B7280", fontSize: 11 }} tickFormatter={(v: unknown) => fmt(Number(v))} />
-                <Tooltip
-                  formatter={(value: unknown): [string, string] => [fmt(Number(value) || 0), metric === "tires" ? "Tires" : "Dollars"]}
-                  contentStyle={{ background: isDark ? "#0F172A" : "#FFFFFF", border: `1px solid ${isDark ? "#334155" : "#E5E7EB"}`, borderRadius: 12 }}
-                />
-                <Line type="monotone" dataKey="total" stroke="#007AFF" strokeWidth={2} dot />
-              </LineChart>
-            </ResponsiveContainer>
+            <p className="text-xs mt-0.5 mb-3 theme-text-tertiary">
+              Each point is a full Monday–Sunday week, labelled by its Monday. The last week is partial — it runs through {MONTH_NAMES[asOf.getMonth()]} {asOf.getDate()}.
+            </p>
+            <LocationLineChart
+              rows={salesByWeek}
+              xKey="week"
+              locations={salesWeekLocs}
+              colorByLoc={colorByLoc}
+              isDark={isDark}
+              fmt={fmt}
+              height={300}
+            />
+          </Card>
+
+          {/* Transfers out by week — 8-week window */}
+          <Card padding="sm">
+            <h2 className="text-[15px] font-semibold theme-text-primary">
+              Transfers out by location, last {WEEKS} weeks <span className="theme-text-tertiary font-normal text-xs ml-1">({metric})</span>
+            </h2>
+            <p className="text-xs mt-0.5 mb-3 theme-text-tertiary">
+              Tires leaving each location for another IET location (TrO rows). Not sales — this series is
+              tracked separately and never nets against the sold numbers above.
+              {metric === "dollars" && " Dollars here are extended COST, since an inter-location transfer has no sell price."}
+            </p>
+            <LocationLineChart
+              rows={transfersByWeek}
+              xKey="week"
+              locations={transferWeekLocs}
+              colorByLoc={colorByLoc}
+              isDark={isDark}
+              fmt={fmt}
+              height={300}
+            />
+          </Card>
+
+          {/* Transfers out by day — 8-week window */}
+          <Card padding="sm">
+            <h2 className="text-[15px] font-semibold theme-text-primary">
+              Transfers out by day, last {WEEKS} weeks <span className="theme-text-tertiary font-normal text-xs ml-1">({metric})</span>
+            </h2>
+            <p className="text-xs mt-0.5 mb-3 theme-text-tertiary">
+              Same {WEEKS}-week window, day by day — surfaces the individual big pushes a weekly total hides.
+            </p>
+            <LocationLineChart
+              rows={transfersByDay}
+              xKey="day"
+              locations={transferDayLocs}
+              colorByLoc={colorByLoc}
+              isDark={isDark}
+              fmt={fmt}
+              height={300}
+              xTickFormatter={(v) => dayLabel(String(v ?? ""))}
+            />
+          </Card>
+
+          {/* YTD by month */}
+          <Card padding="sm">
+            <h2 className="text-[15px] font-semibold theme-text-primary">
+              YTD by month <span className="theme-text-tertiary font-normal text-xs ml-1">({metric})</span>
+            </h2>
+            <p className="text-xs mt-0.5 mb-3 theme-text-tertiary">
+              One line per location for the full year to date — the long-run view behind the {WEEKS}-week charts.
+            </p>
+            <LocationLineChart
+              rows={monthlySeries}
+              xKey="month"
+              locations={monthLocs}
+              colorByLoc={colorByLoc}
+              isDark={isDark}
+              fmt={fmt}
+              height={300}
+            />
           </Card>
 
           <p className="text-[11px] theme-text-tertiary text-center pb-4">
-            Source: OEA07V daily uploads. Sales-only rows (Sld + customer returns) counted; warehouse transfers, vendor returns, and adjustments excluded.
+            Source: OEA07V daily uploads. Sold = Sld rows; customer returns (ReS) and transfers out (TrO) are
+            tracked as their own series and never netted against sold. Inbound transfers (TrI), receipts (Rcv),
+            vendor returns, and inventory adjustments are excluded.
             Per-location internal-account sales (bare R20, INVR20, 99-R20) included by default.
           </p>
 

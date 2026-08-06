@@ -19,6 +19,9 @@ import {
 type Granularity = "day" | "week" | "month";
 type Metric = "dollars" | "tires";
 type ChartKind = "line" | "bar" | "area";
+// Which of the API's three independent series to plot. Sold, customer returns,
+// and transfers out are never netted together, so this is a switch, not a sum.
+type SeriesKind = "sales" | "transfersOut";
 
 interface SeriesRow {
   bucket: string;
@@ -27,11 +30,19 @@ interface SeriesRow {
   [k: string]: string | number;
 }
 
+interface PerLocation {
+  location: string;
+  tires: number;
+  dollars: number;
+  transfersOut?: number;
+  transfersOutDollars?: number;
+}
+
 interface ApiResp {
   series: SeriesRow[];
   locations: string[];
-  perLocation: { location: string; tires: number; dollars: number }[];
-  totals: { tires: number; dollars: number };
+  perLocation: PerLocation[];
+  totals: { tires: number; dollars: number; transfersOut?: number; transfersOutDollars?: number };
   startDate: string;
   endDate: string;
   granularity: Granularity;
@@ -51,6 +62,13 @@ function isoDaysAgo(n: number): string {
 }
 function isoToday(): string {
   const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+// Monday of the ISO week N weeks back — the anchor for the 8-week comparison.
+function isoWeekStartWeeksAgo(n: number): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7) - n * 7);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
@@ -82,13 +100,16 @@ function SalesByDayContent() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const [startDate, setStartDate] = useState<string>(isoDaysAgo(30));
+  // Defaults land on the 8-week comparison: eight full ISO weeks, bucketed by
+  // week, drawn as one line per location.
+  const [startDate, setStartDate] = useState<string>(isoWeekStartWeeksAgo(7));
   const [endDate, setEndDate] = useState<string>(isoToday());
-  const [granularity, setGranularity] = useState<Granularity>("day");
+  const [granularity, setGranularity] = useState<Granularity>("week");
   const [metric, setMetric] = useState<Metric>("dollars");
-  const [chartKind, setChartKind] = useState<ChartKind>("area");
+  const [chartKind, setChartKind] = useState<ChartKind>("line");
+  const [seriesKind, setSeriesKind] = useState<SeriesKind>("sales");
   const [selectedLocations, setSelectedLocations] = useState<Set<string>>(new Set());
-  const [stacked, setStacked] = useState<boolean>(true);
+  const [stacked, setStacked] = useState<boolean>(false);
 
   const [data, setData] = useState<ApiResp | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -146,10 +167,12 @@ function SalesByDayContent() {
     setSelectedLocations(new Set(data.locations));
   };
 
-  // Quick date-range presets
+  // Quick date-range presets. "8wk" also snaps granularity to week so the
+  // eight points line up on ISO week boundaries instead of arbitrary days.
   const presets: { label: string; days: number }[] = [
     { label: "7d", days: 7 },
     { label: "30d", days: 30 },
+    { label: "8wk", days: -2 }, // sentinel
     { label: "90d", days: 90 },
     { label: "YTD", days: -1 }, // sentinel
     { label: "12mo", days: 365 },
@@ -159,6 +182,9 @@ function SalesByDayContent() {
     if (p.label === "YTD") {
       const y = new Date().getFullYear();
       setStartDate(`${y}-01-01`);
+    } else if (p.label === "8wk") {
+      setStartDate(isoWeekStartWeeksAgo(7));
+      setGranularity("week");
     } else {
       setStartDate(isoDaysAgo(p.days));
     }
@@ -167,19 +193,30 @@ function SalesByDayContent() {
   const downloadCSV = () => {
     if (!data) return;
     const locs = reportedLocations;
-    const header = ["Date", ...locs.flatMap(l => [`${l} Tires`, `${l} Dollars`]), "Total Tires", "Total Dollars"];
+    const header = [
+      "Date",
+      ...locs.flatMap(l => [`${l} Tires`, `${l} Dollars`, `${l} Transfers Out`, `${l} Transfers Out $Cost`]),
+      "Total Tires", "Total Dollars", "Total Transfers Out", "Total Transfers Out $Cost",
+    ];
     const rows = data.series.map(r => [
       r.bucket,
-      ...locs.flatMap(l => [String(r[`tires_${l}`] ?? 0), String(r[`dollars_${l}`] ?? 0)]),
+      ...locs.flatMap(l => [
+        String(r[`tires_${l}`] ?? 0),
+        String(r[`dollars_${l}`] ?? 0),
+        String(r[`transfersOut_${l}`] ?? 0),
+        String(r[`transfersOutDollars_${l}`] ?? 0),
+      ]),
       String(r.totalTires),
       String(r.totalDollars),
+      String(r.totalTransfersOut ?? 0),
+      String(r.totalTransfersOutDollars ?? 0),
     ]);
     const csv = [header, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `sales_${metric}_${granularity}_${startDate}_to_${endDate}.csv`;
+    a.download = `sales_${granularity}_${startDate}_to_${endDate}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -187,18 +224,22 @@ function SalesByDayContent() {
   // Summary metrics
   const totalDollars = data?.totals.dollars || 0;
   const totalTires = data?.totals.tires || 0;
+  const totalTransfersOut = data?.totals.transfersOut || 0;
+  const totalTransfersOutDollars = data?.totals.transfersOutDollars || 0;
   const bucketCount = data?.bucketCount || 0;
   const avgPerBucketDollars = bucketCount ? totalDollars / bucketCount : 0;
   const avgPerBucketTires = bucketCount ? totalTires / bucketCount : 0;
   const topLoc = data?.perLocation[0];
 
-  const valueKey = metric === "dollars" ? "dollars_" : "tires_";
+  const valueKey = seriesKind === "sales"
+    ? (metric === "dollars" ? "dollars_" : "tires_")
+    : (metric === "dollars" ? "transfersOutDollars_" : "transfersOut_");
   const yFormatter = (v: number) => metric === "dollars" ? formatCurrency(v) : formatNum(v);
 
   const chartTooltipFormatter = (value: unknown, name: unknown): [string, string] => {
     const n = Number(value) || 0;
     const nm = String(name ?? "");
-    const cleanName = nm.replace(/^(tires_|dollars_|totalTires|totalDollars)/, "") || nm;
+    const cleanName = nm.replace(/^(tires_|dollars_|transfersOut_|transfersOutDollars_|totalTires|totalDollars)/, "") || nm;
     return [metric === "dollars" ? `$${formatNum(n)}` : formatNum(n), cleanName === "totalTires" || cleanName === "totalDollars" ? "Total" : cleanName];
   };
 
@@ -407,7 +448,20 @@ function SalesByDayContent() {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <div className={`inline-flex items-center gap-1 rounded-full p-1 border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-gray-100 border-gray-200"}`}>
-                  {(["area","line","bar"] as ChartKind[]).map(k => (
+                  {([["sales","Sales"],["transfersOut","Transfers out"]] as [SeriesKind, string][]).map(([k, label]) => (
+                    <button
+                      key={k}
+                      onClick={() => setSeriesKind(k)}
+                      className={`px-3 py-1 text-[11px] font-medium rounded-full transition-colors ${
+                        seriesKind === k ? "bg-[#007AFF] text-white" : "theme-text-secondary"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className={`inline-flex items-center gap-1 rounded-full p-1 border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-gray-100 border-gray-200"}`}>
+                  {(["line","area","bar"] as ChartKind[]).map(k => (
                     <button
                       key={k}
                       onClick={() => setChartKind(k)}
@@ -483,23 +537,25 @@ function SalesByDayContent() {
               <div className="text-[11px] theme-text-tertiary mt-0.5">{formatNum(Math.round(avgPerBucketTires))} / {granularity}</div>
             </Card>
             <Card padding="sm">
-              <div className="ui-section-label">Buckets</div>
-              <div className="text-2xl font-semibold theme-text-primary mt-1">{bucketCount}</div>
-              <div className="text-[11px] theme-text-tertiary mt-0.5">{granularity} buckets in range</div>
+              <div className="ui-section-label">Transfers Out</div>
+              <div className="text-2xl font-semibold theme-text-primary mt-1">{formatNum(totalTransfersOut)}</div>
+              <div className="text-[11px] theme-text-tertiary mt-0.5">tires · {formatCurrency(totalTransfersOutDollars)} at cost</div>
             </Card>
             <Card padding="sm">
               <div className="ui-section-label">Top Location</div>
               <div className="text-2xl font-semibold theme-text-primary mt-1">{topLoc?.location || "—"}</div>
-              <div className="text-[11px] theme-text-tertiary mt-0.5">{topLoc ? formatCurrency(topLoc.dollars) : "—"}</div>
+              <div className="text-[11px] theme-text-tertiary mt-0.5">{topLoc ? formatCurrency(topLoc.dollars) : "—"} · {bucketCount} {granularity} buckets</div>
             </Card>
           </div>
 
           {/* Chart */}
           <Card padding="sm">
             <SectionHeader
-              title={`${metric === "dollars" ? "Dollars" : "Tires"} by ${granularity === "day" ? "day" : granularity === "week" ? "week" : "month"}, per location`}
+              title={`${seriesKind === "sales" ? "Sales" : "Transfers out"} — ${metric === "dollars" ? "dollars" : "tires"} by ${granularity === "day" ? "day" : granularity === "week" ? "week" : "month"}, per location`}
               actions={
-                totalTires < 0 && metric === "tires" ? (
+                seriesKind === "transfersOut" && metric === "dollars" ? (
+                  <span className="text-[11px] theme-text-tertiary">Transfer dollars are extended cost — an inter-location transfer has no sell price.</span>
+                ) : totalTires < 0 && metric === "tires" ? (
                   <span className="text-[11px] text-amber-600">Range is net of returns — negative values mean more returns than sales.</span>
                 ) : undefined
               }
@@ -522,6 +578,7 @@ function SalesByDayContent() {
                       <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Dollars</th>
                       <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">$/tire avg</th>
                       <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">% of total $</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Transfers out</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -540,6 +597,7 @@ function SalesByDayContent() {
                           <td className="py-2.5 px-4 text-right theme-text-primary tabular-nums">${formatNum(p.dollars)}</td>
                           <td className="py-2.5 px-4 text-right theme-text-secondary tabular-nums">${perTire.toFixed(0)}</td>
                           <td className="py-2.5 px-4 text-right theme-text-secondary tabular-nums">{pct.toFixed(1)}%</td>
+                          <td className="py-2.5 px-4 text-right theme-text-secondary tabular-nums">{formatNum(p.transfersOut || 0)}</td>
                         </tr>
                       );
                     })}
@@ -553,6 +611,7 @@ function SalesByDayContent() {
                         ${totalTires !== 0 ? (totalDollars / totalTires).toFixed(0) : "—"}
                       </td>
                       <td className="py-2.5 px-4 text-right font-semibold theme-text-secondary tabular-nums">100%</td>
+                      <td className="py-2.5 px-4 text-right font-semibold theme-text-secondary tabular-nums">{formatNum(totalTransfersOut)}</td>
                     </tr>
                   </tfoot>
                 </table>

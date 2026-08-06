@@ -82,8 +82,13 @@ function bucketDate(iso: string, granularity: "day" | "week" | "month"): string 
 /**
  * GET /api/reports/sales-by-day
  *
- * Aggregates OEA07V daily CSVs into per-day-per-location sales totals.
- * Returns parallel series for tires (qty) and dollars (extCost).
+ * Aggregates OEA07V daily CSVs into per-day-per-location totals.
+ *
+ * Three independent series per location, never netted against each other:
+ *   tires_* / dollars_*                       sold (Sld), dollars = Ext Sell
+ *   returns_* / returnsDollars_*              customer returns (ReS)
+ *   transfersOut_* / transfersOutDollars_*    stock leaving for another IET
+ *                                             location (TrO), dollars = Ext Cost
  *
  * Query params:
  *   startDate    YYYY-MM-DD (inclusive) — optional, defaults to 30 days ago
@@ -209,6 +214,16 @@ export async function GET(request: NextRequest) {
     const locReturnsDollars = new Map<string, number>();
     let totalReturnsTires = 0;
     let totalReturnsDollars = 0;
+    // TRANSFERS OUT (TrO) are tracked separately again. These are tires leaving
+    // a location for another IET location — not a sale and not a return, so they
+    // never touch the sold or returns numbers. Dollars here are Ext COST (col 12),
+    // not Ext Sell: an inter-location transfer has no sell price.
+    const transfersOutTireMap = new Map<string, number>();
+    const transfersOutDollarMap = new Map<string, number>();
+    const locTransfersOutTires = new Map<string, number>();
+    const locTransfersOutDollars = new Map<string, number>();
+    let totalTransfersOutTires = 0;
+    let totalTransfersOutDollars = 0;
 
     // Diagnostic accumulator (only populated when diagnoseLocation is set).
     // Records the raw transaction-code + qty-sign mix at the target location
@@ -341,9 +356,14 @@ export async function GET(request: NextRequest) {
           }
 
           const transaction = (row[9] || "").replace(/"/g, "").trim();
-          // Sales (Sld) + customer returns (ReS) only — same as sales-history.
-          if (transaction === "TrI" || transaction === "TrO" || transaction === "Rcv") continue;
+          // Sales (Sld) + customer returns (ReS) + transfers OUT (TrO). TrO is
+          // aggregated into its own series and never nets against sales — it is
+          // stock leaving a location for another IET location, not revenue.
+          // TrI (the matching inbound leg) and Rcv stay excluded so a transfer
+          // isn't counted twice.
+          if (transaction === "TrI" || transaction === "Rcv") continue;
           if (transaction.startsWith("Adj")) continue;
+          const isTransferOut = transaction === "TrO";
 
           // ReS rows whose "customer" is one of IET's own house entities
           // (Import Export Tire, IET, Export Tire, etc.) are stock receipts
@@ -371,14 +391,20 @@ export async function GET(request: NextRequest) {
           if (!productType.startsWith("T") || productType === "T") continue;
 
           const acct = (row[15] || "").replace(/"/g, "").trim().toUpperCase();
-          if (["700", "7001", "7002"].includes(acct)) continue;
-          if (/^[WR]\d{2}[WR]\d{2}$/i.test(acct)) continue;
-          if (!includeInternalAccounts) {
-            if (/^[WR]\d{2}$/i.test(acct)) continue;
-            if (acct.startsWith("INV") && !/^INV[WR]\d{2}$/i.test(acct)) continue;
-            if (acct.startsWith("99-") && !/^99-[WR]\d{2}$/i.test(acct)) continue;
+          // The account filters below exist to keep non-customer activity out of
+          // the SALES number. Transfers out are deliberately store-to-store, so
+          // they carry exactly the accounts those filters reject (W08R20-style
+          // warehouse-transfer codes) — skipping them here would zero the series.
+          if (!isTransferOut) {
+            if (["700", "7001", "7002"].includes(acct)) continue;
+            if (/^[WR]\d{2}[WR]\d{2}$/i.test(acct)) continue;
+            if (!includeInternalAccounts) {
+              if (/^[WR]\d{2}$/i.test(acct)) continue;
+              if (acct.startsWith("INV") && !/^INV[WR]\d{2}$/i.test(acct)) continue;
+              if (acct.startsWith("99-") && !/^99-[WR]\d{2}$/i.test(acct)) continue;
+            }
+            if (!includeVendorReturns && /^[WR]\d{4,}$/i.test(acct)) continue;
           }
-          if (!includeVendorReturns && /^[WR]\d{4,}$/i.test(acct)) continue;
 
           if (filterBrand) {
             const b = (row[4] || "").replace(/"/g, "").trim().toUpperCase();
@@ -411,6 +437,20 @@ export async function GET(request: NextRequest) {
           seenBuckets.add(bucket);
           const k: Cell = 0; void k;
           const key = `${bucket}|${location}`;
+
+          if (isTransferOut) {
+            // TrO sign varies by source file, so take magnitudes — the question
+            // being answered is "how many tires left this store", not direction.
+            const tqty = Math.abs(rawQty);
+            const tcost = Math.abs(parseFloat((row[12] || "0").replace(/"/g, "").trim()) || 0);
+            transfersOutTireMap.set(key, (transfersOutTireMap.get(key) || 0) + tqty);
+            transfersOutDollarMap.set(key, (transfersOutDollarMap.get(key) || 0) + tcost);
+            totalTransfersOutTires += tqty;
+            totalTransfersOutDollars += tcost;
+            locTransfersOutTires.set(location, (locTransfersOutTires.get(location) || 0) + tqty);
+            locTransfersOutDollars.set(location, (locTransfersOutDollars.get(location) || 0) + tcost);
+            continue;
+          }
 
           if (transaction === "ReS") {
             // Real customer return (IET-house ReS was already skipped above).
@@ -500,24 +540,34 @@ export async function GET(request: NextRequest) {
       let bucketDollars = 0;
       let bucketReturns = 0;
       let bucketReturnsDollars = 0;
+      let bucketTransfersOut = 0;
+      let bucketTransfersOutDollars = 0;
       for (const loc of reportedLocations) {
         const t = tireMap.get(`${bucket}|${loc}`) || 0;
         const d = dollarMap.get(`${bucket}|${loc}`) || 0;
         const rt = returnsTireMap.get(`${bucket}|${loc}`) || 0;
         const rd = returnsDollarMap.get(`${bucket}|${loc}`) || 0;
+        const xt = transfersOutTireMap.get(`${bucket}|${loc}`) || 0;
+        const xd = transfersOutDollarMap.get(`${bucket}|${loc}`) || 0;
         row[`tires_${loc}`] = Math.round(t * 100) / 100;
         row[`dollars_${loc}`] = Math.round(d * 100) / 100;
         row[`returns_${loc}`] = Math.round(rt * 100) / 100;
         row[`returnsDollars_${loc}`] = Math.round(rd * 100) / 100;
+        row[`transfersOut_${loc}`] = Math.round(xt * 100) / 100;
+        row[`transfersOutDollars_${loc}`] = Math.round(xd * 100) / 100;
         bucketTires += t;
         bucketDollars += d;
         bucketReturns += rt;
         bucketReturnsDollars += rd;
+        bucketTransfersOut += xt;
+        bucketTransfersOutDollars += xd;
       }
       row.totalTires = Math.round(bucketTires * 100) / 100;
       row.totalDollars = Math.round(bucketDollars * 100) / 100;
       row.totalReturns = Math.round(bucketReturns * 100) / 100;
       row.totalReturnsDollars = Math.round(bucketReturnsDollars * 100) / 100;
+      row.totalTransfersOut = Math.round(bucketTransfersOut * 100) / 100;
+      row.totalTransfersOutDollars = Math.round(bucketTransfersOutDollars * 100) / 100;
       return row;
     });
 
@@ -527,6 +577,8 @@ export async function GET(request: NextRequest) {
       dollars: Math.round((locTotalsDollars.get(loc) || 0) * 100) / 100,
       returns: Math.round((locReturnsTires.get(loc) || 0) * 100) / 100,
       returnsDollars: Math.round((locReturnsDollars.get(loc) || 0) * 100) / 100,
+      transfersOut: Math.round((locTransfersOutTires.get(loc) || 0) * 100) / 100,
+      transfersOutDollars: Math.round((locTransfersOutDollars.get(loc) || 0) * 100) / 100,
     })).sort((a, b) => b.dollars - a.dollars);
 
     return NextResponse.json({
@@ -538,6 +590,8 @@ export async function GET(request: NextRequest) {
         dollars: Math.round(totalDollars * 100) / 100,
         returns: Math.round(totalReturnsTires * 100) / 100,
         returnsDollars: Math.round(totalReturnsDollars * 100) / 100,
+        transfersOut: Math.round(totalTransfersOutTires * 100) / 100,
+        transfersOutDollars: Math.round(totalTransfersOutDollars * 100) / 100,
       },
       startDate, endDate, granularity,
       bucketCount: buckets.length,

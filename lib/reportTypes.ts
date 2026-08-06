@@ -192,7 +192,7 @@ export const REPORT_TYPES: ReportType[] = [
   {
     id: "sales-dashboard",
     title: "Sales Dashboard",
-    description: "Tires sold by location with WoW / MoM / YTD delta pills, stacked monthly chart, weekly trend",
+    description: "Tires sold by location with WoW / MoM / YTD delta pills, plus 8-week line graphs by day and week and transfers out by location",
     icon: "M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z",
     href: "/reports/sales-dashboard",
     group: "sales",
@@ -201,7 +201,7 @@ export const REPORT_TYPES: ReportType[] = [
   {
     id: "sales-by-day",
     title: "Sales by Day & Location",
-    description: "Daily/weekly/monthly sales by store with line, area, and bar charts — Dollars or Tires",
+    description: "Daily/weekly/monthly sales or transfers out by store — line, area, and bar charts, Dollars or Tires, 8-week default",
     icon: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z",
     href: "/reports/sales-by-day",
     group: "sales",
