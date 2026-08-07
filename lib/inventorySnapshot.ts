@@ -83,6 +83,16 @@ export type SnapshotItem = {
    */
   upc: string;
   ean: string;
+  /**
+   * JMK's average cost per tire, so a variance can be valued in money rather
+   * than only in units. avgCost rather than lastCost: a count variance spans
+   * whatever was on the floor, not the most recent purchase, and avgCost is the
+   * figure JMK's own extendedValue is built from.
+   *
+   * 0 when the OEIVAL carries no cost for the item — reports must treat that as
+   * "unknown", never as a free tire.
+   */
+  avgCost: number;
 };
 
 export type SnapshotResult = {
@@ -95,6 +105,10 @@ export type SnapshotResult = {
   excludedUnits: number;
   /** How many returned items carry a barcode — the scannable fraction. */
   withBarcode: number;
+  /** Items with a usable avgCost, so a report can say how much of it it could value. */
+  withCost: number;
+  /** Book value of the returned stock at avgCost. */
+  totalValue: number;
   items: SnapshotItem[];
 };
 
@@ -199,15 +213,21 @@ export async function readLocationSnapshot(location: string): Promise<SnapshotRe
         mpn: String(it.mfgItemId ?? ""),
         upc: String(it.upcCode ?? "").trim(),
         ean: String(it.ean ?? "").trim(),
+        avgCost: Number(it.avgCost ?? 0) || 0,
       });
     }
   }
 
   const items = [...byItem.values()];
   const withBarcode = items.filter((i) => i.upc || i.ean).length;
+  const withCost = items.filter((i) => i.avgCost > 0).length;
+  const totalValue =
+    Math.round(items.reduce((n, i) => n + i.avgCost * i.qtyOnHand, 0) * 100) / 100;
   return {
     location: loc,
     withBarcode,
+    withCost,
+    totalValue,
     fileDate: meta.fileDate ?? null,
     fileName: meta.fileName ?? null,
     generatedAt: meta.generatedAt ?? null,
