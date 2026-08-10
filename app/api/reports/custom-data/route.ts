@@ -4,6 +4,7 @@ import { createGunzip } from "zlib";
 import { createInterface } from "readline";
 import { brandCodeToName } from "@/lib/brandMapping";
 import { buildTireDescription } from "@/lib/tireDescriptions";
+import { isSalesProductType } from "@/lib/oea07vProductTypes";
 
 // Trailing D-class suffix characters on JMK item IDs (e.g. "AV1951340404[").
 const stripIdSuffix = (id: string) => id.replace(/[.\^\[:\-]$/, "");
@@ -72,13 +73,15 @@ async function loadTireCatalogLookup(): Promise<Map<string, Record<string, strin
 const BUCKET = "ietires-dunlop-jmk-uploads";
 
 /**
- * Standard OEA07V row filter — excludes non-tire types, warehouse transfers, and internal accounts.
+ * Standard OEA07V row filter — excludes non-sales product types, warehouse
+ * transfers, and internal accounts.
  * Row must have: product type col at index 3, account ID at index 15.
  */
 function isValidOEA07VRow(row: string[]): boolean {
-  // Product type must start with T but not be T alone
-  const pt = (row[3] || "").replace(/"/g, "").trim();
-  if (!pt.startsWith("T") || pt === "T") return false;
+  // Sellable product types only — tires, retreads, dropship, TPMS, lug nuts,
+  // tubes, plans and fees all count; GL expense lines and "=ENTER ..."
+  // placeholders don't. See lib/oea07vProductTypes.
+  if (!isSalesProductType(row[3])) return false;
 
   // Keep only real sales (Sld) and customer returns (ReS). Exclude warehouse
   // transfers (TrI/TrO), receives (Rcv) and inventory adjustments (Adj/*) so the

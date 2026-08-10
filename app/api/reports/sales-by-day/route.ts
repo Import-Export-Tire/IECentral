@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
+import { isSalesProductType } from "@/lib/oea07vProductTypes";
+import { parseTransferLane } from "@/lib/oea07vTransferLanes";
 
 const BUCKET = "ietires-dunlop-jmk-uploads";
 
@@ -128,6 +130,12 @@ export async function GET(request: NextRequest) {
     // location instead of the normal aggregated series. Use for debugging
     // unexpected net negatives or missing sales.
     const diagnoseLocation = (searchParams.get("diagnoseLocation") || "").trim().toUpperCase();
+    // With diagnoseLocation, ?inspectProductType=Z dumps the full detail of
+    // every row of that product type at that location — invoice, account,
+    // customer, qty, dollars. Added to answer "what ARE these 38 '=ENTER THE
+    // DETAILS' rows carrying $1.34M at W08?" before deciding whether they're
+    // sales. Case-sensitive: bare "T" (dropship) and "t" (retread) differ.
+    const inspectProductType = (searchParams.get("inspectProductType") || "").trim();
 
     // Identify month folders that overlap the date range so we only download
     // CSVs we actually need.
@@ -224,6 +232,12 @@ export async function GET(request: NextRequest) {
     const locTransfersOutDollars = new Map<string, number>();
     let totalTransfersOutTires = 0;
     let totalTransfersOutDollars = 0;
+    // Transfers out broken down by LANE ("W08>R20") rather than just by origin
+    // location. The lane comes from the TrO account code (W08R20 = W08 -> R20);
+    // JMK writes the same thing as "TRANS W08>R10" in the customer name.
+    const laneTires = new Map<string, number>();
+    const laneDollars = new Map<string, number>();
+    const laneMeta = new Map<string, { from: string; to: string }>();
 
     // Diagnostic accumulator (only populated when diagnoseLocation is set).
     // Records the raw transaction-code + qty-sign mix at the target location
@@ -252,6 +266,14 @@ export async function GET(request: NextRequest) {
       // would be derived from. Verify that before relying on it.
       transferOutAccounts: new Map<string, { rows: number; sumQty: number }>(),
       sampleTrORows: [] as { activityDate: string; itemId: string; acct: string; qty: number; extCost: number; customerName: string }[],
+      // Full detail of every row matching ?inspectProductType, so an unknown
+      // code can be judged on real invoices instead of guessed at.
+      inspectRows: [] as {
+        activityDate: string; transaction: string; itemId: string; description: string;
+        brand: string; qty: number; unitSell: number; extSell: number; extCost: number;
+        acct: string; invoiceId: string; customerName: string;
+      }[],
+      inspectTotals: { rows: 0, sumQty: 0, sumExtSell: 0, sumExtCost: 0 },
       sampleRowsAfterFilter: [] as { activityDate: string; transaction: string; brand: string; qty: number; extCost: number; acct: string }[],
       // Capture sample raw ReS rows at the diagnose location so we can tell
       // receipts from real customer returns by the account format.
@@ -386,6 +408,30 @@ export async function GET(request: NextRequest) {
               }
               diag.productTypeDetail.set(ptKey, ptCell);
 
+              // Full-detail dump for one product-type code.
+              if (inspectProductType && pt === inspectProductType) {
+                diag.inspectTotals.rows++;
+                diag.inspectTotals.sumQty += rawQty;
+                diag.inspectTotals.sumExtSell += extSell;
+                diag.inspectTotals.sumExtCost += rawExt;
+                if (diag.inspectRows.length < 300) {
+                  diag.inspectRows.push({
+                    activityDate: (row[18] || "").replace(/"/g, "").trim(),
+                    transaction: trn,
+                    itemId,
+                    description: (row[1] || "").replace(/"/g, "").trim(),
+                    brand,
+                    qty: rawQty,
+                    unitSell: parseFloat((row[13] || "0").replace(/"/g, "").trim()) || 0,
+                    extSell,
+                    extCost: rawExt,
+                    acct,
+                    invoiceId: (row[16] || "").replace(/"/g, "").trim(),
+                    customerName: (row[19] || "").replace(/"/g, "").trim(),
+                  });
+                }
+              }
+
               // TrO account codes — the basis for a SOURCE>DEST lane label.
               if (trn === "TrO") {
                 const toCell = diag.transferOutAccounts.get(acct || "(empty)") || { rows: 0, sumQty: 0 };
@@ -435,8 +481,10 @@ export async function GET(request: NextRequest) {
             }
           }
 
-          const productType = (row[3] || "").replace(/"/g, "").trim();
-          if (!productType.startsWith("T") || productType === "T") continue;
+          // Everything sellable counts — tires, retreads, dropship, TPMS, lug
+          // nuts, tubes, beads, plans and fees. Only GL expense lines and
+          // "=ENTER ..." placeholders are rejected. See lib/oea07vProductTypes.
+          if (!isSalesProductType(row[3])) continue;
 
           const acct = (row[15] || "").replace(/"/g, "").trim().toUpperCase();
           // The account filters below exist to keep non-customer activity out of
@@ -497,6 +545,11 @@ export async function GET(request: NextRequest) {
             totalTransfersOutDollars += tcost;
             locTransfersOutTires.set(location, (locTransfersOutTires.get(location) || 0) + tqty);
             locTransfersOutDollars.set(location, (locTransfersOutDollars.get(location) || 0) + tcost);
+
+            const lane = parseTransferLane(acct, location);
+            laneTires.set(lane.label, (laneTires.get(lane.label) || 0) + tqty);
+            laneDollars.set(lane.label, (laneDollars.get(lane.label) || 0) + tcost);
+            if (!laneMeta.has(lane.label)) laneMeta.set(lane.label, { from: lane.from, to: lane.to });
             continue;
           }
 
@@ -578,6 +631,17 @@ export async function GET(request: NextRequest) {
           sumQty: Math.round(v.sumQty * 100) / 100,
         })),
         sampleTrORows: diag.sampleTrORows,
+        ...(inspectProductType ? {
+          inspectProductType,
+          inspectTotals: {
+            rows: diag.inspectTotals.rows,
+            sumQty: Math.round(diag.inspectTotals.sumQty * 100) / 100,
+            sumExtSell: Math.round(diag.inspectTotals.sumExtSell * 100) / 100,
+            sumExtCost: Math.round(diag.inspectTotals.sumExtCost * 100) / 100,
+            truncated: diag.inspectTotals.rows > diag.inspectRows.length,
+          },
+          inspectRows: diag.inspectRows,
+        } : {}),
         sampleReSRows: diag.sampleReSRows,
         sampleFalSldRows: diag.sampleFalSldRows,
         reSCustomers: sortMapDesc(diag.reSCustomers, (v) => Math.abs(v.sumQty)).slice(0, 50).map(([name, v]) => ({
@@ -644,10 +708,24 @@ export async function GET(request: NextRequest) {
       transfersOutDollars: Math.round((locTransfersOutDollars.get(loc) || 0) * 100) / 100,
     })).sort((a, b) => b.dollars - a.dollars);
 
+    // Transfer lanes over the whole range, biggest first. Origin-filtered the
+    // same way the rest of the payload is, so selecting W08 shows only lanes
+    // leaving W08.
+    const transferLanes = [...laneTires.entries()]
+      .map(([label, tires]) => ({
+        lane: label,
+        from: laneMeta.get(label)?.from || "",
+        to: laneMeta.get(label)?.to || "",
+        tires: Math.round(tires * 100) / 100,
+        dollars: Math.round((laneDollars.get(label) || 0) * 100) / 100,
+      }))
+      .sort((a, b) => b.tires - a.tires);
+
     return NextResponse.json({
       series,
       locations,         // every location seen in the source data
       perLocation,       // totals per selected location (sold + returns)
+      transferLanes,     // transfers out as "W08>R20" lanes
       totals: {
         tires: Math.round(totalTires * 100) / 100,
         dollars: Math.round(totalDollars * 100) / 100,

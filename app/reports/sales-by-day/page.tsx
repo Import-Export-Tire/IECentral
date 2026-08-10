@@ -8,6 +8,7 @@ import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import SectionHeader from "@/components/ui/SectionHeader";
+import { locationLabel } from "@/lib/locationLabels";
 import {
   ResponsiveContainer,
   LineChart, Line,
@@ -38,10 +39,19 @@ interface PerLocation {
   transfersOutDollars?: number;
 }
 
+interface TransferLane {
+  lane: string;   // "W08>R20"
+  from: string;
+  to: string;
+  tires: number;
+  dollars: number;
+}
+
 interface ApiResp {
   series: SeriesRow[];
   locations: string[];
   perLocation: PerLocation[];
+  transferLanes?: TransferLane[];
   totals: { tires: number; dollars: number; transfersOut?: number; transfersOutDollars?: number };
   startDate: string;
   endDate: string;
@@ -195,8 +205,8 @@ function SalesByDayContent() {
     const locs = reportedLocations;
     const header = [
       "Date",
-      ...locs.flatMap(l => [`${l} Tires`, `${l} Dollars`, `${l} Transfers Out`, `${l} Transfers Out $Cost`]),
-      "Total Tires", "Total Dollars", "Total Transfers Out", "Total Transfers Out $Cost",
+      ...locs.flatMap(l => [`${l} Units`, `${l} Dollars`, `${l} Transfers Out`, `${l} Transfers Out $Cost`]),
+      "Total Units", "Total Dollars", "Total Transfers Out", "Total Transfers Out $Cost",
     ];
     const rows = data.series.map(r => [
       r.bucket,
@@ -230,6 +240,11 @@ function SalesByDayContent() {
   const avgPerBucketDollars = bucketCount ? totalDollars / bucketCount : 0;
   const avgPerBucketTires = bucketCount ? totalTires / bucketCount : 0;
   const topLoc = data?.perLocation[0];
+
+  // Transfer lanes ("W08>R20"). Sorted biggest-first by the API.
+  const laneRows = useMemo(() => data?.transferLanes ?? [], [data]);
+  const laneTotalUnits = useMemo(() => laneRows.reduce((a, l) => a + l.tires, 0), [laneRows]);
+  const laneTotalDollars = useMemo(() => laneRows.reduce((a, l) => a + l.dollars, 0), [laneRows]);
 
   const valueKey = seriesKind === "sales"
     ? (metric === "dollars" ? "dollars_" : "tires_")
@@ -534,14 +549,14 @@ function SalesByDayContent() {
               <div className="text-[11px] theme-text-tertiary mt-0.5">{formatCurrency(avgPerBucketDollars)} / {granularity}</div>
             </Card>
             <Card padding="sm">
-              <div className="ui-section-label">Total Tires</div>
+              <div className="ui-section-label">Total Units</div>
               <div className="text-2xl font-semibold theme-text-primary mt-1">{formatNum(totalTires)}</div>
               <div className="text-[11px] theme-text-tertiary mt-0.5">{formatNum(Math.round(avgPerBucketTires))} / {granularity}</div>
             </Card>
             <Card padding="sm">
               <div className="ui-section-label">Transfers Out</div>
               <div className="text-2xl font-semibold theme-text-primary mt-1">{formatNum(totalTransfersOut)}</div>
-              <div className="text-[11px] theme-text-tertiary mt-0.5">tires · {formatCurrency(totalTransfersOutDollars)} at cost</div>
+              <div className="text-[11px] theme-text-tertiary mt-0.5">units · {formatCurrency(totalTransfersOutDollars)} at cost</div>
             </Card>
             <Card padding="sm">
               <div className="ui-section-label">Top Location</div>
@@ -553,7 +568,7 @@ function SalesByDayContent() {
           {/* Chart */}
           <Card padding="sm">
             <SectionHeader
-              title={`${seriesKind === "sales" ? "Sales" : "Transfers out"} — ${metric === "dollars" ? "dollars" : "tires"} by ${granularity === "day" ? "day" : granularity === "week" ? "week" : "month"}, per location`}
+              title={`${seriesKind === "sales" ? "Sales" : "Transfers out"} — ${metric === "dollars" ? "dollars" : "units"} by ${granularity === "day" ? "day" : granularity === "week" ? "week" : "month"}, per location`}
               actions={
                 seriesKind === "transfersOut" && metric === "dollars" ? (
                   <span className="text-[11px] theme-text-tertiary">Transfer dollars are extended cost — an inter-location transfer has no sell price.</span>
@@ -564,6 +579,68 @@ function SalesByDayContent() {
             />
             {renderChart()}
           </Card>
+
+          {/* Transfer lanes — only meaningful on the transfers-out view. The
+              per-location table answers "how much left W08"; this answers
+              "left W08 for WHERE". Lane comes from the TrO account code. */}
+          {seriesKind === "transfersOut" && (
+            <div className="theme-card overflow-hidden p-0">
+              <div className="px-5 py-3 border-b theme-border-secondary">
+                <h2 className="text-[15px] font-semibold theme-text-primary">Transfers out by lane</h2>
+                <p className="text-[11px] theme-text-tertiary mt-0.5">
+                  Source &rarr; destination, from the transfer&rsquo;s account code. Dollars are extended cost.
+                </p>
+              </div>
+              {laneRows.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className={`${isDark ? "bg-slate-800/80" : "bg-gray-50"}`}>
+                      <tr className="border-b theme-border-secondary">
+                        <th className="text-left py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Lane</th>
+                        <th className="text-left py-2.5 px-4 font-semibold text-xs theme-text-tertiary">From</th>
+                        <th className="text-left py-2.5 px-4 font-semibold text-xs theme-text-tertiary">To</th>
+                        <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Units</th>
+                        <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">$ Cost</th>
+                        <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">% of units</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {laneRows.map(l => {
+                        const pct = laneTotalUnits !== 0 ? (l.tires / laneTotalUnits) * 100 : 0;
+                        return (
+                          <tr key={l.lane} className="border-b theme-border-secondary">
+                            <td className="py-2.5 px-4">
+                              <span className="inline-flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full" style={{ background: colorByLocation[l.from] || "#007AFF" }} />
+                                <span className="theme-text-primary font-medium tabular-nums">{l.lane}</span>
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4 theme-text-secondary">{locationLabel(l.from)}</td>
+                            <td className="py-2.5 px-4 theme-text-secondary">{locationLabel(l.to)}</td>
+                            <td className="py-2.5 px-4 text-right theme-text-primary tabular-nums">{formatNum(l.tires)}</td>
+                            <td className="py-2.5 px-4 text-right theme-text-primary tabular-nums">${formatNum(l.dollars)}</td>
+                            <td className="py-2.5 px-4 text-right theme-text-secondary tabular-nums">{pct.toFixed(1)}%</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className={isDark ? "bg-slate-800/50" : "bg-gray-50"}>
+                        <td className="py-2.5 px-4 font-semibold theme-text-primary" colSpan={3}>Total</td>
+                        <td className="py-2.5 px-4 text-right font-semibold theme-text-primary tabular-nums">{formatNum(laneTotalUnits)}</td>
+                        <td className="py-2.5 px-4 text-right font-semibold theme-text-primary tabular-nums">${formatNum(laneTotalDollars)}</td>
+                        <td className="py-2.5 px-4 text-right font-semibold theme-text-secondary tabular-nums">100%</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-5">
+                  <p className="text-sm theme-text-tertiary">No transfers out in this range.</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Per-location table */}
           <div className="theme-card overflow-hidden p-0">
@@ -576,9 +653,9 @@ function SalesByDayContent() {
                   <thead className={`${isDark ? "bg-slate-800/80" : "bg-gray-50"}`}>
                     <tr className="border-b theme-border-secondary">
                       <th className="text-left py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Location</th>
-                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Tires</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Units</th>
                       <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Dollars</th>
-                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">$/tire avg</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">$/unit avg</th>
                       <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">% of total $</th>
                       <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Transfers out</th>
                     </tr>

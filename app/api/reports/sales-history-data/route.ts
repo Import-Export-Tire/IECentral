@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isSalesProductType, productTypeRejectReason } from "@/lib/oea07vProductTypes";
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
 import { brandCodeToName } from "@/lib/brandMapping";
 import { buildTireDescription } from "@/lib/tireDescriptions";
@@ -184,7 +185,8 @@ export async function GET(request: NextRequest) {
       if (trn === "TrI" || trn === "TrO" || trn === "Rcv") return `skipped:transaction=${trn}`;
       if (trn.startsWith("Adj")) return `skipped:transaction=${trn}`;
       const pt = (row[3] || "").replace(/"/g, "").trim();
-      if (!pt.startsWith("T") || pt === "T") return `skipped:productType=${pt || "(empty)"}`;
+      const ptReject = productTypeRejectReason(pt);
+      if (ptReject) return `skipped:${ptReject}`;
       const a = (row[15] || "").replace(/"/g, "").trim().toUpperCase();
       if (["700", "7001", "7002"].includes(a)) return `skipped:account=return-to-vendor(${a})`;
       if (/^[WR]\d{2}[WR]\d{2}$/i.test(a)) return `skipped:account=warehouse-transfer(${a})`;
@@ -272,9 +274,12 @@ export async function GET(request: NextRequest) {
           ) continue;
         }
 
-        // Standard filters: tire types only, no warehouse transfers, no internal accounts
+        // Standard filters: sellable product types only (tires, retreads,
+        // dropship, TPMS, lug nuts, tubes, plans, fees — everything except GL
+        // expense lines and "=ENTER ..." placeholders), no warehouse
+        // transfers, no internal accounts. See lib/oea07vProductTypes.
         const productType = (row[3] || "").replace(/"/g, "").trim();
-        if (!productType.startsWith("T") || productType === "T") continue;
+        if (!isSalesProductType(productType)) continue;
         const acct = (row[15] || "").replace(/"/g, "").trim().toUpperCase();
         if (["700", "7001", "7002"].includes(acct)) continue;
         if (/^[WR]\d{2}[WR]\d{2}$/i.test(acct)) continue;
