@@ -31,11 +31,16 @@
  *   G, VXX   General-ledger expense lines. Descriptions are "~"-prefixed:
  *            ~EBAY FEES, ~BANK WIRE FEES, ~ADMIN PAYROLL ALLOCATION,
  *            ~PTTY: LUNCH / FUEL / ADMIN EXPENSE, ~PTTY: MISC VEH EXP.
- *   XA       "=ENTER ITEM/SZ/MFG/MODEL" placeholder lines.
- *   Z        "=ENTER THE DETAILS" placeholder lines. NOTE: at W08 these carry
- *            $1.34M across 38 rows in July — under review with Andy. Excluded
- *            for now (status quo); inspect them with
- *            ?diagnoseLocation=W08&inspectProductType=Z
+ *   XA       "=ENTER ITEM/SZ/MFG/MODEL" lines. Almost all are Adj/RS, which the
+ *            transaction filter already drops; the residual Sld portion was
+ *            ~$377 at R20 in July. Excluded per Andy 2026-08-10.
+ *
+ * Z IS COUNTED, despite the "=ENTER THE DETAILS" description. Inspecting all 38
+ * W08 rows for July 2026 showed real sales: item ID "MISC", transaction Sld,
+ * booked to numeric customer accounts — REDRUM PURCH (acct 3901) alone was 27
+ * lines and ~$1.28M of the $1.34M, plus WTD (4800) and COMMERCIAL T (4538).
+ * Lump-sum wholesale billing, ~1.4% margin. Excluding it hid ~$1.3M/month.
+ * (Re-inspect any code with ?diagnoseLocation=W08&inspectProductType=Z.)
  *
  * Case matters: bare "T" is dropship (counted) while lowercase "t" is a
  * retread (counted) — but the exclusion list is matched case-INSENSITIVELY,
@@ -43,7 +48,7 @@
  */
 
 /** Product-type codes that are never a sale. */
-export const NON_SALES_PRODUCT_TYPES = new Set(["G", "VXX", "XA", "Z"]);
+export const NON_SALES_PRODUCT_TYPES = new Set(["G", "VXX", "XA"]);
 
 /**
  * True when an OEA07V row's product type represents something sold to a
