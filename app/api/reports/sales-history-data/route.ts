@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isHouseReturn } from "@/lib/oea07vHouseReturns";
 import { isSalesProductType, productTypeRejectReason } from "@/lib/oea07vProductTypes";
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
 import { brandCodeToName } from "@/lib/brandMapping";
@@ -256,23 +257,9 @@ export async function GET(request: NextRequest) {
         if (transaction === "TrI" || transaction === "TrO" || transaction === "Rcv") continue;
         if (transaction.startsWith("Adj")) continue;
 
-        // ReS rows from IET house entities (Import Export Tire, IET, etc.)
-        // are internal stock receipts mislabeled as returns. Don't net them
-        // against sales.
-        if (transaction === "ReS") {
-          const customer = (row[19] || "").replace(/"/g, "").toUpperCase().trim();
-          if (
-            customer.startsWith("IMPORT EXPOR") ||
-            customer.startsWith("IMPORT/EXPORT") ||
-            customer === "IET" ||
-            customer.startsWith("IET ") ||
-            customer.startsWith("I.E.T") ||
-            customer.startsWith("EXPORT TIRE") ||
-            customer.startsWith("ESSEY TIRE") ||
-            customer.startsWith("KINGS SUPER") ||
-            customer.startsWith("KINGS TIRE")
-          ) continue;
-        }
+        // ReS rows from IET house entities or wholesale partners are inbound
+        // stock receipts mislabeled as returns. See lib/oea07vHouseReturns.
+        if (transaction === "ReS" && isHouseReturn(row[19])) continue;
 
         // Standard filters: sellable product types only (tires, retreads,
         // dropship, TPMS, lug nuts, tubes, plans, fees — everything except GL

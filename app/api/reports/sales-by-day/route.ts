@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isHouseReturn } from "@/lib/oea07vHouseReturns";
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
 import { isSalesProductType } from "@/lib/oea07vProductTypes";
 import { parseTransferLane } from "@/lib/oea07vTransferLanes";
@@ -461,27 +462,11 @@ export async function GET(request: NextRequest) {
           if (transaction.startsWith("Adj")) continue;
           const isTransferOut = transaction === "TrO";
 
-          // ReS rows whose "customer" is one of IET's own house entities
-          // (Import Export Tire, IET, Export Tire, etc.) are stock receipts
-          // from the warehouse mislabeled as returns — they shouldn't be
-          // netted against sales. At R20 specifically these are the
-          // -127 / -130 / etc. spikes Andy flagged on 5/19, 5/27.
-          if (transaction === "ReS") {
-            const customer = (row[19] || "").replace(/"/g, "").toUpperCase().trim();
-            if (
-              customer.startsWith("IMPORT EXPOR") ||
-              customer.startsWith("IMPORT/EXPORT") ||
-              customer === "IET" ||
-              customer.startsWith("IET ") ||
-              customer.startsWith("I.E.T") ||
-              customer.startsWith("EXPORT TIRE") ||
-              customer.startsWith("ESSEY TIRE") ||
-              customer.startsWith("KINGS SUPER") ||
-              customer.startsWith("KINGS TIRE")
-            ) {
-              continue;
-            }
-          }
+          // ReS rows whose "customer" is an IET house entity or a wholesale
+          // partner (Import Export Tire, REDRUM, AOT, ...) are inbound stock
+          // receipts mislabeled as returns — never net them against sales.
+          // See lib/oea07vHouseReturns.
+          if (transaction === "ReS" && isHouseReturn(row[19])) continue;
 
           // Everything sellable counts — tires, retreads, dropship, TPMS, lug
           // nuts, tubes, beads, plans and fees. Only GL expense lines and
