@@ -237,6 +237,21 @@ export async function GET(request: NextRequest) {
       byBrandAndTrn: new Map<string, { rows: number; sumQty: number }>(),
       acctPatterns: new Map<string, number>(),
       productTypes: new Map<string, number>(),
+      // Per-product-type detail with sample item descriptions. The bare row
+      // counts above tell us WHICH codes exist but not WHAT they are — and the
+      // non-tire codes (F, ZRI, CT, PWB, ...) never appear in the OEIVAL
+      // inventory cache because they aren't stocked, so descriptions are the
+      // only way to tell merchandise (TPMS sensors, lug nuts, wheels) apart
+      // from fees and labor before deciding what counts as a sale.
+      productTypeDetail: new Map<string, {
+        rows: number; sumQty: number; sumExtSell: number;
+        samples: { itemId: string; description: string; trn: string; qty: number; extSell: number }[];
+      }>(),
+      // TrO account codes. The account on a transfer row is expected to be
+      // SOURCE+DEST (W08R20 = W08 → R20), which is what a "W08>R20" lane label
+      // would be derived from. Verify that before relying on it.
+      transferOutAccounts: new Map<string, { rows: number; sumQty: number }>(),
+      sampleTrORows: [] as { activityDate: string; itemId: string; acct: string; qty: number; extCost: number; customerName: string }[],
       sampleRowsAfterFilter: [] as { activityDate: string; transaction: string; brand: string; qty: number; extCost: number; acct: string }[],
       // Capture sample raw ReS rows at the diagnose location so we can tell
       // receipts from real customer returns by the account format.
@@ -352,6 +367,39 @@ export async function GET(request: NextRequest) {
               diag.acctPatterns.set(acctPattern, (diag.acctPatterns.get(acctPattern) || 0) + 1);
 
               diag.productTypes.set(pt || "(empty)", (diag.productTypes.get(pt || "(empty)") || 0) + 1);
+
+              // Product-type detail + description samples.
+              const ptKey = pt || "(empty)";
+              const extSell = parseFloat((row[14] || "0").replace(/"/g, "").trim()) || 0;
+              const ptCell = diag.productTypeDetail.get(ptKey)
+                || { rows: 0, sumQty: 0, sumExtSell: 0, samples: [] };
+              ptCell.rows++;
+              ptCell.sumQty += rawQty;
+              ptCell.sumExtSell += extSell;
+              if (ptCell.samples.length < 5) {
+                const description = (row[1] || "").replace(/"/g, "").trim();
+                // One sample per distinct description, so five samples show five
+                // different items rather than five lines of the same invoice.
+                if (!ptCell.samples.some((s) => s.description === description)) {
+                  ptCell.samples.push({ itemId, description, trn, qty: rawQty, extSell });
+                }
+              }
+              diag.productTypeDetail.set(ptKey, ptCell);
+
+              // TrO account codes — the basis for a SOURCE>DEST lane label.
+              if (trn === "TrO") {
+                const toCell = diag.transferOutAccounts.get(acct || "(empty)") || { rows: 0, sumQty: 0 };
+                toCell.rows++;
+                toCell.sumQty += rawQty;
+                diag.transferOutAccounts.set(acct || "(empty)", toCell);
+                if (diag.sampleTrORows.length < 25) {
+                  diag.sampleTrORows.push({
+                    activityDate: (row[18] || "").replace(/"/g, "").trim(),
+                    itemId, acct, qty: rawQty, extCost: rawExt,
+                    customerName: (row[19] || "").replace(/"/g, "").trim(),
+                  });
+                }
+              }
             }
           }
 
@@ -515,6 +563,21 @@ export async function GET(request: NextRequest) {
         }),
         accountPatterns: sortMapDesc(diag.acctPatterns).map(([k, v]) => ({ pattern: k, rows: v })),
         productTypes: sortMapDesc(diag.productTypes).map(([k, v]) => ({ productType: k, rows: v })),
+        // What each product-type code actually IS — sample descriptions let us
+        // tell merchandise from fees/labor before changing what counts as a sale.
+        productTypeDetail: sortMapDesc(diag.productTypeDetail, (v) => v.rows).map(([pt, v]) => ({
+          productType: pt,
+          rows: v.rows,
+          sumQty: Math.round(v.sumQty * 100) / 100,
+          sumExtSell: Math.round(v.sumExtSell * 100) / 100,
+          samples: v.samples,
+        })),
+        transferOutAccounts: sortMapDesc(diag.transferOutAccounts, (v) => v.rows).map(([acct, v]) => ({
+          account: acct,
+          rows: v.rows,
+          sumQty: Math.round(v.sumQty * 100) / 100,
+        })),
+        sampleTrORows: diag.sampleTrORows,
         sampleReSRows: diag.sampleReSRows,
         sampleFalSldRows: diag.sampleFalSldRows,
         reSCustomers: sortMapDesc(diag.reSCustomers, (v) => Math.abs(v.sumQty)).slice(0, 50).map(([name, v]) => ({
