@@ -288,6 +288,9 @@ function SalesDashboardContent() {
   }, [data, locations, metric, ytdStart]);
 
   const fmt = metric === "tires" ? fmtNum : fmtCurrency;
+  // The "tires" metric key still names the tires_* API fields, but the units it
+  // counts now include parts, fees, dropship and wholesale — so show "units".
+  const metricLabel = metric === "tires" ? "units" : "dollars";
 
   const monthlySeries = useMemo(() => {
     return byMonth.map(m => {
@@ -445,7 +448,14 @@ function SalesDashboardContent() {
               </Link>
               <div className="min-w-0">
                 <h1 className="text-xl font-bold theme-text-primary tracking-tight">Sales Dashboard</h1>
-                <p className="text-xs mt-0.5 theme-text-tertiary">Tires sold by location · WoW / MoM / YTD</p>
+                <p className="text-xs mt-0.5 theme-text-tertiary">
+                  Units sold by location · WoW / MoM / YTD
+                  {bizDates.length > 0 && (
+                    <> · <span title="The OEA07V feed lags a day or two, so every figure is anchored to the latest day with sales — not today.">
+                      as of {new Date(`${bizDates[bizDates.length - 1]}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    </span></>
+                  )}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -458,7 +468,7 @@ function SalesDashboardContent() {
                       metric === m ? "bg-[#007AFF] text-white" : "theme-text-secondary"
                     }`}
                   >
-                    {m === "tires" ? "Tires" : "Dollars"}
+                    {m === "tires" ? "Units" : "Dollars"}
                   </button>
                 ))}
               </div>
@@ -505,14 +515,26 @@ function SalesDashboardContent() {
               <div className="ui-section-label">YTD</div>
               <div className="text-2xl font-semibold theme-text-primary mt-1">{fmt(ytd.total)}</div>
               <div className="mt-1 flex items-center gap-2 text-[11px] theme-text-tertiary">
-                <span>vs same period last yr {fmt(ytdPrev.total)}</span>
-                {deltaPill(deltaPct(ytd.total, ytdPrev.total))}
+                {/* A prior year with no uploads is NOT a year with zero sales.
+                    Rendering fmt(0) here read as "last year sold nothing" —
+                    and the fetch window starts at Jan 1 of the CURRENT year,
+                    so prior-year rows were never even loaded. Say so instead. */}
+                {ytdPrev.total !== 0 ? (
+                  <>
+                    <span>vs same period last yr {fmt(ytdPrev.total)}</span>
+                    {deltaPill(deltaPct(ytd.total, ytdPrev.total))}
+                  </>
+                ) : (
+                  <span title="No prior-year OEA07V data has been uploaded, so a year-over-year comparison isn't possible yet.">
+                    no prior-year data
+                  </span>
+                )}
               </div>
             </Card>
             <Card padding="sm">
               <div className="ui-section-label">Locations</div>
               <div className="text-2xl font-semibold theme-text-primary mt-1">{locations.length}</div>
-              <div className="text-[11px] theme-text-tertiary mt-1">selling tires YTD</div>
+              <div className="text-[11px] theme-text-tertiary mt-1">selling YTD</div>
             </Card>
           </div>
 
@@ -520,7 +542,7 @@ function SalesDashboardContent() {
           <div className="theme-card overflow-hidden p-0">
             <div className="px-5 py-3 border-b theme-border-secondary">
               <h2 className="text-[15px] font-semibold theme-text-primary">
-                This month — by location <span className="theme-text-tertiary font-normal text-xs ml-1">({metric})</span>
+                This month — by location <span className="theme-text-tertiary font-normal text-xs ml-1">({metricLabel})</span>
               </h2>
               <p className="text-xs mt-0.5 theme-text-tertiary">
                 Business-day aligned: WoW compares this week&apos;s {thisWeekDates.length} selling day{thisWeekDates.length === 1 ? "" : "s"} vs last week&apos;s first {thisWeekDates.length}; MoM compares this month&apos;s {thisMonthDates.length} vs last month&apos;s first {thisMonthDates.length}. Weekends/holidays excluded (a &ldquo;selling day&rdquo; = a day the company sold). Data through {MONTH_NAMES[asOf.getMonth()]} {asOf.getDate()}.
@@ -615,7 +637,7 @@ function SalesDashboardContent() {
           {/* Sales by day — 8-week window */}
           <Card padding="sm">
             <h2 className="text-[15px] font-semibold theme-text-primary">
-              Sales by day, last {WEEKS} weeks <span className="theme-text-tertiary font-normal text-xs ml-1">({metric})</span>
+              Sales by day, last {WEEKS} weeks <span className="theme-text-tertiary font-normal text-xs ml-1">({metricLabel})</span>
             </h2>
             <p className="text-xs mt-0.5 mb-3 theme-text-tertiary">
               One line per location, {windowLabel}. Gaps are days with no selling activity.
@@ -635,7 +657,7 @@ function SalesDashboardContent() {
           {/* Sales by week — 8-week window */}
           <Card padding="sm">
             <h2 className="text-[15px] font-semibold theme-text-primary">
-              Sales by week, last {WEEKS} weeks <span className="theme-text-tertiary font-normal text-xs ml-1">({metric})</span>
+              Sales by week, last {WEEKS} weeks <span className="theme-text-tertiary font-normal text-xs ml-1">({metricLabel})</span>
             </h2>
             <p className="text-xs mt-0.5 mb-3 theme-text-tertiary">
               Each point is a full Monday–Sunday week, labelled by its Monday. The last week is partial — it runs through {MONTH_NAMES[asOf.getMonth()]} {asOf.getDate()}.
@@ -654,10 +676,10 @@ function SalesDashboardContent() {
           {/* Transfers out by week — 8-week window */}
           <Card padding="sm">
             <h2 className="text-[15px] font-semibold theme-text-primary">
-              Transfers out by location, last {WEEKS} weeks <span className="theme-text-tertiary font-normal text-xs ml-1">({metric})</span>
+              Transfers out by location, last {WEEKS} weeks <span className="theme-text-tertiary font-normal text-xs ml-1">({metricLabel})</span>
             </h2>
             <p className="text-xs mt-0.5 mb-3 theme-text-tertiary">
-              Tires leaving each location for another IET location (TrO rows). Not sales — this series is
+              Units leaving each location for another IET location (TrO rows). Not sales — this series is
               tracked separately and never nets against the sold numbers above.
               {metric === "dollars" && " Dollars here are extended COST, since an inter-location transfer has no sell price."}
             </p>
@@ -675,7 +697,7 @@ function SalesDashboardContent() {
           {/* Transfers out by day — 8-week window */}
           <Card padding="sm">
             <h2 className="text-[15px] font-semibold theme-text-primary">
-              Transfers out by day, last {WEEKS} weeks <span className="theme-text-tertiary font-normal text-xs ml-1">({metric})</span>
+              Transfers out by day, last {WEEKS} weeks <span className="theme-text-tertiary font-normal text-xs ml-1">({metricLabel})</span>
             </h2>
             <p className="text-xs mt-0.5 mb-3 theme-text-tertiary">
               Same {WEEKS}-week window, day by day — surfaces the individual big pushes a weekly total hides.
@@ -695,7 +717,7 @@ function SalesDashboardContent() {
           {/* YTD by month */}
           <Card padding="sm">
             <h2 className="text-[15px] font-semibold theme-text-primary">
-              YTD by month <span className="theme-text-tertiary font-normal text-xs ml-1">({metric})</span>
+              YTD by month <span className="theme-text-tertiary font-normal text-xs ml-1">({metricLabel})</span>
             </h2>
             <p className="text-xs mt-0.5 mb-3 theme-text-tertiary">
               One line per location for the full year to date — the long-run view behind the {WEEKS}-week charts.
