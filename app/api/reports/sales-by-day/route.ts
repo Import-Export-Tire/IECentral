@@ -88,7 +88,9 @@ function bucketDate(iso: string, granularity: "day" | "week" | "month"): string 
  *
  * Three independent series per location, never netted against each other:
  *   tires_* / dollars_*                       sold (Sld), dollars = Ext Sell
- *   returns_* / returnsDollars_*              customer returns (ReS)
+ *   returns_* / returnsDollars_*              customer returns (ReS),
+ *                                             dollars = Ext Cost — JMK writes
+ *                                             no sell price on return rows
  *   transfersOut_* / transfersOutDollars_*    stock leaving for another IET
  *                                             location (TrO), dollars = Ext Cost
  *
@@ -557,8 +559,17 @@ export async function GET(request: NextRequest) {
             // Real customer return (IET-house ReS was already skipped above).
             // ReS stores positive qty; record absolute values into the
             // dedicated returns map. Never net against sold.
+            //
+            // Dollars here are Ext COST (col 12), not Ext Sell (col 14).
+            // JMK does not write a sell price on return rows: sampling every
+            // ReS row of the biggest product type at R20 for July 2026 gave
+            // 216/216 rows with extSell AND unitSell both 0, while extCost was
+            // populated on all 216. Summing col 14 could only ever produce $0,
+            // which is exactly what the reports showed. Same treatment as
+            // transfers out, and labelled "at cost" in the UI for the same
+            // reason.
             const rqty = Math.abs(rawQty);
-            const rext = Math.abs(rawExt);
+            const rext = Math.abs(parseFloat((row[12] || "0").replace(/"/g, "").trim()) || 0);
             returnsTireMap.set(key, (returnsTireMap.get(key) || 0) + rqty);
             returnsDollarMap.set(key, (returnsDollarMap.get(key) || 0) + rext);
             totalReturnsTires += rqty;
