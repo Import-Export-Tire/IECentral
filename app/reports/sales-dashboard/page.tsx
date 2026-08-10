@@ -259,6 +259,17 @@ function SalesDashboardContent() {
   const lastWeekAnchor = new Date(asOf); lastWeekAnchor.setDate(lastWeekAnchor.getDate() - 7);
   const lastWeekDates = bizIn(startOfWeek(lastWeekAnchor), endOfWeek(lastWeekAnchor)).slice(0, thisWeekDates.length);
 
+  // Name the periods by their ACTUAL dates. Every figure anchors to the last
+  // day with sales, so on a Monday whose upload hasn't landed the "current"
+  // week is the PREVIOUS calendar week — calling that "This Week" reads as if
+  // a full week's trading had already happened today.
+  const fmtDayRange = (dates: string[]) => {
+    if (!dates.length) return "no data";
+    const f = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return dates.length === 1 ? f(dates[0]) : `${f(dates[0])}\u2013${f(dates[dates.length - 1])}`;
+  };
+  const weekIsStale = iso(startOfWeek(asOf)) !== iso(startOfWeek(today));
+
   const thisMonth = sumDates(thisMonthDates);
   const lastMonth = sumDates(lastMonthDates);
   const thisWeek  = sumDates(thisWeekDates);
@@ -496,21 +507,37 @@ function SalesDashboardContent() {
             </Card>
           )}
 
+          {/* The current calendar week has no uploads yet — say so, rather than
+              letting the previous week masquerade as "this week". */}
+          {weekIsStale && bizDates.length > 0 && (
+            <Card tone="amber" padding="sm">
+              <p className="text-xs theme-text-secondary">
+                No sales data yet for the week of{" "}
+                {new Date(`${iso(startOfWeek(today))}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}.
+                Every figure below is anchored to the most recent day with sales
+                ({new Date(`${bizDates[bizDates.length - 1]}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}),
+                so &ldquo;Latest Week&rdquo; is the previous calendar week. The OEA07V feed usually lands a day or two behind.
+              </p>
+            </Card>
+          )}
+
           {/* Big KPI row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card padding="sm">
-              <div className="ui-section-label">This Week</div>
+              <div className="ui-section-label">{weekIsStale ? "Latest Week" : "This Week"}</div>
               <div className="text-2xl font-semibold theme-text-primary mt-1">{fmt(thisWeek.total)}</div>
+              <div className="text-[11px] theme-text-tertiary mt-0.5">{fmtDayRange(thisWeekDates)} · {thisWeekDates.length} selling days</div>
               <div className="mt-1 flex items-center gap-2 text-[11px] theme-text-tertiary">
-                <span>vs last week {fmt(lastWeek.total)}</span>
+                <span>vs {fmtDayRange(lastWeekDates)} {fmt(lastWeek.total)}</span>
                 {deltaPill(deltaPct(thisWeek.total, lastWeek.total))}
               </div>
             </Card>
             <Card padding="sm">
-              <div className="ui-section-label">This Month</div>
+              <div className="ui-section-label">Month to Date</div>
               <div className="text-2xl font-semibold theme-text-primary mt-1">{fmt(thisMonth.total)}</div>
+              <div className="text-[11px] theme-text-tertiary mt-0.5">{fmtDayRange(thisMonthDates)} · {thisMonthDates.length} selling days</div>
               <div className="mt-1 flex items-center gap-2 text-[11px] theme-text-tertiary">
-                <span>vs last month {fmt(lastMonth.total)}</span>
+                <span>vs {fmtDayRange(lastMonthDates)} {fmt(lastMonth.total)}</span>
                 {deltaPill(deltaPct(thisMonth.total, lastMonth.total))}
               </div>
             </Card>
@@ -548,7 +575,7 @@ function SalesDashboardContent() {
                 This month — by location <span className="theme-text-tertiary font-normal text-xs ml-1">({metricLabel})</span>
               </h2>
               <p className="text-xs mt-0.5 theme-text-tertiary">
-                Business-day aligned: WoW compares this week&apos;s {thisWeekDates.length} selling day{thisWeekDates.length === 1 ? "" : "s"} vs last week&apos;s first {thisWeekDates.length}; MoM compares this month&apos;s {thisMonthDates.length} vs last month&apos;s first {thisMonthDates.length}. Weekends/holidays excluded (a &ldquo;selling day&rdquo; = a day the company sold). Data through {MONTH_NAMES[asOf.getMonth()]} {asOf.getDate()}.
+                Business-day aligned: WoW compares {fmtDayRange(thisWeekDates)} ({thisWeekDates.length} selling day{thisWeekDates.length === 1 ? "" : "s"}) vs the first {thisWeekDates.length} of {fmtDayRange(lastWeekDates)}; MoM compares {fmtDayRange(thisMonthDates)} ({thisMonthDates.length}) vs the first {thisMonthDates.length} of {fmtDayRange(lastMonthDates)}. Weekends/holidays excluded (a &ldquo;selling day&rdquo; = a day the company sold). Data through {MONTH_NAMES[asOf.getMonth()]} {asOf.getDate()}.
               </p>
             </div>
             {locations.length === 0 ? (
