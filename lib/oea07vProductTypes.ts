@@ -61,6 +61,72 @@ export function isSalesProductType(raw: string | undefined): boolean {
 }
 
 /**
+ * Sales categories.
+ *
+ * A single blended sales figure is misleading now that everything sellable
+ * counts: July 2026 jumped 57.6% and most of that was MISC wholesale and
+ * dropship, not retail tire sales. Splitting by category lets a reader see
+ * composition instead of one number that moved for invisible reasons.
+ *
+ * Derived from the product-type code only — no account or customer heuristics,
+ * so a row lands in exactly one bucket and the buckets always sum to the total.
+ */
+export type SalesCategoryKey =
+  | "tires" | "dropship" | "wholesale" | "parts"
+  | "services" | "fees" | "discounts" | "other";
+
+/** Display order, most-retail-like first. */
+export const SALES_CATEGORY_ORDER: SalesCategoryKey[] = [
+  "tires", "parts", "services", "fees", "discounts", "dropship", "wholesale", "other",
+];
+
+export const SALES_CATEGORY_LABELS: Record<SalesCategoryKey, string> = {
+  tires: "Tires",
+  parts: "Parts & merchandise",
+  services: "Services & plans",
+  fees: "Fees & taxes",
+  discounts: "Rebates & discounts",
+  dropship: "Dropship",
+  wholesale: "Wholesale (MISC)",
+  other: "Other / unclassified",
+};
+
+/** Exact-code assignments. Anything else starting with T/t is a tire. */
+const CATEGORY_BY_CODE: Record<string, SalesCategoryKey> = {
+  // Bare "T" is TH DROPSHIP / SHIP TO HOME / NGT DROPSHIP at W08.
+  // (Lowercase "t" is a retread and falls through to "tires" below.)
+  Z: "wholesale",       // "MISC" lump-sum wholesale invoices
+  A: "parts",           // TPMS sensors + lug nuts
+  P: "parts",           // TPMS valve stems, outside-purchase parts
+  AX: "parts",          // truck valves
+  PWB: "parts",         // Counteract balance beads
+  I: "parts", IF: "parts", IFR: "parts", IM: "parts",
+  IP: "parts", IS: "parts", D: "parts",   // tubes
+  ZRI: "services",      // tire protection plan
+  PBP: "services",      // nitrogen fill
+  ZS: "services",       // freight / ship revenue
+  F: "fees",            // disposal & recycling fees
+  FX: "fees",           // PA tire tax / new tire fee
+  CT: "discounts",      // instant rebates and coupons (negative revenue)
+};
+
+/**
+ * Which sales category a row belongs to. Pass the raw product-type cell.
+ * Callers should only use this on rows that passed isSalesProductType().
+ */
+export function salesCategory(raw: string | undefined): SalesCategoryKey {
+  const pt = (raw || "").replace(/"/g, "").trim();
+  if (!pt) return "other";
+  // Case-sensitive on purpose: "T" is dropship, "t" is a retread.
+  if (pt === "T") return "dropship";
+  const mapped = CATEGORY_BY_CODE[pt.toUpperCase()];
+  if (mapped) return mapped;
+  // TP, TL, TST, TM, TF, TP*, T2M, TSG, TO ... plus lowercase t / tM retreads.
+  if (pt.toUpperCase().startsWith("T")) return "tires";
+  return "other";
+}
+
+/**
  * Why a product type was rejected, for the debug/diagnostic endpoints.
  * Returns null when the row is counted.
  */

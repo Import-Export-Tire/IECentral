@@ -39,6 +39,13 @@ interface PerLocation {
   transfersOutDollars?: number;
 }
 
+interface SalesCategory {
+  key: string;
+  label: string;
+  units: number;
+  dollars: number;
+}
+
 interface TransferLane {
   lane: string;   // "W08>R20"
   from: string;
@@ -52,6 +59,7 @@ interface ApiResp {
   locations: string[];
   perLocation: PerLocation[];
   transferLanes?: TransferLane[];
+  categories?: SalesCategory[];
   totals: { tires: number; dollars: number; transfersOut?: number; transfersOutDollars?: number };
   startDate: string;
   endDate: string;
@@ -240,6 +248,9 @@ function SalesByDayContent() {
   const avgPerBucketDollars = bucketCount ? totalDollars / bucketCount : 0;
   const avgPerBucketTires = bucketCount ? totalTires / bucketCount : 0;
   const topLoc = data?.perLocation[0];
+
+  // Sold split by product category. Sums back to totalDollars / totalTires.
+  const categoryRows = useMemo(() => data?.categories ?? [], [data]);
 
   // Transfer lanes ("W08>R20"). Sorted biggest-first by the API.
   const laneRows = useMemo(() => data?.transferLanes ?? [], [data]);
@@ -579,6 +590,67 @@ function SalesByDayContent() {
             />
             {renderChart()}
           </Card>
+
+          {/* Sales by category — the composition behind the headline number.
+              A single blended total hides that dropship and MISC wholesale are
+              different business lines from retail tire sales. */}
+          {seriesKind === "sales" && (
+            <div className="theme-card overflow-hidden p-0">
+              <div className="px-5 py-3 border-b theme-border-secondary">
+                <h2 className="text-[15px] font-semibold theme-text-primary">Sales by category</h2>
+                <p className="text-[11px] theme-text-tertiary mt-0.5">
+                  Every counted sale lands in exactly one category, so these sum to the totals above.
+                </p>
+              </div>
+              {categoryRows.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className={`${isDark ? "bg-slate-800/80" : "bg-gray-50"}`}>
+                      <tr className="border-b theme-border-secondary">
+                        <th className="text-left py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Category</th>
+                        <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Units</th>
+                        <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Dollars</th>
+                        <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">$/unit avg</th>
+                        <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">% of total $</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {categoryRows.map(c => {
+                        const pct = totalDollars !== 0 ? (c.dollars / totalDollars) * 100 : 0;
+                        const per = c.units !== 0 ? c.dollars / c.units : 0;
+                        return (
+                          <tr key={c.key} className="border-b theme-border-secondary">
+                            <td className="py-2.5 px-4 theme-text-primary font-medium">{c.label}</td>
+                            <td className="py-2.5 px-4 text-right theme-text-primary tabular-nums">{formatNum(c.units)}</td>
+                            <td className="py-2.5 px-4 text-right theme-text-primary tabular-nums">${formatNum(c.dollars)}</td>
+                            <td className="py-2.5 px-4 text-right theme-text-secondary tabular-nums">
+                              {c.units !== 0 ? `$${per.toFixed(0)}` : "—"}
+                            </td>
+                            <td className="py-2.5 px-4 text-right theme-text-secondary tabular-nums">{pct.toFixed(1)}%</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className={isDark ? "bg-slate-800/50" : "bg-gray-50"}>
+                        <td className="py-2.5 px-4 font-semibold theme-text-primary">Total</td>
+                        <td className="py-2.5 px-4 text-right font-semibold theme-text-primary tabular-nums">{formatNum(totalTires)}</td>
+                        <td className="py-2.5 px-4 text-right font-semibold theme-text-primary tabular-nums">${formatNum(totalDollars)}</td>
+                        <td className="py-2.5 px-4 text-right font-semibold theme-text-secondary tabular-nums">
+                          {totalTires !== 0 ? `$${(totalDollars / totalTires).toFixed(0)}` : "—"}
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-semibold theme-text-secondary tabular-nums">100%</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-5">
+                  <p className="text-sm theme-text-tertiary">No sales in this range.</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Transfer lanes — only meaningful on the transfers-out view. The
               per-location table answers "how much left W08"; this answers

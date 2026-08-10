@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isHouseReturn } from "@/lib/oea07vHouseReturns";
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
-import { isSalesProductType } from "@/lib/oea07vProductTypes";
+import { isSalesProductType, salesCategory, SALES_CATEGORY_ORDER, SALES_CATEGORY_LABELS, type SalesCategoryKey } from "@/lib/oea07vProductTypes";
 import { parseTransferLane } from "@/lib/oea07vTransferLanes";
 
 const BUCKET = "ietires-dunlop-jmk-uploads";
@@ -238,6 +238,10 @@ export async function GET(request: NextRequest) {
     // Transfers out broken down by LANE ("W08>R20") rather than just by origin
     // location. The lane comes from the TrO account code (W08R20 = W08 -> R20);
     // JMK writes the same thing as "TRANS W08>R10" in the customer name.
+    // Sold, split by category, so a reader can see composition instead of one
+    // blended figure. Sld rows only — returns and transfers have their own series.
+    const catUnits = new Map<SalesCategoryKey, number>();
+    const catDollars = new Map<SalesCategoryKey, number>();
     const laneTires = new Map<string, number>();
     const laneDollars = new Map<string, number>();
     const laneMeta = new Map<string, { from: string; to: string }>();
@@ -567,6 +571,9 @@ export async function GET(request: NextRequest) {
           // Sld: qty stored negative in OEA07V; negate so sold positive.
           const qty = -rawQty;
           const dollars = -rawExt;
+          const cat = salesCategory(row[3]);
+          catUnits.set(cat, (catUnits.get(cat) || 0) + qty);
+          catDollars.set(cat, (catDollars.get(cat) || 0) + dollars);
           tireMap.set(key, (tireMap.get(key) || 0) + qty);
           dollarMap.set(key, (dollarMap.get(key) || 0) + dollars);
           totalTires += qty;
@@ -717,11 +724,23 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => b.tires - a.tires);
 
+    // Sold by category. Every counted Sld row lands in exactly one bucket, so
+    // these always sum back to totals.dollars / totals.tires.
+    const categories = SALES_CATEGORY_ORDER
+      .map((k) => ({
+        key: k,
+        label: SALES_CATEGORY_LABELS[k],
+        units: Math.round((catUnits.get(k) || 0) * 100) / 100,
+        dollars: Math.round((catDollars.get(k) || 0) * 100) / 100,
+      }))
+      .filter((c) => c.units !== 0 || c.dollars !== 0);
+
     return NextResponse.json({
       series,
       locations,         // every location seen in the source data
       perLocation,       // totals per selected location (sold + returns)
       transferLanes,     // transfers out as "W08>R20" lanes
+      categories,        // sold split by product category
       totals: {
         tires: Math.round(totalTires * 100) / 100,
         dollars: Math.round(totalDollars * 100) / 100,
