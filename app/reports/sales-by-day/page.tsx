@@ -220,8 +220,8 @@ function SalesByDayContent() {
     const locs = reportedLocations;
     const header = [
       "Date",
-      ...locs.flatMap(l => [`${l} Units`, `${l} Dollars`, `${l} Transfers Out`, `${l} Transfers Out $Cost`]),
-      "Total Units", "Total Dollars", "Total Transfers Out", "Total Transfers Out $Cost",
+      ...locs.flatMap(l => [`${l} Tires`, `${l} Dollars`, `${l} Transfers Out`, `${l} Transfers Out $Cost`]),
+      "Total Tires", "Total Dollars", "Total Transfers Out", "Total Transfers Out $Cost",
     ];
     const rows = data.series.map(r => [
       r.bucket,
@@ -595,9 +595,9 @@ function SalesByDayContent() {
               <div className="text-[11px] theme-text-tertiary mt-0.5">{formatCurrency(avgPerBucketDollars)} / {granularity}</div>
             </Card>
             <Card padding="sm">
-              <div className="ui-section-label">Total Units</div>
+              <div className="ui-section-label">Total Tires</div>
               <div className="text-2xl font-semibold theme-text-primary mt-1">{formatNum(totalTires)}</div>
-              <div className="text-[11px] theme-text-tertiary mt-0.5">{formatNum(Math.round(avgPerBucketTires))} / {granularity}</div>
+              <div className="text-[11px] theme-text-tertiary mt-0.5">tires only · {formatNum(Math.round(avgPerBucketTires))} / {granularity}</div>
             </Card>
             <Card padding="sm">
               <div className="ui-section-label">Transfers Out</div>
@@ -623,7 +623,7 @@ function SalesByDayContent() {
           {/* Chart */}
           <Card padding="sm">
             <SectionHeader
-              title={`${seriesKind === "sales" ? "Sales" : "Transfers out"} — ${metric === "dollars" ? "dollars" : "units"} by ${granularity === "day" ? "day" : granularity === "week" ? "week" : "month"}, per location`}
+              title={`${seriesKind === "sales" ? "Sales" : "Transfers out"} — ${metric === "dollars" ? "dollars" : "tires"} by ${granularity === "day" ? "day" : granularity === "week" ? "week" : "month"}, per location`}
               actions={
                 seriesKind === "transfersOut" && metric === "dollars" ? (
                   <span className="text-[11px] theme-text-tertiary">Transfer dollars are extended cost — an inter-location transfer has no sell price.</span>
@@ -643,7 +643,8 @@ function SalesByDayContent() {
               <div className="px-5 py-3 border-b theme-border-secondary">
                 <h2 className="text-[15px] font-semibold theme-text-primary">Sales by category</h2>
                 <p className="text-[11px] theme-text-tertiary mt-0.5">
-                  Every counted sale lands in exactly one category, so these sum to the totals above.
+                  Every counted sale lands in exactly one category. Dollars sum to Total Dollars; the
+                  <strong> Tires</strong> row is the Total Tires figure — the other rows are non-tire units.
                 </p>
               </div>
               {categoryRows.length > 0 ? (
@@ -677,12 +678,10 @@ function SalesByDayContent() {
                     </tbody>
                     <tfoot>
                       <tr className={isDark ? "bg-slate-800/50" : "bg-gray-50"}>
-                        <td className="py-2.5 px-4 font-semibold theme-text-primary">Total</td>
-                        <td className="py-2.5 px-4 text-right font-semibold theme-text-primary tabular-nums">{formatNum(totalTires)}</td>
+                        <td className="py-2.5 px-4 font-semibold theme-text-primary">Total (all units)</td>
+                        <td className="py-2.5 px-4 text-right font-semibold theme-text-primary tabular-nums">{formatNum(categoryRows.reduce((a, c) => a + c.units, 0))}</td>
                         <td className="py-2.5 px-4 text-right font-semibold theme-text-primary tabular-nums">${formatNum(totalDollars)}</td>
-                        <td className="py-2.5 px-4 text-right font-semibold theme-text-secondary tabular-nums">
-                          {totalTires !== 0 ? `$${(totalDollars / totalTires).toFixed(0)}` : "—"}
-                        </td>
+                        <td className="py-2.5 px-4 text-right font-semibold theme-text-secondary tabular-nums">—</td>
                         <td className="py-2.5 px-4 text-right font-semibold theme-text-secondary tabular-nums">100%</td>
                       </tr>
                     </tfoot>
@@ -769,9 +768,9 @@ function SalesByDayContent() {
                   <thead className={`${isDark ? "bg-slate-800/80" : "bg-gray-50"}`}>
                     <tr className="border-b theme-border-secondary">
                       <th className="text-left py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Location</th>
-                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Units</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Tires</th>
                       <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Dollars</th>
-                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">$/unit avg</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">$/tire avg</th>
                       <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">% of total $</th>
                       <th className="text-right py-2.5 px-4 font-semibold text-xs theme-text-tertiary">Transfers out</th>
                     </tr>

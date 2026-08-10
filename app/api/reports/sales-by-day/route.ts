@@ -217,16 +217,19 @@ export async function GET(request: NextRequest) {
     workingFiles.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
 
     // Aggregation buckets.
-    const tireMap = new Map<string, number>();     // `${bucket}|${loc}` → tires
+    const tireMap = new Map<string, number>();     // `${bucket}|${loc}` → TIRES ONLY
+    const unitsMap = new Map<string, number>();    // `${bucket}|${loc}` → all units sold
     const dollarMap = new Map<string, number>();   // `${bucket}|${loc}` → dollars
     const seenLocations = new Set<string>();
     const seenBuckets = new Set<string>();
     const seenDedup = new Set<string>();
     let totalDollars = 0;
-    let totalTires = 0;
+    let totalTires = 0;   // tire-category units only
+    let totalUnits = 0;   // every unit sold, all categories
 
     // Per-location running totals — for the picker + summary
     const locTotalsTires = new Map<string, number>();
+    const locTotalsUnits = new Map<string, number>();
     const locTotalsDollars = new Map<string, number>();
     // RETURNS are tracked completely separately from sold. ReS from real
     // external customers (not IET house) contributes here, never to the
@@ -617,11 +620,25 @@ export async function GET(request: NextRequest) {
           const cat = salesCategory(row[3]);
           catUnits.set(cat, (catUnits.get(cat) || 0) + qty);
           catDollars.set(cat, (catDollars.get(cat) || 0) + dollars);
-          tireMap.set(key, (tireMap.get(key) || 0) + qty);
+
+          // Units and dollars deliberately have different scopes:
+          //   tires_*   ONLY the tire category — "how many tires did we sell"
+          //   units_*   every unit sold, all categories
+          //   dollars_* every dollar taken, all categories — "what did we make"
+          // Counting fees as tires roughly doubled retail-store counts (R35 read
+          // 697 for the week of Aug 3 2026 when only 325 were tires), because
+          // retail books a disposal fee per tire. Revenue still needs all of it.
+          const isTire = cat === "tires";
+          unitsMap.set(key, (unitsMap.get(key) || 0) + qty);
+          totalUnits += qty;
+          locTotalsUnits.set(location, (locTotalsUnits.get(location) || 0) + qty);
+          if (isTire) {
+            tireMap.set(key, (tireMap.get(key) || 0) + qty);
+            totalTires += qty;
+            locTotalsTires.set(location, (locTotalsTires.get(location) || 0) + qty);
+          }
           dollarMap.set(key, (dollarMap.get(key) || 0) + dollars);
-          totalTires += qty;
           totalDollars += dollars;
-          locTotalsTires.set(location, (locTotalsTires.get(location) || 0) + qty);
           locTotalsDollars.set(location, (locTotalsDollars.get(location) || 0) + dollars);
         }
       }
@@ -710,6 +727,7 @@ export async function GET(request: NextRequest) {
     const series = buckets.map(bucket => {
       const row: Record<string, string | number> = { bucket };
       let bucketTires = 0;
+      let bucketUnits = 0;
       let bucketDollars = 0;
       let bucketReturns = 0;
       let bucketReturnsDollars = 0;
@@ -717,12 +735,14 @@ export async function GET(request: NextRequest) {
       let bucketTransfersOutDollars = 0;
       for (const loc of reportedLocations) {
         const t = tireMap.get(`${bucket}|${loc}`) || 0;
+        const un = unitsMap.get(`${bucket}|${loc}`) || 0;
         const d = dollarMap.get(`${bucket}|${loc}`) || 0;
         const rt = returnsTireMap.get(`${bucket}|${loc}`) || 0;
         const rd = returnsDollarMap.get(`${bucket}|${loc}`) || 0;
         const xt = transfersOutTireMap.get(`${bucket}|${loc}`) || 0;
         const xd = transfersOutDollarMap.get(`${bucket}|${loc}`) || 0;
         row[`tires_${loc}`] = Math.round(t * 100) / 100;
+        row[`units_${loc}`] = Math.round(un * 100) / 100;
         row[`dollars_${loc}`] = Math.round(d * 100) / 100;
         row[`returns_${loc}`] = Math.round(rt * 100) / 100;
         row[`returnsDollars_${loc}`] = Math.round(rd * 100) / 100;
@@ -733,6 +753,7 @@ export async function GET(request: NextRequest) {
         }
         row[`transfersOutDollars_${loc}`] = Math.round(xd * 100) / 100;
         bucketTires += t;
+        bucketUnits += un;
         bucketDollars += d;
         bucketReturns += rt;
         bucketReturnsDollars += rd;
@@ -740,6 +761,7 @@ export async function GET(request: NextRequest) {
         bucketTransfersOutDollars += xd;
       }
       row.totalTires = Math.round(bucketTires * 100) / 100;
+      row.totalUnits = Math.round(bucketUnits * 100) / 100;
       row.totalDollars = Math.round(bucketDollars * 100) / 100;
       row.totalReturns = Math.round(bucketReturns * 100) / 100;
       row.totalReturnsDollars = Math.round(bucketReturnsDollars * 100) / 100;
@@ -751,6 +773,7 @@ export async function GET(request: NextRequest) {
     const perLocation = reportedLocations.map(loc => ({
       location: loc,
       tires: Math.round((locTotalsTires.get(loc) || 0) * 100) / 100,
+      units: Math.round((locTotalsUnits.get(loc) || 0) * 100) / 100,
       dollars: Math.round((locTotalsDollars.get(loc) || 0) * 100) / 100,
       returns: Math.round((locReturnsTires.get(loc) || 0) * 100) / 100,
       returnsDollars: Math.round((locReturnsDollars.get(loc) || 0) * 100) / 100,
@@ -794,6 +817,7 @@ export async function GET(request: NextRequest) {
       categories,        // sold split by product category
       totals: {
         tires: Math.round(totalTires * 100) / 100,
+        units: Math.round(totalUnits * 100) / 100,
         dollars: Math.round(totalDollars * 100) / 100,
         returns: Math.round(totalReturnsTires * 100) / 100,
         returnsDollars: Math.round(totalReturnsDollars * 100) / 100,
