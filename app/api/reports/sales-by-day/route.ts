@@ -139,6 +139,19 @@ export async function GET(request: NextRequest) {
     // DETAILS' rows carrying $1.34M at W08?" before deciding whether they're
     // sales. Case-sensitive: bare "T" (dropship) and "t" (retread) differ.
     const inspectProductType = (searchParams.get("inspectProductType") || "").trim();
+    // ?unfiltered=true turns OFF every exclusion this route normally applies —
+    // transaction type, account, product type and house-return customer — so a
+    // reader can see the raw feed rather than trusting invisible rules. The
+    // rows that are normally dropped (TrI / Rcv / Adj/*) get their OWN series
+    // instead of being folded into sales, so "sold" keeps meaning sold.
+    // Totals from this mode are NOT comparable to the normal view.
+    const unfiltered = searchParams.get("unfiltered") === "true";
+    // ?category=tires restricts every series to one sales category. The
+    // headline count on a tire company's dashboard should be TIRES: at R35 for
+    // the week of Aug 3 2026, 697 "units" was really 325 tires plus 276
+    // disposal-fee lines (roughly one fee per tire), which reads as double the
+    // real volume. Empty = all categories.
+    const filterCategory = (searchParams.get("category") || "").trim().toLowerCase();
 
     // Identify month folders that overlap the date range so we only download
     // CSVs we actually need.
@@ -242,6 +255,15 @@ export async function GET(request: NextRequest) {
     // blended figure. Sld rows only — returns and transfers have their own series.
     const catUnits = new Map<SalesCategoryKey, number>();
     const catDollars = new Map<SalesCategoryKey, number>();
+    // Unfiltered-only: inbound transfers, receives and adjustments. Kept apart
+    // from sold/returns/transfers-out so enabling the toggle never silently
+    // inflates the sales number.
+    const otherMap = new Map<string, number>();
+    const otherDollarMap = new Map<string, number>();
+    const locOtherUnits = new Map<string, number>();
+    const locOtherDollars = new Map<string, number>();
+    let totalOtherUnits = 0;
+    let totalOtherDollars = 0;
     const laneTires = new Map<string, number>();
     const laneDollars = new Map<string, number>();
     const laneMeta = new Map<string, { from: string; to: string }>();
@@ -462,27 +484,35 @@ export async function GET(request: NextRequest) {
           // stock leaving a location for another IET location, not revenue.
           // TrI (the matching inbound leg) and Rcv stay excluded so a transfer
           // isn't counted twice.
-          if (transaction === "TrI" || transaction === "Rcv") continue;
-          if (transaction.startsWith("Adj")) continue;
+          const isOtherActivity = transaction === "TrI" || transaction === "Rcv" || transaction.startsWith("Adj");
+          // Normally these are dropped so a transfer isn't counted twice and
+          // stocking corrections don't bury real sales. Unfiltered keeps them,
+          // in a series of their own.
+          if (isOtherActivity && !unfiltered) continue;
           const isTransferOut = transaction === "TrO";
 
           // ReS rows whose "customer" is an IET house entity or a wholesale
           // partner (Import Export Tire, REDRUM, AOT, ...) are inbound stock
           // receipts mislabeled as returns — never net them against sales.
           // See lib/oea07vHouseReturns.
-          if (transaction === "ReS" && isHouseReturn(row[19])) continue;
+          if (transaction === "ReS" && !unfiltered && isHouseReturn(row[19])) continue;
 
           // Everything sellable counts — tires, retreads, dropship, TPMS, lug
           // nuts, tubes, beads, plans and fees. Only GL expense lines and
           // "=ENTER ..." placeholders are rejected. See lib/oea07vProductTypes.
-          if (!isSalesProductType(row[3])) continue;
+          if (!unfiltered && !isSalesProductType(row[3])) continue;
+
+          // Category filter applies to every series — a transferred tire is
+          // still a tire — so sold/returns/transfers stay consistent with each
+          // other when one category is selected.
+          if (filterCategory && salesCategory(row[3]) !== filterCategory) continue;
 
           const acct = (row[15] || "").replace(/"/g, "").trim().toUpperCase();
           // The account filters below exist to keep non-customer activity out of
           // the SALES number. Transfers out are deliberately store-to-store, so
           // they carry exactly the accounts those filters reject (W08R20-style
           // warehouse-transfer codes) — skipping them here would zero the series.
-          if (!isTransferOut) {
+          if (!isTransferOut && !unfiltered) {
             if (["700", "7001", "7002"].includes(acct)) continue;
             if (/^[WR]\d{2}[WR]\d{2}$/i.test(acct)) continue;
             if (!includeInternalAccounts) {
@@ -524,6 +554,19 @@ export async function GET(request: NextRequest) {
           seenBuckets.add(bucket);
           const k: Cell = 0; void k;
           const key = `${bucket}|${location}`;
+
+          if (isOtherActivity) {
+            // Magnitudes: the question is "how much activity", not direction.
+            const oq = Math.abs(rawQty);
+            const oc = Math.abs(parseFloat((row[12] || "0").replace(/"/g, "").trim()) || 0);
+            otherMap.set(key, (otherMap.get(key) || 0) + oq);
+            otherDollarMap.set(key, (otherDollarMap.get(key) || 0) + oc);
+            totalOtherUnits += oq;
+            totalOtherDollars += oc;
+            locOtherUnits.set(location, (locOtherUnits.get(location) || 0) + oq);
+            locOtherDollars.set(location, (locOtherDollars.get(location) || 0) + oc);
+            continue;
+          }
 
           if (isTransferOut) {
             // TrO sign varies by source file, so take magnitudes — the question
@@ -684,6 +727,10 @@ export async function GET(request: NextRequest) {
         row[`returns_${loc}`] = Math.round(rt * 100) / 100;
         row[`returnsDollars_${loc}`] = Math.round(rd * 100) / 100;
         row[`transfersOut_${loc}`] = Math.round(xt * 100) / 100;
+        if (unfiltered) {
+          row[`other_${loc}`] = Math.round((otherMap.get(`${bucket}|${loc}`) || 0) * 100) / 100;
+          row[`otherDollars_${loc}`] = Math.round((otherDollarMap.get(`${bucket}|${loc}`) || 0) * 100) / 100;
+        }
         row[`transfersOutDollars_${loc}`] = Math.round(xd * 100) / 100;
         bucketTires += t;
         bucketDollars += d;
@@ -709,6 +756,10 @@ export async function GET(request: NextRequest) {
       returnsDollars: Math.round((locReturnsDollars.get(loc) || 0) * 100) / 100,
       transfersOut: Math.round((locTransfersOutTires.get(loc) || 0) * 100) / 100,
       transfersOutDollars: Math.round((locTransfersOutDollars.get(loc) || 0) * 100) / 100,
+      ...(unfiltered ? {
+        other: Math.round((locOtherUnits.get(loc) || 0) * 100) / 100,
+        otherDollars: Math.round((locOtherDollars.get(loc) || 0) * 100) / 100,
+      } : {}),
     })).sort((a, b) => b.dollars - a.dollars);
 
     // Transfer lanes over the whole range, biggest first. Origin-filtered the
@@ -748,7 +799,13 @@ export async function GET(request: NextRequest) {
         returnsDollars: Math.round(totalReturnsDollars * 100) / 100,
         transfersOut: Math.round(totalTransfersOutTires * 100) / 100,
         transfersOutDollars: Math.round(totalTransfersOutDollars * 100) / 100,
+        ...(unfiltered ? {
+          other: Math.round(totalOtherUnits * 100) / 100,
+          otherDollars: Math.round(totalOtherDollars * 100) / 100,
+        } : {}),
       },
+      unfiltered,
+      category: filterCategory || null,
       startDate, endDate, granularity,
       bucketCount: buckets.length,
     });

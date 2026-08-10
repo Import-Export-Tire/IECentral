@@ -37,6 +37,8 @@ interface PerLocation {
   dollars: number;
   transfersOut?: number;
   transfersOutDollars?: number;
+  other?: number;
+  otherDollars?: number;
 }
 
 interface SalesCategory {
@@ -60,7 +62,8 @@ interface ApiResp {
   perLocation: PerLocation[];
   transferLanes?: TransferLane[];
   categories?: SalesCategory[];
-  totals: { tires: number; dollars: number; transfersOut?: number; transfersOutDollars?: number };
+  totals: { tires: number; dollars: number; transfersOut?: number; transfersOutDollars?: number; other?: number; otherDollars?: number };
+  unfiltered?: boolean;
   startDate: string;
   endDate: string;
   granularity: Granularity;
@@ -126,6 +129,9 @@ function SalesByDayContent() {
   const [metric, setMetric] = useState<Metric>("dollars");
   const [chartKind, setChartKind] = useState<ChartKind>("line");
   const [seriesKind, setSeriesKind] = useState<SeriesKind>("sales");
+  // Show the raw feed: no transaction / account / product-type / house-return
+  // exclusions. Off by default so the normal numbers are never affected.
+  const [unfiltered, setUnfiltered] = useState<boolean>(false);
   const [selectedLocations, setSelectedLocations] = useState<Set<string>>(new Set());
   const [stacked, setStacked] = useState<boolean>(false);
 
@@ -144,6 +150,7 @@ function SalesByDayContent() {
       if (selectedLocations.size > 0) {
         params.set("locations", [...selectedLocations].join(","));
       }
+      if (unfiltered) params.set("unfiltered", "true");
       const res = await fetch(`/api/reports/sales-by-day?${params}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = (await res.json()) as ApiResp;
@@ -153,7 +160,7 @@ function SalesByDayContent() {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, granularity, selectedLocations]);
+  }, [startDate, endDate, granularity, selectedLocations, unfiltered]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -488,6 +495,19 @@ function SalesByDayContent() {
                     </button>
                   ))}
                 </div>
+                <button
+                  onClick={() => setUnfiltered(v => !v)}
+                  title="Show every row in the feed — including inbound transfers, receives, adjustments, internal/vendor accounts, GL expense lines and house returns. Totals are NOT comparable to the normal view."
+                  className={`px-3 py-1.5 text-[11px] font-medium rounded-full border transition-colors ${
+                    unfiltered
+                      ? "bg-amber-500 text-white border-amber-500"
+                      : isDark
+                        ? "bg-slate-800/50 border-slate-700 theme-text-secondary"
+                        : "bg-gray-100 border-gray-200 theme-text-secondary"
+                  }`}
+                >
+                  {unfiltered ? "Unfiltered: ON" : "Unfiltered"}
+                </button>
                 <div className={`inline-flex items-center gap-1 rounded-full p-1 border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-gray-100 border-gray-200"}`}>
                   {(["line","area","bar"] as ChartKind[]).map(k => (
                     <button
@@ -552,6 +572,21 @@ function SalesByDayContent() {
             </div>
           </Card>
 
+          {/* Unfiltered warning — these totals mix non-sales activity into the
+              numbers, so they must never be read as a sales figure. */}
+          {unfiltered && (
+            <Card tone="amber" padding="sm">
+              <p className="text-sm theme-text-primary font-medium">Unfiltered — showing every row in the feed</p>
+              <p className="text-xs theme-text-secondary mt-1">
+                No exclusions are applied: inbound transfers (TrI), receives (Rcv) and adjustments (Adj/*) appear in
+                their own &ldquo;Other activity&rdquo; total; internal, vendor and warehouse-transfer accounts are kept;
+                GL expense lines (G, VXX) and &ldquo;=ENTER&rdquo; placeholders (XA) are counted; and house/wholesale
+                returns (IET, AOT, REDRUM) are no longer removed. <strong>These totals are not comparable to the normal
+                view and should not be reported as sales.</strong>
+              </p>
+            </Card>
+          )}
+
           {/* Summary KPI cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card padding="sm">
@@ -569,6 +604,15 @@ function SalesByDayContent() {
               <div className="text-2xl font-semibold theme-text-primary mt-1">{formatNum(totalTransfersOut)}</div>
               <div className="text-[11px] theme-text-tertiary mt-0.5">units · {formatCurrency(totalTransfersOutDollars)} at cost</div>
             </Card>
+            {unfiltered && (
+              <Card padding="sm">
+                <div className="ui-section-label">Other Activity</div>
+                <div className="text-2xl font-semibold theme-text-primary mt-1">{formatNum(data?.totals.other || 0)}</div>
+                <div className="text-[11px] theme-text-tertiary mt-0.5">
+                  TrI · Rcv · Adj units · {formatCurrency(data?.totals.otherDollars || 0)} at cost
+                </div>
+              </Card>
+            )}
             <Card padding="sm">
               <div className="ui-section-label">Top Location</div>
               <div className="text-2xl font-semibold theme-text-primary mt-1">{topLoc?.location || "—"}</div>

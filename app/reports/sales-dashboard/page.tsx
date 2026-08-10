@@ -158,6 +158,11 @@ function SalesDashboardContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [metric, setMetric] = useState<"tires" | "dollars">("tires");
+  // Which sales category the whole dashboard reports. Defaults to tires: with
+  // every category included, disposal fees (roughly one line per tire sold)
+  // nearly double the count — R35's week of Aug 3 2026 read 697 when only 325
+  // were tires. "" = all categories.
+  const [category, setCategory] = useState<string>("tires");
   const [hiddenLocs, setHiddenLocs] = useState<Set<string>>(new Set());
 
   const fetchData = useCallback(async () => {
@@ -168,6 +173,7 @@ function SalesDashboardContent() {
         endDate: iso(today),
         granularity: "day",
       });
+      if (category) params.set("category", category);
       const res = await fetch(`/api/reports/sales-by-day?${params}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setData(await res.json());
@@ -176,7 +182,7 @@ function SalesDashboardContent() {
     } finally {
       setLoading(false);
     }
-  }, [fetchStart, today]);
+  }, [fetchStart, today, category]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -290,7 +296,7 @@ function SalesDashboardContent() {
   const fmt = metric === "tires" ? fmtNum : fmtCurrency;
   // The "tires" metric key still names the tires_* API fields, but the units it
   // counts now include parts, fees, dropship and wholesale — so show "units".
-  const metricLabel = metric === "tires" ? "units" : "dollars";
+  const metricLabel = metric === "dollars" ? "dollars" : (category === "tires" ? "tires" : "units");
 
   const monthlySeries = useMemo(() => {
     return byMonth.map(m => {
@@ -449,7 +455,7 @@ function SalesDashboardContent() {
               <div className="min-w-0">
                 <h1 className="text-xl font-bold theme-text-primary tracking-tight">Sales Dashboard</h1>
                 <p className="text-xs mt-0.5 theme-text-tertiary">
-                  Units sold by location · WoW / MoM / YTD
+                  {category === "tires" ? "Tires" : "Units"} sold by location · WoW / MoM / YTD
                   {bizDates.length > 0 && (
                     <> · <span title="The OEA07V feed lags a day or two, so every figure is anchored to the latest day with sales — not today.">
                       as of {new Date(`${bizDates[bizDates.length - 1]}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
@@ -468,10 +474,24 @@ function SalesDashboardContent() {
                       metric === m ? "bg-[#007AFF] text-white" : "theme-text-secondary"
                     }`}
                   >
-                    {m === "tires" ? "Units" : "Dollars"}
+                    {m === "tires" ? (category === "tires" ? "Tires" : "Units") : "Dollars"}
                   </button>
                 ))}
               </div>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                title="Which sales category to report. Fees (one disposal line per tire) inflate a blended unit count, so Tires is the default."
+                className={`text-xs rounded-lg border px-2 py-1.5 ${isDark ? "bg-slate-800/50 border-slate-700 text-slate-200" : "bg-white border-gray-200 text-gray-700"}`}
+              >
+                <option value="tires">Tires</option>
+                <option value="">All categories</option>
+                <option value="parts">Parts &amp; merchandise</option>
+                <option value="services">Services &amp; plans</option>
+                <option value="fees">Fees &amp; taxes</option>
+                <option value="dropship">Dropship</option>
+                <option value="wholesale">Wholesale (MISC)</option>
+              </select>
               <Button
                 variant="ghost"
                 size="sm"
