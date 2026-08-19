@@ -1147,22 +1147,14 @@ function UploadHistoryTab({ isDark }: { isDark: boolean }) {
     const filtered = s3Reports.filter(r => programFilter === "all" || r.program.toLowerCase().includes(programFilter));
     const months = new Map<string, Map<string, { falken?: typeof filtered[number]; milestar?: typeof filtered[number] }>>();
     for (const r of filtered) {
-      const dashed = r.fileName.match(/(\d{4})-(\d{2})-(\d{2})/);
-      const stamped = r.fileName.match(/_(\d{1,2})(\d{2})(\d{4})\.csv$/); // todayStamp(): M D YYYY
-
-      let day: string | null = null;
-      if (dashed) day = `${dashed[1]}-${dashed[2]}-${dashed[3]}`;
-      else if (stamped) day = `${stamped[3]}-${stamped[1].padStart(2, "0")}-${stamped[2]}`;
-      else if (r.date) day = new Date(r.date).toISOString().slice(0, 10);
-      if (!day) continue;
-
-      const month = day.slice(0, 7);
+      const m = r.fileName.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (!m) continue;
+      const day = `${m[1]}-${m[2]}-${m[3]}`;
+      const month = `${m[1]}-${m[2]}`;
       if (!months.has(month)) months.set(month, new Map());
       const days = months.get(month)!;
       if (!days.has(day)) days.set(day, {});
-
-      const brand = /falken/i.test(r.program) || /falken/i.test(r.fileName) ? "falken" : "milestar";
-      days.get(day)![brand] = r;
+      days.get(day)![r.program.includes("Falken") ? "falken" : "milestar"] = r;
     }
     return [...months.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([month, days]) => ({
       month,
