@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, ListObjectsV2Command, GetObjectCommand, ListObjectsV2CommandOutput } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const BUCKET = "ietires-dunlop-jmk-uploads";
@@ -28,26 +28,42 @@ export async function GET() {
 
     for (const program of ["falken", "milestar"]) {
       const prefix = `dealer-rebates/${program}/`;
-      const res = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, MaxKeys: 100 }));
+      let continuationToken: string | undefined = undefined;
 
-      for (const obj of res.Contents || []) {
-        if (!obj.Key || !obj.Key.endsWith(".csv")) continue;
-        const fileName = obj.Key.split("/").pop() || "report.csv";
-        const downloadUrl = await getSignedUrl(s3, new GetObjectCommand({
-          Bucket: BUCKET,
-          Key: obj.Key,
-          ResponseContentDisposition: `attachment; filename="${fileName}"`,
-          ResponseContentType: "text/csv",
-        }), { expiresIn: 3600 });
-        reports.push({
-          program: program === "falken" ? "Falken Fanatic" : "Milestar Momentum",
-          fileName: obj.Key.split("/").pop() || obj.Key,
-          key: obj.Key,
-          size: obj.Size || 0,
-          date: obj.LastModified?.toISOString() || "",
-          downloadUrl,
-        });
-      }
+      do {
+        const res: ListObjectsV2CommandOutput = await s3.send(
+            new ListObjectsV2Command({
+              Bucket: BUCKET,
+              Prefix: prefix,
+              ContinuationToken: continuationToken,
+            })
+        );
+
+        for (const obj of res.Contents || []) {
+          if (!obj.Key || !obj.Key.endsWith(".csv")) continue;
+          const fileName = obj.Key.split("/").pop() || "report.csv";
+          const downloadUrl = await getSignedUrl(
+              s3,
+              new GetObjectCommand({
+                Bucket: BUCKET,
+                Key: obj.Key,
+                ResponseContentDisposition: `attachment; filename="${fileName}"`,
+                ResponseContentType: "text/csv",
+              }),
+              { expiresIn: 3600 }
+          );
+          reports.push({
+            program: program === "falken" ? "Falken Fanatic" : "Milestar Momentum",
+            fileName,
+            key: obj.Key,
+            size: obj.Size || 0,
+            date: obj.LastModified?.toISOString() || "",
+            downloadUrl,
+          });
+        }
+
+        continuationToken = res.IsTruncated ? res.NextContinuationToken : undefined;
+      } while (continuationToken);
     }
 
     reports.sort((a, b) => b.date.localeCompare(a.date));

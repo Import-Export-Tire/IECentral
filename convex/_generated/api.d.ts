@@ -22,6 +22,7 @@ import type * as broadcastMessages from "../broadcastMessages.js";
 import type * as bulkUpload from "../bulkUpload.js";
 import type * as callOffs from "../callOffs.js";
 import type * as cirReportRuns from "../cirReportRuns.js";
+import type * as cleanup from "../cleanup.js";
 import type * as contactMessages from "../contactMessages.js";
 import type * as credentials from "../credentials.js";
 import type * as crons from "../crons.js";
@@ -146,6 +147,7 @@ declare const fullApi: ApiFromModules<{
   bulkUpload: typeof bulkUpload;
   callOffs: typeof callOffs;
   cirReportRuns: typeof cirReportRuns;
+  cleanup: typeof cleanup;
   contactMessages: typeof contactMessages;
   credentials: typeof credentials;
   crons: typeof crons;

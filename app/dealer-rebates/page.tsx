@@ -1162,7 +1162,9 @@ function UploadHistoryTab({ isDark }: { isDark: boolean }) {
       if (!days.has(day)) days.set(day, {});
 
       const brand = /falken/i.test(r.program) || /falken/i.test(r.fileName) ? "falken" : "milestar";
-      days.get(day)![brand] = r;
+      if (!days.get(day)![brand]) {
+        days.get(day)![brand] = r;
+      }
     }
     return [...months.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([month, days]) => ({
       month,
