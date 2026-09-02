@@ -63,14 +63,14 @@ interface BroadcastMessage {
 
 // Dashboard cards info
 const DASHBOARD_CARDS = [
-  { id: "dayAtGlance", label: "Day at a Glance", description: "Today's calendar events and schedule" },
+  // { id: "dayAtGlance", label: "Day at a Glance", description: "Today's calendar events and schedule" },
   { id: "projects", label: "Active Projects", description: "Your active and recent projects" },
   { id: "applications", label: "Recent Applications", description: "New job applications" },
   { id: "websiteMessages", label: "Website Messages", description: "Contact forms and dealer inquiries" },
   { id: "hiringAnalytics", label: "Hiring Analytics", description: "Hiring metrics and upcoming interviews" },
   { id: "activityFeed", label: "Activity Feed", description: "Recent system activity" },
   { id: "tenureCheckIns", label: "Tenure Check-ins", description: "Due employee milestone reviews" },
-  { id: "email", label: "Email", description: "Recent unread emails from your inbox" },
+  // { id: "email", label: "Email", description: "Recent unread emails from your inbox" },
   { id: "financialSnapshot", label: "Financial Snapshot", description: "Sales KPIs and revenue breakdown (super admin)" },
   { id: "safetyReports", label: "Safety Reports", description: "Anonymous See Something, Say Something reports (reviewers)" },
 ];
@@ -191,11 +191,7 @@ function DashboardContent() {
   todayEnd.setHours(23, 59, 59, 999);
   const todayEvents = useQuery(
     api.events.listMyEvents,
-    shouldSkipQueries || !user?._id ? "skip" : {
-      userId: user._id,
-      startDate: todayStart.getTime(),
-      endDate: todayEnd.getTime(),
-    }
+    "skip"
   );
 
   // Daily log reminder - check if today's log is submitted

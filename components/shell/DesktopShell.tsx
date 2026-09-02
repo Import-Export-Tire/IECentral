@@ -31,9 +31,9 @@ interface OpenWindow {
 const DEFAULT_ICONS: Omit<DesktopIcon, "x" | "y">[] = [
   { id: "dashboard", label: "Dashboard", href: "/", icon: "🏠" },
   { id: "messages", label: "Messages", href: "/messages", icon: "💬" },
-  { id: "email", label: "Email", href: "/email", icon: "📧" },
-  { id: "calendar", label: "Calendar", href: "/calendar", icon: "📅" },
-  { id: "meetings", label: "Meetings", href: "/meetings", icon: "🎥" },
+  // { id: "email", label: "Email", href: "/email", icon: "📧" },
+  // { id: "calendar", label: "Calendar", href: "/calendar", icon: "📅" },
+  // { id: "meetings", label: "Meetings", href: "/meetings", icon: "🎥" },
   { id: "dochub", label: "Doc Hub", href: "/documents", icon: "📁" },
   { id: "personnel", label: "Personnel", href: "/personnel", icon: "👥" },
   { id: "projects", label: "Projects", href: "/projects", icon: "📋" },
@@ -95,7 +95,7 @@ export default function DesktopShell({ children }: { children: React.ReactNode }
             const pos = positions[icon.id];
             return pos ? { ...icon, x: pos.x, y: pos.y } : icon;
           });
-        } catch {}
+        } catch { }
       }
     }
     return layoutIcons();
@@ -536,12 +536,10 @@ export default function DesktopShell({ children }: { children: React.ReactNode }
         {/* Pinned quick-launch icons */}
         <div className="flex items-center gap-0.5 px-1">
           {[
-            DEFAULT_ICONS.find(i => i.id === "dashboard")!,
-            DEFAULT_ICONS.find(i => i.id === "messages")!,
-            DEFAULT_ICONS.find(i => i.id === "email")!,
-            DEFAULT_ICONS.find(i => i.id === "calendar")!,
-            DEFAULT_ICONS.find(i => i.id === "dochub")!,
-          ].map((icon) => {
+            DEFAULT_ICONS.find(i => i.id === "dashboard"),
+            DEFAULT_ICONS.find(i => i.id === "messages"),
+            DEFAULT_ICONS.find(i => i.id === "dochub"),
+          ].filter((i): i is Omit<DesktopIcon, "x" | "y"> => Boolean(i)).map((icon) => {
             const isOpen = windows.some(w => w.id === icon.id);
             return (
               <button

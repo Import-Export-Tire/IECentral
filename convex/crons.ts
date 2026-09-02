@@ -32,17 +32,17 @@ crons.monthly(
   internal.dealerRebates.deleteOldUploads
 );
 
-// ============ EMAIL CLIENT CRONS ============
+// ============ EMAIL CLIENT CRONS (Disabled) ============
 
 // Sync all email accounts. Kept infrequent (every 5 min) on purpose: opening the
 // email page triggers a visible sync for that account, so this background poll is
 // just a safety net. Polling every minute was hammering self-hosted mail servers
 // (e.g. svm.ietires.com) into rate-limiting / fail2ban and refusing connections.
-crons.interval(
-  "email-sync-all-accounts",
-  { minutes: 5 },
-  internal.email.sync.syncAllAccounts
-);
+// crons.interval(
+//   "email-sync-all-accounts",
+//   { minutes: 5 },
+//   internal.email.sync.syncAllAccounts
+// );
 
 // Clean up old cached emails (older than 30 days) - runs daily at 4 AM UTC
 crons.daily(
@@ -104,16 +104,16 @@ crons.daily(
   {}
 );
 
-// ============ OUTLOOK / M365 CALENDAR SYNC ============
+// ============ OUTLOOK / M365 CALENDAR SYNC (Disabled) ============
 
 // Pull Outlook -> IECentral every 15 minutes. Dormant-safe: only touches
 // outlookAccounts rows, which are empty until a user connects. Overlap-guarded
 // per account, with per-account failure isolation.
-crons.interval(
-  "outlook calendar sync",
-  { minutes: 15 },
-  internal.outlookSync.pullAll
-);
+// crons.interval(
+//   "outlook calendar sync",
+//   { minutes: 15 },
+//   internal.outlookSync.pullAll
+// );
 
 // ============ SCANNER MDM CRONS ============
 

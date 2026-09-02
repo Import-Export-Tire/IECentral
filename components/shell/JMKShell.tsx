@@ -15,14 +15,11 @@ interface MenuItem {
 
 const MAIN_MENU: MenuItem[] = [
   {
-    key: "1", label: "Main", description: "Dashboard, Messages, Email, Calendar, Meetings",
+    key: "1", label: "Main", description: "Dashboard, Messages, Notifications",
     children: [
       { key: "1", label: "Dashboard", href: "/" },
       { key: "2", label: "Messages", href: "/messages" },
-      { key: "3", label: "Email", href: "/email" },
-      { key: "4", label: "Calendar", href: "/calendar" },
-      { key: "5", label: "Meetings", href: "/meetings" },
-      { key: "6", label: "Notifications", href: "/notifications" },
+      { key: "3", label: "Notifications", href: "/notifications" },
     ],
   },
   {

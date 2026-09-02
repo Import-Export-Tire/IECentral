@@ -34,9 +34,9 @@ interface NavGroup {
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
   { href: "/messages", label: "Messages", icon: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
-  { href: "/email", label: "Email", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
-  { href: "/calendar", label: "Calendar", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
-  { href: "/meetings", label: "Meetings", icon: "M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" },
+  // { href: "/email", label: "Email", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
+  // { href: "/calendar", label: "Calendar", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
+  // { href: "/meetings", label: "Meetings", icon: "M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" },
   { href: "/notifications", label: "Notifications", icon: "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" },
 ];
 
@@ -127,7 +127,7 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 // Tech department emails for Tech Wizard access
-const TECH_EMAILS = ["andy@ietires.com", "nick@ietires.com", "abarrows@ietires.com", "nquinn@ietires.com"];
+const TECH_EMAILS = ["iulia.curtui@evozon.com", "nick@ietires.com", "nquinn@ietires.com"];
 
 
 export default function Sidebar() {
@@ -163,11 +163,12 @@ export default function Sidebar() {
     user?._id ? { userId: user._id } : "skip"
   );
 
-  // Get unread event invite count
-  const unreadEventInvites = useQuery(
-    api.events.getUnreadInviteCount,
-    user?._id ? { userId: user._id } : "skip"
-  );
+  // Get unread event invite count (disabled)
+  // const unreadEventInvites = useQuery(
+  //   api.events.getUnreadInviteCount,
+  //   user?._id ? { userId: user._id } : "skip"
+  // );
+  const unreadEventInvites = undefined;
 
   // Get unread notification count
   const unreadNotificationCount = useQuery(
@@ -175,11 +176,12 @@ export default function Sidebar() {
     user?._id ? { userId: user._id } : "skip"
   );
 
-  // Get unread email count
-  const unreadEmailCount = useQuery(
-    api.email.folders.getTotalUnreadForUser,
-    user?._id ? { userId: user._id } : "skip"
-  );
+  // Get unread email count (disabled)
+  // const unreadEmailCount = useQuery(
+  //   api.email.folders.getTotalUnreadForUser,
+  //   user?._id ? { userId: user._id } : "skip"
+  // );
+  const unreadEmailCount = undefined;
 
   // Get employee assigned training (for sidebar link)
   const myAssigned = useQuery(api.training.myAssignedTraining, user?._id ? { userId: user._id } : "skip");
@@ -417,7 +419,7 @@ export default function Sidebar() {
               {([
                 { permKey: "menu.timeClock", href: "/time-clock", label: "Time Clock", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
                 { permKey: "menu.docHub", href: "/documents", label: "Documents", icon: "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" },
-                { permKey: "menu.calendar", href: "/calendar", label: "Calendar", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
+                // { permKey: "menu.calendar", href: "/calendar", label: "Calendar", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
                 { permKey: "menu.messages", href: "/messages", label: "Messages", icon: "M8 10h.01M12 10h.01M16 10h.01M21 12a8 8 0 01-11.5 7.2L3 21l1.8-5.5A8 8 0 1121 12z" },
               ]).filter((m) => user?.permissionOverrides?.[m.permKey] === true).map((m) => (
                 <Link
