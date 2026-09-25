@@ -15,6 +15,7 @@ import WifiSignalIcon from "./components/WifiSignalIcon";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import dynamic from "next/dynamic";
+import { canAssignScanners, canManageScannerMdm } from "@/lib/scanners/roles";
 
 const SetupWizard = dynamic(
   () => import("./setup/SetupWizard").then((m) => ({ default: m.SetupWizard })),
@@ -26,8 +27,11 @@ type StatusFilter = "all" | "online" | "offline" | "attention" | "unprovisioned"
 function ScannerDashboardContent() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const { user } = useAuth();
+  const { user, getAccessibleLocationIds } = useAuth();
   const router = useRouter();
+  const canEdit = canAssignScanners(user?.role);
+  const canMdm = canManageScannerMdm(user?.role);
+  const scopedLocationIds = getAccessibleLocationIds();
 
   const [locationFilter, setLocationFilter] = useState<Id<"locations"> | "all">("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -50,6 +54,11 @@ function ScannerDashboardContent() {
   const [addStep, setAddStep] = useState<"form" | "saving" | "done">("form");
   const [addError, setAddError] = useState("");
   const [newScannerId, setNewScannerId] = useState<Id<"scanners"> | null>(null);
+  const [assignScannerId, setAssignScannerId] = useState<Id<"scanners"> | null>(null);
+  const [assignPersonnelId, setAssignPersonnelId] = useState<Id<"personnel"> | "">("");
+  const [assignError, setAssignError] = useState("");
+  const [assigning, setAssigning] = useState(false);
+  const [unassigningId, setUnassigningId] = useState<Id<"scanners"> | null>(null);
 
   const fleet = useQuery(api.scannerMdm.getScannerFleetOverview);
   const scanners = useQuery(api.equipment.listScanners, {
@@ -58,15 +67,19 @@ function ScannerDashboardContent() {
   const locations = useQuery(api.locations.listActiveWarehouses);
   const alerts = useQuery(api.scannerMdm.getScannersNeedingAttention);
   const createScanner = useMutation(api.scannerMdm.createScannerFromSetup);
+  const assignScanner = useMutation(api.equipment.assignScanner);
+  const unassignScanner = useMutation(api.equipment.unassignScanner);
+  const personnel = useQuery(api.equipment.listActivePersonnel);
   const mdmConfigs = useQuery(api.scannerMdm.listMdmConfigs);
   const selectedLocCode = mdmConfigs?.find((c) => c.locationId === addLocationId)?.locationCode;
   const nextNumber = useQuery(api.scannerMdm.getNextScannerNumber, selectedLocCode ? { locationCode: selectedLocCode } : "skip");
 
-  const canEdit =
-    user?.role === "super_admin" ||
-    user?.role === "admin" ||
-    user?.role === "warehouse_director" ||
-    user?.role === "warehouse_manager";
+  useEffect(() => {
+    if (scopedLocationIds === "all" || scopedLocationIds.length === 0) return;
+    setLocationFilter(scopedLocationIds[0]);
+    // Warehouse managers land on their building once after login, not on every filter click.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id]);
 
   // Computed stats
   const stats = useMemo(() => {
@@ -80,9 +93,20 @@ function ScannerDashboardContent() {
     return { avgBattery, provisioned, assigned, withApps, total: all.length };
   }, [scanners]);
 
+  const assignTarget = assignScannerId
+    ? (scanners ?? []).find((s) => s._id === assignScannerId)
+    : null;
+  const assignPeople = useMemo(() => {
+    const all = personnel ?? [];
+    if (!assignTarget?.locationId) return all;
+    const atLocation = all.filter((p) => p.locationId === assignTarget.locationId);
+    return atLocation.length > 0 ? atLocation : all;
+  }, [personnel, assignTarget?.locationId]);
+
   // Filter scanners
   const filteredScanners = useMemo(() => (scanners ?? [])
     .filter((s) => s.status !== "retired")
+    .filter((s) => scopedLocationIds === "all" || scopedLocationIds.includes(s.locationId))
     .filter((s) => {
       if (statusFilter === "all") return true;
       const health = getScannerHealth(s);
@@ -103,11 +127,17 @@ function ScannerDashboardContent() {
       );
     })
     .sort((a, b) => {
+      if (!canMdm) {
+        const order = (s: string) => (s === "available" ? 0 : s === "assigned" ? 1 : 2);
+        const byStatus = order(a.status) - order(b.status);
+        if (byStatus !== 0) return byStatus;
+        return a.number.localeCompare(b.number);
+      }
       const aOnline = a.isOnline ? 0 : 1;
       const bOnline = b.isOnline ? 0 : 1;
       if (aOnline !== bOnline) return aOnline - bOnline;
       return a.number.localeCompare(b.number);
-    }), [scanners, statusFilter, searchQuery]);
+    }), [scanners, statusFilter, searchQuery, scopedLocationIds, canMdm]);
 
   const selectedScanner = selectedScannerId
     ? filteredScanners.find((s) => s._id === selectedScannerId)
@@ -121,6 +151,60 @@ function ScannerDashboardContent() {
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
     return `${Math.floor(diff / 86400000)}d ago`;
+  };
+
+  const assignedSince = (ts?: number) => {
+    if (!ts) return "—";
+    return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  const locationCards = (fleet?.byLocation ?? []).filter(
+    (loc) => scopedLocationIds === "all" || scopedLocationIds.includes(loc.locationId)
+  );
+
+  const floorCounts = useMemo(() => {
+    const list = filteredScanners;
+    return {
+      total: list.length,
+      available: list.filter((s) => s.status === "available").length,
+      assigned: list.filter((s) => s.status === "assigned").length,
+    };
+  }, [filteredScanners]);
+
+  const openAssign = (id: Id<"scanners">) => {
+    setAssignScannerId(id);
+    setAssignPersonnelId("");
+    setAssignError("");
+  };
+
+  const handleListAssign = async () => {
+    if (!assignScannerId || !assignPersonnelId || !user) return;
+    setAssigning(true);
+    setAssignError("");
+    try {
+      await assignScanner({
+        scannerId: assignScannerId,
+        personnelId: assignPersonnelId as Id<"personnel">,
+        userId: user._id,
+      });
+      setAssignScannerId(null);
+    } catch (err) {
+      setAssignError(err instanceof Error ? err.message : "Could not assign");
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const handleListUnassign = async (scannerId: Id<"scanners">) => {
+    if (!user) return;
+    setUnassigningId(scannerId);
+    try {
+      await unassignScanner({ scannerId, userId: user._id });
+    } catch (err) {
+      console.error("Unassign failed:", err);
+    } finally {
+      setUnassigningId(null);
+    }
   };
 
   const healthBorder = (health: ScannerHealth) => {
@@ -152,13 +236,19 @@ function ScannerDashboardContent() {
           <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Scanner Fleet</h1>
+                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">
+                  {canMdm ? "Scanner Fleet" : "Scanners"}
+                </h1>
                 <p className="text-xs sm:text-sm mt-1 hidden sm:block theme-text-tertiary">
-                  {stats.total} devices &middot; {stats.provisioned} managed &middot; {stats.assigned} assigned
+                  {canMdm
+                    ? `${stats.total} devices · ${stats.provisioned} managed · ${stats.assigned} assigned`
+                    : `${floorCounts.available} available · ${floorCounts.assigned} assigned · ${floorCounts.total} at this location`}
                 </p>
               </div>
               {canEdit && (
                 <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+                  {canMdm && (
+                    <>
                   <Button
                     variant="ghost"
                     onClick={async () => {
@@ -205,10 +295,12 @@ function ScannerDashboardContent() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   </Button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
-            {webusbUnsupported && (
+            {canMdm && webusbUnsupported && (
               <div className="mt-3 p-3 rounded-xl ui-callout-amber text-sm">
                 <span className="font-semibold">Scanner setup needs Chrome or Edge.</span>{" "}
                 This browser has no WebUSB support, so IE Central can&apos;t talk to a scanner
@@ -220,8 +312,8 @@ function ScannerDashboardContent() {
 
           <div className="px-4 sm:px-6 lg:px-8 py-5 space-y-5">
 
-            {/* Fleet KPI Row */}
-            {fleet && (
+            {/* Fleet KPI Row — IT sees device health; floor managers see checkout counts. */}
+            {canMdm && fleet && (
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                 {/* Total */}
                 <div className="theme-card p-4">
@@ -307,9 +399,26 @@ function ScannerDashboardContent() {
               </div>
             )}
 
+            {!canMdm && (
+              <div className="grid grid-cols-3 gap-3">
+                <div className="theme-card p-4">
+                  <div className="ui-section-label">Available</div>
+                  <div className="text-2xl font-bold mt-0.5 tabular-nums theme-text-primary">{floorCounts.available}</div>
+                </div>
+                <div className="theme-card p-4">
+                  <div className="ui-section-label">Assigned</div>
+                  <div className="text-2xl font-bold mt-0.5 tabular-nums theme-text-primary">{floorCounts.assigned}</div>
+                </div>
+                <div className="theme-card p-4">
+                  <div className="ui-section-label">Total</div>
+                  <div className="text-2xl font-bold mt-0.5 tabular-nums theme-text-primary">{floorCounts.total}</div>
+                </div>
+              </div>
+            )}
+
             {/* Location Overview Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-              {fleet?.byLocation.map((loc) => (
+            <div className={`grid grid-cols-1 gap-3 ${locationCards.length > 1 ? "lg:grid-cols-3" : ""}`}>
+              {locationCards.map((loc) => (
                 <button
                   key={loc.locationId}
                   onClick={() => setLocationFilter(locationFilter === loc.locationId ? "all" : loc.locationId)}
@@ -335,12 +444,20 @@ function ScannerDashboardContent() {
                     )}
                   </div>
                   <div className="flex items-center gap-3 mt-2">
+                    {canMdm ? (
+                      <>
                     <span className="text-[10px] flex items-center gap-1 theme-text-tertiary">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> {loc.online} online
                     </span>
                     <span className="text-[10px] flex items-center gap-1 theme-text-tertiary">
                       <span className={`w-1.5 h-1.5 rounded-full inline-block ${isDark ? "bg-slate-600" : "bg-gray-300"}`} /> {loc.offline} offline
                     </span>
+                      </>
+                    ) : (
+                      <span className="text-[10px] theme-text-tertiary">
+                        {loc.available} available
+                      </span>
+                    )}
                     <span className="text-[10px] theme-text-tertiary">
                       {loc.assigned} assigned
                     </span>
@@ -350,7 +467,7 @@ function ScannerDashboardContent() {
             </div>
 
             {/* Alerts Banner */}
-            {alerts && alerts.length > 0 && (
+            {canMdm && alerts && alerts.length > 0 && (
               <Card tone="amber" padding="sm">
                 <div className="flex items-center gap-3">
                   <svg className="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -388,6 +505,7 @@ function ScannerDashboardContent() {
                   className="theme-input w-full pl-8 pr-3 py-1.5 text-sm"
                 />
               </div>
+              {canMdm && (
               <div className="flex items-center gap-1">
                 {(["all", "online", "offline", "attention"] as StatusFilter[]).map((f) => (
                   <button
@@ -403,6 +521,7 @@ function ScannerDashboardContent() {
                   </button>
                 ))}
               </div>
+              )}
               {locationFilter !== "all" && (
                 <button
                   onClick={() => setLocationFilter("all")}
@@ -427,22 +546,34 @@ function ScannerDashboardContent() {
                       <th className="pl-4 pr-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary" style={{width: 40}}></th>
                       <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Scanner</th>
                       <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Status</th>
+                      {canMdm && (
+                        <>
                       <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Battery</th>
                       <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Signal</th>
+                        </>
+                      )}
                       <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Location</th>
                       <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Assigned To</th>
+                      <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Since</th>
+                      {canMdm && (
+                        <>
                       <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">TireTrack</th>
                       <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Last Seen</th>
                       <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Serial</th>
                       <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Model</th>
-                      <th className="px-2 pr-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">MDM</th>
+                      <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">MDM</th>
+                        </>
+                      )}
+                      {canEdit && (
+                        <th className="px-2 pr-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Actions</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {filteredScanners.map((scanner) => {
                       const health = getScannerHealth(scanner);
                       const isSelected = selectedScannerId === scanner._id;
-                      const colCount = 12;
+                      const colCount = (canMdm ? 12 : 6) + (canEdit ? 1 : 0);
                       return (
                         <>
                         <tr
@@ -466,16 +597,25 @@ function ScannerDashboardContent() {
                               {scanner.status}
                             </span>
                           </td>
+                          {canMdm && (
+                            <>
                           <td className="px-2 py-2.5">
                             <ScannerBatteryBar level={scanner.batteryLevel} size="sm" />
                           </td>
                           <td className="px-2 py-2.5">
                             <WifiSignalIcon signal={scanner.wifiSignal} />
                           </td>
+                            </>
+                          )}
                           <td className="px-2 py-2.5 text-xs theme-text-secondary">{scanner.locationName}</td>
                           <td className={`px-2 py-2.5 text-xs ${scanner.assignedPersonName ? "theme-text-secondary" : "theme-text-tertiary"}`}>
                             {scanner.assignedPersonName ?? "—"}
                           </td>
+                          <td className="px-2 py-2.5 text-xs tabular-nums theme-text-tertiary">
+                            {scanner.status === "assigned" ? assignedSince(scanner.assignedAt) : "—"}
+                          </td>
+                          {canMdm && (
+                            <>
                           <td className="px-2 py-2.5">
                             {scanner.installedApps?.tireTrack ? (
                               <span className="ui-badge ui-badge-blue font-mono">
@@ -498,7 +638,7 @@ function ScannerDashboardContent() {
                           <td className="px-2 py-2.5 text-[11px] theme-text-tertiary">
                             {scanner.model ?? "—"}
                           </td>
-                          <td className="px-2 pr-4 py-2.5">
+                          <td className="px-2 py-2.5">
                             {scanner.mdmStatus === "provisioned" ? (
                               <span className="ui-badge ui-badge-green">managed</span>
                             ) : (
@@ -507,6 +647,27 @@ function ScannerDashboardContent() {
                               </span>
                             )}
                           </td>
+                            </>
+                          )}
+                          {canEdit && (
+                            <td className="px-2 pr-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+                              {scanner.status === "available" && (
+                                <Button variant="primary" size="sm" onClick={() => openAssign(scanner._id)}>
+                                  Assign
+                                </Button>
+                              )}
+                              {scanner.status === "assigned" && (
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => handleListUnassign(scanner._id)}
+                                  disabled={unassigningId === scanner._id}
+                                >
+                                  {unassigningId === scanner._id ? "…" : "Return"}
+                                </Button>
+                              )}
+                            </td>
+                          )}
                         </tr>
                         {/* Inline detail panel — expands directly below selected row */}
                         {isSelected && (
@@ -539,6 +700,8 @@ function ScannerDashboardContent() {
                                   </div>
                                 </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+                                  {canMdm && (
+                                    <>
                                   <div>
                                     <div className="text-[10px] uppercase tracking-wider theme-text-tertiary">Battery</div>
                                     <div className="mt-1"><ScannerBatteryBar level={scanner.batteryLevel} size="md" /></div>
@@ -547,6 +710,8 @@ function ScannerDashboardContent() {
                                     <div className="text-[10px] uppercase tracking-wider theme-text-tertiary">WiFi</div>
                                     <div className="mt-1"><WifiSignalIcon signal={scanner.wifiSignal} showLabel /></div>
                                   </div>
+                                    </>
+                                  )}
                                   <div>
                                     <div className="text-[10px] uppercase tracking-wider theme-text-tertiary">Location</div>
                                     <div className="text-sm font-medium mt-1 theme-text-secondary">{scanner.locationName}</div>
@@ -556,6 +721,14 @@ function ScannerDashboardContent() {
                                     <div className="text-sm font-medium mt-1 theme-text-secondary">{scanner.assignedPersonName ?? "Unassigned"}</div>
                                   </div>
                                   <div>
+                                    <div className="text-[10px] uppercase tracking-wider theme-text-tertiary">Since</div>
+                                    <div className="text-sm font-medium mt-1 theme-text-secondary">
+                                      {scanner.status === "assigned" ? assignedSince(scanner.assignedAt) : "—"}
+                                    </div>
+                                  </div>
+                                  {canMdm && (
+                                    <>
+                                  <div>
                                     <div className="text-[10px] uppercase tracking-wider theme-text-tertiary">Serial</div>
                                     <div className="text-xs font-mono mt-1 theme-text-secondary">{scanner.serialNumber ?? "—"}</div>
                                   </div>
@@ -563,8 +736,10 @@ function ScannerDashboardContent() {
                                     <div className="text-[10px] uppercase tracking-wider theme-text-tertiary">Last Seen</div>
                                     <div className="text-sm mt-1 theme-text-secondary">{timeAgo(scanner.lastSeen)}</div>
                                   </div>
+                                    </>
+                                  )}
                                 </div>
-                                {scanner.installedApps && (
+                                {canMdm && scanner.installedApps && (
                                   <div className={`flex items-center gap-2 mt-3 pt-3 border-t theme-border-secondary`}>
                                     <span className="text-[10px] uppercase tracking-wider theme-text-tertiary">Apps:</span>
                                     {scanner.installedApps.tireTrack && <span className="ui-badge ui-badge-blue font-mono">TireTrack v{scanner.installedApps.tireTrack}</span>}
@@ -593,16 +768,52 @@ function ScannerDashboardContent() {
                   </svg>
                 </div>
                 <h3 className="text-base font-semibold theme-text-secondary">
-                  {searchQuery || statusFilter !== "all" ? "No matching scanners" : "No scanners in fleet"}
+                  {searchQuery || statusFilter !== "all" ? "No matching scanners" : canMdm ? "No scanners in fleet" : "No scanners at this location"}
                 </h3>
                 <p className="text-sm mt-1 max-w-sm mx-auto theme-text-tertiary">
                   {searchQuery || statusFilter !== "all"
                     ? "Try broadening your search or clearing filters."
-                    : "Connect a scanner via USB and run the setup tool to add it to the fleet."}
+                    : canMdm
+                      ? "Connect a scanner via USB and run the setup tool to add it to the fleet."
+                      : "If you expected to see devices here, check the location filter or ask IT to add the scanner."}
                 </p>
               </Card>
             )}
           </div>
+
+          {/* Assign (available scanners only — backend also enforces this) */}
+          {assignScannerId && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => !assigning && setAssignScannerId(null)}>
+              <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md">
+                <Card padding="md">
+                  <h3 className="text-lg font-bold mb-1 theme-text-primary">
+                    Assign {assignTarget?.number ?? "scanner"}
+                  </h3>
+                  <p className="text-sm mb-4 theme-text-tertiary">
+                    Only available scanners can be assigned. Pick who is taking it.
+                  </p>
+                  <label className="block text-xs font-medium mb-1 theme-text-tertiary">Person</label>
+                  <select
+                    value={assignPersonnelId}
+                    onChange={(e) => setAssignPersonnelId(e.target.value as Id<"personnel">)}
+                    className="theme-input w-full px-3 py-2 text-sm"
+                  >
+                    <option value="">Select…</option>
+                    {assignPeople.map((p) => (
+                      <option key={p._id} value={p._id}>{p.name}{p.department ? ` · ${p.department}` : ""}</option>
+                    ))}
+                  </select>
+                  {assignError && <p className="text-sm text-red-500 mt-3">{assignError}</p>}
+                  <div className="flex gap-3 justify-end mt-5">
+                    <Button variant="ghost" onClick={() => setAssignScannerId(null)} disabled={assigning}>Cancel</Button>
+                    <Button variant="primary" onClick={handleListAssign} disabled={assigning || !assignPersonnelId}>
+                      {assigning ? "Assigning…" : "Assign"}
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
 
           {/* Add Scanner Modal */}
           {showAddModal && (

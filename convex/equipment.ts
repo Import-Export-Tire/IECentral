@@ -1132,6 +1132,7 @@ export const listActivePersonnel = query({
       name: `${p.firstName} ${p.lastName}`,
       position: p.position,
       department: p.department,
+      locationId: p.locationId,
     }));
   },
 });

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
-
-const API_GATEWAY_URL = process.env.SCANNER_MDM_API_GATEWAY_URL;
+import { SCANNER_MDM_API_GATEWAY_URL } from "@/lib/scannerMdmGateway";
+import { pinRejectReason } from "@/lib/scanners/pin";
 
 function getConvexClient() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -15,13 +15,6 @@ function getConvexClient() {
 // deliberately rejected here — a queued factory-reset that fires days later when someone
 // finally powers a device back on is dangerous, so wipe stays on the direct command path.
 export async function POST(request: NextRequest) {
-  if (!API_GATEWAY_URL) {
-    return NextResponse.json(
-      { error: "SCANNER_MDM_API_GATEWAY_URL not configured" },
-      { status: 500 }
-    );
-  }
-
   try {
     const body = await request.json();
 
@@ -38,6 +31,14 @@ export async function POST(request: NextRequest) {
         { error: "wipe is not available via Jobs — use /api/scanner-mdm/command" },
         { status: 400 }
       );
+    }
+
+    if (body.command === "update_pin") {
+      const pin = typeof body.payload?.pin === "string" ? body.payload.pin : "";
+      const reason = pinRejectReason(pin);
+      if (reason) {
+        return NextResponse.json({ error: reason }, { status: 400 });
+      }
     }
 
     // One outstanding command at a time, per scanner. Enforced here rather than only in the
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     // `override` is this route's own flag — keep it out of the job document the Lambda builds.
     const { override: _override, ...forwarded } = body;
-    const res = await fetch(`${API_GATEWAY_URL}/scanner-mdm/job`, {
+    const res = await fetch(`${SCANNER_MDM_API_GATEWAY_URL}/scanner-mdm/job`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(forwarded),

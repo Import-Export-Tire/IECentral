@@ -1,19 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const API_GATEWAY_URL = process.env.SCANNER_MDM_API_GATEWAY_URL;
+import { SCANNER_MDM_API_GATEWAY_URL } from "@/lib/scannerMdmGateway";
 
 export async function POST(request: NextRequest) {
-  if (!API_GATEWAY_URL) {
-    return NextResponse.json(
-      { error: "SCANNER_MDM_API_GATEWAY_URL not configured" },
-      { status: 500 }
-    );
-  }
-
   try {
     const body = await request.json();
 
-    const res = await fetch(`${API_GATEWAY_URL}/scanner-mdm/provision`, {
+    const res = await fetch(`${SCANNER_MDM_API_GATEWAY_URL}/scanner-mdm/provision`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

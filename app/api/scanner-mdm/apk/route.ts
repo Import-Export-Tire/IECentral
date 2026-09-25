@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const API_GATEWAY_URL = process.env.SCANNER_MDM_API_GATEWAY_URL;
+import { SCANNER_MDM_API_GATEWAY_URL } from "@/lib/scannerMdmGateway";
 
 export async function GET(request: NextRequest) {
-  if (!API_GATEWAY_URL) {
-    return NextResponse.json(
-      { error: "SCANNER_MDM_API_GATEWAY_URL not configured" },
-      { status: 500 }
-    );
-  }
-
   try {
     const { searchParams } = new URL(request.url);
     const app = searchParams.get("app"); // "tiretrack" | "rtlocator" | "agent"
@@ -26,7 +18,7 @@ export async function GET(request: NextRequest) {
     if (locationCode) params.set("locationCode", locationCode);
 
     const res = await fetch(
-      `${API_GATEWAY_URL}/scanner-mdm/apk?${params.toString()}`,
+      `${SCANNER_MDM_API_GATEWAY_URL}/scanner-mdm/apk?${params.toString()}`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" },

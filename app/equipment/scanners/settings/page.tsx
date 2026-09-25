@@ -262,7 +262,7 @@ function ScannerSettingsContent() {
   };
 
   return (
-    <Protected>
+    <Protected minTier={4}>
       <div className="flex h-screen theme-bg">
         <Sidebar />
         <main className="flex-1 overflow-auto">

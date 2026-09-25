@@ -17,6 +17,8 @@ import WifiSignalIcon from "../components/WifiSignalIcon";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import SectionHeader from "@/components/ui/SectionHeader";
+import { canAssignScanners, canManageScannerMdm } from "@/lib/scanners/roles";
+import { pinRejectReason } from "@/lib/scanners/pin";
 
 type CommandType = "lock" | "unlock" | "wipe" | "install_apk" | "push_config" | "restart" | "update_pin" | "apply_policies" | "get_screen" | "datawedge_config";
 const EQUIPMENT_VALUE = 100;
@@ -62,6 +64,7 @@ function ScannerDetailContent() {
   const [commandPayload, setCommandPayload] = useState("");
   const [wipeConfirmText, setWipeConfirmText] = useState("");
   const [commandError, setCommandError] = useState("");
+  const [setPinDigits, setSetPinDigits] = useState("");
   // Set once a command is accepted, so the modal reports what actually happened instead of
   // just vanishing. A silently-closing modal on an OFFLINE scanner is what caused two
   // update_pin jobs to be queued minutes apart on W08-902: nothing said "queued, wait" — and
@@ -137,7 +140,8 @@ function ScannerDetailContent() {
     agreement?.signedDocumentStorageId ? { storageId: agreement.signedDocumentStorageId } : "skip"
   );
 
-  const canEdit = user?.role === "super_admin" || user?.role === "admin" || user?.role === "warehouse_director" || user?.role === "warehouse_manager";
+  const canEdit = canAssignScanners(user?.role);
+  const canMdm = canManageScannerMdm(user?.role);
   const isSuperAdmin = user?.role === "super_admin";
 
   const timeAgo = (ts?: number) => {
@@ -158,6 +162,7 @@ function ScannerDetailContent() {
   const initiateCommand = (cmd: CommandType) => {
     setPendingCommand(cmd);
     setCommandPayload("");
+    setSetPinDigits("");
     setWipeConfirmText("");
     setCommandError("");
     setCommandQueuedMsg("");
@@ -180,6 +185,13 @@ function ScannerDetailContent() {
   const executeCommand = async () => {
     if (!pendingCommand || !scanner || !user) return;
     if (pendingCommand === "wipe" && wipeConfirmText !== scanner.number) return;
+    if (pendingCommand === "update_pin") {
+      const pinError = pinRejectReason(setPinDigits);
+      if (pinError) {
+        setCommandError(pinError);
+        return;
+      }
+    }
     // Hard stop, not just a warning: the duplicate is the bug, and the operator who double-taps
     // is precisely the person who can't see that the first job is still waiting. The route
     // enforces this too — this is the fast, explanatory half.
@@ -193,9 +205,17 @@ function ScannerDetailContent() {
     setCommandError("");
     try {
       // Existing audit trail, unchanged for every command regardless of transport.
-      await logCommand({ scannerId, command: pendingCommand, payload: commandPayload || undefined, userId: user._id, userName: user.name ?? user.email });
+      await logCommand({
+        scannerId,
+        command: pendingCommand,
+        payload: pendingCommand === "update_pin" ? JSON.stringify({ pin: setPinDigits }) : commandPayload || undefined,
+        userId: user._id,
+        userName: user.name ?? user.email,
+      });
 
-      const payload = commandPayload ? JSON.parse(commandPayload) : {};
+      const payload = pendingCommand === "update_pin"
+        ? { pin: setPinDigits }
+        : commandPayload ? JSON.parse(commandPayload) : {};
 
       if (JOB_COMMANDS.has(pendingCommand)) {
         // Durable path: creates an AWS IoT Job that sits QUEUED on a device that's
@@ -435,7 +455,7 @@ function ScannerDetailContent() {
   const commandButtons: { cmd: CommandType; label: string; icon: string; color: string; requiresAdmin?: boolean; requiresDeviceOwner?: boolean; requiresOnline?: boolean }[] = [
     { cmd: "lock", label: "Lock", icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z", color: "amber" },
     { cmd: "unlock", label: "Unlock", icon: "M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z", color: "emerald" },
-    { cmd: "update_pin", label: "Reset PIN", icon: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z", color: "blue", requiresDeviceOwner: true },
+    { cmd: "update_pin", label: "Set PIN", icon: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z", color: "blue", requiresDeviceOwner: true },
     { cmd: "install_apk", label: "Push Update", icon: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4", color: "cyan" },
     { cmd: "push_config", label: "Push Config", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z", color: "purple" },
     { cmd: "restart", label: "Restart", icon: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15", color: "slate" },
@@ -591,6 +611,7 @@ function ScannerDetailContent() {
                         Android 8.1 there is no API to stop someone changing it on the device.
                         Shown bare it reads as fact, which is how an offline scanner's stale PIN
                         gets handed to an employee who then can't unlock it. */}
+                    {canEdit && (
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] theme-text-tertiary">System PIN</span>
                       <div className="flex items-center gap-2">
@@ -630,11 +651,12 @@ function ScannerDetailContent() {
                             size="sm"
                             onClick={() => initiateCommand("update_pin")}
                           >
-                            Change
+                            Set PIN
                           </Button>
                         )}
                       </div>
                     </div>
+                    )}
                   </div>
                 </Card>
 
@@ -830,7 +852,7 @@ function ScannerDetailContent() {
                 )}
 
                 {/* Provision Card — shown for unprovisioned scanners */}
-                {canEdit && !isProvisioned && (
+                {canMdm && canEdit && !isProvisioned && (
                   <div className="theme-card p-5 border-dashed">
                     <SectionHeader label="IoT Management" />
                     <p className="text-sm mb-3 theme-text-tertiary">
@@ -846,7 +868,7 @@ function ScannerDetailContent() {
                 )}
 
                 {/* Remote Actions */}
-                {canEdit && isProvisioned && (
+                {canMdm && canEdit && isProvisioned && (
                   <Card>
                     <SectionHeader label="Remote Control" />
                     {/* One command at a time. Shown up front so the state is obvious before
@@ -859,7 +881,10 @@ function ScannerDetailContent() {
                       </p>
                     )}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {commandButtons.filter((b) => !b.requiresAdmin || isSuperAdmin).map((btn) => {
+                      {commandButtons
+                        .filter((b) => !b.requiresAdmin || isSuperAdmin)
+                        .filter((b) => canMdm || b.cmd === "update_pin")
+                        .map((btn) => {
                         const blockedByOwner = btn.requiresDeviceOwner && !scanner.deviceOwner;
                         const blockedByOffline = btn.requiresOnline && !scanner.isOnline;
                         // wipe and get_screen don't go through Jobs, so they can't stack up —
@@ -890,7 +915,7 @@ function ScannerDetailContent() {
                     this scanner scan" without collecting the device. Only agent >= 1.7.3
                     reports it, so an older/offline agent shows an explicit "not reported yet"
                     rather than a reassuring blank. */}
-                {canEdit && isProvisioned && (
+                {canMdm && canEdit && isProvisioned && (
                   <Card>
                     <SectionHeader label="Barcode Engine" />
                     {!scanner.dataWedge ? (
@@ -952,7 +977,7 @@ function ScannerDetailContent() {
                     of a named employee's device, not neutral telemetry, and a stale snapshot
                     shown as if it were current is worse than showing nothing — so the age is
                     front and center and a stale result is visually called out. */}
-                {canEdit && isProvisioned && (
+                {canMdm && canEdit && isProvisioned && (
                   <Card>
                     <SectionHeader label="Screen View" />
                     <p className="text-xs mb-3 theme-text-tertiary">
@@ -1166,11 +1191,26 @@ function ScannerDetailContent() {
                       {pendingCommand === "push_config" && "Push latest RT Locator configuration."}
                       {pendingCommand === "restart" && "Restart the scanner device."}
                       {pendingCommand === "update_pin" && !!scanner.bootPin && scanner.bootPin === scanner.pin && "Heads up: this scanner asks for a PIN twice — once at startup, then again at the Android lock screen. They match right now. On agent 1.7.3 and older, changing the PIN only moves the lock-screen one, and the startup PIN stays " + scanner.bootPin + " forever. It's recorded here so it can't be lost. "}
-                      {pendingCommand === "update_pin" && "The scanner will generate a new 6-digit PIN and apply it. Nobody chooses the number, so it can\u2019t be a guessable one. It appears here once the scanner confirms it \u2014 if the scanner is off, this applies next time it powers up."}
+                      {pendingCommand === "update_pin" && "Workers cannot keep a PIN they type on the device — the agent puts ours back. Set the 6-digit lock PIN you want this scanner to use. Guessable values (111111, 123456) are rejected. If the scanner is off, this applies the next time it checks in."}
                       {pendingCommand === "apply_policies" && "Re-apply device restrictions and lockdown policy."}
                       {pendingCommand === "datawedge_config" && "For a scanner that won’t read barcodes. Turns DataWedge (the barcode engine) back on, re-enables the scanner for Profile0, and re-applies the standard output format — suffix “!”, send data, then a Tab. It does not change which barcode types the scanner reads, so a working scanner won’t start behaving differently. DataWedge reports back whether it accepted the change, and you’ll see that below under Barcode Engine."}
                       {pendingCommand === "get_screen" && "Request a live look at this scanner’s screen — the app in use, on-screen text, and recent agent log lines. This is a view of what the assigned employee currently has on their device, not just a diagnostic number. The scanner will publish faster (about every 3 seconds) for roughly 2 minutes, then return to its normal 5-minute check-in."}
                     </p>
+                  )}
+                  {pendingCommand === "update_pin" && !commandQueuedMsg && (
+                    <div className="mb-4">
+                      <label className="block text-sm mb-1 theme-text-secondary">New 6-digit PIN</label>
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        value={setPinDigits}
+                        onChange={(e) => setSetPinDigits(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        className="theme-input w-full px-3 py-2 text-sm font-mono tracking-widest"
+                        placeholder="••••••"
+                        maxLength={6}
+                      />
+                    </div>
                   )}
                   {pendingCommand !== "wipe" && JOB_COMMANDS.has(pendingCommand) && !commandQueuedMsg && (
                     <p className="text-xs mb-4 -mt-2 theme-text-tertiary">
@@ -1183,7 +1223,7 @@ function ScannerDetailContent() {
                     <p className="text-xs mb-4 px-3 py-2 rounded-lg ui-callout-amber">
                       {scanner.number} is offline (last seen {formatDate(scanner.lastSeen)}). This will wait
                       until it checks in — that can be hours. Send it once.
-                      {pendingCommand === "update_pin" && " Each PIN change picks a new random number, so two of them means the first PIN you see is not the one that ends up on the scanner."}
+                      {pendingCommand === "update_pin" && " Send once. A second Set PIN while the first is waiting will apply both, in order."}
                     </p>
                   )}
                   {!commandQueuedMsg && !!pendingJob && JOB_COMMANDS.has(pendingCommand) && (
@@ -1233,7 +1273,7 @@ function ScannerDetailContent() {
                         <Button
                           variant={pendingCommand === "wipe" ? "danger" : "primary"}
                           onClick={executeCommand}
-                          disabled={sending || (!!pendingJob && JOB_COMMANDS.has(pendingCommand) && !overridePending) || (pendingCommand === "wipe" && wipeConfirmText !== scanner.number)}
+                          disabled={sending || (!!pendingJob && JOB_COMMANDS.has(pendingCommand) && !overridePending) || (pendingCommand === "wipe" && wipeConfirmText !== scanner.number) || (pendingCommand === "update_pin" && !!pinRejectReason(setPinDigits))}
                         >
                           {sending ? "Sending..." : "Confirm"}
                         </Button>
