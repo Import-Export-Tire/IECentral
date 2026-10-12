@@ -578,9 +578,7 @@ export const recordJob = mutation({
   },
 });
 
-// Bridges real AWS job-execution status changes into Convex. Not yet called by anything —
-// the job-execution event Lambda/webhook that would invoke this is a later task — but the
-// shape is settled now so that piece can be added without touching this file again.
+// Job status only. Don't write scanners.pin from a job event.
 export const updateJobStatus = mutation({
   args: {
     jobId: v.string(),

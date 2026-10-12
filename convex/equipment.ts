@@ -40,7 +40,7 @@ export const listScanners = query({
           locationName: location?.name ?? "Unknown",
           assignedPersonName: assignedPerson
             ? `${assignedPerson.firstName} ${assignedPerson.lastName}`
-            : null,
+            : scanner.assignedName ?? null,
         };
       })
     );
@@ -64,7 +64,7 @@ export const getScanner = query({
       locationName: location?.name ?? "Unknown",
       assignedPersonName: assignedPerson
         ? `${assignedPerson.firstName} ${assignedPerson.lastName}`
-        : null,
+        : scanner.assignedName ?? null,
     };
   },
 });

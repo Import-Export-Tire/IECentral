@@ -1,721 +1,809 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Protected from "../../protected";
 import Sidebar, { MobileHeader } from "@/components/Sidebar";
-import { useTheme } from "../../theme-context";
 import { useAuth } from "../../auth-context";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import ScannerStatusDot, { getScannerHealth, ScannerHealth } from "./components/ScannerStatusDot";
-import ScannerBatteryBar from "./components/ScannerBatteryBar";
-import WifiSignalIcon from "./components/WifiSignalIcon";
-import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
-import dynamic from "next/dynamic";
+import {
+  SITE_LABEL,
+  WAREHOUSES,
+  ageLabel,
+  canMutateScannerFleet,
+  editorsFromUser,
+  fleetStatus,
+  fmtDate,
+  fmtWhen,
+  homeSiteForUser,
+  lockCopy,
+  matchPersonnelByName,
+  canRemoteSetPin,
+  mdmPinFailureMessage,
+  PIN_QUEUED_MESSAGE,
+  remotePinBlockReason,
+  setPinClientReject,
+  warehouseFromLocationName,
+  type EditorIds,
+  type SiteFilter,
+  type WarehouseCode,
+} from "@/lib/scanners/fleet";
+import "./fleet.css";
 
-const SetupWizard = dynamic(
-  () => import("./setup/SetupWizard").then((m) => ({ default: m.SetupWizard })),
-  { ssr: false, loading: () => null },
-);
+const DOCK_MQ = "(max-width: 1199px)";
 
-type StatusFilter = "all" | "online" | "offline" | "attention" | "unprovisioned";
+type ToastKind = "ok" | "bad";
 
-function ScannerDashboardContent() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
-  const { user } = useAuth();
-  const router = useRouter();
+function prefersReducedMotion() {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
-  const [locationFilter, setLocationFilter] = useState<Id<"locations"> | "all">("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedScannerId, setSelectedScannerId] = useState<string | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [wizardOpen, setWizardOpen] = useState(false);
-  // Resolved after mount, never during render. This page is server-rendered even though it's
-  // a client component, so evaluating `navigator` inline put `disabled` into the initial HTML
-  // and left Setup New Scanner greyed out until some later re-render happened to correct it.
-  // `null` = not determined yet, so the button isn't wrongly presented as unsupported while
-  // we still don't know.
-  const [webusbSupported, setWebusbSupported] = useState<boolean | null>(null);
-  useEffect(() => {
-    setWebusbSupported(typeof navigator !== "undefined" && "usb" in navigator);
-  }, []);
-  const webusbUnsupported = webusbSupported === false;
-  const [addForm, setAddForm] = useState({ serialNumber: "", model: "Zebra TC51", notes: "", pin: "" });
-  const [addLocationId, setAddLocationId] = useState<Id<"locations"> | "">("");
-  const [addStep, setAddStep] = useState<"form" | "saving" | "done">("form");
-  const [addError, setAddError] = useState("");
-  const [newScannerId, setNewScannerId] = useState<Id<"scanners"> | null>(null);
-
-  const fleet = useQuery(api.scannerMdm.getScannerFleetOverview);
-  const scanners = useQuery(api.equipment.listScanners, {
-    locationId: locationFilter !== "all" ? locationFilter : undefined,
-  });
-  const locations = useQuery(api.locations.listActiveWarehouses);
-  const alerts = useQuery(api.scannerMdm.getScannersNeedingAttention);
-  const createScanner = useMutation(api.scannerMdm.createScannerFromSetup);
-  const mdmConfigs = useQuery(api.scannerMdm.listMdmConfigs);
-  const selectedLocCode = mdmConfigs?.find((c) => c.locationId === addLocationId)?.locationCode;
-  const nextNumber = useQuery(api.scannerMdm.getNextScannerNumber, selectedLocCode ? { locationCode: selectedLocCode } : "skip");
-
-  const canEdit =
-    user?.role === "super_admin" ||
-    user?.role === "admin" ||
-    user?.role === "warehouse_director" ||
-    user?.role === "warehouse_manager";
-
-  // Computed stats
-  const stats = useMemo(() => {
-    const all = (scanners ?? []).filter((s) => s.status !== "retired");
-    const avgBattery = all.filter((s) => s.batteryLevel !== undefined).length > 0
-      ? Math.round(all.filter((s) => s.batteryLevel !== undefined).reduce((sum, s) => sum + (s.batteryLevel ?? 0), 0) / all.filter((s) => s.batteryLevel !== undefined).length)
-      : null;
-    const provisioned = all.filter((s) => s.mdmStatus === "provisioned").length;
-    const assigned = all.filter((s) => s.status === "assigned").length;
-    const withApps = all.filter((s) => s.installedApps?.tireTrack).length;
-    return { avgBattery, provisioned, assigned, withApps, total: all.length };
-  }, [scanners]);
-
-  // Filter scanners
-  const filteredScanners = useMemo(() => (scanners ?? [])
-    .filter((s) => s.status !== "retired")
-    .filter((s) => {
-      if (statusFilter === "all") return true;
-      const health = getScannerHealth(s);
-      if (statusFilter === "online") return health === "online";
-      if (statusFilter === "offline") return health === "offline";
-      if (statusFilter === "attention") return health === "warning";
-      if (statusFilter === "unprovisioned") return health === "unprovisioned";
-      return true;
-    })
-    .filter((s) => {
-      if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
-      return (
-        s.number.toLowerCase().includes(q) ||
-        s.serialNumber?.toLowerCase().includes(q) ||
-        s.assignedPersonName?.toLowerCase().includes(q) ||
-        s.locationName?.toLowerCase().includes(q)
-      );
-    })
-    .sort((a, b) => {
-      const aOnline = a.isOnline ? 0 : 1;
-      const bOnline = b.isOnline ? 0 : 1;
-      if (aOnline !== bOnline) return aOnline - bOnline;
-      return a.number.localeCompare(b.number);
-    }), [scanners, statusFilter, searchQuery]);
-
-  const selectedScanner = selectedScannerId
-    ? filteredScanners.find((s) => s._id === selectedScannerId)
-    : null;
-  void selectedScanner;
-
-  const timeAgo = (ts?: number) => {
-    if (!ts) return "Never";
-    const diff = Date.now() - ts;
-    if (diff < 60000) return "Just now";
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    return `${Math.floor(diff / 86400000)}d ago`;
-  };
-
-  const healthBorder = (health: ScannerHealth) => {
-    if (health === "online") return "border-l-emerald-500";
-    if (health === "warning") return "border-l-amber-500";
-    if (health === "offline") return isDark ? "border-l-slate-600" : "border-l-gray-300";
-    return isDark ? "border-l-slate-700" : "border-l-gray-200";
-  };
-
-  // Scanner status → ui-badge color mapping
-  const scannerStatusBadgeClass = (status: string) => {
-    const map: Record<string, string> = {
-      available: "ui-badge ui-badge-green",
-      assigned:  "ui-badge ui-badge-blue",
-      maintenance: "ui-badge ui-badge-amber",
-      lost:      "ui-badge ui-badge-red",
-    };
-    return map[status] ?? "ui-badge ui-badge-gray";
-  };
-
+function Chip({ state }: { state: "assigned" | "unassigned" }) {
   return (
-    <Protected>
-      <div className={`flex h-screen ${isDark ? "bg-slate-900" : "bg-[#f2f2f7]"}`}>
-        <Sidebar />
-        <main className="flex-1 overflow-auto">
-          <MobileHeader />
-
-          {/* Standard iOS-style sticky page header */}
-          <header className={`sticky top-0 z-10 backdrop-blur-sm border-b px-4 sm:px-8 py-3 sm:py-4 ${isDark ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-gray-200"}`}>
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <h1 className="text-xl sm:text-2xl font-bold theme-text-primary">Scanner Fleet</h1>
-                <p className="text-xs sm:text-sm mt-1 hidden sm:block theme-text-tertiary">
-                  {stats.total} devices &middot; {stats.provisioned} managed &middot; {stats.assigned} assigned
-                </p>
-              </div>
-              {canEdit && (
-                <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
-                  <Button
-                    variant="ghost"
-                    onClick={async () => {
-                      try {
-                        const res = await fetch("/api/scanner-mdm/apk?app=agent");
-                        const data = await res.json();
-                        if (data.downloadUrl) window.open(data.downloadUrl, "_blank");
-                      } catch {}
-                    }}
-                    title="Download agent APK for sideloading onto new scanners"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                    <span className="hidden sm:inline">Agent APK</span>
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => { setShowAddModal(true); setAddStep("form"); setAddError(""); setAddForm({ serialNumber: "", model: "Zebra TC51", notes: "", pin: "" }); setAddLocationId(""); }}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                    <span className="hidden sm:inline">Add Scanner</span>
-                  </Button>
-                  <Button
-                    variant="primary"
-                    onClick={() => !webusbUnsupported && setWizardOpen(true)}
-                    disabled={webusbUnsupported}
-                    title={
-                      webusbUnsupported
-                        ? "This browser can't talk to USB devices. Open IE Central in Chrome or Edge to set up a scanner."
-                        : "Set up a new scanner over USB"
-                    }
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" /></svg>
-                    <span className="hidden sm:inline">
-                      {webusbUnsupported ? "Setup New Scanner — use Chrome" : "Setup New Scanner"}
-                    </span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => router.push("/equipment/scanners/settings")}
-                    title="Settings"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </Button>
-                </div>
-              )}
-            </div>
-            {webusbUnsupported && (
-              <div className="mt-3 p-3 rounded-xl ui-callout-amber text-sm">
-                <span className="font-semibold">Scanner setup needs Chrome or Edge.</span>{" "}
-                This browser has no WebUSB support, so IE Central can&apos;t talk to a scanner
-                over the cable. Open this page in Chrome or Edge to set one up — everything else
-                on this page works normally here.
-              </div>
-            )}
-          </header>
-
-          <div className="px-4 sm:px-6 lg:px-8 py-5 space-y-5">
-
-            {/* Fleet KPI Row */}
-            {fleet && (
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                {/* Total */}
-                <div className="theme-card p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="ui-section-label">Total</div>
-                      <div className="text-2xl font-bold mt-0.5 tabular-nums theme-text-primary">{fleet.total}</div>
-                    </div>
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? "bg-slate-800" : "bg-gray-100"}`}>
-                      <svg className="w-4 h-4 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Online */}
-                <Card tone="green" padding="sm" className="!rounded-xl">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="ui-section-label">Online</span>
-                      </div>
-                      <div className={`text-2xl font-bold mt-0.5 tabular-nums ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>{fleet.online}</div>
-                    </div>
-                    <div className={`text-xs font-medium tabular-nums ${isDark ? "text-emerald-400/50" : "text-emerald-500/60"}`}>
-                      {fleet.total > 0 ? Math.round((fleet.online / fleet.total) * 100) : 0}%
-                    </div>
-                  </div>
-                  <div className={`mt-2 h-1 rounded-full overflow-hidden ${isDark ? "bg-emerald-500/10" : "bg-emerald-200/50"}`}>
-                    <div className="h-full bg-emerald-400 rounded-full transition-all duration-700" style={{ width: `${fleet.total > 0 ? (fleet.online / fleet.total) * 100 : 0}%` }} />
-                  </div>
-                </Card>
-
-                {/* Offline */}
-                <div className="theme-card p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="ui-section-label">Offline</div>
-                      <div className="text-2xl font-bold mt-0.5 tabular-nums theme-text-secondary">{fleet.offline}</div>
-                    </div>
-                    <div className="text-xs font-medium tabular-nums theme-text-tertiary">
-                      {fleet.total > 0 ? Math.round((fleet.offline / fleet.total) * 100) : 0}%
-                    </div>
-                  </div>
-                </div>
-
-                {/* Avg Battery */}
-                <div className="theme-card p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="ui-section-label">Avg Battery</div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className={`text-2xl font-bold tabular-nums ${
-                          stats.avgBattery === null ? "theme-text-tertiary"
-                          : stats.avgBattery > 50 ? (isDark ? "text-emerald-400" : "text-emerald-600")
-                          : stats.avgBattery > 20 ? (isDark ? "text-amber-400" : "text-amber-600")
-                          : (isDark ? "text-red-400" : "text-red-600")
-                        }`}>{stats.avgBattery !== null ? `${stats.avgBattery}%` : "—"}</span>
-                      </div>
-                    </div>
-                    <ScannerBatteryBar level={stats.avgBattery ?? undefined} size="md" showLabel={false} />
-                  </div>
-                </div>
-
-                {/* Attention */}
-                <Card tone={fleet.needsAttention > 0 ? "amber" : "default"} padding="sm" className="!rounded-xl">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="ui-section-label">Alerts</div>
-                      <div className={`text-2xl font-bold mt-0.5 tabular-nums ${fleet.needsAttention > 0 ? (isDark ? "text-amber-400" : "text-amber-600") : "theme-text-tertiary"}`}>{fleet.needsAttention}</div>
-                    </div>
-                    {fleet.needsAttention > 0 && (
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? "bg-amber-500/10" : "bg-amber-100"}`}>
-                        <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              </div>
-            )}
-
-            {/* Location Overview Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-              {fleet?.byLocation.map((loc) => (
-                <button
-                  key={loc.locationId}
-                  onClick={() => setLocationFilter(locationFilter === loc.locationId ? "all" : loc.locationId)}
-                  className={`theme-card p-4 text-left transition-all ${
-                    locationFilter === loc.locationId
-                      ? "ring-2 ring-[var(--accent-primary)]"
-                      : ""
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-bold theme-text-primary">{loc.locationName}</span>
-                    <span className="text-lg font-bold tabular-nums theme-text-secondary">{loc.total}</span>
-                  </div>
-                  <div className="flex h-2 rounded-full overflow-hidden gap-0.5">
-                    {loc.online > 0 && (
-                      <div className="bg-emerald-400 rounded-full transition-all duration-500" style={{ width: `${(loc.online / Math.max(loc.total, 1)) * 100}%` }} />
-                    )}
-                    {loc.available > 0 && (
-                      <div className={`rounded-full transition-all duration-500 ${isDark ? "bg-cyan-500/40" : "bg-blue-300"}`} style={{ width: `${((loc.available - loc.online) / Math.max(loc.total, 1)) * 100}%` }} />
-                    )}
-                    {loc.offline > 0 && (
-                      <div className={`rounded-full transition-all duration-500 ${isDark ? "bg-slate-700" : "bg-gray-200"}`} style={{ width: `${(loc.offline / Math.max(loc.total, 1)) * 100}%` }} />
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 mt-2">
-                    <span className="text-[10px] flex items-center gap-1 theme-text-tertiary">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> {loc.online} online
-                    </span>
-                    <span className="text-[10px] flex items-center gap-1 theme-text-tertiary">
-                      <span className={`w-1.5 h-1.5 rounded-full inline-block ${isDark ? "bg-slate-600" : "bg-gray-300"}`} /> {loc.offline} offline
-                    </span>
-                    <span className="text-[10px] theme-text-tertiary">
-                      {loc.assigned} assigned
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {/* Alerts Banner */}
-            {alerts && alerts.length > 0 && (
-              <Card tone="amber" padding="sm">
-                <div className="flex items-center gap-3">
-                  <svg className="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                  <div className="flex flex-wrap items-center gap-1.5 flex-1">
-                    {alerts.map((a) => (
-                      <button
-                        key={a.scanner._id}
-                        onClick={() => router.push(`/equipment/scanners/${a.scanner._id}`)}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium theme-card transition-colors hover:ring-1 hover:ring-amber-400/40"
-                      >
-                        <span className="font-bold theme-text-primary">{a.scanner.number}</span>
-                        <span className="theme-text-tertiary">
-                          {a.reasons.includes("low_battery") ? "low bat" : "offline"}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </Card>
-            )}
-
-            {/* Search + Filter Bar */}
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1 max-w-sm">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search by #, serial, name, location..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="theme-input w-full pl-8 pr-3 py-1.5 text-sm"
-                />
-              </div>
-              <div className="flex items-center gap-1">
-                {(["all", "online", "offline", "attention"] as StatusFilter[]).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setStatusFilter(statusFilter === f ? "all" : f)}
-                    className={`px-2.5 py-1.5 text-[11px] font-medium rounded-md transition-colors ${
-                      statusFilter === f && f !== "all"
-                        ? f === "online" ? "bg-emerald-500/15 text-emerald-400" : f === "offline" ? (isDark ? "bg-slate-700 text-slate-300" : "bg-gray-200 text-gray-600") : "bg-amber-500/15 text-amber-400"
-                        : "theme-text-tertiary hover:theme-text-secondary"
-                    }`}
-                  >
-                    {f === "all" ? "All" : f === "attention" ? "Alerts" : f.charAt(0).toUpperCase() + f.slice(1)}
-                  </button>
-                ))}
-              </div>
-              {locationFilter !== "all" && (
-                <button
-                  onClick={() => setLocationFilter("all")}
-                  className="text-[11px] px-2 py-1 rounded-md flex items-center gap-1 theme-accent-primary"
-                  style={{ background: "color-mix(in srgb, var(--accent-primary) 10%, transparent)" }}
-                >
-                  {locations?.find((l) => l._id === locationFilter)?.name}
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-              )}
-              <span className="text-[11px] ml-auto tabular-nums theme-text-tertiary">
-                {filteredScanners.length} device{filteredScanners.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-
-            {/* Scanner Table */}
-            <div className="theme-card overflow-hidden p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className={`border-b ${isDark ? "border-slate-700" : "border-gray-200"}`}>
-                      <th className="pl-4 pr-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary" style={{width: 40}}></th>
-                      <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Scanner</th>
-                      <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Status</th>
-                      <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Battery</th>
-                      <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Signal</th>
-                      <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Location</th>
-                      <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Assigned To</th>
-                      <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">TireTrack</th>
-                      <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Last Seen</th>
-                      <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Serial</th>
-                      <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">Model</th>
-                      <th className="px-2 pr-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest theme-text-tertiary">MDM</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredScanners.map((scanner) => {
-                      const health = getScannerHealth(scanner);
-                      const isSelected = selectedScannerId === scanner._id;
-                      const colCount = 12;
-                      return (
-                        <>
-                        <tr
-                          key={scanner._id}
-                          onClick={() => setSelectedScannerId(isSelected ? null : scanner._id)}
-                          onDoubleClick={() => router.push(`/equipment/scanners/${scanner._id}`)}
-                          className={`cursor-pointer transition-colors border-b border-l-2 ${healthBorder(health)} ${isDark ? "border-slate-700/50" : "border-gray-100"} ${
-                            isSelected
-                              ? isDark ? "bg-cyan-500/5" : "bg-blue-50/50"
-                              : isDark ? "hover:bg-slate-800/40" : "hover:bg-gray-50/80"
-                          }`}
-                        >
-                          <td className="pl-4 pr-2 py-2.5">
-                            <ScannerStatusDot health={health} size="sm" />
-                          </td>
-                          <td className="px-2 py-2.5">
-                            <span className="text-sm font-bold tabular-nums theme-text-primary">{scanner.number}</span>
-                          </td>
-                          <td className="px-2 py-2.5">
-                            <span className={scannerStatusBadgeClass(scanner.status)}>
-                              {scanner.status}
-                            </span>
-                          </td>
-                          <td className="px-2 py-2.5">
-                            <ScannerBatteryBar level={scanner.batteryLevel} size="sm" />
-                          </td>
-                          <td className="px-2 py-2.5">
-                            <WifiSignalIcon signal={scanner.wifiSignal} />
-                          </td>
-                          <td className="px-2 py-2.5 text-xs theme-text-secondary">{scanner.locationName}</td>
-                          <td className={`px-2 py-2.5 text-xs ${scanner.assignedPersonName ? "theme-text-secondary" : "theme-text-tertiary"}`}>
-                            {scanner.assignedPersonName ?? "—"}
-                          </td>
-                          <td className="px-2 py-2.5">
-                            {scanner.installedApps?.tireTrack ? (
-                              <span className="ui-badge ui-badge-blue font-mono">
-                                v{scanner.installedApps.tireTrack}
-                              </span>
-                            ) : (
-                              <span className="theme-text-tertiary text-xs">—</span>
-                            )}
-                          </td>
-                          <td className={`px-2 py-2.5 text-xs tabular-nums ${
-                            scanner.lastSeen && (Date.now() - scanner.lastSeen) < 600000
-                              ? (isDark ? "text-emerald-400/70" : "text-emerald-600")
-                              : "theme-text-tertiary"
-                          }`}>
-                            {timeAgo(scanner.lastSeen)}
-                          </td>
-                          <td className="px-2 py-2.5 text-[11px] font-mono theme-text-tertiary">
-                            {scanner.serialNumber ?? "—"}
-                          </td>
-                          <td className="px-2 py-2.5 text-[11px] theme-text-tertiary">
-                            {scanner.model ?? "—"}
-                          </td>
-                          <td className="px-2 pr-4 py-2.5">
-                            {scanner.mdmStatus === "provisioned" ? (
-                              <span className="ui-badge ui-badge-green">managed</span>
-                            ) : (
-                              <span className="ui-badge ui-badge-gray">
-                                {scanner.mdmStatus ?? "none"}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                        {/* Inline detail panel — expands directly below selected row */}
-                        {isSelected && (
-                          <tr key={`${scanner._id}-detail`}>
-                            <td colSpan={colCount} className="p-0">
-                              <div className={`px-5 py-4 border-y ${isDark ? "bg-slate-800/40 border-slate-700/50" : "bg-blue-50/30 border-blue-200/40"}`}>
-                                <div className="flex items-center justify-between mb-3">
-                                  <div className="flex items-center gap-3">
-                                    <ScannerStatusDot health={health} size="lg" />
-                                    <div>
-                                      <span className="text-base font-bold theme-text-primary">Scanner {scanner.number}</span>
-                                      <span className="text-xs ml-2 theme-text-tertiary">{scanner.model}</span>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => router.push(`/equipment/scanners/${scanner._id}`)}
-                                    >
-                                      Open Full Detail
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={(e) => { e.stopPropagation(); setSelectedScannerId(null); }}
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </Button>
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
-                                  <div>
-                                    <div className="text-[10px] uppercase tracking-wider theme-text-tertiary">Battery</div>
-                                    <div className="mt-1"><ScannerBatteryBar level={scanner.batteryLevel} size="md" /></div>
-                                  </div>
-                                  <div>
-                                    <div className="text-[10px] uppercase tracking-wider theme-text-tertiary">WiFi</div>
-                                    <div className="mt-1"><WifiSignalIcon signal={scanner.wifiSignal} showLabel /></div>
-                                  </div>
-                                  <div>
-                                    <div className="text-[10px] uppercase tracking-wider theme-text-tertiary">Location</div>
-                                    <div className="text-sm font-medium mt-1 theme-text-secondary">{scanner.locationName}</div>
-                                  </div>
-                                  <div>
-                                    <div className="text-[10px] uppercase tracking-wider theme-text-tertiary">Assigned</div>
-                                    <div className="text-sm font-medium mt-1 theme-text-secondary">{scanner.assignedPersonName ?? "Unassigned"}</div>
-                                  </div>
-                                  <div>
-                                    <div className="text-[10px] uppercase tracking-wider theme-text-tertiary">Serial</div>
-                                    <div className="text-xs font-mono mt-1 theme-text-secondary">{scanner.serialNumber ?? "—"}</div>
-                                  </div>
-                                  <div>
-                                    <div className="text-[10px] uppercase tracking-wider theme-text-tertiary">Last Seen</div>
-                                    <div className="text-sm mt-1 theme-text-secondary">{timeAgo(scanner.lastSeen)}</div>
-                                  </div>
-                                </div>
-                                {scanner.installedApps && (
-                                  <div className={`flex items-center gap-2 mt-3 pt-3 border-t theme-border-secondary`}>
-                                    <span className="text-[10px] uppercase tracking-wider theme-text-tertiary">Apps:</span>
-                                    {scanner.installedApps.tireTrack && <span className="ui-badge ui-badge-blue font-mono">TireTrack v{scanner.installedApps.tireTrack}</span>}
-                                    {scanner.installedApps.rtLocator && <span className="ui-badge ui-badge-purple font-mono">RT Locator v{scanner.installedApps.rtLocator}</span>}
-                                    {scanner.installedApps.scannerAgent && <span className="ui-badge ui-badge-gray font-mono">Agent v{scanner.installedApps.scannerAgent}</span>}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                        </>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Empty state */}
-            {filteredScanners.length === 0 && scanners !== undefined && (
-              <Card padding="md" className="text-center py-16">
-                <div className={`w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center ${isDark ? "bg-slate-800/50" : "bg-gray-100"}`}>
-                  <svg className="w-8 h-8 theme-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <h3 className="text-base font-semibold theme-text-secondary">
-                  {searchQuery || statusFilter !== "all" ? "No matching scanners" : "No scanners in fleet"}
-                </h3>
-                <p className="text-sm mt-1 max-w-sm mx-auto theme-text-tertiary">
-                  {searchQuery || statusFilter !== "all"
-                    ? "Try broadening your search or clearing filters."
-                    : "Connect a scanner via USB and run the setup tool to add it to the fleet."}
-                </p>
-              </Card>
-            )}
-          </div>
-
-          {/* Add Scanner Modal */}
-          {showAddModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => addStep !== "saving" && setShowAddModal(false)}>
-              <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md">
-                <Card padding="md">
-                  {addStep === "form" && (
-                    <>
-                      <h3 className="text-lg font-bold mb-4 theme-text-primary">Add Scanner</h3>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-xs font-medium mb-1 theme-text-tertiary">Location</label>
-                          <select value={addLocationId} onChange={(e) => setAddLocationId(e.target.value as Id<"locations">)}
-                            className="theme-input w-full px-3 py-2 text-sm">
-                            <option value="">Select location...</option>
-                            {locations?.map((l) => {
-                              const lc = mdmConfigs?.find((c) => c.locationId === l._id)?.locationCode;
-                              return <option key={l._id} value={l._id}>{l.name}{lc ? ` (${lc})` : ""}</option>;
-                            })}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium mb-1 theme-text-tertiary">Serial Number</label>
-                          <input value={addForm.serialNumber} onChange={(e) => setAddForm((f) => ({ ...f, serialNumber: e.target.value }))}
-                            placeholder="e.g., 20322524202269"
-                            className="theme-input w-full px-3 py-2 text-sm" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium mb-1 theme-text-tertiary">Model</label>
-                            <input value={addForm.model} onChange={(e) => setAddForm((f) => ({ ...f, model: e.target.value }))}
-                              className="theme-input w-full px-3 py-2 text-sm" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium mb-1 theme-text-tertiary">PIN (4-6 digits)</label>
-                            <input value={addForm.pin} onChange={(e) => setAddForm((f) => ({ ...f, pin: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
-                              placeholder="1234" maxLength={6}
-                              className="theme-input w-full px-3 py-2 text-sm" />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium mb-1 theme-text-tertiary">Notes (optional)</label>
-                          <input value={addForm.notes} onChange={(e) => setAddForm((f) => ({ ...f, notes: e.target.value }))}
-                            className="theme-input w-full px-3 py-2 text-sm" />
-                        </div>
-                        {addError && <p className="text-sm text-red-500">{addError}</p>}
-                      </div>
-                      <div className="flex gap-3 justify-end mt-5">
-                        <Button variant="ghost" onClick={() => setShowAddModal(false)}>Cancel</Button>
-                        <Button variant="primary" onClick={async () => {
-                          if (!addLocationId || !addForm.serialNumber || !addForm.pin || addForm.pin.length < 4) {
-                            setAddError("Location, serial number, and PIN (4+ digits) are required.");
-                            return;
-                          }
-                          setAddStep("saving");
-                          setAddError("");
-                          try {
-                            const result = await createScanner({
-                              number: nextNumber ?? `${selectedLocCode}-001`,
-                              pin: addForm.pin,
-                              serialNumber: addForm.serialNumber,
-                              model: addForm.model,
-                              locationId: addLocationId as Id<"locations">,
-                              notes: addForm.notes || undefined,
-                            });
-                            setNewScannerId(result.scannerId as Id<"scanners">);
-                            setAddStep("done");
-                          } catch (err) {
-                            setAddError(err instanceof Error ? err.message : "Failed to create scanner");
-                            setAddStep("form");
-                          }
-                        }}>
-                          Create Scanner
-                        </Button>
-                      </div>
-                    </>
-                  )}
-                  {addStep === "saving" && (
-                    <div className="text-center py-8">
-                      <div className="animate-spin w-8 h-8 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full mx-auto mb-3"></div>
-                      <p className="text-sm theme-text-tertiary">Creating scanner...</p>
-                    </div>
-                  )}
-                  {addStep === "done" && (
-                    <>
-                      <div className="text-center py-4">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${isDark ? "bg-emerald-500/10" : "bg-emerald-50"}`}>
-                          <svg className="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                        </div>
-                        <h3 className="text-lg font-bold mb-1 theme-text-primary">Scanner Created</h3>
-                        <p className="text-sm theme-text-tertiary">Go to the scanner detail page to provision it.</p>
-                      </div>
-                      <div className="flex gap-3 justify-end mt-4">
-                        <Button variant="ghost" onClick={() => setShowAddModal(false)}>Close</Button>
-                        {newScannerId && (
-                          <Button variant="primary" onClick={() => router.push(`/equipment/scanners/${newScannerId}`)}>
-                            Provision Now
-                          </Button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </Card>
-              </div>
-            </div>
-          )}
-        </main>
-      </div>
-      {wizardOpen && <SetupWizard onClose={() => setWizardOpen(false)} />}
-    </Protected>
+    <span className={`chip chip-${state}`}>
+      <span className="chip-text">{state === "assigned" ? "Assigned" : "Unassigned"}</span>
+    </span>
   );
 }
 
-export default function ScannerDashboardPage() {
-  return <ScannerDashboardContent />;
+function ScannerFleetBoard() {
+  const { user } = useAuth();
+  const editors = useMemo(() => editorsFromUser(user) as EditorIds, [user]);
+  const locations = useQuery(api.locations.listActiveWarehouses);
+  const scanners = useQuery(api.equipment.listScanners, {});
+  const personnel = useQuery(api.personnel.listAll, { status: "active" });
+  const addScanner = useMutation(api.equipment.createScanner);
+  const assignScanner = useMutation(api.equipment.assignScanner);
+  const unassignScanner = useMutation(api.equipment.unassignScanner);
+  const removeScanner = useMutation(api.equipment.deleteEquipment);
+
+  const [site, setSite] = useState<SiteFilter>("all");
+  const [homeReady, setHomeReady] = useState(false);
+  const [filter, setFilter] = useState<"all" | "unassigned" | "assigned">("all");
+  const [q, setQ] = useState("");
+  const [openId, setOpenId] = useState<string>("");
+  const [freshId, setFreshId] = useState("");
+  const [pickedId, setPickedId] = useState("");
+  const [pinOpen, setPinOpen] = useState(false);
+  const [person, setPerson] = useState("");
+  const [assignErr, setAssignErr] = useState("");
+  const [pinNew, setPinNew] = useState("");
+  const [pinAgain, setPinAgain] = useState("");
+  const [pinErr, setPinErr] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [newWo, setNewWo] = useState("");
+  const [woErr, setWoErr] = useState("");
+  const [histOpen, setHistOpen] = useState(false);
+  const [delOpen, setDelOpen] = useState(false);
+  const [toast, setToast] = useState<{ kind: ToastKind; text: string; out?: boolean } | null>(null);
+  const detailRef = useRef<HTMLElement | null>(null);
+  const woRef = useRef<HTMLInputElement | null>(null);
+  const toastHide = useRef<number>(0);
+  const toastClear = useRef<number>(0);
+
+  useEffect(() => {
+    if (homeReady || !user) return;
+    setSite(homeSiteForUser(user._id, user.role, editors));
+    setHomeReady(true);
+  }, [user, editors, homeReady]);
+
+  const warehouses = useMemo(() => {
+    const rows = locations ?? [];
+    return WAREHOUSES.map((w) => {
+      const loc = rows.find((l) => warehouseFromLocationName(l.name) === w.code);
+      return loc ? { ...w, locationId: loc._id as Id<"locations"> } : null;
+    }).filter((w): w is NonNullable<typeof w> => w !== null);
+  }, [locations]);
+
+  const locationIdForSite = (code: WarehouseCode) =>
+    warehouses.find((w) => w.code === code)?.locationId;
+
+  const mutateGate = canMutateScannerFleet({
+    userId: user?._id,
+    role: user?.role,
+    editors,
+    site,
+  });
+  const locked = !mutateGate.ok;
+  const lockTitle = lockCopy({ userId: user?._id, role: user?.role, editors, site });
+
+  const fleet = useMemo(() => {
+    const list = (scanners ?? []).filter((s) => s.status !== "retired");
+    return list
+      .map((s) => {
+        const code = warehouseFromLocationName(s.locationName);
+        if (!code) return null;
+        return {
+          ...s,
+          site: code,
+          state: fleetStatus(s.status),
+          who: s.assignedPersonName ?? "",
+        };
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null)
+      .filter((s) => (site === "all" ? true : s.site === site));
+  }, [scanners, site]);
+
+  const shown = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    return fleet.filter((s) => {
+      if (filter !== "all" && s.state !== filter) return false;
+      if (query && !(`${s.number} ${s.who}`).toLowerCase().includes(query)) return false;
+      return true;
+    });
+  }, [fleet, filter, q]);
+
+  const open = shown.find((s) => s._id === openId) ?? shown[0] ?? null;
+
+  useEffect(() => {
+    if (open && open._id !== openId) setOpenId(open._id);
+    if (!open) setOpenId("");
+  }, [open, openId]);
+
+  useEffect(() => {
+    if (!open) {
+      setPerson("");
+      return;
+    }
+    setPerson(open.state === "assigned" ? open.who : "");
+    setAssignErr("");
+    setPinErr("");
+    setPinNew("");
+    setPinAgain("");
+  }, [open?._id, open?.state, open?.who]);
+
+  const history = useQuery(
+    api.equipment.getEquipmentHistory,
+    open && histOpen ? { equipmentType: "scanner", equipmentId: open._id } : "skip",
+  );
+  const jobs = useQuery(
+    api.scannerMdm.listJobsForScanner,
+    open ? { scannerId: open._id, limit: 8 } : "skip",
+  );
+  const pinJobWaiting = Boolean(
+    jobs?.some(
+      (j) =>
+        j.command === "update_pin" &&
+        (j.status === "QUEUED" || j.status === "IN_PROGRESS"),
+    ),
+  );
+  const pinRemote = open ? canRemoteSetPin(open) : false;
+
+  const showToast = (kind: ToastKind, text: string) => {
+    window.clearTimeout(toastHide.current);
+    window.clearTimeout(toastClear.current);
+    setToast({ kind, text });
+    toastHide.current = window.setTimeout(() => {
+      setToast((t) => (t ? { ...t, out: true } : t));
+      toastClear.current = window.setTimeout(() => setToast(null), prefersReducedMotion() ? 0 : 360);
+    }, 2500);
+  };
+
+  const syncDock = () => {
+    const panel = detailRef.current;
+    const root = panel?.closest(".scanner-fleet") as HTMLElement | null;
+    if (!root) return;
+    const docked = window.matchMedia(DOCK_MQ).matches;
+    if (!docked || !panel || panel.hidden) {
+      root.style.setProperty("--detail-dock", "0px");
+      return;
+    }
+    root.style.setProperty("--detail-dock", `${Math.ceil(panel.getBoundingClientRect().height)}px`);
+  };
+
+  useEffect(() => {
+    syncDock();
+    const panel = detailRef.current;
+    if (!panel || !window.ResizeObserver) return;
+    const ro = new ResizeObserver(() => syncDock());
+    ro.observe(panel);
+    const mq = window.matchMedia(DOCK_MQ);
+    mq.addEventListener("change", syncDock);
+    window.addEventListener("resize", syncDock);
+    return () => {
+      ro.disconnect();
+      mq.removeEventListener("change", syncDock);
+      window.removeEventListener("resize", syncDock);
+    };
+  }, [open?._id, pinOpen, shown.length]);
+
+  const scrollRowAboveDock = (tr: HTMLElement | null) => {
+    if (!window.matchMedia(DOCK_MQ).matches || !tr) return;
+    const panel = detailRef.current;
+    if (!panel || panel.hidden) return;
+    const run = () => {
+      syncDock();
+      const cells = tr.querySelectorAll("td");
+      if (!cells.length) return;
+      let bottom = -Infinity;
+      cells.forEach((c) => {
+        const r = c.getBoundingClientRect();
+        if (r.height) bottom = Math.max(bottom, r.bottom);
+      });
+      if (!Number.isFinite(bottom)) return;
+      const overflow = bottom + 18 - panel.getBoundingClientRect().top;
+      if (overflow <= 1) return;
+      const main = panel.closest("main");
+      (main ?? window).scrollBy({
+        top: overflow,
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+      });
+    };
+    requestAnimationFrame(() => requestAnimationFrame(run));
+  };
+
+  useEffect(() => {
+    if (!addOpen) return;
+    window.setTimeout(() => woRef.current?.focus(), 80);
+  }, [addOpen]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setAddOpen(false);
+      setHistOpen(false);
+      setDelOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  const errMessage = (err: unknown) => (err instanceof Error ? err.message : "That did not work.");
+
+  const handleAssign = async () => {
+    if (!open || !user || locked) return;
+    const name = person.trim();
+    if (!name) {
+      setAssignErr("Enter a name.");
+      showToast("bad", "Enter a name.");
+      return;
+    }
+    if (open.state !== "unassigned") {
+      showToast("bad", "Assign only if Unassigned.");
+      return;
+    }
+    try {
+      const personnelId = matchPersonnelByName(
+        personnel ?? [],
+        name,
+        open.locationId,
+      );
+      if (!personnelId) {
+        const msg = "That name is not on the personnel list yet.";
+        setAssignErr(msg);
+        showToast("bad", msg);
+        return;
+      }
+      await assignScanner({
+        scannerId: open._id,
+        personnelId: personnelId as Id<"personnel">,
+        userId: user._id,
+      });
+      setAssignErr("");
+      showToast("ok", `Assigned to ${name}`);
+    } catch (err) {
+      const msg = errMessage(err);
+      setAssignErr(msg);
+      showToast("bad", msg);
+    }
+  };
+
+  const handleUnassign = async () => {
+    if (!open || !user || locked) return;
+    try {
+      await unassignScanner({ scannerId: open._id, userId: user._id });
+      showToast("ok", "Unassigned");
+    } catch (err) {
+      showToast("bad", errMessage(err));
+    }
+  };
+
+  const handleSetPin = async () => {
+    if (!open || !user || locked) return;
+    setPinOpen(true);
+    const blocked = remotePinBlockReason(open);
+    if (blocked) {
+      setPinErr(blocked);
+      showToast("bad", blocked);
+      return;
+    }
+    const reason = setPinClientReject(pinNew.trim(), pinAgain.trim());
+    if (reason) {
+      setPinErr(reason);
+      showToast("bad", reason);
+      return;
+    }
+    setPinErr("");
+    try {
+      const res = await fetch("/api/scanner-mdm/job", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          thingName: open.iotThingName,
+          scannerId: open._id,
+          createdBy: user._id,
+          command: "update_pin",
+          payload: { pin: pinNew.trim() },
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = mdmPinFailureMessage({
+          enrolled: true,
+          error: typeof data.error === "string" ? data.error : null,
+        });
+        setPinErr(msg);
+        showToast("bad", msg);
+        return;
+      }
+      setPinNew("");
+      setPinAgain("");
+      showToast("ok", PIN_QUEUED_MESSAGE);
+    } catch (err) {
+      const msg = mdmPinFailureMessage({ enrolled: true, error: errMessage(err) });
+      setPinErr(msg);
+      showToast("bad", msg);
+    }
+  };
+
+  const handleClearPin = async () => {
+    if (!open || !user || locked) return;
+    setPinOpen(true);
+    const blocked = remotePinBlockReason(open);
+    if (blocked) {
+      setPinErr(blocked);
+      showToast("bad", blocked);
+      return;
+    }
+    const msg = mdmPinFailureMessage({ enrolled: Boolean(open.iotThingName) });
+    setPinErr(msg);
+    showToast("bad", msg);
+  };
+
+  const handleAdd = async (e?: FormEvent) => {
+    e?.preventDefault();
+    if (!user || locked || site === "all") return;
+    const locationId = locationIdForSite(site);
+    if (!locationId) {
+      showToast("bad", "That warehouse is not in IECentral yet.");
+      return;
+    }
+    const wo = newWo.trim().toUpperCase();
+    if (!wo) {
+      setWoErr("Enter a WO number.");
+      showToast("bad", "Enter a WO number.");
+      return;
+    }
+    try {
+      const scannerId = await addScanner({
+        number: wo,
+        locationId,
+        requestingUserId: user._id,
+      });
+      setAddOpen(false);
+      setNewWo("");
+      setWoErr("");
+      setOpenId(scannerId);
+      setFreshId(scannerId);
+      window.setTimeout(() => setFreshId(""), 450);
+      showToast("ok", `${wo} added`);
+    } catch (err) {
+      const msg = errMessage(err);
+      setWoErr(msg);
+      showToast("bad", msg);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!open || !user || locked) return;
+    try {
+      const number = open.number;
+      await removeScanner({
+        equipmentType: "scanner",
+        equipmentId: open._id,
+        userId: user._id,
+      });
+      setDelOpen(false);
+      showToast("ok", `${number} deleted`);
+    } catch (err) {
+      showToast("bad", errMessage(err));
+    }
+  };
+
+  const n = fleet.length;
+  const pastPins = (history ?? [])
+    .map((row) => row.notes)
+    .filter((note): note is string => Boolean(note && /^\d{4,6}$/.test(note)))
+    .filter((pin) => pin !== open?.pin);
+
+  return (
+    <div className="workspace">
+      <div className="page-head">
+        <div>
+          <h1>
+            Scanner Fleet{" "}
+            <span className="fleet-count">{n === 1 ? "1 device" : `${n} devices`}</span>
+          </h1>
+        </div>
+        <div className="head-actions">
+          <button
+            className="btn btn-primary"
+            type="button"
+            disabled={locked}
+            title={locked ? lockTitle : ""}
+            onClick={() => {
+              setNewWo("");
+              setWoErr("");
+              setAddOpen(true);
+            }}
+          >
+            Add Scanner
+          </button>
+        </div>
+      </div>
+
+      <div className="board">
+        <div className="list-col">
+          <div className="toolbar">
+            <select
+              className="site-select"
+              aria-label="Warehouse"
+              value={site}
+              onChange={(e) => {
+                setSite(e.target.value as SiteFilter);
+                setPinOpen(false);
+                setHistOpen(false);
+              }}
+            >
+              {warehouses.map((w) => (
+                <option key={w.code} value={w.code}>{w.label}</option>
+              ))}
+              <option value="all">All</option>
+            </select>
+            <div className="search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <input
+                type="search"
+                placeholder="Search"
+                autoComplete="off"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </div>
+            <div className="filters">
+              {(["all", "unassigned", "assigned"] as const).map((f) => (
+                <button
+                  key={f}
+                  className={`filter${filter === f ? " is-on" : ""}`}
+                  type="button"
+                  onClick={() => setFilter(f)}
+                >
+                  {f === "all" ? "All" : f === "unassigned" ? "Unassigned" : "Assigned"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className={`table-wrap${shown.length === 0 ? " is-empty" : ""}`}>
+            <table className={site === "all" ? "show-site" : ""}>
+              <thead>
+                <tr>
+                  <th className="gutter" aria-hidden="true"></th>
+                  <th className="col-wo">Scanner</th>
+                  <th className="gutter gutter-site" aria-hidden="true"></th>
+                  <th className="col-site">Location</th>
+                  <th className="gutter" aria-hidden="true"></th>
+                  <th className="col-who">Assigned to</th>
+                  <th className="gutter" aria-hidden="true"></th>
+                  <th className="col-status">Status</th>
+                  <th className="gutter" aria-hidden="true"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((s) => (
+                  <tr
+                    key={s._id}
+                    className={`${s._id === open?._id ? " is-on" : ""}${s._id === freshId ? " is-fresh" : ""}${s._id === pickedId ? " is-picked" : ""}`}
+                    onClick={(e) => {
+                      const tr = e.currentTarget;
+                      if (s._id === open?._id) {
+                        scrollRowAboveDock(tr);
+                        return;
+                      }
+                      setOpenId(s._id);
+                      setPickedId(s._id);
+                      setPinOpen(false);
+                      window.setTimeout(() => setPickedId(""), 420);
+                      window.setTimeout(() => scrollRowAboveDock(tr), 40);
+                    }}
+                  >
+                    <td className="gutter" aria-hidden="true"></td>
+                    <td className="wo col-wo" title={s.number}>{s.number}</td>
+                    <td className="gutter gutter-site" aria-hidden="true"></td>
+                    <td className="col-site">{s.site}</td>
+                    <td className="gutter" aria-hidden="true"></td>
+                    <td className="col-who">
+                      {s.state === "assigned" && s.who
+                        ? <span className="who-cell" title={s.who}>{s.who}</span>
+                        : <span className="empty">—</span>}
+                    </td>
+                    <td className="gutter" aria-hidden="true"></td>
+                    <td className="col-status"><Chip state={s.state} /></td>
+                    <td className="gutter" aria-hidden="true"></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="empty-list" hidden={shown.length > 0}>
+              {scanners === undefined ? "Loading…" : "No scanners match."}
+            </p>
+          </div>
+        </div>
+
+        <section className="detail" ref={detailRef} hidden={!open}>
+          {open && (
+            <>
+              <div className="detail-head">
+                <h2>{open.number}</h2>
+                <div className="detail-actions">
+                  <button className="btn btn-ghost" type="button" onClick={() => setHistOpen(true)}>History</button>
+                  <button
+                    className="btn btn-danger"
+                    type="button"
+                    disabled={locked}
+                    title={locked ? lockTitle : ""}
+                    onClick={() => setDelOpen(true)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+              <p className="detail-meta">
+                <Chip state={open.state} />
+                <span>
+                  {[site === "all" ? SITE_LABEL[open.site] : null, ageLabel(open.createdAt)]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </p>
+              {locked
+                ? <p className="lock-hint">{lockTitle}</p>
+                : <p className="lock-hint" hidden />}
+              <div className="detail-row">
+                <input
+                  className={`name-input${open.state === "assigned" && open.who ? " is-set" : ""}`}
+                  type="text"
+                  autoComplete="off"
+                  placeholder="Name"
+                  aria-label="Name"
+                  value={person}
+                  disabled={locked || open.state === "assigned"}
+                  onChange={(e) => { setPerson(e.target.value); setAssignErr(""); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (open.state === "assigned") void handleUnassign();
+                      else void handleAssign();
+                    }
+                  }}
+                />
+                {open.state === "assigned" ? (
+                  <button className="btn btn-primary" type="button" disabled={locked} title={locked ? lockTitle : ""} onClick={() => void handleUnassign()}>Unassign</button>
+                ) : (
+                  <button className="btn btn-primary" type="button" disabled={locked} title={locked ? lockTitle : ""} onClick={() => void handleAssign()}>Assign</button>
+                )}
+              </div>
+              <p className="pin-err">{assignErr}</p>
+              <div className={`fold${pinOpen ? " is-open" : ""}`}>
+                <button
+                  className="fold-toggle"
+                  type="button"
+                  aria-expanded={pinOpen}
+                  onClick={() => {
+                    setPinOpen((v) => !v);
+                    window.setTimeout(() => {
+                      const row = document.querySelector(".scanner-fleet tr.is-on") as HTMLElement | null;
+                      scrollRowAboveDock(row);
+                    }, 360);
+                  }}
+                >
+                  PIN
+                </button>
+                <div className="fold-body">
+                  <div className="fold-inner">
+                    {open.pin ? (
+                      <div className="pin-current">
+                        <div className="pin-current-label">Current PIN</div>
+                        <div className="pin-current-code">{open.pin}</div>
+                      </div>
+                    ) : (
+                      <div className="pin-current is-empty">
+                        <div className="pin-current-label">Current PIN</div>
+                        <div className="pin-current-code">None</div>
+                      </div>
+                    )}
+                    {pinJobWaiting ? (
+                      <p className="pin-current-when">Waiting for this scanner to apply the PIN.</p>
+                    ) : null}
+                    {pinRemote ? (
+                      <div className="detail-row pin-row">
+                        <input
+                          className="pin-input"
+                          type="password"
+                          inputMode="numeric"
+                          maxLength={6}
+                          autoComplete="new-password"
+                          placeholder="PIN"
+                          aria-label="New PIN"
+                          disabled={locked}
+                          value={pinNew}
+                          onChange={(e) => setPinNew(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              void handleSetPin();
+                            }
+                          }}
+                        />
+                        <input
+                          className="pin-input"
+                          type="password"
+                          inputMode="numeric"
+                          maxLength={6}
+                          autoComplete="new-password"
+                          placeholder="Again"
+                          aria-label="Confirm PIN"
+                          disabled={locked}
+                          value={pinAgain}
+                          onChange={(e) => setPinAgain(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              void handleSetPin();
+                            }
+                          }}
+                        />
+                        <button className="btn btn-primary" type="button" disabled={locked || pinJobWaiting} title={locked ? lockTitle : pinJobWaiting ? "Waiting for this scanner to apply the PIN." : ""} onClick={() => void handleSetPin()}>Set PIN</button>
+                        <button className="btn" type="button" disabled={locked || !open.pin} title={locked ? lockTitle : ""} onClick={() => void handleClearPin()}>Clear PIN</button>
+                      </div>
+                    ) : (
+                      <p className="pin-current-when">{remotePinBlockReason(open)}</p>
+                    )}
+                    <p className="pin-err">{pinErr}</p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </section>
+      </div>
+
+      <div className={`modal${addOpen ? " is-on" : ""}`} aria-hidden={!addOpen} onClick={() => setAddOpen(false)}>
+        <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={(e) => void handleAdd(e)}>
+          <h2>Add Scanner</h2>
+          <label htmlFor="new-wo">WO number</label>
+          <input
+            id="new-wo"
+            ref={woRef}
+            placeholder="W08-011"
+            autoComplete="off"
+            value={newWo}
+            onChange={(e) => { setNewWo(e.target.value); setWoErr(""); }}
+          />
+          <p className="pin-err">{woErr}</p>
+          <div className="detail-row" style={{ marginTop: "1rem" }}>
+            <button className="btn btn-primary" type="submit">Add</button>
+            <button className="btn btn-ghost" type="button" onClick={() => setAddOpen(false)}>Cancel</button>
+          </div>
+        </form>
+      </div>
+
+      <div className={`modal${histOpen ? " is-on" : ""}`} aria-hidden={!histOpen} onClick={() => setHistOpen(false)}>
+        <div className="modal-card history-card" onClick={(e) => e.stopPropagation()}>
+          <div className="history-head">
+            <div>
+              <h2>{open?.number ?? "History"}</h2>
+              <p className="sub">
+                {open ? `Added ${fmtDate(open.createdAt)} · ${ageLabel(open.createdAt)} in fleet` : ""}
+              </p>
+            </div>
+            <button className="btn btn-ghost" type="button" onClick={() => setHistOpen(false)}>Done</button>
+          </div>
+          <div className="hist-body">
+            {open?.pin ? (
+              <div className="pin-now">
+                <div className="pin-now-label">Current PIN</div>
+                <div className="pin-now-code">{open.pin}</div>
+              </div>
+            ) : (
+              <div className="pin-now is-empty">
+                <div className="pin-now-label">Current PIN</div>
+                <div className="pin-now-code">None</div>
+              </div>
+            )}
+            {pastPins.length > 0 && (
+              <>
+                <div className="pin-prev-label">Previous PINs</div>
+                <div className="pin-prev">{pastPins.map((p) => <span key={p} className="pin-chip">{p}</span>)}</div>
+              </>
+            )}
+            <ul className="timeline">
+              {(history ?? []).map((row) => {
+                const kind = row.action;
+                const title =
+                  kind === "assigned" ? "Assigned"
+                  : kind === "unassigned" ? "Unassigned"
+                  : kind === "added" ? "Added"
+                  : kind === "pin_change" ? "PIN set"
+                  : kind === "pin_clear" ? "PIN cleared"
+                  : kind.replace(/_/g, " ");
+                const detail = row.newAssigneeName || row.previousAssigneeName || row.notes || "";
+                const pinish = row.notes && /^\d{4,6}$/.test(row.notes) ? row.notes : "";
+                const dot =
+                  kind === "assigned" || kind === "unassigned" ? "dot-assign"
+                  : kind === "pin_change" || kind === "pin_clear" ? "dot-pin"
+                  : "";
+                return (
+                  <li key={row._id}>
+                    <span className={`dot ${dot}`}></span>
+                    <div>
+                      <div className="tl-title">{title}</div>
+                      {detail && !pinish ? <div className="tl-detail">{detail}</div> : null}
+                      {pinish ? <div className="tl-pin">{pinish}</div> : null}
+                      <div className="tl-when">
+                        {fmtWhen(row.createdAt)}
+                        {kind === "added" ? ` · ${ageLabel(row.createdAt)}` : ""}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div className={`modal${delOpen ? " is-on" : ""}`} aria-hidden={!delOpen} onClick={() => setDelOpen(false)}>
+        <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+          <h2>Delete scanner</h2>
+          <p className="sub" style={{ margin: ".35rem 0 0" }}>{open ? `Remove ${open.number} from the fleet?` : ""}</p>
+          <div className="detail-row" style={{ marginTop: "1rem" }}>
+            <button className="btn btn-danger" type="button" onClick={() => void handleDelete()}>Delete</button>
+            <button className="btn btn-ghost" type="button" onClick={() => setDelOpen(false)}>Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="toast-host" aria-live="polite" aria-atomic="true">
+        {toast && (
+          <div className={`toast ${toast.kind === "ok" ? "toast-ok" : "toast-bad"}${toast.out ? " is-out" : ""}`} role="status">
+            <span className="toast-ico">
+              {toast.kind === "ok" ? (
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9.15 16.35 4.8 12l1.4-1.4 2.95 2.95 7.05-7.05 1.4 1.4z"/></svg>
+              ) : (
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m12 10.6 4.9-4.9 1.4 1.4-4.9 4.9 4.9 4.9-1.4 1.4-4.9-4.9-4.9 4.9-1.4-1.4 4.9-4.9-4.9-4.9 1.4-1.4z"/></svg>
+              )}
+            </span>
+            <span>{toast.text}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function ScannerFleetPage() {
+  return (
+    <Protected>
+      <div className="flex h-screen">
+        <Sidebar />
+        <main className="flex-1 overflow-auto flex flex-col min-w-0">
+          <MobileHeader />
+          <div className="scanner-fleet flex-1 overflow-auto">
+            <ScannerFleetBoard />
+          </div>
+        </main>
+      </div>
+    </Protected>
+  );
 }

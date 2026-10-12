@@ -908,6 +908,7 @@ export default defineSchema({
     locationId: v.id("locations"),
     status: v.string(), // "available" | "assigned" | "maintenance" | "lost" | "retired"
     assignedTo: v.optional(v.id("personnel")),
+    assignedName: v.optional(v.string()), // Typed checkout name when no personnel row matches
     assignedAt: v.optional(v.number()),
     lastMaintenanceDate: v.optional(v.string()),
     purchaseDate: v.optional(v.string()),
