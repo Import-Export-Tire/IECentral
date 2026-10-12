@@ -144,8 +144,14 @@ export function warehouseFromLocationName(name?: string | null): WarehouseCode |
   return null;
 }
 
-export function fleetStatus(status?: string | null): "assigned" | "unassigned" {
+export type FleetState = "assigned" | "unassigned";
+
+export function fleetStatus(status?: string | null): FleetState {
   return status === "assigned" ? "assigned" : "unassigned";
+}
+
+export function fleetStateLabel(state: FleetState): string {
+  return state === "assigned" ? "Assigned" : "Unassigned";
 }
 
 export function canAssignUnit(status?: string | null): boolean {

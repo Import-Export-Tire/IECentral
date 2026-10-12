@@ -300,10 +300,8 @@ export const assignScanner = mutation({
       throw new Error("Scanner not found");
     }
 
-    if (scanner.status !== "available") {
-      throw new Error(
-        `Scanner is not available (current status: ${scanner.status})`
-      );
+    if (scanner.status === "assigned") {
+      throw new Error("Scanner is already assigned");
     }
 
     // Update scanner
@@ -642,14 +640,17 @@ export const changeEquipmentStatus = mutation({
     }
 
     const previousStatus = equipment.status;
+    const newStatus =
+      args.equipmentType === "scanner" && args.newStatus === "maintenance"
+        ? "available"
+        : args.newStatus;
 
-    // If setting to available, clear assignment
     const updates: Record<string, unknown> = {
-      status: args.newStatus,
+      status: newStatus,
       updatedAt: now,
     };
 
-    if (args.newStatus === "available") {
+    if (newStatus === "available") {
       updates.assignedTo = undefined;
       updates.assignedAt = undefined;
     }
@@ -663,7 +664,7 @@ export const changeEquipmentStatus = mutation({
       equipmentId: args.equipmentId,
       action: "status_change",
       previousStatus: previousStatus,
-      newStatus: args.newStatus,
+      newStatus,
       previousAssignee: equipment.assignedTo,
       performedBy: args.userId,
       notes: args.notes,
@@ -945,12 +946,11 @@ export const returnEquipmentWithCheck = mutation({
       createdAt: now,
     });
 
-    // Determine new status
     let newStatus = "available";
-    if (args.repairRequired) {
-      newStatus = "maintenance";
-    } else if (!args.readyForReassignment) {
-      newStatus = "maintenance";
+    if (args.equipmentType !== "scanner") {
+      if (args.repairRequired || !args.readyForReassignment) {
+        newStatus = "maintenance";
+      }
     }
 
     // Update condition notes on equipment

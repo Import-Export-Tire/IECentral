@@ -8,6 +8,8 @@ import {
   canAssignUnit,
   canEditAnywhere,
   canMutateScannerFleet,
+  fleetStateLabel,
+  fleetStatus,
   editorKeyForEmail,
   editorKeyForUserId,
   editorsFromUser,
@@ -123,7 +125,10 @@ describe("assign", () => {
   it("allows assign only when Unassigned", () => {
     expect(canAssignUnit("available")).toBe(true);
     expect(canAssignUnit("unassigned")).toBe(true);
+    expect(canAssignUnit("maintenance")).toBe(true);
     expect(canAssignUnit("assigned")).toBe(false);
+    expect(fleetStatus("maintenance")).toBe("unassigned");
+    expect(fleetStateLabel("unassigned")).toBe("Unassigned");
     expect(assignRejectReason({ status: "assigned", name: "Chris Hale" })).toMatch(/Unassigned/);
     expect(assignRejectReason({ status: "available", name: "" })).toMatch(/name/);
     expect(assignRejectReason({ status: "available", name: "Chris Hale" })).toBeNull();

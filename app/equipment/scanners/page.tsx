@@ -11,8 +11,10 @@ import {
   SITE_LABEL,
   WAREHOUSES,
   ageLabel,
+  assignRejectReason,
   canMutateScannerFleet,
   editorsFromUser,
+  fleetStateLabel,
   fleetStatus,
   fmtDate,
   fmtWhen,
@@ -26,6 +28,7 @@ import {
   setPinClientReject,
   warehouseFromLocationName,
   type EditorIds,
+  type FleetState,
   type SiteFilter,
   type WarehouseCode,
 } from "@/lib/scanners/fleet";
@@ -39,10 +42,10 @@ function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-function Chip({ state }: { state: "assigned" | "unassigned" }) {
+function Chip({ state }: { state: FleetState }) {
   return (
     <span className={`chip chip-${state}`}>
-      <span className="chip-text">{state === "assigned" ? "Assigned" : "Unassigned"}</span>
+      <span className="chip-text">{fleetStateLabel(state)}</span>
     </span>
   );
 }
@@ -122,7 +125,8 @@ function ScannerFleetBoard() {
         };
       })
       .filter((s): s is NonNullable<typeof s> => s !== null)
-      .filter((s) => (site === "all" ? true : s.site === site));
+      .filter((s) => (site === "all" ? true : s.site === site))
+      .sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }));
   }, [scanners, site]);
 
   const shown = useMemo(() => {
@@ -169,6 +173,10 @@ function ScannerFleetBoard() {
     ),
   );
   const pinRemote = open ? canRemoteSetPin(open) : false;
+  const lastPinJob = jobs?.find((j) => j.command === "update_pin");
+  const pinJobFailed = Boolean(
+    pinRemote && lastPinJob?.status === "FAILED" && !pinJobWaiting,
+  );
 
   const showToast = (kind: ToastKind, text: string) => {
     window.clearTimeout(toastHide.current);
@@ -177,7 +185,7 @@ function ScannerFleetBoard() {
     toastHide.current = window.setTimeout(() => {
       setToast((t) => (t ? { ...t, out: true } : t));
       toastClear.current = window.setTimeout(() => setToast(null), prefersReducedMotion() ? 0 : 360);
-    }, 2500);
+    }, kind === "ok" ? 4000 : 2500);
   };
 
   const syncDock = () => {
@@ -254,13 +262,10 @@ function ScannerFleetBoard() {
   const handleAssign = async () => {
     if (!open || !user || locked) return;
     const name = person.trim();
-    if (!name) {
-      setAssignErr("Enter a name.");
-      showToast("bad", "Enter a name.");
-      return;
-    }
-    if (open.state !== "unassigned") {
-      showToast("bad", "Assign only if Unassigned.");
+    const blocked = assignRejectReason({ status: open.status, name });
+    if (blocked) {
+      setAssignErr(blocked);
+      showToast("bad", blocked);
       return;
     }
     try {
@@ -345,20 +350,6 @@ function ScannerFleetBoard() {
       setPinErr(msg);
       showToast("bad", msg);
     }
-  };
-
-  const handleClearPin = async () => {
-    if (!open || !user || locked) return;
-    setPinOpen(true);
-    const blocked = remotePinBlockReason(open);
-    if (blocked) {
-      setPinErr(blocked);
-      showToast("bad", blocked);
-      return;
-    }
-    const msg = mdmPinFailureMessage({ enrolled: Boolean(open.iotThingName) });
-    setPinErr(msg);
-    showToast("bad", msg);
   };
 
   const handleAdd = async (e?: FormEvent) => {
@@ -577,7 +568,7 @@ function ScannerFleetBoard() {
                   placeholder="Name"
                   aria-label="Name"
                   value={person}
-                  disabled={locked || open.state === "assigned"}
+                  disabled={locked || open.state !== "unassigned"}
                   onChange={(e) => { setPerson(e.target.value); setAssignErr(""); }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -624,6 +615,8 @@ function ScannerFleetBoard() {
                     )}
                     {pinJobWaiting ? (
                       <p className="pin-current-when">Waiting for this scanner to apply the PIN.</p>
+                    ) : pinJobFailed ? (
+                      <p className="pin-current-when">PIN did not apply on this scanner.</p>
                     ) : null}
                     {pinRemote ? (
                       <div className="detail-row pin-row">
@@ -664,7 +657,6 @@ function ScannerFleetBoard() {
                           }}
                         />
                         <button className="btn btn-primary" type="button" disabled={locked || pinJobWaiting} title={locked ? lockTitle : pinJobWaiting ? "Waiting for this scanner to apply the PIN." : ""} onClick={() => void handleSetPin()}>Set PIN</button>
-                        <button className="btn" type="button" disabled={locked || !open.pin} title={locked ? lockTitle : ""} onClick={() => void handleClearPin()}>Clear PIN</button>
                       </div>
                     ) : (
                       <p className="pin-current-when">{remotePinBlockReason(open)}</p>
