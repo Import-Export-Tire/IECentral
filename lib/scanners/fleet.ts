@@ -269,7 +269,7 @@ export const PIN_QUEUED_MESSAGE =
   "PIN sent — waiting for the scanner. Current PIN updates when the device reports it.";
 
 export const REMOTE_PIN_UNAVAILABLE =
-  "This scanner cannot change PIN from here. Change it on the device.";
+  "This PIN cannot be changed from the website. The number above is what the scanner uses.";
 
 /** Device Owner only. Enrolled + Device Admin is not enough to change the lock PIN. */
 export function canRemoteSetPin(scanner: {
@@ -284,9 +284,6 @@ export function remotePinBlockReason(scanner: {
   deviceOwner?: boolean | null;
 }): string | null {
   if (canRemoteSetPin(scanner)) return null;
-  if (!scanner.iotThingName) {
-    return "This scanner is not enrolled, so PIN can't be changed from here.";
-  }
   return REMOTE_PIN_UNAVAILABLE;
 }
 

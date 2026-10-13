@@ -179,7 +179,7 @@ describe("PIN", () => {
       REMOTE_PIN_UNAVAILABLE,
     );
     expect(remotePinBlockReason({ iotThingName: "scanner-W08-906", deviceOwner: true })).toBeNull();
-    expect(remotePinBlockReason({ iotThingName: "", deviceOwner: false })).toMatch(/not enrolled/);
+    expect(remotePinBlockReason({ iotThingName: "", deviceOwner: false })).toBe(REMOTE_PIN_UNAVAILABLE);
   });
 
   it("treats a created job as queued, not as the device PIN", () => {
