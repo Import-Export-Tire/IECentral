@@ -213,6 +213,7 @@ export function buildAddScannerDoc(args: {
   locationId: string;
   now: number;
   pin?: string;
+  serialNumber?: string;
 }): {
   number: string;
   locationId: string;
@@ -220,8 +221,10 @@ export function buildAddScannerDoc(args: {
   createdAt: number;
   updatedAt: number;
   pin?: string;
+  serialNumber?: string;
 } {
   const number = args.number.trim().toUpperCase();
+  const serialNumber = args.serialNumber?.trim();
   const doc: {
     number: string;
     locationId: string;
@@ -229,6 +232,7 @@ export function buildAddScannerDoc(args: {
     createdAt: number;
     updatedAt: number;
     pin?: string;
+    serialNumber?: string;
   } = {
     number,
     locationId: args.locationId,
@@ -236,6 +240,7 @@ export function buildAddScannerDoc(args: {
     createdAt: args.now,
     updatedAt: args.now,
   };
+  if (serialNumber) doc.serialNumber = serialNumber;
   // add does not save a pin
   void args.pin;
   return doc;
@@ -243,6 +248,7 @@ export function buildAddScannerDoc(args: {
 
 export function addScannerRejectReason(args: {
   number: string;
+  serialNumber?: string;
   existingNumbers: string[];
 }): string | null {
   const number = args.number.trim().toUpperCase();
@@ -250,6 +256,7 @@ export function addScannerRejectReason(args: {
   if (args.existingNumbers.some((n) => n.trim().toUpperCase() === number)) {
     return `${number} is already in the fleet.`;
   }
+  if (!(args.serialNumber ?? "").trim()) return "Enter a serial number.";
   return null;
 }
 

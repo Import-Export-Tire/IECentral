@@ -283,17 +283,27 @@ export const updateScanner = mutation({
   },
 });
 
-// Assign scanner to personnel
+// Assign scanner by typed name. Personnel link is optional if the name matches a row.
 export const assignScanner = mutation({
   args: {
     scannerId: v.id("scanners"),
-    personnelId: v.id("personnel"),
+    assignedName: v.optional(v.string()),
+    personnelId: v.optional(v.id("personnel")),
     userId: v.id("users"), // Who performed the action
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
+    let name = (args.assignedName ?? "").trim();
+    let personnelId = args.personnelId;
+    if (!name && personnelId) {
+      const person = await ctx.db.get(personnelId);
+      name = person ? `${person.firstName} ${person.lastName}`.trim() : "";
+    }
+    if (!name) {
+      throw new Error("Enter a name.");
+    }
     const scanner = await ctx.db.get(args.scannerId);
 
     if (!scanner) {
@@ -304,25 +314,26 @@ export const assignScanner = mutation({
       throw new Error("Scanner is already assigned");
     }
 
-    // Update scanner
+    // Typed names save as assignedName. Do not scan the personnel table — a
+    // miss used to write `undefined` into Convex and the mutation died.
     await ctx.db.patch(args.scannerId, {
       status: "assigned",
-      assignedTo: args.personnelId,
+      assignedName: name,
       assignedAt: now,
       updatedAt: now,
+      ...(personnelId ? { assignedTo: personnelId } : {}),
     });
 
-    // Create history record
     await ctx.db.insert("equipmentHistory", {
       equipmentType: "scanner",
       equipmentId: args.scannerId,
       action: "assigned",
       previousStatus: scanner.status,
       newStatus: "assigned",
-      newAssignee: args.personnelId,
       performedBy: args.userId,
-      notes: args.notes,
+      notes: args.notes ?? name,
       createdAt: now,
+      ...(personnelId ? { newAssignee: personnelId } : {}),
     });
 
     return { success: true };
@@ -345,7 +356,7 @@ export const unassignScanner = mutation({
       throw new Error("Scanner not found");
     }
 
-    if (!scanner.assignedTo) {
+    if (scanner.status !== "assigned" && !scanner.assignedTo && !scanner.assignedName) {
       throw new Error("Scanner is not assigned to anyone");
     }
 
@@ -355,6 +366,7 @@ export const unassignScanner = mutation({
     await ctx.db.patch(args.scannerId, {
       status: "available",
       assignedTo: undefined,
+      assignedName: undefined,
       assignedAt: undefined,
       updatedAt: now,
     });
@@ -366,10 +378,10 @@ export const unassignScanner = mutation({
       action: "unassigned",
       previousStatus: scanner.status,
       newStatus: "available",
-      previousAssignee: previousAssignee,
       performedBy: args.userId,
-      notes: args.notes,
       createdAt: now,
+      ...(previousAssignee ? { previousAssignee } : {}),
+      ...(args.notes ? { notes: args.notes } : {}),
     });
 
     return { success: true };

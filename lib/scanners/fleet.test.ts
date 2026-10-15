@@ -133,26 +133,46 @@ describe("assign", () => {
     expect(assignRejectReason({ status: "available", name: "" })).toMatch(/name/);
     expect(assignRejectReason({ status: "available", name: "Chris Hale" })).toBeNull();
   });
+
+  it("accepts any typed name and does not require a personnel row", () => {
+    expect(assignRejectReason({ status: "available", name: "Temp from staffing" })).toBeNull();
+    expect(matchPersonnelByName([], "Temp from staffing")).toBeNull();
+  });
 });
 
 describe("add scanner", () => {
   it("creates a row with no PIN, including on an empty fleet", () => {
-    expect(addScannerRejectReason({ number: "W08-001", existingNumbers: [] })).toBeNull();
+    expect(addScannerRejectReason({
+      number: "W08-001",
+      serialNumber: "17039522500218",
+      existingNumbers: [],
+    })).toBeNull();
     const doc = buildAddScannerDoc({
       number: "w08-001",
       locationId: "loc_latrobe",
       now: 1,
       pin: "482917",
+      serialNumber: " 17039522500218 ",
     });
     expect(doc.number).toBe("W08-001");
     expect(doc.status).toBe("available");
     expect(doc.pin).toBeUndefined();
     expect("pin" in doc && doc.pin).toBeFalsy();
+    expect(doc.serialNumber).toBe("17039522500218");
   });
 
   it("rejects a duplicate WO at that warehouse", () => {
-    expect(addScannerRejectReason({ number: "W08-001", existingNumbers: ["W08-001"] })).toMatch(/already/);
+    expect(addScannerRejectReason({
+      number: "W08-001",
+      serialNumber: "17039522500218",
+      existingNumbers: ["W08-001"],
+    })).toMatch(/already/);
     expect(addScannerRejectReason({ number: "", existingNumbers: [] })).toMatch(/WO number/);
+  });
+
+  it("requires a serial number", () => {
+    expect(addScannerRejectReason({ number: "W08-001", serialNumber: "", existingNumbers: [] })).toMatch(/serial/);
+    expect(addScannerRejectReason({ number: "W08-001", existingNumbers: [] })).toMatch(/serial/);
   });
 });
 

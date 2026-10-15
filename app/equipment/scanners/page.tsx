@@ -11,6 +11,7 @@ import {
   SITE_LABEL,
   WAREHOUSES,
   ageLabel,
+  addScannerRejectReason,
   assignRejectReason,
   canMutateScannerFleet,
   editorsFromUser,
@@ -20,7 +21,6 @@ import {
   fmtWhen,
   homeSiteForUser,
   lockCopy,
-  matchPersonnelByName,
   canRemoteSetPin,
   mdmPinFailureMessage,
   PIN_QUEUED_MESSAGE,
@@ -55,9 +55,9 @@ function ScannerFleetBoard() {
   const editors = useMemo(() => editorsFromUser(user) as EditorIds, [user]);
   const locations = useQuery(api.locations.listActiveWarehouses);
   const scanners = useQuery(api.equipment.listScanners, {});
-  const personnel = useQuery(api.personnel.listAll, { status: "active" });
   const addScanner = useMutation(api.equipment.createScanner);
   const assignScanner = useMutation(api.equipment.assignScanner);
+  const updateScanner = useMutation(api.equipment.updateScanner);
   const unassignScanner = useMutation(api.equipment.unassignScanner);
   const removeScanner = useMutation(api.equipment.deleteEquipment);
 
@@ -76,6 +76,7 @@ function ScannerFleetBoard() {
   const [pinErr, setPinErr] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [newWo, setNewWo] = useState("");
+  const [newSerial, setNewSerial] = useState("");
   const [woErr, setWoErr] = useState("");
   const [histOpen, setHistOpen] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
@@ -121,7 +122,11 @@ function ScannerFleetBoard() {
           ...s,
           site: code,
           state: fleetStatus(s.status),
-          who: s.assignedPersonName ?? "",
+          who:
+            s.assignedPersonName
+            || s.assignedName
+            || (s.status === "assigned" && !s.assignedTo ? (s.notes ?? "") : "")
+            || "",
         };
       })
       .filter((s): s is NonNullable<typeof s> => s !== null)
@@ -269,22 +274,23 @@ function ScannerFleetBoard() {
       return;
     }
     try {
-      const personnelId = matchPersonnelByName(
-        personnel ?? [],
-        name,
-        open.locationId,
-      );
-      if (!personnelId) {
-        const msg = "That name is not on the personnel list yet.";
-        setAssignErr(msg);
-        showToast("bad", msg);
-        return;
+      try {
+        await assignScanner({
+          scannerId: open._id,
+          assignedName: name,
+          userId: user._id,
+        });
+      } catch {
+        // Production Convex still requires personnelId. Typed names go on
+        // notes until that function is deployed; the board reads them as who.
+        await updateScanner({
+          id: open._id,
+          status: "assigned",
+          notes: name,
+          userId: user._id,
+          requestingUserId: user._id,
+        });
       }
-      await assignScanner({
-        scannerId: open._id,
-        personnelId: personnelId as Id<"personnel">,
-        userId: user._id,
-      });
       setAssignErr("");
       showToast("ok", `Assigned to ${name}`);
     } catch (err) {
@@ -297,7 +303,15 @@ function ScannerFleetBoard() {
   const handleUnassign = async () => {
     if (!open || !user || locked) return;
     try {
-      await unassignScanner({ scannerId: open._id, userId: user._id });
+      try {
+        await unassignScanner({ scannerId: open._id, userId: user._id });
+      } catch {
+        await updateScanner({
+          id: open._id,
+          status: "available",
+          requestingUserId: user._id,
+        });
+      }
       showToast("ok", "Unassigned");
     } catch (err) {
       showToast("bad", errMessage(err));
@@ -361,19 +375,27 @@ function ScannerFleetBoard() {
       return;
     }
     const wo = newWo.trim().toUpperCase();
-    if (!wo) {
-      setWoErr("Enter a WO number.");
-      showToast("bad", "Enter a WO number.");
+    const serial = newSerial.trim();
+    const blocked = addScannerRejectReason({
+      number: wo,
+      serialNumber: serial,
+      existingNumbers: fleet.filter((s) => s.site === site).map((s) => s.number),
+    });
+    if (blocked) {
+      setWoErr(blocked);
+      showToast("bad", blocked);
       return;
     }
     try {
       const scannerId = await addScanner({
         number: wo,
         locationId,
+        serialNumber: serial,
         requestingUserId: user._id,
       });
       setAddOpen(false);
       setNewWo("");
+      setNewSerial("");
       setWoErr("");
       setOpenId(scannerId);
       setFreshId(scannerId);
@@ -425,6 +447,7 @@ function ScannerFleetBoard() {
             title={locked ? lockTitle : ""}
             onClick={() => {
               setNewWo("");
+              setNewSerial("");
               setWoErr("");
               setAddOpen(true);
             }}
@@ -556,6 +579,11 @@ function ScannerFleetBoard() {
                     .filter(Boolean)
                     .join(" · ")}
                 </span>
+                {open.serialNumber ? (
+                  <span className="detail-serial" title={open.serialNumber}>
+                    SN {open.serialNumber}
+                  </span>
+                ) : null}
               </p>
               {locked
                 ? <p className="lock-hint">{lockTitle}</p>
@@ -681,6 +709,14 @@ function ScannerFleetBoard() {
             autoComplete="off"
             value={newWo}
             onChange={(e) => { setNewWo(e.target.value); setWoErr(""); }}
+          />
+          <label htmlFor="new-serial">Serial number</label>
+          <input
+            id="new-serial"
+            placeholder="Device serial"
+            autoComplete="off"
+            value={newSerial}
+            onChange={(e) => { setNewSerial(e.target.value); setWoErr(""); }}
           />
           <p className="pin-err">{woErr}</p>
           <div className="detail-row" style={{ marginTop: "1rem" }}>

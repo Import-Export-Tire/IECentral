@@ -306,6 +306,14 @@
   color: var(--sf-muted);
   font-size: 14px;
 }
+.scanner-fleet .detail-serial {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 .scanner-fleet .lock-hint {
   margin: -.4rem 0 .75rem;
   font-size: 12.5px;
