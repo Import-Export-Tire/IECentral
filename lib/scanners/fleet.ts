@@ -37,6 +37,17 @@ export function warehouseSiteLabel(args: {
   return args.name;
 }
 
+/** Uniontown is a warehouse in Convex but has no scanners on this board. */
+export function isScannerFleetSite(args: {
+  name: string;
+  code?: string | null;
+}): boolean {
+  const code = (args.code ?? "").trim().toUpperCase();
+  if (code === "W07") return false;
+  const name = args.name.trim().toLowerCase();
+  return name !== "uniontown" && !name.startsWith("uniontown ");
+}
+
 export function joinWarehouseSites(
   locations: Array<{ _id: string; name: string }>,
   configs: Array<{ locationId: string; locationCode?: string | null }>,
@@ -54,6 +65,7 @@ export function joinWarehouseSites(
         label: warehouseSiteLabel({ name: loc.name, code }),
       };
     })
+    .filter((site) => isScannerFleetSite(site))
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
 }
 

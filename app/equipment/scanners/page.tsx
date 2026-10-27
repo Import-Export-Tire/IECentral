@@ -62,8 +62,7 @@ function ScannerFleetBoard() {
   const unassignScanner = useMutation(api.equipment.unassignScanner);
   const removeScanner = useMutation(api.equipment.deleteEquipment);
 
-  const [site, setSite] = useState<SiteFilter>("all");
-  const [homeReady, setHomeReady] = useState(false);
+  const [sitePicked, setSitePicked] = useState<SiteFilter | null>(null);
   const [filter, setFilter] = useState<"all" | "unassigned" | "assigned">("all");
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState<string>("");
@@ -91,12 +90,16 @@ function ScannerFleetBoard() {
     () => joinWarehouseSites(locations ?? [], siteCodes ?? []),
     [locations, siteCodes],
   );
+  const homeSite = useMemo(
+    () => homeSiteForUser(accessUser, warehouses.map((w) => w.locationId)),
+    [accessUser, warehouses],
+  );
+  const site: SiteFilter = sitePicked ?? homeSite;
+  const userId = user?._id;
 
   useEffect(() => {
-    if (homeReady || !user || locations === undefined) return;
-    setSite(homeSiteForUser(accessUser, warehouses.map((w) => w.locationId)));
-    setHomeReady(true);
-  }, [user, accessUser, warehouses, locations, homeReady]);
+    setSitePicked(null);
+  }, [userId]);
 
   const mutateGate = canMutateScannerFleet({ user: accessUser, site });
   const locked = !mutateGate.ok;
@@ -118,7 +121,11 @@ function ScannerFleetBoard() {
           who: row.assignedPersonName || row.assignedName || "",
         };
       })
-      .filter((s) => (site === "all" ? true : s.site === site))
+      .filter((s) =>
+        site === "all"
+          ? warehouses.some((w) => w.locationId === s.site)
+          : s.site === site,
+      )
       .sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }));
   }, [scanners, site, warehouses]);
 
@@ -429,7 +436,7 @@ function ScannerFleetBoard() {
               aria-label="Warehouse"
               value={site}
               onChange={(e) => {
-                setSite(e.target.value as SiteFilter);
+                setSitePicked(e.target.value as SiteFilter);
                 setPinOpen(false);
                 setHistOpen(false);
               }}

@@ -37,7 +37,7 @@ function roleTier(role?: string | null): number {
 
 /** Role default for the Feature Permissions row. Override on the Users screen wins. */
 export function scannerFleetRoleDefault(role?: string | null): boolean {
-  return roleTier(role) >= 4 || role === "warehouse_manager";
+  return roleTier(role) >= 3 || role === "warehouse_manager";
 }
 
 export function scannerFleetGranted(user: ScannerAccessUser): boolean {

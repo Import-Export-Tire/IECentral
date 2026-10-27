@@ -381,7 +381,7 @@ export function getEquipmentPermissions(user: PermissionUser): EquipmentPermissi
     create: tier >= 4 || isWarehouseManager, // T4+ or warehouse_manager
     edit: tier >= 4 || isWarehouseManager, // T4+ or warehouse_manager
     assign: tier >= 4 || isWarehouseManager, // T4+ or warehouse_manager
-    scannerFleet: tier >= 4 || isWarehouseManager, // Users → Feature Permissions; locations from Assigned locations
+    scannerFleet: tier >= 3 || isWarehouseManager, // Director+ or warehouse_manager; Users override still wins
     viewAgreements: tier >= 4, // T4+
     createAgreements: tier >= 4, // T4+
     manageQRCodes: tier >= 4, // T4+

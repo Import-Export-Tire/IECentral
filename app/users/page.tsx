@@ -1034,11 +1034,18 @@ function UsersContent() {
                           ))}
                         </div>
                         {editForm.managedLocationIds.length === 0 && (
-                          <p className="text-amber-600 text-[11px] mt-1">
-                            {getEffectivePermission("equipment.scannerFleet").value
-                              ? "No locations selected — Scanner Fleet stays view-only until you check at least one."
-                              : "No locations selected — shift planning will be empty."}
-                          </p>
+                          <>
+                            {(editForm.role === "warehouse_manager" || editForm.role === "retail_store_manager") && (
+                              <p className="text-amber-600 text-[11px] mt-1">
+                                No locations selected — shift planning will be empty.
+                              </p>
+                            )}
+                            {getEffectivePermission("equipment.scannerFleet").value && (
+                              <p className="text-amber-600 text-[11px] mt-1">
+                                No locations selected — they can change scanners at every warehouse. Check one to limit them and open that warehouse first.
+                              </p>
+                            )}
+                          </>
                         )}
                       </div>
                     )}
