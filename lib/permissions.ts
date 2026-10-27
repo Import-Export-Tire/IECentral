@@ -364,6 +364,7 @@ export interface EquipmentPermissions {
   create: boolean;
   edit: boolean;
   assign: boolean;
+  scannerFleet: boolean;
   viewAgreements: boolean;
   createAgreements: boolean;
   manageQRCodes: boolean;
@@ -380,6 +381,7 @@ export function getEquipmentPermissions(user: PermissionUser): EquipmentPermissi
     create: tier >= 4 || isWarehouseManager, // T4+ or warehouse_manager
     edit: tier >= 4 || isWarehouseManager, // T4+ or warehouse_manager
     assign: tier >= 4 || isWarehouseManager, // T4+ or warehouse_manager
+    scannerFleet: tier >= 4 || isWarehouseManager, // Users → Feature Permissions; locations from Assigned locations
     viewAgreements: tier >= 4, // T4+
     createAgreements: tier >= 4, // T4+
     manageQRCodes: tier >= 4, // T4+
@@ -590,6 +592,7 @@ export const ALL_PERMISSIONS: PermissionDefinition[] = [
   { key: "menu.safetyCheckQR", label: "Safety Check QR", description: "Manage safety check QR codes", category: "equipment" },
   { key: "equipment.create", label: "Create Equipment", description: "Add new equipment records", category: "equipment" },
   { key: "equipment.edit", label: "Edit Equipment", description: "Modify equipment records", category: "equipment" },
+  { key: "equipment.scannerFleet", label: "Scanner Fleet board", description: "Add, assign, return, and set PINs on the Scanner Fleet board at the locations checked under Assigned locations", category: "equipment" },
 
   // Scheduling
   { key: "menu.shiftPlanning", label: "Shift Planning", description: "View and manage shift schedules", category: "scheduling" },

@@ -125,6 +125,7 @@ export function usePermissions(): UsePermissionsResult {
       create: false,
       edit: false,
       assign: false,
+      scannerFleet: false,
       viewAgreements: false,
       createAgreements: false,
       manageQRCodes: false,
