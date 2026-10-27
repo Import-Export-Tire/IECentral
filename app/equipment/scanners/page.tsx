@@ -8,29 +8,25 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import {
-  SITE_LABEL,
-  WAREHOUSES,
   ageLabel,
   addScannerRejectReason,
   assignRejectReason,
   canMutateScannerFleet,
-  editorsFromUser,
   fleetStateLabel,
   fleetStatus,
   fmtDate,
   fmtWhen,
   homeSiteForUser,
+  joinWarehouseSites,
   lockCopy,
   canRemoteSetPin,
   mdmPinFailureMessage,
   PIN_QUEUED_MESSAGE,
   remotePinBlockReason,
   setPinClientReject,
-  warehouseFromLocationName,
-  type EditorIds,
   type FleetState,
+  type ScannerAccessUser,
   type SiteFilter,
-  type WarehouseCode,
 } from "@/lib/scanners/fleet";
 import "./fleet.css";
 
@@ -52,12 +48,17 @@ function Chip({ state }: { state: FleetState }) {
 
 function ScannerFleetBoard() {
   const { user } = useAuth();
-  const editors = useMemo(() => editorsFromUser(user) as EditorIds, [user]);
+  const accessUser = useMemo<ScannerAccessUser>(() => ({
+    role: user?.role,
+    managedLocationIds: (user?.managedLocationIds ?? []).map(String),
+    permissionOverrides: user?.permissionOverrides,
+  }), [user]);
   const locations = useQuery(api.locations.listActiveWarehouses);
+  // listSiteCodes is not on live Convex yet. listMdmConfigs is; join only uses id + code.
+  const siteCodes = useQuery(api.scannerMdm.listMdmConfigs);
   const scanners = useQuery(api.equipment.listScanners, {});
   const addScanner = useMutation(api.equipment.createScanner);
   const assignScanner = useMutation(api.equipment.assignScanner);
-  const updateScanner = useMutation(api.equipment.updateScanner);
   const unassignScanner = useMutation(api.equipment.unassignScanner);
   const removeScanner = useMutation(api.equipment.deleteEquipment);
 
@@ -86,59 +87,46 @@ function ScannerFleetBoard() {
   const toastHide = useRef<number>(0);
   const toastClear = useRef<number>(0);
 
+  const warehouses = useMemo(
+    () => joinWarehouseSites(locations ?? [], siteCodes ?? []),
+    [locations, siteCodes],
+  );
+
   useEffect(() => {
-    if (homeReady || !user) return;
-    setSite(homeSiteForUser(user._id, user.role, editors));
+    if (homeReady || !user || locations === undefined) return;
+    setSite(homeSiteForUser(accessUser, warehouses.map((w) => w.locationId)));
     setHomeReady(true);
-  }, [user, editors, homeReady]);
+  }, [user, accessUser, warehouses, locations, homeReady]);
 
-  const warehouses = useMemo(() => {
-    const rows = locations ?? [];
-    return WAREHOUSES.map((w) => {
-      const loc = rows.find((l) => warehouseFromLocationName(l.name) === w.code);
-      return loc ? { ...w, locationId: loc._id as Id<"locations"> } : null;
-    }).filter((w): w is NonNullable<typeof w> => w !== null);
-  }, [locations]);
-
-  const locationIdForSite = (code: WarehouseCode) =>
-    warehouses.find((w) => w.code === code)?.locationId;
-
-  const mutateGate = canMutateScannerFleet({
-    userId: user?._id,
-    role: user?.role,
-    editors,
-    site,
-  });
+  const mutateGate = canMutateScannerFleet({ user: accessUser, site });
   const locked = !mutateGate.ok;
-  const lockTitle = lockCopy({ userId: user?._id, role: user?.role, editors, site });
+  const lockTitle = lockCopy({ user: accessUser, site });
 
   const fleet = useMemo(() => {
     const list = (scanners ?? []).filter((s) => s.status !== "retired");
+    const byId = new Map(warehouses.map((w) => [w.locationId, w]));
     return list
       .map((s) => {
-        const code = warehouseFromLocationName(s.locationName);
-        if (!code) return null;
+        const warehouse = byId.get(s.locationId);
+        const row = s as typeof s & { assignedName?: string | null };
         return {
           ...s,
-          site: code,
+          site: s.locationId as string,
+          siteCode: warehouse?.code ?? null,
+          siteLabel: warehouse?.label ?? s.locationName,
           state: fleetStatus(s.status),
-          who:
-            s.assignedPersonName
-            || s.assignedName
-            || (s.status === "assigned" && !s.assignedTo ? (s.notes ?? "") : "")
-            || "",
+          who: row.assignedPersonName || row.assignedName || "",
         };
       })
-      .filter((s): s is NonNullable<typeof s> => s !== null)
       .filter((s) => (site === "all" ? true : s.site === site))
       .sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }));
-  }, [scanners, site]);
+  }, [scanners, site, warehouses]);
 
   const shown = useMemo(() => {
     const query = q.trim().toLowerCase();
     return fleet.filter((s) => {
       if (filter !== "all" && s.state !== filter) return false;
-      if (query && !(`${s.number} ${s.who}`).toLowerCase().includes(query)) return false;
+      if (query && !(`${s.number} ${s.who} ${s.siteLabel}`).toLowerCase().includes(query)) return false;
       return true;
     });
   }, [fleet, filter, q]);
@@ -274,23 +262,11 @@ function ScannerFleetBoard() {
       return;
     }
     try {
-      try {
-        await assignScanner({
-          scannerId: open._id,
-          assignedName: name,
-          userId: user._id,
-        });
-      } catch {
-        // Production Convex still requires personnelId. Typed names go on
-        // notes until that function is deployed; the board reads them as who.
-        await updateScanner({
-          id: open._id,
-          status: "assigned",
-          notes: name,
-          userId: user._id,
-          requestingUserId: user._id,
-        });
-      }
+      await assignScanner({
+        scannerId: open._id,
+        assignedName: name,
+        userId: user._id,
+      });
       setAssignErr("");
       showToast("ok", `Assigned to ${name}`);
     } catch (err) {
@@ -303,15 +279,7 @@ function ScannerFleetBoard() {
   const handleUnassign = async () => {
     if (!open || !user || locked) return;
     try {
-      try {
-        await unassignScanner({ scannerId: open._id, userId: user._id });
-      } catch {
-        await updateScanner({
-          id: open._id,
-          status: "available",
-          requestingUserId: user._id,
-        });
-      }
+      await unassignScanner({ scannerId: open._id, userId: user._id });
       showToast("ok", "Unassigned");
     } catch (err) {
       showToast("bad", errMessage(err));
@@ -369,11 +337,7 @@ function ScannerFleetBoard() {
   const handleAdd = async (e?: FormEvent) => {
     e?.preventDefault();
     if (!user || locked || site === "all") return;
-    const locationId = locationIdForSite(site);
-    if (!locationId) {
-      showToast("bad", "That warehouse is not in IECentral yet.");
-      return;
-    }
+    const locationId = site as Id<"locations">;
     const wo = newWo.trim().toUpperCase();
     const serial = newSerial.trim();
     const blocked = addScannerRejectReason({
@@ -471,7 +435,7 @@ function ScannerFleetBoard() {
               }}
             >
               {warehouses.map((w) => (
-                <option key={w.code} value={w.code}>{w.label}</option>
+                <option key={w.locationId} value={w.locationId}>{w.label}</option>
               ))}
               <option value="all">All</option>
             </select>
@@ -534,7 +498,7 @@ function ScannerFleetBoard() {
                     <td className="gutter" aria-hidden="true"></td>
                     <td className="wo col-wo" title={s.number}>{s.number}</td>
                     <td className="gutter gutter-site" aria-hidden="true"></td>
-                    <td className="col-site">{s.site}</td>
+                    <td className="col-site">{s.siteCode ?? s.locationName}</td>
                     <td className="gutter" aria-hidden="true"></td>
                     <td className="col-who">
                       {s.state === "assigned" && s.who
@@ -575,7 +539,7 @@ function ScannerFleetBoard() {
               <p className="detail-meta">
                 <Chip state={open.state} />
                 <span>
-                  {[site === "all" ? SITE_LABEL[open.site] : null, ageLabel(open.createdAt)]
+                  {[site === "all" ? open.siteLabel : null, ageLabel(open.createdAt)]
                     .filter(Boolean)
                     .join(" · ")}
                 </span>

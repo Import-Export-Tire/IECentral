@@ -1,148 +1,97 @@
 import { pinRejectReason } from "./pin";
+import {
+  canEditAnywhere,
+  canMutateScannerFleet,
+  homeSiteForUser,
+  lockCopy,
+  type MutateResult,
+  type ScannerAccessUser,
+} from "./access";
 
-/** Warehouse codes used on Scanner Fleet. Location rows are matched by name, not Convex id. */
-export type WarehouseCode = "W08" | "R10" | "W09";
-export type SiteFilter = WarehouseCode | "all";
-export type EditorKey = "travis" | "mark" | "bill" | "ethan";
+export type SiteFilter = string;
+export type { MutateResult, ScannerAccessUser };
+export {
+  SCANNER_FLEET_PERMISSION,
+  canEditAnywhere,
+  canMutateScannerFleet,
+  homeSiteForUser,
+  lockCopy,
+  scannerFleetGranted,
+  scannerFleetRoleDefault,
+  scopedLocationIds,
+} from "./access";
 
-export const WAREHOUSES = [
-  {
-    code: "W08" as const,
-    label: "W08 · Latrobe",
-    name: "Latrobe",
-    aliases: ["latrobe"],
-  },
-  {
-    code: "R10" as const,
-    label: "R10 · Everson",
-    name: "Everson",
-    aliases: ["everson"],
-  },
-  {
-    code: "W09" as const,
-    label: "W09 · Chestnut",
-    name: "Chestnut",
-    aliases: ["chestnut", "chestnut ridge"],
-  },
-] as const;
-
-export const SITE_LABEL: Record<WarehouseCode, string> = {
-  W08: "W08 · Latrobe",
-  R10: "R10 · Everson",
-  W09: "W09 · Chestnut",
+export type WarehouseSite = {
+  locationId: string;
+  name: string;
+  code: string | null;
+  label: string;
 };
 
-/**
- * Login emails that resolve to the named managers. Lookups are by email
- * (then user._id). Never match the word "Travis" / "Mark" / "Bill" / "Ethan"
- * on a display name.
- */
-export const EDITOR_EMAILS: Record<EditorKey, readonly string[]> = {
-  travis: ["travis@ietires.com", "traviserwin062308@yahoo.com"],
-  mark: ["mark@ietires.com"],
-  bill: ["bill@ietires.com", "williampriceiii@gmail.com"],
-  ethan: ["ethan@ietires.com", "emon.myers13@gmail.com"],
+export function warehouseSiteLabel(args: {
+  name: string;
+  code?: string | null;
+}): string {
+  const code = (args.code ?? "").trim();
+  if (code) return `${code} · ${args.name}`;
+  return args.name;
+}
+
+export function joinWarehouseSites(
+  locations: Array<{ _id: string; name: string }>,
+  configs: Array<{ locationId: string; locationCode?: string | null }>,
+): WarehouseSite[] {
+  const codeByLocation = new Map(
+    configs.map((c) => [c.locationId, (c.locationCode ?? "").trim() || null]),
+  );
+  return locations
+    .map((loc) => {
+      const code = codeByLocation.get(loc._id) ?? null;
+      return {
+        locationId: loc._id,
+        name: loc.name,
+        code,
+        label: warehouseSiteLabel({ name: loc.name, code }),
+      };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+}
+
+/** Floor-staff departments that may hold a warehouse scanner. Not login users. */
+export function isWarehouseAssigneeDepartment(department?: string | null): boolean {
+  const d = (department ?? "").trim().toLowerCase();
+  if (!d) return false;
+  if (/\bretail\b/.test(d) && !/\bwarehouse\b/.test(d)) return false;
+  return /\bwarehouse\b/.test(d) || /\bshipping\b/.test(d) || /\breceiving\b/.test(d);
+}
+
+export type AssigneeOption = {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  department?: string | null;
+  locationId?: string | null;
+  status?: string | null;
 };
 
-export const EDITOR_HOMES: Record<EditorKey, WarehouseCode> = {
-  travis: "W08",
-  mark: "R10",
-  bill: "W09",
-  ethan: "R10",
-};
-
-export type EditorIds = {
-  travis?: string;
-  mark?: string;
-  bill?: string;
-  ethan?: string;
-};
+export function filterAssignees(
+  people: AssigneeOption[],
+  args: { locationId: string; query?: string },
+): AssigneeOption[] {
+  const query = (args.query ?? "").trim().toLowerCase();
+  return people.filter((p) => {
+    if (p.status && p.status !== "active") return false;
+    if (p.locationId !== args.locationId) return false;
+    if (!isWarehouseAssigneeDepartment(p.department)) return false;
+    if (!query) return true;
+    return personnelFullName(p.firstName, p.lastName).toLowerCase().includes(query);
+  });
+}
 
 export type FleetUser = {
   _id?: string;
   role?: string | null;
 };
-
-export type MutateResult = { ok: true } | { ok: false; reason: string };
-
-export function normalizeEmail(email?: string | null): string {
-  return (email ?? "").trim().toLowerCase();
-}
-
-export function editorKeyForEmail(email?: string | null): EditorKey | null {
-  const needle = normalizeEmail(email);
-  if (!needle) return null;
-  for (const key of Object.keys(EDITOR_EMAILS) as EditorKey[]) {
-    if (EDITOR_EMAILS[key].some((e) => e.toLowerCase() === needle)) return key;
-  }
-  return null;
-}
-
-export function resolveEditorIds(
-  people: Array<{ _id: string; email?: string | null }>,
-): EditorIds {
-  const ids: EditorIds = {};
-  for (const person of people) {
-    const key = editorKeyForEmail(person.email);
-    if (key && !ids[key]) ids[key] = person._id;
-  }
-  return ids;
-}
-
-/** Logged-in user only. Does not need a Convex editors query. */
-export function editorsFromUser(
-  user?: { _id?: string; email?: string | null } | null,
-): EditorIds {
-  if (!user?._id) return {};
-  const key = editorKeyForEmail(user.email);
-  if (!key) return {};
-  return { [key]: user._id };
-}
-
-export function matchPersonnelByName(
-  people: Array<{
-    _id: string;
-    firstName: string;
-    lastName: string;
-    locationId?: string | null;
-  }>,
-  name: string,
-  locationId?: string,
-): string | null {
-  const matches = people.filter((p) =>
-    namesEqual(personnelFullName(p.firstName, p.lastName), name),
-  );
-  if (!matches.length) return null;
-  if (locationId) {
-    const here = matches.find((p) => p.locationId === locationId);
-    if (here) return here._id;
-  }
-  return matches[0]._id;
-}
-
-export function editorKeyForUserId(
-  userId: string | undefined,
-  editors: EditorIds,
-): EditorKey | null {
-  if (!userId) return null;
-  for (const key of Object.keys(editors) as EditorKey[]) {
-    if (editors[key] === userId) return key;
-  }
-  return null;
-}
-
-export function isAdminRole(role?: string | null): boolean {
-  return role === "admin" || role === "super_admin";
-}
-
-export function warehouseFromLocationName(name?: string | null): WarehouseCode | null {
-  const n = (name ?? "").trim().toLowerCase();
-  if (!n) return null;
-  for (const site of WAREHOUSES) {
-    if (site.aliases.some((alias) => alias === n) || site.name.toLowerCase() === n) return site.code;
-  }
-  return null;
-}
 
 export type FleetState = "assigned" | "unassigned";
 
@@ -156,56 +105,6 @@ export function fleetStateLabel(state: FleetState): string {
 
 export function canAssignUnit(status?: string | null): boolean {
   return fleetStatus(status) === "unassigned";
-}
-
-export function homeSiteForUser(
-  userId: string | undefined,
-  role: string | null | undefined,
-  editors: EditorIds,
-): SiteFilter {
-  const key = editorKeyForUserId(userId, editors);
-  if (key) return EDITOR_HOMES[key];
-  if (isAdminRole(role)) return "all";
-  return "all";
-}
-
-export function canMutateScannerFleet(args: {
-  userId?: string;
-  role?: string | null;
-  editors: EditorIds;
-  site: SiteFilter;
-}): MutateResult {
-  if (args.site === "all") {
-    return { ok: false, reason: "Pick a warehouse to make changes." };
-  }
-  if (isAdminRole(args.role)) return { ok: true };
-  const key = editorKeyForUserId(args.userId, args.editors);
-  if (key === "travis" || key === "mark" || key === "bill") return { ok: true };
-  if (key === "ethan") {
-    if (args.site === "R10") return { ok: true };
-    return { ok: false, reason: `You can only change scanners at ${SITE_LABEL.R10}.` };
-  }
-  return { ok: false, reason: "You can view this list, not change it." };
-}
-
-export function lockCopy(args: {
-  userId?: string;
-  role?: string | null;
-  editors: EditorIds;
-  site: SiteFilter;
-}): string {
-  const result = canMutateScannerFleet(args);
-  return result.ok ? "" : result.reason;
-}
-
-export function canEditAnywhere(
-  userId: string | undefined,
-  role: string | null | undefined,
-  editors: EditorIds,
-): boolean {
-  if (isAdminRole(role)) return true;
-  const key = editorKeyForUserId(userId, editors);
-  return key === "travis" || key === "mark" || key === "bill" || key === "ethan";
 }
 
 export function buildAddScannerDoc(args: {
@@ -262,10 +161,15 @@ export function addScannerRejectReason(args: {
 
 export function assignRejectReason(args: {
   status?: string | null;
-  name: string;
+  name?: string | null;
 }): string | null {
   if (!canAssignUnit(args.status)) return "Assign only if Unassigned.";
-  if (!args.name.trim()) return "Enter a name.";
+  if (!(args.name ?? "").trim()) return "Enter a name.";
+  return null;
+}
+
+export function unassignConditionReason(condition?: string | null): string | null {
+  if (!(condition ?? "").trim()) return "Enter the condition.";
   return null;
 }
 

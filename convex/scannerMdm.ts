@@ -574,6 +574,23 @@ export const recordJob = mutation({
       createdBy: args.createdBy,
     });
 
+    if (args.command === "update_pin" && args.createdBy) {
+      const nextPin =
+        args.payload && typeof args.payload === "object" && "pin" in args.payload
+          ? String((args.payload as { pin?: unknown }).pin ?? "")
+          : "";
+      await ctx.db.insert("equipmentHistory", {
+        equipmentType: "scanner",
+        equipmentId: args.scannerId,
+        action: "pin_change",
+        previousStatus: scanner.status,
+        newStatus: scanner.status,
+        performedBy: args.createdBy,
+        notes: `PIN changed from "${scanner.pin || "(none)"}" to "${nextPin || "(none)"}"`,
+        createdAt: now,
+      });
+    }
+
     return { id };
   },
 });
@@ -683,6 +700,19 @@ export const listMdmConfigs = query({
         };
       })
     );
+  },
+});
+
+// Site codes only. Do not return Wi-Fi or other MDM secrets to the board.
+export const listSiteCodes = query({
+  args: {},
+  handler: async (ctx) => {
+    const configs = await ctx.db.query("scannerMdmConfigs").collect();
+    return configs.map((c) => ({
+      locationId: c.locationId,
+      locationCode: c.locationCode,
+      defaultDeviceIdPrefix: c.defaultDeviceIdPrefix,
+    }));
   },
 });
 

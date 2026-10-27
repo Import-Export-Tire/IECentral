@@ -5,14 +5,19 @@ import { Id } from "@/convex/_generated/dataModel";
 import { pinRejectReason } from "@/lib/scanners/pin";
 import { canRemoteSetPin, REMOTE_PIN_UNAVAILABLE } from "@/lib/scanners/fleet";
 
-const API_GATEWAY_URL =
-  process.env.SCANNER_MDM_API_GATEWAY_URL ||
-  "https://7brylwlei6.execute-api.us-east-1.amazonaws.com/prod";
+function getApiGatewayUrl() {
+  const url = process.env.SCANNER_MDM_API_GATEWAY_URL;
+  if (!url) {
+    throw new Error("SCANNER_MDM_API_GATEWAY_URL is not set");
+  }
+  return url;
+}
 
 function getConvexClient() {
-  const url =
-    process.env.NEXT_PUBLIC_CONVEX_URL ||
-    "https://outstanding-dalmatian-787.convex.cloud";
+  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!url) {
+    throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
+  }
   return new ConvexHttpClient(url);
 }
 
@@ -105,7 +110,7 @@ export async function POST(request: NextRequest) {
       requestingUserId: _requestingUserId,
       ...forwarded
     } = body;
-    const res = await fetch(`${API_GATEWAY_URL}/scanner-mdm/job`, {
+    const res = await fetch(`${getApiGatewayUrl()}/scanner-mdm/job`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(forwarded),

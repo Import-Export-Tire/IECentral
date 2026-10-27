@@ -909,6 +909,7 @@ export default defineSchema({
     status: v.string(), // "available" | "assigned" | "maintenance" | "lost" | "retired"
     assignedTo: v.optional(v.id("personnel")),
     assignedName: v.optional(v.string()), // Typed checkout name when no personnel row matches
+    assignedHolderId: v.optional(v.id("scannerFloorHolders")),
     assignedAt: v.optional(v.number()),
     lastMaintenanceDate: v.optional(v.string()),
     purchaseDate: v.optional(v.string()),
@@ -1059,6 +1060,18 @@ export default defineSchema({
       }),
     ),
   }).index("by_scanner", ["scannerId"]),
+
+  // Floor checkout names. Warehouse scanners are handed to people who are not
+  // in `personnel` and often never will be. One row per typed name at a site.
+  scannerFloorHolders: defineTable({
+    name: v.string(),
+    normalizedName: v.string(),
+    locationId: v.id("locations"),
+    createdAt: v.number(),
+    createdBy: v.id("users"),
+  })
+    .index("by_location", ["locationId"])
+    .index("by_location_name", ["locationId", "normalizedName"]),
 
   // Pickers (order picking devices/equipment)
   pickers: defineTable({

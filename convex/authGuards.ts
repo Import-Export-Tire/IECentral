@@ -22,6 +22,7 @@
 
 import type { Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
+import { canMutateScannerFleet } from "../lib/scanners/access";
 
 const ADMIN_ROLES = new Set(["super_admin", "admin"]);
 const PERSONNEL_MANAGER_ROLES = new Set([
@@ -170,6 +171,35 @@ const ROLE_TIER: Record<string, number> = {
 /** Non-throwing tier lookup for a role (0 if unknown). */
 export function tierOf(role: string): number {
   return ROLE_TIER[role] ?? 0;
+}
+
+/**
+ * Scanner Fleet writes. Feature permission equipment.scannerFleet (Users →
+ * Edit → Feature Permissions) plus Assigned locations on that screen.
+ */
+export async function requireScannerFleetManage(
+  ctx: AnyCtx,
+  requestingUserId: Id<"users">,
+  locationId: Id<"locations">,
+): Promise<void> {
+  const user = await ctx.db.get(requestingUserId);
+  if (!user) {
+    throw new Error("Unauthorized: requesting user not found");
+  }
+  if (user.isActive === false) {
+    throw new Error("Unauthorized: account is inactive");
+  }
+  const result = canMutateScannerFleet({
+    user: {
+      role: user.role,
+      managedLocationIds: user.managedLocationIds,
+      permissionOverrides: user.permissionOverrides,
+    },
+    site: locationId,
+  });
+  if (!result.ok) {
+    throw new Error(result.reason);
+  }
 }
 
 /**

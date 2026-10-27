@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
-import { requireAdmin, requireManagePersonnel, requireMinTier } from "./authGuards";
+import { requireAdmin, requireManagePersonnel, requireMinTier, requireScannerFleetManage } from "./authGuards";
+import { isWarehouseAssigneeDepartment } from "../lib/scanners/fleet";
 
 // ============ SCANNER QUERIES ============
 
@@ -34,13 +35,16 @@ export const listScanners = query({
         const assignedPerson = scanner.assignedTo
           ? await ctx.db.get(scanner.assignedTo)
           : null;
+        const holder = scanner.assignedHolderId
+          ? await ctx.db.get(scanner.assignedHolderId)
+          : null;
 
         return {
           ...scanner,
           locationName: location?.name ?? "Unknown",
           assignedPersonName: assignedPerson
             ? `${assignedPerson.firstName} ${assignedPerson.lastName}`
-            : scanner.assignedName ?? null,
+            : holder?.name ?? scanner.assignedName ?? null,
         };
       })
     );
@@ -58,13 +62,16 @@ export const getScanner = query({
     const assignedPerson = scanner.assignedTo
       ? await ctx.db.get(scanner.assignedTo)
       : null;
+    const holder = scanner.assignedHolderId
+      ? await ctx.db.get(scanner.assignedHolderId)
+      : null;
 
     return {
       ...scanner,
       locationName: location?.name ?? "Unknown",
       assignedPersonName: assignedPerson
         ? `${assignedPerson.firstName} ${assignedPerson.lastName}`
-        : scanner.assignedName ?? null,
+        : holder?.name ?? scanner.assignedName ?? null,
     };
   },
 });
@@ -195,7 +202,7 @@ export const createScanner = mutation({
     requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    await requireManagePersonnel(ctx, args.requestingUserId);
+    await requireScannerFleetManage(ctx, args.requestingUserId, args.locationId);
     const now = Date.now();
 
     // Check if scanner number already exists at this location
@@ -244,7 +251,6 @@ export const updateScanner = mutation({
     requestingUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    await requireManagePersonnel(ctx, args.requestingUserId);
     const { id, userId, requestingUserId: _ignored, ...updates } = args;
     const now = Date.now();
 
@@ -253,6 +259,7 @@ export const updateScanner = mutation({
     if (!currentScanner) {
       throw new Error("Scanner not found");
     }
+    await requireScannerFleetManage(ctx, args.requestingUserId, currentScanner.locationId);
 
     // Check if PIN is being changed and log it
     if (updates.pin !== undefined && updates.pin !== currentScanner.pin && userId) {
@@ -283,20 +290,25 @@ export const updateScanner = mutation({
   },
 });
 
-// Assign scanner by typed name. Personnel link is optional if the name matches a row.
+// Assign scanner by typed name. Floor staff often are not in personnel.
 export const assignScanner = mutation({
   args: {
     scannerId: v.id("scanners"),
     assignedName: v.optional(v.string()),
     personnelId: v.optional(v.id("personnel")),
-    userId: v.id("users"), // Who performed the action
+    userId: v.id("users"),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
+    const scanner = await ctx.db.get(args.scannerId);
+    if (!scanner) {
+      throw new Error("Scanner not found");
+    }
+    await requireScannerFleetManage(ctx, args.userId, scanner.locationId);
+
     let name = (args.assignedName ?? "").trim();
-    let personnelId = args.personnelId;
+    const personnelId = args.personnelId;
     if (!name && personnelId) {
       const person = await ctx.db.get(personnelId);
       name = person ? `${person.firstName} ${person.lastName}`.trim() : "";
@@ -304,21 +316,32 @@ export const assignScanner = mutation({
     if (!name) {
       throw new Error("Enter a name.");
     }
-    const scanner = await ctx.db.get(args.scannerId);
-
-    if (!scanner) {
-      throw new Error("Scanner not found");
-    }
 
     if (scanner.status === "assigned") {
       throw new Error("Scanner is already assigned");
     }
 
-    // Typed names save as assignedName. Do not scan the personnel table — a
-    // miss used to write `undefined` into Convex and the mutation died.
+    const normalizedName = name.toLowerCase();
+    const existingHolder = await ctx.db
+      .query("scannerFloorHolders")
+      .withIndex("by_location_name", (q) =>
+        q.eq("locationId", scanner.locationId).eq("normalizedName", normalizedName),
+      )
+      .first();
+    const holderId =
+      existingHolder?._id ??
+      (await ctx.db.insert("scannerFloorHolders", {
+        name,
+        normalizedName,
+        locationId: scanner.locationId,
+        createdAt: now,
+        createdBy: args.userId,
+      }));
+
     await ctx.db.patch(args.scannerId, {
       status: "assigned",
       assignedName: name,
+      assignedHolderId: holderId,
       assignedAt: now,
       updatedAt: now,
       ...(personnelId ? { assignedTo: personnelId } : {}),
@@ -340,7 +363,7 @@ export const assignScanner = mutation({
   },
 });
 
-// Unassign scanner from personnel
+// Unassign scanner: clear typed holder and personnel, revoke a live agreement if any.
 export const unassignScanner = mutation({
   args: {
     scannerId: v.id("scanners"),
@@ -348,13 +371,13 @@ export const unassignScanner = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireManagePersonnel(ctx, args.userId);
     const now = Date.now();
     const scanner = await ctx.db.get(args.scannerId);
 
     if (!scanner) {
       throw new Error("Scanner not found");
     }
+    await requireScannerFleetManage(ctx, args.userId, scanner.locationId);
 
     if (scanner.status !== "assigned" && !scanner.assignedTo && !scanner.assignedName) {
       throw new Error("Scanner is not assigned to anyone");
@@ -362,16 +385,34 @@ export const unassignScanner = mutation({
 
     const previousAssignee = scanner.assignedTo;
 
-    // Update scanner
     await ctx.db.patch(args.scannerId, {
       status: "available",
       assignedTo: undefined,
       assignedName: undefined,
+      assignedHolderId: undefined,
       assignedAt: undefined,
       updatedAt: now,
     });
 
-    // Create history record
+    if (previousAssignee) {
+      const agreements = await ctx.db
+        .query("equipmentAgreements")
+        .withIndex("by_equipment", (q) =>
+          q.eq("equipmentType", "scanner").eq("equipmentId", args.scannerId)
+        )
+        .collect();
+      const activeAgreement = agreements.find(
+        (a) => a.personnelId === previousAssignee && !a.revokedAt
+      );
+      if (activeAgreement) {
+        await ctx.db.patch(activeAgreement._id, {
+          revokedAt: now,
+          revokedBy: args.userId,
+          revokedReason: "Equipment returned",
+        });
+      }
+    }
+
     await ctx.db.insert("equipmentHistory", {
       equipmentType: "scanner",
       equipmentId: args.scannerId,
@@ -380,8 +421,8 @@ export const unassignScanner = mutation({
       newStatus: "available",
       performedBy: args.userId,
       createdAt: now,
-      ...(previousAssignee ? { previousAssignee } : {}),
       ...(args.notes ? { notes: args.notes } : {}),
+      ...(previousAssignee ? { previousAssignee } : {}),
     });
 
     return { success: true };
@@ -833,6 +874,9 @@ export const assignEquipmentWithAgreement = mutation({
     if (!equipment) {
       throw new Error(`${args.equipmentType} not found`);
     }
+    if (args.equipmentType === "scanner") {
+      await requireScannerFleetManage(ctx, args.userId, equipment.locationId);
+    }
 
     if (equipment.status !== "available") {
       throw new Error(
@@ -1145,6 +1189,33 @@ export const listActivePersonnel = query({
       position: p.position,
       department: p.department,
     }));
+  },
+});
+
+// Slim warehouse-floor picker for Scanner Fleet. Name, department, location, status only.
+export const listScannerAssignees = query({
+  args: { locationId: v.id("locations") },
+  handler: async (ctx, args) => {
+    const personnel = await ctx.db
+      .query("personnel")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
+      .collect();
+
+    return personnel
+      .filter(
+        (p) =>
+          p.locationId === args.locationId &&
+          isWarehouseAssigneeDepartment(p.department),
+      )
+      .map((p) => ({
+        _id: p._id,
+        firstName: p.firstName,
+        lastName: p.lastName,
+        department: p.department,
+        locationId: p.locationId,
+        status: p.status,
+      }))
+      .sort((a, b) => a.lastName.localeCompare(b.lastName));
   },
 });
 
