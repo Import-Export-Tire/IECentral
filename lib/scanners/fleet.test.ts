@@ -15,6 +15,8 @@ import {
   homeSiteForUser,
   isWarehouseAssigneeDepartment,
   joinWarehouseSites,
+  sitesForBoard,
+  assignedHolderBackfill,
   canRemoteSetPin,
   mdmPinFailureMessage,
   PIN_QUEUED_MESSAGE,
@@ -101,6 +103,47 @@ describe("joinWarehouseSites", () => {
   it("does not invent a site code when MDM has no row", () => {
     expect(warehouseSiteLabel({ name: "Uniontown" })).toBe("Uniontown");
     expect(warehouseSiteLabel({ name: "Uniontown", code: "  " })).toBe("Uniontown");
+  });
+});
+
+describe("sitesForBoard", () => {
+  it("keeps an existing scanner whose location is missing from the warehouse list", () => {
+    const sites = sitesForBoard({
+      locations: [{ _id: LOC_LATROBE, name: "Latrobe" }],
+      configs: [{ locationId: LOC_EVERSON, locationCode: "R10" }],
+      scanners: [
+        { locationId: LOC_EVERSON, locationName: "Everson", status: "assigned" },
+        { locationId: LOC_UNIONTOWN, locationName: "Uniontown", status: "available" },
+      ],
+    });
+    expect(sites.map((s) => s.locationId)).toContain(LOC_EVERSON);
+    expect(sites.map((s) => s.locationId)).not.toContain(LOC_UNIONTOWN);
+    expect(sites.find((s) => s.locationId === LOC_EVERSON)?.label).toBe("R10 · Everson");
+  });
+});
+
+describe("assignedHolderBackfill", () => {
+  it("copies a personnel name onto typed-name fields and skips rows that already have both", () => {
+    expect(assignedHolderBackfill({
+      assignedName: null,
+      assignedHolderId: null,
+      personnelName: "Chris Hale",
+    })).toEqual({ name: "Chris Hale" });
+    expect(assignedHolderBackfill({
+      assignedName: "Chris Hale",
+      assignedHolderId: null,
+      personnelName: "Chris Hale",
+    })).toEqual({ name: "Chris Hale" });
+    expect(assignedHolderBackfill({
+      assignedName: "Chris Hale",
+      assignedHolderId: "holder1",
+      personnelName: "Chris Hale",
+    })).toBeNull();
+    expect(assignedHolderBackfill({
+      assignedName: null,
+      assignedHolderId: null,
+      personnelName: "",
+    })).toBeNull();
   });
 });
 

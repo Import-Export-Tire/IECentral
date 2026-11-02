@@ -1,8 +1,38 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, type MutationCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { requireAdmin, requireManagePersonnel, requireMinTier, requireScannerFleetManage } from "./authGuards";
-import { isWarehouseAssigneeDepartment } from "../lib/scanners/fleet";
+import {
+  addScannerRejectReason,
+  assignedHolderBackfill,
+  isWarehouseAssigneeDepartment,
+} from "../lib/scanners/fleet";
+
+async function ensureFloorHolder(
+  ctx: MutationCtx,
+  args: {
+    name: string;
+    locationId: Id<"locations">;
+    createdBy: Id<"users">;
+    now: number;
+  },
+): Promise<Id<"scannerFloorHolders">> {
+  const normalizedName = args.name.toLowerCase();
+  const existing = await ctx.db
+    .query("scannerFloorHolders")
+    .withIndex("by_location_name", (q) =>
+      q.eq("locationId", args.locationId).eq("normalizedName", normalizedName),
+    )
+    .first();
+  if (existing) return existing._id;
+  return await ctx.db.insert("scannerFloorHolders", {
+    name: args.name,
+    normalizedName,
+    locationId: args.locationId,
+    createdAt: args.now,
+    createdBy: args.createdBy,
+  });
+}
 
 // ============ SCANNER QUERIES ============
 
@@ -204,6 +234,8 @@ export const createScanner = mutation({
   handler: async (ctx, args) => {
     await requireScannerFleetManage(ctx, args.requestingUserId, args.locationId);
     const now = Date.now();
+    const number = args.number.trim().toUpperCase();
+    const serialNumber = args.serialNumber?.trim();
 
     // Check if scanner number already exists at this location
     const existing = await ctx.db
@@ -211,16 +243,19 @@ export const createScanner = mutation({
       .withIndex("by_location", (q) => q.eq("locationId", args.locationId))
       .collect();
 
-    if (existing.some((s) => s.number === args.number)) {
-      throw new Error(
-        `Scanner #${args.number} already exists at this location`
-      );
+    const blocked = addScannerRejectReason({
+      number,
+      serialNumber,
+      existingNumbers: existing.map((s) => s.number),
+    });
+    if (blocked) {
+      throw new Error(blocked);
     }
 
     return await ctx.db.insert("scanners", {
-      number: args.number,
+      number,
       pin: args.pin,
-      serialNumber: args.serialNumber,
+      serialNumber,
       model: args.model,
       locationId: args.locationId,
       status: "available",
@@ -321,22 +356,12 @@ export const assignScanner = mutation({
       throw new Error("Scanner is already assigned");
     }
 
-    const normalizedName = name.toLowerCase();
-    const existingHolder = await ctx.db
-      .query("scannerFloorHolders")
-      .withIndex("by_location_name", (q) =>
-        q.eq("locationId", scanner.locationId).eq("normalizedName", normalizedName),
-      )
-      .first();
-    const holderId =
-      existingHolder?._id ??
-      (await ctx.db.insert("scannerFloorHolders", {
-        name,
-        normalizedName,
-        locationId: scanner.locationId,
-        createdAt: now,
-        createdBy: args.userId,
-      }));
+    const holderId = await ensureFloorHolder(ctx, {
+      name,
+      locationId: scanner.locationId,
+      createdBy: args.userId,
+      now,
+    });
 
     await ctx.db.patch(args.scannerId, {
       status: "assigned",
@@ -426,6 +451,48 @@ export const unassignScanner = mutation({
     });
 
     return { success: true };
+  },
+});
+
+// One-time: copy personnel checkouts onto assignedName / scannerFloorHolders.
+// Same `scanners` rows — does not create new devices or rewrite history.
+export const backfillAssignedScannerNames = mutation({
+  args: { requestingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.requestingUserId);
+    const scanners = await ctx.db.query("scanners").collect();
+    const now = Date.now();
+    let patched = 0;
+    let holdersCreated = 0;
+    for (const scanner of scanners) {
+      let personnelName = "";
+      if (scanner.assignedTo) {
+        const person = await ctx.db.get(scanner.assignedTo);
+        personnelName = person
+          ? `${person.firstName} ${person.lastName}`.trim()
+          : "";
+      }
+      const plan = assignedHolderBackfill({
+        assignedName: scanner.assignedName,
+        assignedHolderId: scanner.assignedHolderId,
+        personnelName,
+      });
+      if (!plan) continue;
+      const beforeHolders = scanner.assignedHolderId;
+      const holderId = await ensureFloorHolder(ctx, {
+        name: plan.name,
+        locationId: scanner.locationId,
+        createdBy: args.requestingUserId,
+        now,
+      });
+      if (!beforeHolders && holderId) holdersCreated += 1;
+      await ctx.db.patch(scanner._id, {
+        assignedName: plan.name,
+        assignedHolderId: holderId,
+      });
+      patched += 1;
+    }
+    return { patched, holdersCreated };
   },
 });
 

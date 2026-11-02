@@ -2,6 +2,10 @@
 
 Warehouse managers use `/equipment/scanners`. Add a scanner, type who has it, send a PIN job, then unassign it.
 
+Existing devices stay on the same `scanners` table. There is no copy into a new list. WO number, serial, current PIN, location, assigned state, who has it, and `equipmentHistory` are the rows already in Convex. The board reads them as-is. Uniontown is still omitted.
+
+Personnel checkouts get `assignedName` / `scannerFloorHolders` filled the first time an admin opens the board (`backfillAssignedScannerNames`). That does not rewrite history or create duplicate scanners.
+
 ## Flow
 
 1. **Create** — pick a warehouse, Add Scanner, WO number + serial. Writes a `scanners` row (`status: available`). Site is `locationId`, joined to `scannerMdmConfigs.locationCode` when that row exists. Uniontown is omitted; there are no scanners there.

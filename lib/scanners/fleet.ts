@@ -69,6 +69,53 @@ export function joinWarehouseSites(
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
 }
 
+/** Warehouse list plus any site that already has a live scanner, so existing units never vanish. */
+export function sitesForBoard(args: {
+  locations: Array<{ _id: string; name: string }>;
+  configs: Array<{ locationId: string; locationCode?: string | null }>;
+  scanners?: Array<{
+    locationId: string;
+    locationName?: string | null;
+    status?: string | null;
+  }>;
+}): WarehouseSite[] {
+  const sites = joinWarehouseSites(args.locations, args.configs);
+  const known = new Set(sites.map((s) => s.locationId));
+  const codeByLocation = new Map(
+    args.configs.map((c) => [c.locationId, (c.locationCode ?? "").trim() || null]),
+  );
+  for (const scanner of args.scanners ?? []) {
+    if (scanner.status === "retired") continue;
+    const locationId = String(scanner.locationId);
+    if (known.has(locationId)) continue;
+    const name = (scanner.locationName ?? "").trim() || "Unknown";
+    const code = codeByLocation.get(locationId) ?? null;
+    if (!isScannerFleetSite({ name, code })) continue;
+    sites.push({
+      locationId,
+      name,
+      code,
+      label: warehouseSiteLabel({ name, code }),
+    });
+    known.add(locationId);
+  }
+  return sites.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+}
+
+/** Personnel checkouts that are missing typed-name fields. Same scanners table; no copy. */
+export function assignedHolderBackfill(scanner: {
+  assignedName?: string | null;
+  assignedHolderId?: string | null;
+  personnelName?: string | null;
+}): { name: string } | null {
+  const assignedName = (scanner.assignedName ?? "").trim();
+  const personnelName = (scanner.personnelName ?? "").trim();
+  const name = assignedName || personnelName;
+  if (!name) return null;
+  if (assignedName && scanner.assignedHolderId) return null;
+  return { name };
+}
+
 /** Floor-staff departments that may hold a warehouse scanner. Not login users. */
 export function isWarehouseAssigneeDepartment(department?: string | null): boolean {
   const d = (department ?? "").trim().toLowerCase();

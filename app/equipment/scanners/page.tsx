@@ -17,7 +17,7 @@ import {
   fmtDate,
   fmtWhen,
   homeSiteForUser,
-  joinWarehouseSites,
+  sitesForBoard,
   lockCopy,
   canRemoteSetPin,
   mdmPinFailureMessage,
@@ -54,13 +54,13 @@ function ScannerFleetBoard() {
     permissionOverrides: user?.permissionOverrides,
   }), [user]);
   const locations = useQuery(api.locations.listActiveWarehouses);
-  // listSiteCodes is not on live Convex yet. listMdmConfigs is; join only uses id + code.
-  const siteCodes = useQuery(api.scannerMdm.listMdmConfigs);
+  const siteCodes = useQuery(api.scannerMdm.listSiteCodes);
   const scanners = useQuery(api.equipment.listScanners, {});
   const addScanner = useMutation(api.equipment.createScanner);
   const assignScanner = useMutation(api.equipment.assignScanner);
   const unassignScanner = useMutation(api.equipment.unassignScanner);
   const removeScanner = useMutation(api.equipment.deleteEquipment);
+  const backfillAssignedNames = useMutation(api.equipment.backfillAssignedScannerNames);
 
   const [sitePicked, setSitePicked] = useState<SiteFilter | null>(null);
   const [filter, setFilter] = useState<"all" | "unassigned" | "assigned">("all");
@@ -85,10 +85,16 @@ function ScannerFleetBoard() {
   const woRef = useRef<HTMLInputElement | null>(null);
   const toastHide = useRef<number>(0);
   const toastClear = useRef<number>(0);
+  const backfillOnce = useRef(false);
 
   const warehouses = useMemo(
-    () => joinWarehouseSites(locations ?? [], siteCodes ?? []),
-    [locations, siteCodes],
+    () =>
+      sitesForBoard({
+        locations: locations ?? [],
+        configs: siteCodes ?? [],
+        scanners: scanners ?? [],
+      }),
+    [locations, siteCodes, scanners],
   );
   const homeSite = useMemo(
     () => homeSiteForUser(accessUser, warehouses.map((w) => w.locationId)),
@@ -96,10 +102,17 @@ function ScannerFleetBoard() {
   );
   const site: SiteFilter = sitePicked ?? homeSite;
   const userId = user?._id;
+  const isAdmin = user?.role === "admin" || user?.role === "super_admin";
 
   useEffect(() => {
     setSitePicked(null);
   }, [userId]);
+
+  useEffect(() => {
+    if (!userId || !isAdmin || backfillOnce.current) return;
+    backfillOnce.current = true;
+    void backfillAssignedNames({ requestingUserId: userId });
+  }, [userId, isAdmin, backfillAssignedNames]);
 
   const mutateGate = canMutateScannerFleet({ user: accessUser, site });
   const locked = !mutateGate.ok;
@@ -532,15 +545,17 @@ function ScannerFleetBoard() {
                 <h2>{open.number}</h2>
                 <div className="detail-actions">
                   <button className="btn btn-ghost" type="button" onClick={() => setHistOpen(true)}>History</button>
-                  <button
-                    className="btn btn-danger"
-                    type="button"
-                    disabled={locked}
-                    title={locked ? lockTitle : ""}
-                    onClick={() => setDelOpen(true)}
-                  >
-                    Delete
-                  </button>
+                  {isAdmin ? (
+                    <button
+                      className="btn btn-danger"
+                      type="button"
+                      disabled={locked}
+                      title={locked ? lockTitle : ""}
+                      onClick={() => setDelOpen(true)}
+                    >
+                      Delete
+                    </button>
+                  ) : null}
                 </div>
               </div>
               <p className="detail-meta">
@@ -793,7 +808,7 @@ function ScannerFleetBoard() {
 
 export default function ScannerFleetPage() {
   return (
-    <Protected>
+    <Protected minTier={2} requirePermission="equipment.scannerFleet">
       <div className="flex h-screen">
         <Sidebar />
         <main className="flex-1 overflow-auto flex flex-col min-w-0">
