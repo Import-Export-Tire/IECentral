@@ -4,14 +4,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { pinRejectReason } from "@/lib/scanners/pin";
 import { canRemoteSetPin, REMOTE_PIN_UNAVAILABLE } from "@/lib/scanners/fleet";
-
-function getApiGatewayUrl() {
-  const url = process.env.SCANNER_MDM_API_GATEWAY_URL;
-  if (!url) {
-    throw new Error("SCANNER_MDM_API_GATEWAY_URL is not set");
-  }
-  return url;
-}
+import { SCANNER_MDM_API_GATEWAY_URL } from "@/lib/scannerMdmGateway";
 
 function getConvexClient() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -110,7 +103,7 @@ export async function POST(request: NextRequest) {
       requestingUserId: _requestingUserId,
       ...forwarded
     } = body;
-    const res = await fetch(`${getApiGatewayUrl()}/scanner-mdm/job`, {
+    const res = await fetch(`${SCANNER_MDM_API_GATEWAY_URL}/scanner-mdm/job`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(forwarded),

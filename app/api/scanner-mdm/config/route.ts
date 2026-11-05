@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const API_GATEWAY_URL = process.env.SCANNER_MDM_API_GATEWAY_URL;
+import { SCANNER_MDM_API_GATEWAY_URL as API_GATEWAY_URL } from "@/lib/scannerMdmGateway";
 
 export async function GET(request: NextRequest) {
   if (!API_GATEWAY_URL) {
