@@ -237,16 +237,59 @@ export const createScanner = mutation({
     const number = args.number.trim().toUpperCase();
     const serialNumber = args.serialNumber?.trim();
 
+    if (serialNumber) {
+      const bySerial = await ctx.db
+        .query("scanners")
+        .withIndex("by_serial", (q) => q.eq("serialNumber", serialNumber))
+        .first();
+      if (bySerial) {
+        if (bySerial.status !== "retired") {
+          throw new Error(`${bySerial.number} is already on the board with that serial.`);
+        }
+        await ctx.db.patch(bySerial._id, {
+          status: "available",
+          locationId: args.locationId,
+          assignedTo: undefined,
+          assignedName: undefined,
+          assignedHolderId: undefined,
+          assignedAt: undefined,
+          updatedAt: now,
+        });
+        await ctx.db.insert("equipmentHistory", {
+          equipmentType: "scanner",
+          equipmentId: bySerial._id,
+          action: "status_change",
+          previousStatus: bySerial.status,
+          newStatus: "available",
+          performedBy: args.requestingUserId,
+          notes: "Returned to scanner board",
+          createdAt: now,
+        });
+        return bySerial._id;
+      }
+    }
+
     // Check if scanner number already exists at this location
     const existing = await ctx.db
       .query("scanners")
       .withIndex("by_location", (q) => q.eq("locationId", args.locationId))
       .collect();
 
+    const taken = existing.find((s) => s.number.trim().toUpperCase() === number);
+    if (taken) {
+      if (taken.status !== "retired") {
+        throw new Error(`${number} is already in the fleet.`);
+      }
+      const heldSerial = (taken.serialNumber ?? "").trim() || "unknown";
+      throw new Error(
+        `${number} is off the board (serial ${heldSerial}). Add that serial to bring it back.`,
+      );
+    }
+
     const blocked = addScannerRejectReason({
       number,
       serialNumber,
-      existingNumbers: existing.map((s) => s.number),
+      existingNumbers: existing.filter((s) => s.status !== "retired").map((s) => s.number),
     });
     if (blocked) {
       throw new Error(blocked);
@@ -1478,6 +1521,12 @@ export const deleteEquipment = mutation({
     const equipment = await ctx.db.get(args.equipmentId);
     if (!equipment) {
       throw new Error(`${args.equipmentType} not found`);
+    }
+
+    if (args.equipmentType === "scanner") {
+      throw new Error(
+        "Scanners cannot be permanently deleted. Remove them from the board so the PIN stays on file.",
+      );
     }
 
     // Delete related records

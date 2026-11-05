@@ -85,7 +85,7 @@ export function sitesForBoard(args: {
     args.configs.map((c) => [c.locationId, (c.locationCode ?? "").trim() || null]),
   );
   for (const scanner of args.scanners ?? []) {
-    if (scanner.status === "retired") continue;
+    if (!isOnScannerBoard(scanner.status)) continue;
     const locationId = String(scanner.locationId);
     if (known.has(locationId)) continue;
     const name = (scanner.locationName ?? "").trim() || "Unknown";
@@ -154,6 +154,11 @@ export type FleetUser = {
 
 export type FleetState = "assigned" | "unassigned";
 
+/** Retired is the only status the warehouse board hides. Maintenance/lost/available all sit in Unassigned. */
+export function isOnScannerBoard(status?: string | null): boolean {
+  return status !== "retired";
+}
+
 export function fleetStatus(status?: string | null): FleetState {
   return status === "assigned" ? "assigned" : "unassigned";
 }
@@ -164,6 +169,48 @@ export function fleetStateLabel(state: FleetState): string {
 
 export function canAssignUnit(status?: string | null): boolean {
   return fleetStatus(status) === "unassigned";
+}
+
+/** Retire, do not hard-delete. Hard-delete drops pin/bootPin and bricks a locked gun. */
+export const BOARD_REMOVE_REASON =
+  "Removed from scanner board. PIN kept on file.";
+
+export function boardRemovePinLines(scanner: {
+  pin?: string | null;
+  bootPin?: string | null;
+  bootPinUnknown?: boolean | null;
+}): string[] {
+  const lock = (scanner.pin ?? "").trim();
+  const lines = [lock ? `Lock PIN ${lock}` : "No lock PIN on file"];
+  if (!hasRecordedBootPin(scanner)) return lines;
+  const boot = bootPinLabel(scanner);
+  if (boot && boot !== lock) lines.push(`Startup PIN ${boot}`);
+  return lines;
+}
+
+export function matchesFleetSearch(
+  row: {
+    number?: string | null;
+    who?: string | null;
+    siteLabel?: string | null;
+    locationName?: string | null;
+    serialNumber?: string | null;
+  },
+  query?: string | null,
+): boolean {
+  const q = (query ?? "").trim().toLowerCase();
+  if (!q) return true;
+  const haystack = [
+    row.number,
+    row.who,
+    row.siteLabel,
+    row.locationName,
+    row.serialNumber,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(q);
 }
 
 export function buildAddScannerDoc(args: {
@@ -218,6 +265,71 @@ export function addScannerRejectReason(args: {
   return null;
 }
 
+export function serialKey(serial?: string | null): string {
+  return (serial ?? "").trim().toLowerCase();
+}
+
+export type BoardScannerRef = {
+  _id: string;
+  number: string;
+  serialNumber?: string | null;
+  status?: string | null;
+  locationId: string;
+};
+
+export type AddScannerPlan =
+  | { action: "reject"; reason: string }
+  | { action: "restore"; scannerId: string; number: string }
+  | { action: "create"; number: string; serialNumber: string };
+
+/** Serial is the device. A removed row comes back; a live row with that serial does not duplicate. */
+export function addScannerPlan(args: {
+  number: string;
+  serialNumber?: string;
+  locationId: string;
+  scanners: BoardScannerRef[];
+  boardLocationIds: string[];
+}): AddScannerPlan {
+  const number = args.number.trim().toUpperCase();
+  const serialNumber = (args.serialNumber ?? "").trim();
+  if (!number) return { action: "reject", reason: "Enter a WO number." };
+  if (!serialNumber) return { action: "reject", reason: "Enter a serial number." };
+
+  const board = new Set(args.boardLocationIds.map(String));
+  const onBoard = (scanner: BoardScannerRef) =>
+    isOnScannerBoard(scanner.status) && board.has(String(scanner.locationId));
+
+  const wantSerial = serialKey(serialNumber);
+  const bySerial = args.scanners.find((scanner) => serialKey(scanner.serialNumber) === wantSerial);
+  if (bySerial) {
+    if (onBoard(bySerial)) {
+      return {
+        action: "reject",
+        reason: `${bySerial.number} is already on the board with that serial.`,
+      };
+    }
+    return { action: "restore", scannerId: bySerial._id, number: bySerial.number };
+  }
+
+  const sameWo = args.scanners.find(
+    (scanner) =>
+      scanner.number.trim().toUpperCase() === number &&
+      String(scanner.locationId) === String(args.locationId),
+  );
+  if (sameWo) {
+    if (onBoard(sameWo)) {
+      return { action: "reject", reason: `${number} is already in the fleet.` };
+    }
+    const heldSerial = (sameWo.serialNumber ?? "").trim() || "unknown";
+    return {
+      action: "reject",
+      reason: `${number} is off the board (serial ${heldSerial}). Add that serial to bring it back.`,
+    };
+  }
+
+  return { action: "create", number, serialNumber };
+}
+
 export function assignRejectReason(args: {
   status?: string | null;
   name?: string | null;
@@ -240,6 +352,29 @@ export const PIN_QUEUED_MESSAGE =
 
 export const REMOTE_PIN_UNAVAILABLE =
   "This PIN cannot be changed from the website. The number above is what the scanner uses.";
+
+export const LOCK_PIN_HINT =
+  "Normal PIN. Change it from IECentral.";
+
+export const BOOT_PIN_HINT =
+  "Asked at restart. Cannot be changed from IECentral.";
+
+/** True when Convex has a boot/decrypt PIN, or we know one exists but the digits were already lost. */
+export function hasRecordedBootPin(scanner: {
+  bootPin?: string | null;
+  bootPinUnknown?: boolean | null;
+}): boolean {
+  return Boolean((scanner.bootPin ?? "").trim()) || scanner.bootPinUnknown === true;
+}
+
+export function bootPinLabel(scanner: {
+  bootPin?: string | null;
+  bootPinUnknown?: boolean | null;
+}): string | null {
+  if (!hasRecordedBootPin(scanner)) return null;
+  const pin = (scanner.bootPin ?? "").trim();
+  return pin || "Unknown";
+}
 
 /** Device Owner only. Enrolled + Device Admin is not enough to change the lock PIN. */
 export function canRemoteSetPin(scanner: {

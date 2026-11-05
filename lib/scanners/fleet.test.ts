@@ -4,6 +4,7 @@ import {
   SCANNER_FLEET_PERMISSION,
   assignRejectReason,
   addScannerRejectReason,
+  addScannerPlan,
   ageLabel,
   buildAddScannerDoc,
   canAssignUnit,
@@ -12,6 +13,10 @@ import {
   filterAssignees,
   fleetStateLabel,
   fleetStatus,
+  isOnScannerBoard,
+  matchesFleetSearch,
+  BOARD_REMOVE_REASON,
+  boardRemovePinLines,
   homeSiteForUser,
   isWarehouseAssigneeDepartment,
   joinWarehouseSites,
@@ -23,6 +28,10 @@ import {
   MDM_PIN_NOT_READY,
   REMOTE_PIN_UNAVAILABLE,
   remotePinBlockReason,
+  hasRecordedBootPin,
+  bootPinLabel,
+  LOCK_PIN_HINT,
+  BOOT_PIN_HINT,
   scannerFleetGranted,
   setPinClientReject,
   unassignConditionReason,
@@ -119,6 +128,35 @@ describe("sitesForBoard", () => {
     expect(sites.map((s) => s.locationId)).toContain(LOC_EVERSON);
     expect(sites.map((s) => s.locationId)).not.toContain(LOC_UNIONTOWN);
     expect(sites.find((s) => s.locationId === LOC_EVERSON)?.label).toBe("R10 · Everson");
+  });
+
+  it("keeps a maintenance scanner's warehouse on the board", () => {
+    const sites = sitesForBoard({
+      locations: [{ _id: LOC_LATROBE, name: "Latrobe" }],
+      configs: [{ locationId: LOC_CHESTNUT, locationCode: "W09" }],
+      scanners: [
+        { locationId: LOC_CHESTNUT, locationName: "Chestnut", status: "maintenance" },
+        { locationId: LOC_EVERSON, locationName: "Everson", status: "retired" },
+      ],
+    });
+    expect(sites.map((s) => s.locationId)).toContain(LOC_CHESTNUT);
+    expect(sites.map((s) => s.locationId)).not.toContain(LOC_EVERSON);
+  });
+});
+
+describe("remove from board", () => {
+  it("keeps lock and startup PINs on the confirm copy so a delete cannot brick the gun", () => {
+    expect(BOARD_REMOVE_REASON).toMatch(/PIN kept/);
+    expect(boardRemovePinLines({ pin: "4200" })).toEqual(["Lock PIN 4200"]);
+    expect(boardRemovePinLines({ pin: "4200", bootPin: "803378" })).toEqual([
+      "Lock PIN 4200",
+      "Startup PIN 803378",
+    ]);
+    expect(boardRemovePinLines({ pin: null, bootPinUnknown: true })).toEqual([
+      "No lock PIN on file",
+      "Startup PIN Unknown",
+    ]);
+    expect(isOnScannerBoard("retired")).toBe(false);
   });
 });
 
@@ -248,6 +286,32 @@ describe("canMutateScannerFleet", () => {
 });
 
 describe("assign", () => {
+  it("puts maintenance and lost under Unassigned instead of hiding them", () => {
+    expect(isOnScannerBoard("maintenance")).toBe(true);
+    expect(isOnScannerBoard("lost")).toBe(true);
+    expect(isOnScannerBoard("available")).toBe(true);
+    expect(isOnScannerBoard("assigned")).toBe(true);
+    expect(isOnScannerBoard("retired")).toBe(false);
+    expect(fleetStatus("maintenance")).toBe("unassigned");
+    expect(fleetStatus("lost")).toBe("unassigned");
+    expect(canAssignUnit("maintenance")).toBe(true);
+    expect(canAssignUnit("lost")).toBe(true);
+  });
+
+  it("finds a scanner by WO or serial the way the old board did", () => {
+    const row = {
+      number: "W08-906",
+      who: "",
+      siteLabel: "W08 · Latrobe",
+      locationName: "Latrobe",
+      serialNumber: "18288522501001",
+    };
+    expect(matchesFleetSearch(row, "w08-906")).toBe(true);
+    expect(matchesFleetSearch(row, "18288522501001")).toBe(true);
+    expect(matchesFleetSearch(row, "latrobe")).toBe(true);
+    expect(matchesFleetSearch(row, "W09-001")).toBe(false);
+  });
+
   it("allows assign only when Unassigned and a name is typed", () => {
     expect(canAssignUnit("available")).toBe(true);
     expect(canAssignUnit("unassigned")).toBe(true);
@@ -300,6 +364,56 @@ describe("add scanner", () => {
     expect(addScannerRejectReason({ number: "W08-001", serialNumber: "", existingNumbers: [] })).toMatch(/serial/);
     expect(addScannerRejectReason({ number: "W08-001", existingNumbers: [] })).toMatch(/serial/);
   });
+
+  it("restores a removed scanner by serial instead of inserting a second row", () => {
+    const removed = {
+      _id: "scan_002",
+      number: "W08-002",
+      serialNumber: "18332522504508",
+      status: "retired",
+      locationId: LOC_LATROBE,
+    };
+    const live = {
+      _id: "scan_001",
+      number: "W08-001",
+      serialNumber: "17039522500218",
+      status: "available",
+      locationId: LOC_LATROBE,
+    };
+    const ids = [LOC_LATROBE];
+    expect(addScannerPlan({
+      number: "W08-099",
+      serialNumber: "18332522504508",
+      locationId: LOC_LATROBE,
+      scanners: [removed, live],
+      boardLocationIds: ids,
+    })).toEqual({ action: "restore", scannerId: "scan_002", number: "W08-002" });
+    expect(addScannerPlan({
+      number: "W08-001",
+      serialNumber: "17039522500218",
+      locationId: LOC_LATROBE,
+      scanners: [removed, live],
+      boardLocationIds: ids,
+    }).action).toBe("reject");
+    expect(addScannerPlan({
+      number: "W08-002",
+      serialNumber: "99999999999999",
+      locationId: LOC_LATROBE,
+      scanners: [removed, live],
+      boardLocationIds: ids,
+    }).reason).toMatch(/off the board/);
+    expect(addScannerPlan({
+      number: "W08-011",
+      serialNumber: "19189522503200",
+      locationId: LOC_LATROBE,
+      scanners: [removed, live],
+      boardLocationIds: ids,
+    })).toEqual({
+      action: "create",
+      number: "W08-011",
+      serialNumber: "19189522503200",
+    });
+  });
 });
 
 describe("PIN", () => {
@@ -331,6 +445,19 @@ describe("PIN", () => {
   it("treats a created job as queued, not as the device PIN", () => {
     expect(PIN_QUEUED_MESSAGE).toMatch(/waiting for the scanner/i);
     expect(PIN_QUEUED_MESSAGE).not.toMatch(/updated/i);
+  });
+
+  it("only treats a captured or unknown boot PIN as boot-pin-enabled", () => {
+    expect(hasRecordedBootPin({})).toBe(false);
+    expect(hasRecordedBootPin({ bootPin: null, bootPinUnknown: false })).toBe(false);
+    expect(hasRecordedBootPin({ bootPin: "  ", bootPinUnknown: false })).toBe(false);
+    expect(hasRecordedBootPin({ bootPin: "482917" })).toBe(true);
+    expect(hasRecordedBootPin({ bootPinUnknown: true })).toBe(true);
+    expect(bootPinLabel({ bootPin: "482917" })).toBe("482917");
+    expect(bootPinLabel({ bootPinUnknown: true })).toBe("Unknown");
+    expect(bootPinLabel({})).toBeNull();
+    expect(LOCK_PIN_HINT).toMatch(/IECentral/);
+    expect(BOOT_PIN_HINT).toMatch(/Cannot be changed/i);
   });
 });
 

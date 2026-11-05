@@ -9,11 +9,13 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import {
   ageLabel,
-  addScannerRejectReason,
+  addScannerPlan,
   assignRejectReason,
   canMutateScannerFleet,
   fleetStateLabel,
   fleetStatus,
+  isOnScannerBoard,
+  matchesFleetSearch,
   fmtDate,
   fmtWhen,
   homeSiteForUser,
@@ -24,6 +26,12 @@ import {
   PIN_QUEUED_MESSAGE,
   remotePinBlockReason,
   setPinClientReject,
+  hasRecordedBootPin,
+  bootPinLabel,
+  BOARD_REMOVE_REASON,
+  boardRemovePinLines,
+  LOCK_PIN_HINT,
+  BOOT_PIN_HINT,
   type FleetState,
   type ScannerAccessUser,
   type SiteFilter,
@@ -46,6 +54,50 @@ function Chip({ state }: { state: FleetState }) {
   );
 }
 
+function PinHint({ text }: { text: string }) {
+  return (
+    <button type="button" className="pin-hint" data-tip={text} aria-label={text}>?</button>
+  );
+}
+
+function PinReadout({
+  pin,
+  bootPin,
+  bootPinUnknown,
+  variant,
+}: {
+  pin?: string | null;
+  bootPin?: string | null;
+  bootPinUnknown?: boolean | null;
+  variant: "fold" | "history";
+}) {
+  const showBoot = hasRecordedBootPin({ bootPin, bootPinUnknown });
+  const boot = bootPinLabel({ bootPin, bootPinUnknown });
+  const box = variant === "fold" ? "pin-current" : "pin-now";
+  const labelCls = variant === "fold" ? "pin-current-label" : "pin-now-label";
+  const codeCls = variant === "fold" ? "pin-current-code" : "pin-now-code";
+  return (
+    <>
+      <div className={`${box}${pin ? "" : " is-empty"}`}>
+        <div className={labelCls}>
+          {showBoot ? "Lock PIN" : "Current PIN"}
+          {showBoot ? <PinHint text={LOCK_PIN_HINT} /> : null}
+        </div>
+        <div className={codeCls}>{pin || "None"}</div>
+      </div>
+      {showBoot ? (
+        <div className={`${box} is-boot${boot && boot !== "Unknown" ? "" : " is-empty"}`}>
+          <div className={labelCls}>
+            Boot PIN
+            <PinHint text={BOOT_PIN_HINT} />
+          </div>
+          <div className={codeCls}>{boot}</div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 function ScannerFleetBoard() {
   const { user } = useAuth();
   const accessUser = useMemo<ScannerAccessUser>(() => ({
@@ -57,10 +109,10 @@ function ScannerFleetBoard() {
   const siteCodes = useQuery(api.scannerMdm.listSiteCodes);
   const scanners = useQuery(api.equipment.listScanners, {});
   const addScanner = useMutation(api.equipment.createScanner);
+  const restoreScanner = useMutation(api.equipment.updateScanner);
   const assignScanner = useMutation(api.equipment.assignScanner);
   const unassignScanner = useMutation(api.equipment.unassignScanner);
-  const removeScanner = useMutation(api.equipment.deleteEquipment);
-  const backfillAssignedNames = useMutation(api.equipment.backfillAssignedScannerNames);
+  const removeScanner = useMutation(api.equipment.retireEquipment);
 
   const [sitePicked, setSitePicked] = useState<SiteFilter | null>(null);
   const [filter, setFilter] = useState<"all" | "unassigned" | "assigned">("all");
@@ -85,7 +137,6 @@ function ScannerFleetBoard() {
   const woRef = useRef<HTMLInputElement | null>(null);
   const toastHide = useRef<number>(0);
   const toastClear = useRef<number>(0);
-  const backfillOnce = useRef(false);
 
   const warehouses = useMemo(
     () =>
@@ -108,18 +159,12 @@ function ScannerFleetBoard() {
     setSitePicked(null);
   }, [userId]);
 
-  useEffect(() => {
-    if (!userId || !isAdmin || backfillOnce.current) return;
-    backfillOnce.current = true;
-    void backfillAssignedNames({ requestingUserId: userId });
-  }, [userId, isAdmin, backfillAssignedNames]);
-
   const mutateGate = canMutateScannerFleet({ user: accessUser, site });
   const locked = !mutateGate.ok;
   const lockTitle = lockCopy({ user: accessUser, site });
 
   const fleet = useMemo(() => {
-    const list = (scanners ?? []).filter((s) => s.status !== "retired");
+    const list = (scanners ?? []).filter((s) => isOnScannerBoard(s.status));
     const byId = new Map(warehouses.map((w) => [w.locationId, w]));
     return list
       .map((s) => {
@@ -146,8 +191,7 @@ function ScannerFleetBoard() {
     const query = q.trim().toLowerCase();
     return fleet.filter((s) => {
       if (filter !== "all" && s.state !== filter) return false;
-      if (query && !(`${s.number} ${s.who} ${s.siteLabel}`).toLowerCase().includes(query)) return false;
-      return true;
+      return matchesFleetSearch(s, query);
     });
   }, [fleet, filter, q]);
 
@@ -360,23 +404,36 @@ function ScannerFleetBoard() {
     const locationId = site as Id<"locations">;
     const wo = newWo.trim().toUpperCase();
     const serial = newSerial.trim();
-    const blocked = addScannerRejectReason({
+    const plan = addScannerPlan({
       number: wo,
       serialNumber: serial,
-      existingNumbers: fleet.filter((s) => s.site === site).map((s) => s.number),
+      locationId,
+      scanners: scanners ?? [],
+      boardLocationIds: warehouses.map((w) => w.locationId),
     });
-    if (blocked) {
-      setWoErr(blocked);
-      showToast("bad", blocked);
+    if (plan.action === "reject") {
+      setWoErr(plan.reason);
+      showToast("bad", plan.reason);
       return;
     }
     try {
-      const scannerId = await addScanner({
-        number: wo,
-        locationId,
-        serialNumber: serial,
-        requestingUserId: user._id,
-      });
+      let scannerId: Id<"scanners">;
+      if (plan.action === "restore") {
+        await restoreScanner({
+          id: plan.scannerId as Id<"scanners">,
+          status: "available",
+          locationId,
+          requestingUserId: user._id,
+        });
+        scannerId = plan.scannerId as Id<"scanners">;
+      } else {
+        scannerId = await addScanner({
+          number: plan.number,
+          locationId,
+          serialNumber: plan.serialNumber,
+          requestingUserId: user._id,
+        });
+      }
       setAddOpen(false);
       setNewWo("");
       setNewSerial("");
@@ -384,7 +441,10 @@ function ScannerFleetBoard() {
       setOpenId(scannerId);
       setFreshId(scannerId);
       window.setTimeout(() => setFreshId(""), 450);
-      showToast("ok", `${wo} added`);
+      showToast(
+        "ok",
+        plan.action === "restore" ? `${plan.number} restored` : `${plan.number} added`,
+      );
     } catch (err) {
       const msg = errMessage(err);
       setWoErr(msg);
@@ -396,13 +456,15 @@ function ScannerFleetBoard() {
     if (!open || !user || locked) return;
     try {
       const number = open.number;
+      const pinKept = boardRemovePinLines(open).join(" · ");
       await removeScanner({
         equipmentType: "scanner",
         equipmentId: open._id,
+        reason: BOARD_REMOVE_REASON,
         userId: user._id,
       });
       setDelOpen(false);
-      showToast("ok", `${number} deleted`);
+      showToast("ok", `${number} removed. ${pinKept} kept on file.`);
     } catch (err) {
       showToast("bad", errMessage(err));
     }
@@ -463,7 +525,7 @@ function ScannerFleetBoard() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
               <input
                 type="search"
-                placeholder="Search"
+                placeholder="WO, serial, name"
                 autoComplete="off"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
@@ -616,17 +678,12 @@ function ScannerFleetBoard() {
                 </button>
                 <div className="fold-body">
                   <div className="fold-inner">
-                    {open.pin ? (
-                      <div className="pin-current">
-                        <div className="pin-current-label">Current PIN</div>
-                        <div className="pin-current-code">{open.pin}</div>
-                      </div>
-                    ) : (
-                      <div className="pin-current is-empty">
-                        <div className="pin-current-label">Current PIN</div>
-                        <div className="pin-current-code">None</div>
-                      </div>
-                    )}
+                    <PinReadout
+                      variant="fold"
+                      pin={open.pin}
+                      bootPin={open.bootPin}
+                      bootPinUnknown={open.bootPinUnknown}
+                    />
                     {pinJobWaiting ? (
                       <p className="pin-current-when">Waiting for this scanner to apply the PIN.</p>
                     ) : pinJobFailed ? (
@@ -724,17 +781,12 @@ function ScannerFleetBoard() {
             <button className="btn btn-ghost" type="button" onClick={() => setHistOpen(false)}>Done</button>
           </div>
           <div className="hist-body">
-            {open?.pin ? (
-              <div className="pin-now">
-                <div className="pin-now-label">Current PIN</div>
-                <div className="pin-now-code">{open.pin}</div>
-              </div>
-            ) : (
-              <div className="pin-now is-empty">
-                <div className="pin-now-label">Current PIN</div>
-                <div className="pin-now-code">None</div>
-              </div>
-            )}
+            <PinReadout
+              variant="history"
+              pin={open?.pin}
+              bootPin={open?.bootPin}
+              bootPinUnknown={open?.bootPinUnknown}
+            />
             {pastPins.length > 0 && (
               <>
                 <div className="pin-prev-label">Previous PINs</div>
@@ -780,7 +832,14 @@ function ScannerFleetBoard() {
       <div className={`modal${delOpen ? " is-on" : ""}`} aria-hidden={!delOpen} onClick={() => setDelOpen(false)}>
         <div className="modal-card" onClick={(e) => e.stopPropagation()}>
           <h2>Delete scanner</h2>
-          <p className="sub" style={{ margin: ".35rem 0 0" }}>{open ? `Remove ${open.number} from the fleet?` : ""}</p>
+          <p className="sub" style={{ margin: ".35rem 0 0" }}>
+            {open ? `Remove ${open.number} from the board? The gun keeps this PIN. We keep it on file so the device cannot brick.` : ""}
+          </p>
+          {open ? (
+            <p className="sub" style={{ margin: ".5rem 0 0", fontWeight: 650 }}>
+              {boardRemovePinLines(open).join(" · ")}
+            </p>
+          ) : null}
           <div className="detail-row" style={{ marginTop: "1rem" }}>
             <button className="btn btn-danger" type="button" onClick={() => void handleDelete()}>Delete</button>
             <button className="btn btn-ghost" type="button" onClick={() => setDelOpen(false)}>Cancel</button>

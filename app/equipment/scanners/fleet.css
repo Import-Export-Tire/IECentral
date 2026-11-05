@@ -172,7 +172,7 @@
   overflow: hidden;
   min-width: 0;
 }
-.scanner-fleet .table-wrap { width: 100%; overflow: hidden; }
+.scanner-fleet .table-wrap { width: 100%; overflow: auto; }
 .scanner-fleet .empty-list {
   margin: 0;
   padding: 1.35rem 1rem 1.6rem;
@@ -395,12 +395,81 @@
   padding: .6rem .8rem .65rem;
   box-shadow: var(--sf-card-shadow);
 }
+.scanner-fleet .pin-current-label,
+.scanner-fleet .pin-now-label {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
 .scanner-fleet .pin-current-label {
   font-size: 11px;
   font-weight: 650;
   letter-spacing: .08em;
   text-transform: uppercase;
   color: var(--sf-info);
+}
+.scanner-fleet .pin-current.is-boot,
+.scanner-fleet .pin-now.is-boot {
+  background: linear-gradient(180deg, #f7f7f8 0%, #eeeef0 100%);
+}
+.scanner-fleet .pin-current.is-boot .pin-current-label,
+.scanner-fleet .pin-now.is-boot .pin-now-label {
+  color: var(--sf-muted-2);
+}
+.scanner-fleet .pin-hint {
+  position: relative;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #dbe4f5;
+  color: var(--sf-info);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 18px;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: help;
+  box-shadow: none;
+}
+.scanner-fleet .pin-hint:hover,
+.scanner-fleet .pin-hint:active { transform: none; box-shadow: none; }
+.scanner-fleet .pin-current.is-boot .pin-hint,
+.scanner-fleet .pin-now.is-boot .pin-hint {
+  background: #e4e4e7;
+  color: var(--sf-muted-2);
+}
+.scanner-fleet .pin-hint::after {
+  content: attr(data-tip);
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  top: calc(100% + 6px);
+  width: max-content;
+  max-width: 16rem;
+  padding: .4rem .55rem;
+  border-radius: 8px;
+  background: #1c1c1e;
+  color: #f2f2f7;
+  font-size: 12px;
+  font-weight: 550;
+  letter-spacing: 0;
+  line-height: 1.35;
+  text-transform: none;
+  white-space: normal;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .18);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-2px);
+  transition: opacity .12s ease, transform .12s ease;
+}
+.scanner-fleet .pin-hint:hover::after,
+.scanner-fleet .pin-hint:focus::after,
+.scanner-fleet .pin-hint:focus-visible::after {
+  opacity: 1;
+  transform: none;
 }
 .scanner-fleet .pin-current-code {
   margin-top: .1rem;
