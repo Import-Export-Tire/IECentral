@@ -574,13 +574,28 @@ export const recordJob = mutation({
       createdBy: args.createdBy,
     });
 
+    if (args.command === "update_pin" && args.createdBy) {
+      const nextPin =
+        args.payload && typeof args.payload === "object" && "pin" in args.payload
+          ? String((args.payload as { pin?: unknown }).pin ?? "")
+          : "";
+      await ctx.db.insert("equipmentHistory", {
+        equipmentType: "scanner",
+        equipmentId: args.scannerId,
+        action: "pin_change",
+        previousStatus: scanner.status,
+        newStatus: scanner.status,
+        performedBy: args.createdBy,
+        notes: `PIN changed from "${scanner.pin || "(none)"}" to "${nextPin || "(none)"}"`,
+        createdAt: now,
+      });
+    }
+
     return { id };
   },
 });
 
-// Bridges real AWS job-execution status changes into Convex. Not yet called by anything —
-// the job-execution event Lambda/webhook that would invoke this is a later task — but the
-// shape is settled now so that piece can be added without touching this file again.
+// Job status only. Don't write scanners.pin from a job event.
 export const updateJobStatus = mutation({
   args: {
     jobId: v.string(),
@@ -685,6 +700,19 @@ export const listMdmConfigs = query({
         };
       })
     );
+  },
+});
+
+// Site codes only. Do not return Wi-Fi or other MDM secrets to the board.
+export const listSiteCodes = query({
+  args: {},
+  handler: async (ctx) => {
+    const configs = await ctx.db.query("scannerMdmConfigs").collect();
+    return configs.map((c) => ({
+      locationId: c.locationId,
+      locationCode: c.locationCode,
+      defaultDeviceIdPrefix: c.defaultDeviceIdPrefix,
+    }));
   },
 });
 

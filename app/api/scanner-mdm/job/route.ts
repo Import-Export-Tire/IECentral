@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { pinRejectReason } from "@/lib/scanners/pin";
+import { canRemoteSetPin, REMOTE_PIN_UNAVAILABLE } from "@/lib/scanners/fleet";
 
-const API_GATEWAY_URL = process.env.SCANNER_MDM_API_GATEWAY_URL;
+function getApiGatewayUrl() {
+  const url = process.env.SCANNER_MDM_API_GATEWAY_URL;
+  if (!url) {
+    throw new Error("SCANNER_MDM_API_GATEWAY_URL is not set");
+  }
+  return url;
+}
 
 function getConvexClient() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!url) throw new Error("NEXT_PUBLIC_CONVEX_URL not configured");
+  if (!url) {
+    throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
+  }
   return new ConvexHttpClient(url);
 }
 
@@ -15,13 +26,6 @@ function getConvexClient() {
 // deliberately rejected here — a queued factory-reset that fires days later when someone
 // finally powers a device back on is dangerous, so wipe stays on the direct command path.
 export async function POST(request: NextRequest) {
-  if (!API_GATEWAY_URL) {
-    return NextResponse.json(
-      { error: "SCANNER_MDM_API_GATEWAY_URL not configured" },
-      { status: 500 }
-    );
-  }
-
   try {
     const body = await request.json();
 
@@ -40,6 +44,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (body.command === "update_pin") {
+      const pin = typeof body.payload?.pin === "string" ? body.payload.pin : "";
+      const reason = pinRejectReason(pin);
+      if (reason) {
+        return NextResponse.json({ error: reason }, { status: 400 });
+      }
+    }
+
+    const convex = getConvexClient();
+
+    if (body.command === "update_pin") {
+      try {
+        const fleet = await convex.query(api.equipment.listScanners, {});
+        const scanner =
+          (typeof body.scannerId === "string"
+            ? fleet.find((s) => s._id === body.scannerId)
+            : undefined) ||
+          (typeof body.thingName === "string"
+            ? fleet.find((s) => s.iotThingName === body.thingName)
+            : undefined);
+        if (!scanner || !canRemoteSetPin(scanner)) {
+          return NextResponse.json({ error: REMOTE_PIN_UNAVAILABLE }, { status: 403 });
+        }
+      } catch (err) {
+        console.error("[scanner-mdm/job] device-owner check failed:", err);
+        return NextResponse.json({ error: REMOTE_PIN_UNAVAILABLE }, { status: 403 });
+      }
+    }
+
     // One outstanding command at a time, per scanner. Enforced here rather than only in the
     // page, because the failure mode is a human sending a second command when the first shows
     // no sign of having landed — a second browser tab does that just as easily. `override`
@@ -47,7 +80,7 @@ export async function POST(request: NextRequest) {
     // fleet console out permanently.
     if (body.thingName && !body.override) {
       try {
-        const pending = await getConvexClient().query(
+        const pending = await convex.query(
           api.scannerMdm.getPendingJobsByThingName,
           { thingName: body.thingName }
         );
@@ -68,9 +101,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // `override` is this route's own flag — keep it out of the job document the Lambda builds.
-    const { override: _override, ...forwarded } = body;
-    const res = await fetch(`${API_GATEWAY_URL}/scanner-mdm/job`, {
+    // Don't send scannerId/createdBy through to the lambda.
+    const {
+      override: _override,
+      scannerId: scannerIdArg,
+      createdBy: createdByArg,
+      userId: _userId,
+      requestingUserId: _requestingUserId,
+      ...forwarded
+    } = body;
+    const res = await fetch(`${getApiGatewayUrl()}/scanner-mdm/job`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(forwarded),
@@ -82,6 +122,26 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await res.json();
+
+    // Record the job as queued. AWS already has it, so don't fail this request if convex write fails.
+    try {
+      const jobId = typeof data.jobId === "string" ? data.jobId : null;
+      if (jobId && typeof scannerIdArg === "string") {
+        await convex.mutation(api.scannerMdm.recordJob, {
+          scannerId: scannerIdArg as Id<"scanners">,
+          jobId,
+          command: body.command,
+          payload: body.payload,
+          createdBy:
+            typeof createdByArg === "string"
+              ? (createdByArg as Id<"users">)
+              : undefined,
+        });
+      }
+    } catch (err) {
+      console.error("[scanner-mdm/job] recordJob failed after AWS create:", err);
+    }
+
     return NextResponse.json(data);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

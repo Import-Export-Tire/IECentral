@@ -271,7 +271,7 @@ function UsersContent() {
       isActive: editForm.isActive,
       requiresDailyLog: editForm.requiresDailyLog,
       reportsTo: editForm.reportsTo,
-      managedLocationIds: (editForm.role === "warehouse_manager" || editForm.role === "retail_store_manager") ? editForm.managedLocationIds : undefined,
+      managedLocationIds: (editForm.role === "warehouse_manager" || editForm.role === "retail_store_manager" || getEffectivePermission("equipment.scannerFleet").value) ? editForm.managedLocationIds : undefined,
       managedDepartments: editForm.role === "department_manager" ? editForm.managedDepartments : undefined,
       isFinalTimeApprover: editForm.isFinalTimeApprover,
       isPayrollProcessor: editForm.isPayrollProcessor,
@@ -1017,7 +1017,7 @@ function UsersContent() {
                       </select>
                     </div>
 
-                    {(editForm.role === "warehouse_manager" || editForm.role === "retail_store_manager") && (
+                    {(editForm.role === "warehouse_manager" || editForm.role === "retail_store_manager" || getEffectivePermission("equipment.scannerFleet").value) && (
                       <div>
                         <label className="block text-xs font-medium theme-text-secondary mb-1">Assigned locations</label>
                         <div className="max-h-32 overflow-y-auto theme-bg-card rounded-lg p-2 border theme-border-primary space-y-1">
@@ -1034,7 +1034,18 @@ function UsersContent() {
                           ))}
                         </div>
                         {editForm.managedLocationIds.length === 0 && (
-                          <p className="text-amber-600 text-[11px] mt-1">No locations selected — shift planning will be empty.</p>
+                          <>
+                            {(editForm.role === "warehouse_manager" || editForm.role === "retail_store_manager") && (
+                              <p className="text-amber-600 text-[11px] mt-1">
+                                No locations selected — shift planning will be empty.
+                              </p>
+                            )}
+                            {getEffectivePermission("equipment.scannerFleet").value && (
+                              <p className="text-amber-600 text-[11px] mt-1">
+                                No locations selected — they can change scanners at every warehouse. Check one to limit them and open that warehouse first.
+                              </p>
+                            )}
+                          </>
                         )}
                       </div>
                     )}
